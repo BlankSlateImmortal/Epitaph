@@ -1,0 +1,3771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Epitaph — Character Dossier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Space+Mono:wght@400;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0c0b09;
+    --ink-deep:#060504;
+    --bone:#ece6d8;
+    --dust:#9c927e;
+    --ember:#b3492e;
+    --ember-soft: rgba(179,73,46,0.16);
+    --verdigris:#5b7a72;
+    --verdigris-soft: rgba(91,122,114,0.18);
+    --gold:#b9975b;
+    --line: rgba(236,230,216,0.12);
+    --panel:#141210;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background: var(--ink);
+    color: var(--bone);
+    font-family:'Source Serif 4', serif;
+    min-height:100vh;
+    position:relative;
+  }
+  .grain{
+    position:fixed; inset:0; pointer-events:none; z-index:100;
+    opacity:0.09; mix-blend-mode: screen;
+  }
+  .display{
+    font-family:'Bebas Neue', sans-serif;
+    letter-spacing: 0.03em;
+  }
+
+  /* ============ LAYOUT SHELL ============ */
+  .app{ max-width:min(1600px, 94vw); margin:0 auto; padding: 28px 32px 0; min-height:100vh; display:flex; flex-direction:column; position:relative; z-index:1; }
+
+  .top-nav{
+    display:flex; justify-content:space-between; align-items:center;
+    padding-bottom:16px; border-bottom:1px solid var(--line);
+  }
+  .top-nav .brand{
+    font-family:'Bebas Neue', sans-serif;
+    font-size:20px; letter-spacing:0.08em; color: var(--dust);
+  }
+  .top-nav .actions{ display:flex; gap:10px; }
+  .btn{
+    font-family:'Source Serif 4', serif;
+    font-size:14px; color: var(--bone);
+    background:transparent; border:1px solid var(--line);
+    padding:8px 16px; cursor:pointer; border-radius:2px;
+    transition: border-color 0.2s ease, background 0.2s ease;
+  }
+  .btn:hover{ border-color: var(--dust); }
+  .btn.primary{
+    background: var(--ember); border-color: var(--ember); color: var(--bone);
+  }
+  .btn.primary:hover{ background:#c2532f; }
+  .btn.ghost{ color: var(--dust); border-color: transparent; }
+  .btn.ghost:hover{ color: var(--bone); }
+  .btn.danger{ color:#c96a54; border-color: transparent; }
+  .btn.danger:hover{ color:#e2846a; }
+
+  /* ============ POSTER VIEW ============ */
+  .poster-wrap{ flex:1; position:relative; }
+  .poster{
+    position:relative;
+    min-height: 660px;
+    padding: 36px 0 20px;
+    display:flex; flex-direction:column;
+  }
+
+  .portrait-stage{
+    position:relative;
+    flex:1;
+    display:flex; align-items:center; justify-content:center;
+    min-height: 300px;
+    margin: -20px 0;
+    padding-top: 60px;
+    overflow:hidden;
+  }
+  .portrait-stage::after{
+    content:'';
+    position:absolute; left:0; right:0; bottom:0; height:48%;
+    background: linear-gradient(to bottom, transparent, var(--ink) 85%);
+    z-index:2;
+    pointer-events:none;
+  }
+  .chapter-overlay{
+    position:absolute;
+    top:2px; left:0; right:0;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    z-index:4;
+    width:100%;
+    pointer-events:none;
+  }
+  .chapter-overlay .name{
+    font-size: clamp(32px, 5vw, 54px);
+    line-height:0.95;
+    max-width:55%;
+  }
+  .chapter-overlay .storyline{
+    font-size: clamp(32px, 5vw, 54px);
+    color: var(--dust);
+    text-align:right;
+    max-width:42%;
+    line-height:1.1;
+  }
+
+  .side-gallery{
+    position:absolute;
+    top:50%; transform: translateY(-50%);
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+    z-index:4;
+    pointer-events:auto;
+  }
+  .side-gallery.left{ left:12px; }
+  .side-gallery.right{ right:12px; }
+  .gallery-col{ display:flex; flex-direction:column; gap:8px; }
+  .page-arrow{
+    background:transparent; border:none; color: var(--dust);
+    cursor:pointer; padding:4px;
+    display:flex; align-items:center; justify-content:center;
+    transition: color 0.15s ease;
+  }
+  .page-arrow:hover{ color: var(--bone); }
+  .page-arrow.hidden{ visibility:hidden; }
+  .page-arrow svg{ display:block; }
+  .page-arrow.up svg{ transform: rotate(-90deg); }
+  .page-arrow.down svg{ transform: rotate(90deg); }
+
+  .gallery-thumb{
+    flex:0 0 auto;
+    width:78px; height:78px;
+    border:1px solid var(--line);
+    background: var(--panel);
+    cursor:pointer;
+    position:relative;
+    overflow:hidden;
+    transition: border-color 0.2s ease;
+    border-radius: 30%;
+  }
+  .gallery-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .gallery-thumb.active{ border-color: var(--ember); }
+  .gallery-thumb .snap-label{
+    position:absolute; bottom:0; left:0; right:0;
+    font-size:9px; text-align:center; padding:1px;
+    background: rgba(6,5,4,0.7); color: var(--dust);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .gallery-thumb .snap-delete{
+    position:absolute; top:2px; right:2px;
+    width:16px; height:16px; border-radius:50%;
+    background: rgba(6,5,4,0.8); color: var(--bone);
+    font-size:11px; line-height:16px; text-align:center;
+    opacity:0; transition:opacity 0.15s ease;
+  }
+  .gallery-thumb:hover .snap-delete{ opacity:1; }
+  .ghost-type{
+    position:absolute;
+    top:46%; left:50%; transform: translate(-50%,-50%);
+    font-family:'Anton', sans-serif;
+    font-size: clamp(140px, 48vh, 340px);
+    line-height:0.85;
+    color: var(--bone);
+    opacity: 0.13;
+    white-space:nowrap;
+    z-index:1;
+    letter-spacing:0.01em;
+    user-select:none;
+    pointer-events:none;
+    -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 88%);
+    mask-image: linear-gradient(to bottom, black 50%, transparent 88%);
+  }
+  .portrait{
+    position:relative; z-index:2;
+    height: 420px;
+    max-height: 52vh;
+    display:flex; align-items:flex-end; justify-content:center;
+  }
+  .portrait img{
+    max-height:100%; max-width:100%;
+    object-fit:contain;
+    filter: drop-shadow(0 20px 40px rgba(0,0,0,0.6));
+    -webkit-mask-image: linear-gradient(to bottom, black 66%, transparent 94%);
+    mask-image: linear-gradient(to bottom, black 66%, transparent 94%);
+  }
+  .portrait .silhouette{
+    height:100%; opacity:0.35;
+    -webkit-mask-image: linear-gradient(to bottom, black 66%, transparent 94%);
+    mask-image: linear-gradient(to bottom, black 66%, transparent 94%);
+  }
+
+  .poster-footer{
+    position:relative; z-index:3;
+    display:flex; flex-direction:column; align-items:center;
+    gap:14px;
+    padding-top:10px;
+    margin-top:-100px;
+    text-align:center;
+  }
+  .faction-word{
+    font-size: clamp(64px, 10vw, 120px);
+    line-height:0.85;
+    white-space:nowrap;
+  }
+  .faction-word.ember{ color: var(--ember); }
+  .faction-word.verdigris{ color: var(--verdigris); }
+  .faction-word.neutral{ color: var(--bone); }
+
+  .lore-text{
+    max-width: 480px;
+    margin: 0 auto;
+    padding-bottom:10px;
+  }
+  .lore-text .blurb{
+    font-style:italic;
+    font-size:14px;
+    color: var(--bone);
+    margin:0 0 8px;
+    line-height:1.5;
+  }
+  .lore-text .backstory{
+    font-size:13px;
+    color: var(--dust);
+    line-height:1.65;
+    margin:0;
+  }
+
+  .poster-controls{
+    position:absolute; top:0; right:0; z-index:4;
+    display:flex; gap:8px;
+    opacity:0; transition: opacity 0.2s ease;
+  }
+  .poster-wrap:hover .poster-controls{ opacity:1; }
+
+  /* ============ THUMBNAIL RAIL ============ */
+  .rail{
+    display:flex; gap:10px; align-items:center;
+    padding: 18px 0 28px;
+    border-top:1px solid var(--line);
+    overflow-x:auto;
+  }
+  .thumb{
+    flex: 0 0 auto;
+    width:56px; height:56px;
+    border:1px solid var(--line);
+    cursor:pointer;
+    overflow:hidden;
+    position:relative;
+    background: var(--panel);
+    transition: border-color 0.2s ease, transform 0.15s ease;
+  }
+  .thumb img{ width:100%; height:100%; object-fit:cover; }
+  .thumb.active{ border-color: var(--ember); }
+  .thumb:hover{ transform: translateY(-2px); }
+  .thumb .initial{
+    width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+    font-family:'Bebas Neue', sans-serif; font-size:20px; color: var(--dust);
+  }
+  .thumb-add{
+    flex:0 0 auto; width:56px; height:56px;
+    border:1px dashed var(--line);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; color: var(--dust);
+    font-size:22px;
+    transition: border-color 0.2s ease, color 0.2s ease;
+  }
+  .thumb-add:hover{ border-color: var(--dust); color: var(--bone); }
+
+  /* ============ EMPTY STATE ============ */
+  .empty-state{
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; gap:18px; padding: 60px 20px;
+  }
+  .empty-state .display{ font-size: clamp(32px,5vw,48px); color: var(--dust); }
+  .empty-state p{ color: var(--dust); font-size:15px; max-width:440px; line-height:1.6; margin:0; }
+
+  /* ============ SYSTEM SHEET (section 2) ============ */
+  .system-section{
+    border-top:1px solid var(--line);
+    margin-top:14px;
+    padding-top:40px;
+  }
+  .system-section .section-label{
+    font-family:'Bebas Neue', sans-serif;
+    letter-spacing:0.1em;
+    font-size:14px;
+    color: var(--dust);
+    margin-bottom:22px;
+  }
+  /* ---- Terminal banner: analog system-record identity strip ---- */
+  .terminal-banner{
+    --accent: var(--gold);
+    position:relative;
+    border:1px solid var(--line);
+    background: rgba(20,18,16,0.55);
+    margin-bottom:32px;
+    isolation:isolate;
+  }
+  .tb-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 14px;
+    border-bottom:1px solid var(--line);
+    position:relative;
+  }
+  .tb-head::after{
+    /* second hairline for the "double-line border" accent, header only */
+    content:''; position:absolute; left:14px; right:14px; bottom:-4px;
+    height:1px; background:var(--line);
+  }
+  .tb-record{
+    font-family:'Space Mono', monospace; font-size:10.5px; letter-spacing:0.12em;
+    color: var(--dust); text-transform:uppercase;
+  }
+  .tb-status{
+    font-family:'Space Mono', monospace; font-size:10.5px; letter-spacing:0.1em;
+    color: var(--accent); text-transform:uppercase;
+  }
+  .tb-body{
+    display:flex; gap:24px; align-items:flex-start;
+    padding:20px 14px 18px;
+  }
+  .avatar-wrap{
+    flex:0 0 auto;
+    width:132px; height:176px;
+    border-radius:2px;
+    cursor:pointer;
+    position:relative;
+    overflow:visible;
+    transition: width 0.3s ease, height 0.3s ease;
+  }
+  .avatar-clip{
+    width:100%; height:100%;
+    border-radius:inherit;
+    overflow:hidden;
+    border:1px solid var(--line);
+    position:relative;
+    transition: border-color 0.2s ease;
+    background: var(--ink);
+  }
+  .avatar-wrap:hover .avatar-clip{ border-color: var(--dust); }
+  .avatar-clip img{ width:100%; height:100%; object-fit:cover; display:block; filter:grayscale(0.15) contrast(1.04); }
+  .avatar-wrap.expanded{ width:280px; height:373px; }
+  .avatar-clip .expand-hint{
+    position:absolute; bottom:0; left:0; right:0; text-align:center;
+    font-size:9px; letter-spacing:0.06em; color: var(--bone);
+    font-family:'Space Mono', monospace;
+    background: rgba(6,5,4,0.65); padding:4px 0;
+    opacity:0; transition:opacity 0.2s ease;
+  }
+  .avatar-wrap:hover .expand-hint{ opacity:1; }
+  .tb-portrait-label{
+    position:absolute; top:6px; left:6px; z-index:5;
+    font-family:'Space Mono', monospace; font-size:8.5px; letter-spacing:0.12em;
+    color: var(--bone); background: rgba(6,5,4,0.6); padding:2px 5px;
+    pointer-events:none;
+  }
+  .tb-corner-marks{ position:absolute; inset:-1px; pointer-events:none; z-index:4; }
+
+  .reposition-btn{
+    position:absolute; z-index:6;
+    background: rgba(6,5,4,0.78); color: var(--bone);
+    border:1px solid var(--line); border-radius:50%;
+    width:24px; height:24px;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-size:12px; line-height:1;
+    opacity:0; transition: opacity 0.2s ease, border-color 0.2s ease;
+  }
+  .reposition-btn:hover{ border-color: var(--dust); }
+  .portrait:hover .reposition-btn{ opacity:1; }
+  #repositionPortraitBtn{ bottom:8px; right:8px; }
+  .avatar-edit-btn{ top:6px; right:6px; }
+  .avatar-wrap:hover .avatar-edit-btn{ opacity:1; }
+
+  .adjust-preview{
+    position:relative; width:100%; max-width:260px; margin:0 auto;
+    overflow:hidden; border:1px solid var(--line); background: var(--ink);
+    cursor: grab; user-select:none; touch-action:none;
+  }
+  .adjust-preview.dragging{ cursor: grabbing; }
+  .adjust-preview.circle{ border-radius:30%; aspect-ratio:1/1; }
+  .adjust-preview.rect{ aspect-ratio:3/4; }
+  .adjust-preview img{
+    width:100%; height:100%; object-fit:cover; display:block; pointer-events:none;
+  }
+  .adjust-hint{
+    text-align:center; font-size:11px; color: var(--dust);
+    margin:10px 0 0; font-style:italic;
+  }
+
+  .tb-identity{ flex:1; min-width:0; padding-top:2px; container-type: inline-size; }
+  .tb-name{
+    font-family:'Bebas Neue', sans-serif;
+    letter-spacing:0.02em;
+    font-size: clamp(24px, 3.2vw, 34px);
+    color: var(--bone);
+    margin-bottom:4px;
+  }
+  .tb-titles-inline{
+    font-family:'Space Mono', monospace; font-size:10.5px; letter-spacing:0.03em;
+    color: var(--dust); margin-bottom:14px; line-height:1.6;
+  }
+
+  .titles-row{ display:flex; flex-direction:column; margin-top:6px; border-top:1px solid var(--line); }
+  .title-chip{
+    display:flex; align-items:center; justify-content:space-between; gap:14px;
+    font-family:'Space Mono', monospace;
+    font-size:11px; letter-spacing:0.02em;
+    color: var(--dust);
+    padding:7px 2px;
+    border-bottom:1px dotted var(--line);
+  }
+  .title-chip .chip-label{ color: var(--bone); }
+  .title-chip.rank-chip .chip-tier{
+    font-size:9px; letter-spacing:0.1em; color: var(--dust); white-space:nowrap;
+  }
+  .tick-bar{ display:flex; gap:2px; flex:0 0 auto; }
+  .tick-bar .tick{ width:4px; height:9px; background: var(--line); }
+  .tick-bar .tick.on{ background: var(--accent); }
+
+  .tb-strip{
+    display:flex; flex-wrap:wrap;
+    border-top:1px solid var(--line);
+  }
+  .tb-field{
+    flex:1 1 180px; min-width:150px;
+    padding:10px 14px;
+    border-right:1px solid var(--line);
+    border-bottom:1px solid var(--line);
+  }
+  .tb-field:last-child{ border-right:none; }
+  .tb-field-label{
+    display:block; font-family:'Space Mono', monospace; font-size:9px; letter-spacing:0.12em;
+    color: var(--dust); margin-bottom:4px;
+  }
+  .tb-field-value{ font-size:13.5px; color: var(--bone); }
+  .tb-field-value.empty{ color: var(--dust); font-style:italic; }
+
+  .tb-divine-strip{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    padding:9px 14px;
+    border-top:1px solid var(--line);
+  }
+  .tb-divine-label{
+    font-family:'Space Mono', monospace; font-size:9px; letter-spacing:0.12em; color: var(--dust);
+  }
+  .tb-divine-marks{ display:flex; gap:14px; flex-wrap:wrap; }
+  .tb-divine-mark{
+    font-family:'Space Mono', monospace; font-size:10.5px; letter-spacing:0.06em;
+    color: var(--dust);
+  }
+  .tb-divine-mark.active{ color: var(--accent); }
+
+  .system-grid{
+    column-count: 2;
+    column-gap: 18px;
+  }
+  @media (min-width: 1400px){
+    .system-grid{ column-count: 3; }
+  }
+  .sys-panel{
+    border:2px solid var(--line);
+    background: var(--panel);
+    padding:0;
+    overflow:hidden;
+    width: 100%;
+    position:relative;
+  }
+  .sys-panel .panel-titlebar{
+    display:flex; justify-content:space-between; align-items:center;
+    background: var(--bone); color: var(--ink);
+    padding:7px 12px;
+    font-family:'Space Mono', monospace;
+    font-size:12px; font-weight:700; letter-spacing:0.06em;
+  }
+  .sys-panel .panel-titlebar .x{
+    width:14px; height:14px;
+    border:1.3px solid var(--ink);
+    display:flex; align-items:center; justify-content:center;
+    font-size:10px; line-height:1;
+  }
+  .sys-panel .panel-body{ padding:18px 20px; }
+  .radar-wrap{ display:flex; justify-content:center; margin-bottom:16px; }
+
+  .stat-bars{ display:flex; flex-direction:column; gap:9px; }
+  .stat-bar-row{ display:flex; align-items:center; gap:8px; }
+  .stat-bar-row .stat-label{
+    width:64px; flex:0 0 auto;
+    font-size:10.5px; color: var(--dust);
+    text-transform:uppercase; letter-spacing:0.04em;
+    font-family:'Space Mono', monospace;
+  }
+  .lv-tag{
+    width:30px; flex:0 0 auto;
+    font-size:10.5px; color: var(--bone);
+    font-family:'Space Mono', monospace;
+  }
+  .bar-track{
+    flex:1; height:6px;
+    background: rgba(240,237,228,0.1);
+    position:relative; overflow:hidden;
+  }
+  .bar-fill{
+    position:absolute; top:0; left:0; bottom:0;
+    background: var(--ember);
+  }
+
+  .skill-list, .relationship-list{
+    list-style:none; margin:0; padding:0;
+    display:flex; flex-direction:column; gap:12px;
+  }
+  .skill-list li, .relationship-list li{
+    border-bottom:1px solid var(--line); padding-bottom:10px;
+  }
+  .skill-list li:last-child, .relationship-list li:last-child{ border-bottom:none; padding-bottom:0; }
+  .sk-name, .rel-name{ font-size:14px; color: var(--bone); margin-bottom:4px; display:flex; align-items:center; gap:8px; }
+  .sk-desc, .rel-note{ font-size:12.5px; color: var(--dust); line-height:1.5; margin-top:5px; }
+  .rel-tag{ font-size:10.5px; color: var(--ember); letter-spacing:0.04em; margin-left:auto; }
+
+  /* ---- Inventory (archive-style rows: icon | title+desc | photo) ---- */
+  .archive-list{ display:flex; flex-direction:column; }
+  .archive-item{
+    display:flex; align-items:center; gap:16px;
+    padding:14px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .archive-item:last-child{ border-bottom:none; }
+  .archive-icon{
+    width:52px; height:52px; flex:0 0 auto;
+    border:1px solid var(--line);
+    background: var(--ink);
+    display:flex; align-items:center; justify-content:center;
+    overflow:hidden; color: var(--dust); font-size:20px;
+  }
+  .archive-icon img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .archive-body{ flex:1; min-width:0; }
+  .archive-title{
+    font-family:'Bebas Neue', sans-serif;
+    letter-spacing:0.04em; font-size:17px;
+    color: var(--bone); margin-bottom:4px;
+  }
+  .archive-desc{ font-size:12.5px; color: var(--dust); line-height:1.5; }
+  .archive-photo{
+    width:68px; height:68px; flex:0 0 auto;
+    border:1px solid var(--line);
+    overflow:hidden; background: var(--ink);
+  }
+  .archive-photo img{ width:100%; height:100%; object-fit:cover; display:block; }
+
+  /* ---- Inventory editor (inside modal) ---- */
+  .inv-editor-wrap{ display:flex; flex-direction:column; gap:10px; }
+  .inv-edit-row{
+    display:flex; align-items:flex-start; gap:10px;
+    border:1px solid var(--line); padding:12px; position:relative;
+  }
+  .inv-img-drop{
+    width:52px; height:52px; flex:0 0 auto;
+    border:1px dashed var(--line);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; overflow:hidden; background: var(--ink);
+    font-size:9.5px; color: var(--dust); text-align:center; line-height:1.3;
+    transition: border-color 0.2s ease;
+  }
+  .inv-img-drop:hover{ border-color: var(--dust); }
+  .inv-img-drop.large{ width:68px; height:68px; }
+  .inv-img-drop img{ width:100%; height:100%; object-fit:cover; }
+  .inv-edit-fields{ flex:1; min-width:0; display:flex; flex-direction:column; gap:6px; }
+  .inv-edit-fields input[type=text], .inv-edit-fields textarea{
+    width:100%; background: var(--ink); border:1px solid var(--line);
+    color: var(--bone); font-family:'Source Serif 4', serif; font-size:13.5px;
+    padding:8px 10px; border-radius:2px;
+  }
+  .inv-edit-fields input[type=text]:focus, .inv-edit-fields textarea:focus{
+    outline:none; border-color: var(--dust);
+  }
+  .inv-edit-fields textarea{ resize:vertical; min-height:44px; line-height:1.4; }
+  .inv-remove-btn{
+    position:absolute; top:8px; right:8px;
+    background:transparent; border:none; color: var(--dust);
+    font-size:17px; line-height:1; cursor:pointer; padding:2px 4px;
+  }
+  .inv-remove-btn:hover{ color: var(--ember); }
+  /* ---- Mini system windows (fast single-field edit shortcuts, stacked on originals) ---- */
+  .sys-panel-wrap{
+    position:relative;
+    display:inline-block;
+    width:100%;
+    break-inside:avoid;
+    margin-bottom:18px;
+    vertical-align:top;
+  }
+  .sys-panel-wrap.full{ column-span: all; display:block; width:100%; }
+
+  @keyframes mwPopIn{
+    0%{ opacity:0; transform: translateY(10px) scale(0.9) rotate(-0.6deg); }
+    100%{ opacity:1; transform: translateY(0) scale(1) rotate(-0.6deg); }
+  }
+  @keyframes mwPopInHeader{
+    0%{ opacity:0; transform: translateY(-10px) scale(0.9) rotate(0.5deg); }
+    100%{ opacity:1; transform: translateY(0) scale(1) rotate(0.5deg); }
+  }
+  .mini-window{
+    position:absolute;
+    bottom:14px; right:14px;
+    width:210px;
+    max-width: calc(100% - 28px);
+    box-sizing:border-box;
+    z-index:6;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    box-shadow: 0 10px 26px rgba(0,0,0,0.5);
+    transform: rotate(-0.6deg);
+    transition: border-color 0.2s ease, box-shadow 0.3s ease;
+    animation: mwPopIn 0.38s cubic-bezier(.16,1,.3,1) both;
+  }
+  .terminal-banner .mini-window{
+    bottom:auto; top:40px; right:10px; left:auto;
+    transform: rotate(0.5deg);
+    animation: mwPopInHeader 0.38s cubic-bezier(.16,1,.3,1) both;
+  }
+  .mini-window:hover{ border-color: var(--dust); }
+  .mini-window.collapsed{
+    box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+  }
+  .mini-window.collapsed .mw-titlebar{ border-bottom-color: transparent; transition: border-bottom-color 0.15s ease 0.15s; }
+  /* Deflated form for the panel mini-windows (stats/skills/inventory/relationships/arc — not identity):
+     collapse down to just the toggle mark, nothing else. */
+  .mini-window.collapsed:not([data-mw-key="identity"]){
+    width:24px;
+    background:none;
+    border-color:transparent;
+    box-shadow:none;
+    bottom:0; right:0;
+  }
+  .mini-window.collapsed:not([data-mw-key="identity"]) .mw-titlebar{
+    display:inline-flex;
+    padding:4px;
+    width:auto;
+  }
+  .mini-window.collapsed:not([data-mw-key="identity"]) .mw-titlebar-left span,
+  .mini-window.collapsed:not([data-mw-key="identity"]) .mw-x{
+    display:none;
+  }
+  .mw-titlebar{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:10px;
+    padding:7px 10px;
+    border-bottom:1px solid var(--line);
+    font-family:'Space Mono', monospace;
+    font-size:10.5px; letter-spacing:0.03em;
+    color: var(--bone);
+    white-space:nowrap;
+  }
+  .mw-titlebar-left{ display:flex; align-items:center; gap:7px; min-width:0; }
+  .mw-titlebar .mw-x{ color: var(--dust); font-size:12px; flex:0 0 auto; }
+  .mw-toggle{
+    width:13px; height:13px; flex:0 0 auto;
+    border:1.3px solid var(--bone);
+    display:flex; align-items:center; justify-content:center;
+    font-size:10px; line-height:1;
+    color: var(--bone);
+    cursor:pointer;
+    background:none;
+    padding:0;
+    transition: border-color 0.2s ease, color 0.2s ease, transform 0.25s cubic-bezier(.4,0,.2,1);
+  }
+  .mw-toggle:hover{ border-color: var(--ember); color: var(--ember); }
+  .mini-window.collapsed .mw-toggle{ transform: rotate(180deg); }
+  .mw-body{
+    padding:12px 12px 14px;
+    overflow:hidden;
+    max-height:320px;
+    opacity:1;
+    transform-origin: top;
+    transition: max-height 0.32s cubic-bezier(.4,0,.2,1), opacity 0.2s ease 0.06s, padding-top 0.32s ease, padding-bottom 0.32s ease;
+  }
+  .mini-window.collapsed .mw-body{
+    max-height:0;
+    opacity:0;
+    padding-top:0; padding-bottom:0;
+    pointer-events:none;
+    transition: max-height 0.32s cubic-bezier(.4,0,.2,1), opacity 0.15s ease, padding-top 0.32s ease, padding-bottom 0.32s ease;
+  }
+  .mw-label{
+    font-family:'Space Mono', monospace;
+    font-size:9.5px; letter-spacing:0.05em;
+    color: var(--dust); text-transform:uppercase;
+    margin-bottom:7px;
+  }
+  .mw-desc{ font-size:12.5px; line-height:1.5; margin-bottom:12px; min-height:44px; }
+  .mw-desc.ember{ color: var(--ember); }
+  .mw-desc.verdigris{ color: var(--verdigris); }
+  .mw-desc.bone{ color: var(--bone); }
+  .mw-stat-table{ font-family:'Space Mono', monospace; font-size:10.5px; margin-bottom:12px; }
+  .mw-stat-table .mw-stat-row{
+    display:flex; justify-content:space-between;
+    padding:3px 0; border-bottom:1px solid var(--line); color: var(--dust);
+  }
+  .mw-stat-table .mw-stat-row:last-child{ border-bottom:none; }
+  .mw-stat-table .mw-stat-row span:last-child{ color: var(--bone); }
+  .mw-open{
+    background:none; border:none; padding:0;
+    font-family:'Space Mono', monospace; font-size:11px;
+    color: var(--ember); letter-spacing:0.03em;
+    cursor:pointer; display:inline-flex; align-items:center; gap:4px;
+  }
+  .mw-open:hover{ text-decoration: underline; }
+
+  .skill-tree-wrap{ display:flex; justify-content:center; }
+  .skill-tree-svg text{
+    font-family:'Space Mono', monospace;
+    font-size:12px;
+    pointer-events:none;
+  }
+  .skill-node{
+    cursor:pointer;
+    transition: transform 0.55s cubic-bezier(.4,0,.2,1);
+  }
+  .skill-node.converge{
+    transform: translate(var(--dx), var(--dy));
+  }
+  .node-visual{
+    transition: transform 0.2s ease;
+  }
+  .skill-node:hover .node-visual{
+    transform: scale(1.16);
+  }
+  .node-visual .ring-outer{ transition: filter 0.2s ease; }
+  .skill-node:hover .node-visual .ring-outer{ filter: drop-shadow(0 0 5px currentColor); }
+
+  #skillRotateGroup{
+    transition: transform 0.65s ease-in-out;
+  }
+  #skillRotateGroup.spinning{
+    transform: rotate(360deg);
+  }
+
+  .corruption-toggle-row{
+    display:flex; align-items:center; gap:10px;
+    margin-bottom:16px;
+    padding-bottom:14px;
+    border-bottom:1px dotted var(--line);
+    flex-wrap:wrap;
+  }
+  .corruption-toggle-row .toggle-label{
+    font-family:'Space Mono', monospace;
+    font-size:10.5px; color: var(--dust); letter-spacing:0.06em;
+  }
+  .toggle-btn{
+    font-family:'Space Mono', monospace;
+    font-size:10.5px; letter-spacing:0.05em;
+    background:transparent; border:1px solid var(--line);
+    color: var(--dust); padding:5px 12px; cursor:pointer;
+    transition: all 0.15s ease;
+  }
+  .toggle-btn.active{ background: var(--bone); color: var(--ink); border-color: var(--bone); }
+  .toggle-btn:not(.active):hover{ color: var(--bone); border-color: var(--dust); }
+  .color-picker-input{
+    width:26px; height:26px;
+    border:1px solid var(--line);
+    background:transparent;
+    cursor:pointer;
+    padding:0;
+  }
+
+  .skill-tooltip{
+    position:fixed; z-index:300;
+    pointer-events:none;
+    background: var(--panel);
+    border:1px solid var(--line);
+    padding:10px 14px;
+    max-width:240px;
+    font-family:'Source Serif 4', serif;
+    font-size:12.5px; line-height:1.55;
+    color: var(--dust);
+    opacity:0;
+    transition: opacity 0.15s ease;
+  }
+  .skill-tooltip strong{
+    display:block;
+    font-family:'Space Mono', monospace;
+    font-size:11.5px; letter-spacing:0.04em;
+    color: var(--bone);
+    margin-bottom:5px;
+  }
+  .skill-tooltip.visible{ opacity:1; }
+
+  .arc-text{
+    font-size:14px; line-height:1.75; color: var(--dust);
+    white-space:pre-wrap;
+    max-height:280px; overflow-y:auto;
+  }
+  .sys-empty{ color: var(--dust); font-size:13px; font-style:italic; }
+
+  /* ---- Story Arc: structured fields ---- */
+  .arc-field{ margin-bottom:18px; }
+  .arc-field:last-child{ margin-bottom:0; }
+  .arc-field-label{
+    display:block; font-family:'Space Mono', monospace; font-size:10px; letter-spacing:0.1em;
+    color: var(--dust); text-transform:uppercase; margin-bottom:6px;
+  }
+  .arc-field-value{ font-size:14px; line-height:1.7; color: var(--bone); white-space:pre-wrap; }
+  .arc-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+  .arc-list li{
+    font-size:13.5px; line-height:1.6; color: var(--bone);
+    padding-left:14px; position:relative;
+  }
+  .arc-list li::before{ content:'—'; position:absolute; left:0; color: var(--dust); }
+
+  /* ---- Knowledge & Secrets ---- */
+  .know-sec-block{ margin-bottom:20px; }
+  .know-sec-block:last-child{ margin-bottom:0; }
+  .knowledge-list, .secrets-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:12px; }
+  .knowledge-list li{
+    font-size:13.5px; line-height:1.6; color: var(--bone);
+    border-bottom:1px solid var(--line); padding-bottom:10px;
+  }
+  .knowledge-list li:last-child{ border-bottom:none; padding-bottom:0; }
+  .secrets-list li{ border-bottom:1px solid var(--line); padding-bottom:10px; }
+  .secrets-list li:last-child{ border-bottom:none; padding-bottom:0; }
+  .secret-text{ font-size:14px; color: var(--bone); margin-bottom:4px; }
+  .secret-meta{ font-size:11.5px; color: var(--dust); letter-spacing:0.02em; }
+  .secret-meta.known{ color: var(--ember); }
+
+  @container (max-width: 640px){
+    .system-grid{ column-count: 1; }
+  }
+
+  @media (max-width: 640px){
+    .app{ max-width:100%; padding: 20px 16px 0; }
+    .system-grid{ column-count: 1; }
+    .avatar-wrap{ width:104px; height:139px; }
+    .avatar-wrap.expanded{ width:230px; height:307px; }
+  }
+
+  @media (max-width: 420px){
+    .tb-body{ flex-direction:column; gap:16px; }
+    .avatar-wrap{ width:120px; height:160px; }
+  }
+
+  @media (max-width: 480px){
+    .top-nav{ flex-direction:column; align-items:flex-start; gap:10px; }
+    .top-nav .brand{ font-size:17px; }
+    .top-nav .actions{ width:100%; flex-wrap:wrap; }
+  }
+
+  /* ============ MODAL (form + confirm) ============ */
+  .modal-backdrop{
+    position:fixed; inset:0; background: rgba(6,5,4,0.78);
+    display:flex; align-items:center; justify-content:center;
+    z-index:200; padding:24px;
+    opacity:0; pointer-events:none;
+    transition: opacity 0.2s ease;
+  }
+  .modal-backdrop.visible{ opacity:1; pointer-events:auto; }
+  .modal{
+    background: var(--panel);
+    border:1px solid var(--line);
+    width:100%; max-width:640px;
+    max-height:86vh; overflow-y:auto;
+    padding: 30px 32px 28px;
+    opacity:0;
+    transform: scale(0.94) translateY(14px);
+    transition: opacity 0.22s cubic-bezier(.16,1,.3,1), transform 0.22s cubic-bezier(.16,1,.3,1);
+  }
+  .modal-backdrop.visible .modal{
+    opacity:1;
+    transform: scale(1) translateY(0);
+  }
+  .modal h2{
+    font-family:'Bebas Neue', sans-serif;
+    font-size:26px; letter-spacing:0.03em;
+    margin:0 0 4px;
+  }
+  .modal .sub{ color: var(--dust); font-size:13.5px; margin:0 0 22px; }
+
+  .field{ margin-bottom:16px; }
+  .field label{
+    display:block; font-size:12.5px; color: var(--dust);
+    margin-bottom:6px;
+  }
+  .field input[type=text], .field select, .field textarea{
+    width:100%;
+    background: var(--ink);
+    border:1px solid var(--line);
+    color: var(--bone);
+    font-family:'Source Serif 4', serif;
+    font-size:14.5px;
+    padding:10px 12px;
+    border-radius:2px;
+  }
+  .field input[type=text]:focus, .field select:focus, .field textarea:focus{
+    outline:none; border-color: var(--dust);
+  }
+  .field textarea{ resize:vertical; min-height:70px; line-height:1.5; }
+  .field-row{ display:flex; gap:14px; }
+  .field-row .field{ flex:1; }
+
+  .dropzone{
+    border:1px dashed var(--line);
+    padding:16px; text-align:center;
+    cursor:pointer; color: var(--dust); font-size:13px;
+    display:flex; align-items:center; justify-content:center; gap:12px;
+  }
+  .dropzone:hover{ border-color: var(--dust); }
+  .dropzone img{ max-height:60px; }
+
+  /* Visually hidden but still real/clickable — display:none file inputs are
+     unreliable to trigger programmatically on some mobile browsers (notably
+     iOS Safari and in-app browsers like Instagram/Facebook's WebView). */
+  .visually-hidden-input{
+    position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+    overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+  }
+
+  .modal-actions{
+    display:flex; justify-content:space-between; align-items:center;
+    margin-top:24px; padding-top:18px; border-top:1px solid var(--line);
+  }
+
+  /* confirm step */
+  .confirm-box{ text-align:center; padding: 10px 0 4px; }
+  .confirm-box .display{ font-size:24px; color:var(--bone); margin-bottom:8px; }
+  .confirm-box p{ color: var(--dust); font-size:14px; margin:0 0 22px; }
+  .confirm-actions{ display:flex; gap:10px; justify-content:center; }
+
+  ::-webkit-scrollbar{ width:8px; height:8px; }
+  ::-webkit-scrollbar-thumb{ background: var(--line); }
+  /* ============ STORYBOOK (type "open" anywhere to trigger) ============ */
+  .loading-popup{
+    position:fixed; inset:0; z-index:500;
+    display:flex; align-items:center; justify-content:center;
+    background: rgba(6,5,4,0.6);
+    opacity:0; pointer-events:none;
+    transition: opacity 0.2s ease;
+  }
+  .loading-popup.visible{ opacity:1; pointer-events:auto; }
+
+  /* ---- Lightweight toast notifications (upload/save failures, etc.) ---- */
+  .toast-stack{
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+    z-index:700; display:flex; flex-direction:column; gap:8px; align-items:center;
+    pointer-events:none; width:min(92vw, 420px);
+  }
+  .toast{
+    font-family:'Space Mono', monospace; font-size:12px; letter-spacing:0.02em; line-height:1.5;
+    background: var(--ink); border:1px solid var(--ember); color: var(--bone);
+    padding:10px 16px; border-radius:2px; box-shadow:0 6px 20px rgba(0,0,0,0.4);
+    opacity:0; transform:translateY(8px); transition: opacity 0.25s ease, transform 0.25s ease;
+    pointer-events:auto; text-align:center;
+  }
+  .toast.visible{ opacity:1; transform:translateY(0); }
+  .loading-window{
+    width:320px;
+    border:2px solid var(--bone);
+    background: var(--ink);
+  }
+  .loading-titlebar{
+    display:flex; justify-content:space-between; align-items:center;
+    background: var(--bone); color: var(--ink);
+    padding:6px 10px;
+    font-family:'Space Mono', monospace; font-size:12px; font-weight:700; letter-spacing:0.06em;
+  }
+  .loading-titlebar .x{
+    cursor:pointer; width:16px; height:16px;
+    border:1.5px solid var(--ink);
+    display:flex; align-items:center; justify-content:center;
+    font-size:11px;
+  }
+  .loading-body{ padding:22px 20px; text-align:center; }
+  .loading-text{
+    font-family:'Space Mono', monospace; font-size:12px; letter-spacing:0.04em;
+    color: var(--bone); margin-bottom:14px;
+  }
+  .loading-bar-track{
+    position:relative; height:22px;
+    border:1.5px solid var(--bone);
+    background: var(--panel);
+  }
+  .loading-bar-fill{
+    position:absolute; top:0; left:0; bottom:0; width:0%;
+    background: var(--ember);
+    transition: width 0.2s ease;
+  }
+  .loading-pct{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-family:'Space Mono', monospace; font-size:11px; color: var(--bone); letter-spacing:0.05em;
+    mix-blend-mode: difference;
+  }
+
+  .book-backdrop{
+    position:fixed; inset:0; z-index:400;
+    background: rgba(4,3,2,0.86);
+    opacity:0; pointer-events:none;
+    transition: opacity 0.5s ease;
+  }
+  .book-backdrop.active{ opacity:1; pointer-events:auto; }
+
+  .book-stage{
+    position:fixed; inset:0; z-index:410;
+    display:flex; align-items:center; justify-content:center;
+    pointer-events:none;
+    perspective: 1600px;
+  }
+  .book-stage.active{ pointer-events:auto; }
+
+  .book{
+    position:relative;
+    width:560px; max-width:90vw; height:380px;
+    transform: translateY(-160vh) rotate(-4deg);
+    opacity:0;
+    transition: transform 1s cubic-bezier(.22,.68,.29,1.15), opacity 0.4s ease;
+  }
+  .book.dropped{ transform: translateY(0) rotate(0deg); opacity:1; }
+
+  .book-pages-wrap{
+    position:absolute; inset:0;
+    display:flex;
+    background: var(--panel);
+    border:2px solid var(--bone);
+    box-shadow: 0 30px 60px rgba(0,0,0,0.6);
+  }
+  .book-page{ flex:1; padding:24px; overflow-y:auto; }
+  .book-page.left-page{ border-right:1px dashed var(--line); }
+  .book-page h3{
+    font-family:'Bebas Neue', sans-serif; letter-spacing:0.06em;
+    margin:0 0 14px; color: var(--bone); font-size:20px;
+  }
+  .book-links{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; }
+  .book-links a{
+    color: var(--dust); text-decoration:none; font-size:14px;
+    border-bottom:1px dotted var(--line); padding-bottom:4px; display:inline-block;
+  }
+  .book-links a:hover{ color: var(--bone); border-color: var(--dust); }
+  .book-hint{ font-size:11px; color: var(--dust); margin-top:18px; font-style:italic; }
+
+  .book-cover{
+    position:absolute; inset:0;
+    background: var(--ink);
+    border:2px solid var(--bone);
+    transform-origin: left center;
+    transform: rotateY(0deg);
+    transition: transform 1s ease;
+    z-index:5;
+    display:flex; align-items:center; justify-content:center;
+    backface-visibility:hidden;
+  }
+  .book-cover span{
+    font-family:'Bebas Neue', sans-serif;
+    font-size:28px; letter-spacing:0.1em; color: var(--bone);
+  }
+  .book.open .book-cover{ transform: rotateY(-165deg); }
+
+  .book-close{
+    position:absolute; top:-14px; right:-14px; z-index:20;
+    width:30px; height:30px; border-radius:50%;
+    background: var(--bone); color: var(--ink); border:none; cursor:pointer;
+    font-size:16px; display:flex; align-items:center; justify-content:center;
+    opacity:0; pointer-events:none; transition:opacity 0.3s ease;
+  }
+  .book.open .book-close{ opacity:1; pointer-events:auto; }
+
+  @media (max-width: 640px){
+    .book{ width:92vw; height:min(82vh, 640px); }
+    .book-pages-wrap{ flex-direction:column; }
+    .book-page{ padding:16px; }
+    .book-page.left-page{ border-right:none; border-bottom:1px dashed var(--line); flex:0 0 42%; }
+    .book-page.right-page{ flex:1; min-height:0; }
+    .terminal{ font-size:11.5px; }
+  }
+
+  .terminal{
+    background: var(--ink); border:1px solid var(--line);
+    height:100%; display:flex; flex-direction:column;
+    font-family:'Space Mono', monospace; font-size:12px;
+  }
+  .terminal-log{ flex:1; overflow-y:auto; padding:10px; color: var(--dust); line-height:1.6; }
+  .terminal-log .term-cmd{ color: var(--bone); }
+  .terminal-input-row{ display:flex; align-items:center; gap:6px; border-top:1px solid var(--line); padding:8px 10px; }
+  .terminal-prompt{ color: var(--ember); }
+  .terminal-input-row input{
+    flex:1; background:transparent; border:none; outline:none;
+    color: var(--bone); font-family:'Space Mono', monospace; font-size:12px;
+  }
+
+  /* ---- Library page (rendered on the book's left page via "open lib" / "opl") ---- */
+  .lib-page-header{
+    font-family:'Space Mono', monospace; font-size:11px; letter-spacing:0.08em;
+    color: var(--dust); text-transform:uppercase;
+    padding-bottom:10px; margin-bottom:14px; border-bottom:1px solid var(--line);
+  }
+  .lib-page-header strong{ color: var(--bone); font-style:normal; }
+  .lib-field{ margin-bottom:14px; }
+  .lib-field-label{
+    font-family:'Space Mono', monospace; font-size:10px; letter-spacing:0.1em;
+    color: var(--dust); text-transform:uppercase; margin-bottom:5px;
+  }
+  .lib-entry{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:8px;
+    font-size:13px; color: var(--bone); line-height:1.5;
+    padding:3px 0; border-bottom:1px dotted var(--line);
+  }
+  .lib-entry:last-child{ border-bottom:none; }
+  .lib-entry-meta{ color: var(--dust); font-size:10.5px; margin-left:6px; }
+  .lib-entry button{
+    flex:0 0 auto; background:none; border:none; color: var(--dust);
+    cursor:pointer; font-size:13px; padding:0 2px; line-height:1.5;
+  }
+  .lib-entry button:hover{ color: var(--ember); }
+  .lib-empty{ color: var(--dust); font-size:12px; font-style:italic; }
+  .lib-back{
+    display:inline-block; margin-top:6px; font-size:11px; color: var(--dust);
+    cursor:pointer; border-bottom:1px dotted var(--line);
+  }
+  .lib-back:hover{ color: var(--bone); }
+
+
+  /* ============ GENERATION SECTION ============ */
+  .generation-section{ margin-top:44px; padding-bottom:60px; }
+  .generation-section .section-label{ margin-bottom:14px; }
+  .gen-banner{
+    border:1px solid var(--line);
+    background: rgba(20,18,16,0.55);
+  }
+  .gen-head{
+    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;
+    padding:12px 16px;
+    border-bottom:1px solid var(--line);
+  }
+  .gen-head-title{
+    font-family:'Space Mono', monospace; font-size:10.5px; letter-spacing:0.12em;
+    color: var(--dust); text-transform:uppercase;
+  }
+  .gen-chapter-controls{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .gen-chapter-controls select{
+    background: var(--ink); border:1px solid var(--line); color: var(--bone);
+    font-family:'Space Mono', monospace; font-size:12px; padding:7px 10px; border-radius:2px;
+  }
+  .gen-status-pill{
+    font-family:'Space Mono', monospace; font-size:10px; letter-spacing:0.08em;
+    padding:3px 9px; border:1px solid var(--line); text-transform:uppercase;
+  }
+  .gen-status-pill.draft{ color: var(--gold); border-color: var(--gold); }
+  .gen-status-pill.committed{ color: var(--verdigris); border-color: var(--verdigris); }
+
+  .gen-body{ padding:18px 16px 20px; }
+  .gen-empty{ color: var(--dust); font-size:14px; font-style:italic; padding:20px 4px; }
+
+  .gen-columns{ display:flex; gap:22px; align-items:flex-start; flex-wrap:wrap; }
+  .gen-static-col{ flex:1 1 280px; min-width:260px; }
+  .gen-timeline-col{ flex:2 1 480px; min-width:300px; }
+
+  .gen-col-label{
+    font-family:'Space Mono', monospace; font-size:10px; letter-spacing:0.12em;
+    color: var(--dust); text-transform:uppercase; margin-bottom:10px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .gen-static-row{
+    padding:9px 0; border-bottom:1px solid var(--line);
+  }
+  .gen-static-row:last-child{ border-bottom:none; }
+  .gen-static-row-label{ font-size:10px; letter-spacing:0.08em; color: var(--dust); text-transform:uppercase; margin-bottom:3px; }
+  .gen-static-row-value{ font-size:13.5px; color: var(--bone); line-height:1.55; }
+  .gen-static-row-value.empty{ color: var(--dust); font-style:italic; }
+  .gen-static-note{ font-size:11px; color: var(--dust); font-style:italic; margin-top:12px; }
+
+  .gen-field-block{ border:1px solid var(--line); margin-bottom:14px; }
+  .gen-field-head{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:9px 12px; border-bottom:1px solid var(--line); background: rgba(255,255,255,0.015);
+  }
+  .gen-field-title{ font-size:13px; color: var(--bone); letter-spacing:0.02em; }
+  .gen-field-external{ font-size:10.5px; color: var(--dust); font-style:italic; margin-top:2px; }
+  .gen-field-actions{ display:flex; gap:6px; flex:0 0 auto; }
+  .gen-mini-btn{
+    font-family:'Space Mono', monospace; font-size:10px; letter-spacing:0.04em;
+    background:transparent; border:1px solid var(--line); color: var(--dust);
+    padding:4px 9px; cursor:pointer; border-radius:2px; white-space:nowrap;
+  }
+  .gen-mini-btn:hover{ color: var(--bone); border-color: var(--dust); }
+  .gen-mini-btn.accent{ color: var(--ember); border-color: var(--ember); }
+  .gen-mini-btn.accent:hover{ background: var(--ember); color: var(--bone); }
+
+  .gen-entry-list{ padding:4px 12px 8px; }
+  .gen-entry{
+    display:flex; align-items:flex-start; gap:10px;
+    padding:8px 0; border-bottom:1px dotted var(--line);
+  }
+  .gen-entry:last-child{ border-bottom:none; }
+  .gen-entry.rejected{ opacity:0.4; }
+  .gen-tag{
+    flex:0 0 auto; font-family:'Space Mono', monospace; font-size:9px; letter-spacing:0.06em;
+    padding:2px 7px; border:1px solid var(--line); text-transform:uppercase; margin-top:2px;
+    white-space:nowrap;
+  }
+  .gen-tag.author{ color: var(--bone); border-color: var(--bone); }
+  .gen-tag.ai-generated{ color: var(--ember); border-color: var(--ember); }
+  .gen-tag.ai-suggested{ color: var(--dust); border-color: var(--dust); border-style:dashed; }
+  .gen-entry-text{ flex:1; font-size:13.5px; line-height:1.6; color: var(--bone); }
+  .gen-entry.pending .gen-entry-text{ color: var(--dust); }
+  .gen-entry-actions{ flex:0 0 auto; display:flex; gap:5px; }
+  .gen-entry-actions button{
+    background:transparent; border:1px solid var(--line); cursor:pointer;
+    width:22px; height:22px; font-size:11px; color: var(--dust); border-radius:2px; line-height:1;
+  }
+  .gen-entry-actions button:hover{ color: var(--bone); border-color: var(--dust); }
+  .gen-entry-actions button.confirm:hover{ color: var(--verdigris); border-color: var(--verdigris); }
+  .gen-entry-actions button.reject:hover{ color: var(--ember); border-color: var(--ember); }
+  .gen-no-entries{ padding:10px 0; color: var(--dust); font-size:12.5px; font-style:italic; }
+
+  .gen-add-row{ display:flex; gap:8px; padding:8px 12px 12px; border-top:1px solid var(--line); }
+  .gen-add-row input{
+    flex:1; background: var(--ink); border:1px solid var(--line); color: var(--bone);
+    font-family:'Source Serif 4', serif; font-size:13px; padding:7px 10px; border-radius:2px;
+  }
+  .gen-add-row input:focus{ outline:none; border-color: var(--dust); }
+
+  .gen-commit-bar{
+    display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
+    margin-top:18px; padding-top:16px; border-top:1px solid var(--line);
+  }
+  .gen-commit-note{ font-size:12px; color: var(--dust); }
+
+  @media (max-width: 780px){
+    .gen-columns{ flex-direction:column; }
+  }
+</style>
+</head>
+<body>
+<svg class="grain" width="0" height="0">
+  <filter id="noiseFilter">
+    <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch"/>
+    <feColorMatrix type="saturate" values="0"/>
+  </filter>
+  <rect width="100%" height="100%" filter="url(#noiseFilter)" style="position:fixed;inset:0;width:100vw;height:100vh;"/>
+</svg>
+<div class="grain" style="background:#000;"><svg width="100%" height="100%"><rect width="100%" height="100%" filter="url(#noiseFilter)"/></svg></div>
+
+<div class="app">
+  <div class="top-nav">
+    <div class="brand">EPITAPH — Character Dossier</div>
+    <div class="actions">
+      <a class="btn ghost" id="atlasLink" href="atlas.html">Atlas</a>
+      <button class="btn ghost" id="editBtn" style="display:none;">Edit</button>
+      <button class="btn ghost danger" id="deleteBtn" style="display:none;">Delete</button>
+      <button class="btn primary" id="newBtn">New profile</button>
+    </div>
+  </div>
+
+  <div class="poster-wrap" id="posterWrap">
+    <!-- populated by JS: either .poster or .empty-state -->
+  </div>
+
+  <div class="rail" id="rail"></div>
+
+  <div class="system-section" id="systemSection">
+    <!-- populated by JS -->
+  </div>
+
+  <div class="generation-section" id="generationSection">
+    <!-- populated by JS -->
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<div class="skill-tooltip" id="skillTooltip"></div>
+
+<div class="loading-popup" id="loadingPopup">
+  <div class="loading-window">
+    <div class="loading-titlebar"><span>OPEN STORY BOOK</span><span class="x" id="loadingCloseX">×</span></div>
+    <div class="loading-body">
+      <div class="loading-text">LOADING...PLEASE BE PATIENT</div>
+      <div class="loading-bar-track">
+        <div class="loading-bar-fill" id="loadingBarFill"></div>
+        <div class="loading-pct" id="loadingPct">0%</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="book-backdrop" id="bookBackdrop"></div>
+
+<div class="book-stage" id="bookStage">
+  <div class="book" id="theBook">
+    <div class="book-pages-wrap">
+      <div class="book-page left-page">
+        <h3>Storybook</h3>
+        <ul class="book-links">
+          <li><a href="index.html">Character Dossier</a></li>
+          <li><a href="atlas.html">World Map</a></li>
+          <li><a href="epitaph-hub.html">Hub</a></li>
+        </ul>
+        <p class="book-hint">Placeholder links for now — tell Claude where these should actually point.</p>
+      </div>
+      <div class="book-page right-page">
+        <div class="terminal" id="bookTerminal">
+          <div class="terminal-log" id="terminalLog"></div>
+          <div class="terminal-input-row">
+            <span class="terminal-prompt">&gt;</span>
+            <input type="text" id="terminalInput" autocomplete="off" placeholder="type a command...">
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="book-cover" id="bookCover"><span>STORYBOOK</span></div>
+    <button class="book-close" id="bookCloseBtn">×</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATA MODEL
+// Stored in localStorage (same-origin, shared across every page on this
+// site — that's what lets other pages, e.g. a future World Map, read the
+// same character/generation data without a backend).
+// key: 'epitaph-character-profiles'
+// value: {
+//   characters: [
+//     { id, name, storyline, faction, activeSnapshotId,
+//       snapshots: [ {id, chapterRange, blurb, backstory, portrait}, ... ] }
+//   ],
+//   activeId,
+//   generationStates: [
+//     // one per (character, chapter snapshot) — see GENERATION SECTION below.
+//     // Other future pages (World Map, Chapter Generator, Timeline System)
+//     // can read this same storage key to pull e.g. Character -> CurrentObjective
+//     // for a given chapter, without touching character/snapshot data above.
+//     { id, characterId, snapshotId, status: 'draft'|'committed',
+//       timeline: { currentLocation:[], currentRelationships:[], currentKnowledge:[],
+//         injuries:[], possessions:[], currentObjectives:[], currentAffiliations:[],
+//         recentEvents:[], characterDevelopment:[], knownSecrets:[], politicalSocialStatus:[] },
+//       createdAt, committedAt }
+//   ]
+// }
+// ============================================================
+const STORAGE_KEY = 'epitaph-character-profiles';
+let state = { characters: [], activeId: null, generationStates: [] };
+
+// ---- Lightweight toast notifications — used whenever something fails silently
+// otherwise (image can't be read/decoded, save can't be persisted, etc.) ----
+function showToast(message, opts = {}){
+  let stack = document.getElementById('toastStack');
+  if(!stack){
+    stack = document.createElement('div');
+    stack.id = 'toastStack';
+    stack.className = 'toast-stack';
+    document.body.appendChild(stack);
+  }
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = message;
+  stack.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('visible'));
+  const duration = opts.duration || 4500;
+  setTimeout(() => {
+    el.classList.remove('visible');
+    setTimeout(() => el.remove(), 300);
+  }, duration);
+}
+
+const FACTIONS = ['Storyborn', 'Voided', 'Humanity', 'Unaffiliated'];
+const FACTION_ABBR = { 'Storyborn':'STRY', 'Voided':'VOID', 'Humanity':'HUMN', 'Unaffiliated':'UNAF' };
+function factionClass(f){
+  if(f === 'Storyborn' || f === 'Humanity') return 'ember';
+  if(f === 'Voided') return 'verdigris';
+  return 'neutral';
+}
+function factionLabel(f){
+  return FACTION_ABBR[f] || (f || '').toUpperCase();
+}
+
+const SILHOUETTE_SVG = `data:image/svg+xml;utf8,${encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 420">
+  <rect width="200" height="420" fill="none"/>
+  <ellipse cx="100" cy="90" rx="46" ry="54" fill="#ece6d8"/>
+  <path d="M30 420 C30 300 45 240 100 240 C155 240 170 300 170 420 Z" fill="#ece6d8"/>
+</svg>
+`)}`;
+
+function migrateCharacter(c){
+  let result = c;
+  if(!result.snapshots){
+    // old flat-record shape -> wrap into a single snapshot
+    const snap = {
+      id: 'snap_' + (c.id || Date.now()) + '_0',
+      chapterRange: c.chapterRange || '',
+      blurb: c.blurb || '',
+      backstory: c.backstory || '',
+      portrait: c.portrait || null
+    };
+    result = {
+      id: c.id, name: c.name, storyline: c.storyline, faction: c.faction,
+      snapshots: [snap], activeSnapshotId: snap.id
+    };
+  }
+  // character-level system-sheet fields
+  if(result.mythos === undefined) result.mythos = '';
+  if(!result.relationships) result.relationships = [];
+  if(typeof result.storyArc !== 'object' || result.storyArc === null || Array.isArray(result.storyArc)){
+    const oldArcText = typeof result.storyArc === 'string' ? result.storyArc : '';
+    result.storyArc = {
+      currentObjective: '', currentArc: oldArcText, currentDevelopment: '',
+      majorTurningPoints: [], completedDevelopments: [], direction: ''
+    };
+  } else {
+    const sa = result.storyArc;
+    if(sa.currentObjective === undefined) sa.currentObjective = '';
+    if(sa.currentArc === undefined) sa.currentArc = '';
+    if(sa.currentDevelopment === undefined) sa.currentDevelopment = '';
+    if(!Array.isArray(sa.majorTurningPoints)) sa.majorTurningPoints = [];
+    if(!Array.isArray(sa.completedDevelopments)) sa.completedDevelopments = [];
+    if(sa.direction === undefined) sa.direction = '';
+  }
+  if(!Array.isArray(result.knowledge)) result.knowledge = [];
+  if(!Array.isArray(result.secrets)) result.secrets = [];
+  if(result.corruptionColor === undefined) result.corruptionColor = '';
+  if(result.authority === undefined) result.authority = '';
+  if(result.divineStatus === undefined) result.divineStatus = '';
+  // snapshot-level system-sheet fields
+  result.snapshots = result.snapshots.map(s => ({
+    ...s,
+    stats: s.stats || {},
+    inventory: (s.inventory || []).map(it => {
+      if(typeof it === 'string'){
+        return { id: 'inv_' + Math.random().toString(36).slice(2), name: it, desc: '', icon: '', image: '' };
+      }
+      return {
+        id: it.id || ('inv_' + Math.random().toString(36).slice(2)),
+        name: it.name || '', desc: it.desc || '', icon: it.icon || '', image: it.image || ''
+      };
+    }),
+    skills: (s.skills || []).map(sk => ({ name: sk.name, desc: sk.desc || '', level: sk.level != null ? sk.level : 0, corrupted: !!sk.corrupted })),
+    titles: (s.titles || []).map(t => {
+      if(typeof t === 'string') return { name: t, rankTier: 0, blurb: '' };
+      return { name: t.name || '', rankTier: t.rankTier || 0, blurb: t.blurb || '' };
+    }),
+    emotionalState: s.emotionalState || '',
+    portraitPosition: s.portraitPosition || { x: 50, y: 50 },
+    systemPortrait: s.systemPortrait || '',
+    systemPortraitPosition: s.systemPortraitPosition || { x: 50, y: 50 }
+  }));
+  return result;
+}
+
+async function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      const parsed = JSON.parse(raw);
+      parsed.characters = (parsed.characters || []).map(migrateCharacter);
+      parsed.generationStates = parsed.generationStates || [];
+      state = parsed;
+    }
+  }catch(e){
+    state = { characters: [], activeId: null, generationStates: [] };
+  }
+}
+
+async function persistState(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }catch(e){
+    console.error('Could not save profiles', e);
+    if(e && (e.name === 'QuotaExceededError' || e.code === 22)){
+      showToast('Storage is full — try removing an old portrait, item image, or chapter to free up space.', { duration: 6500 });
+    } else {
+      showToast('Could not save your changes. Please try again.', { duration: 5500 });
+    }
+  }
+}
+
+// ============================================================
+// RENDERING
+// ============================================================
+const posterWrap = document.getElementById('posterWrap');
+const rail = document.getElementById('rail');
+const editBtn = document.getElementById('editBtn');
+const deleteBtn = document.getElementById('deleteBtn');
+const newBtn = document.getElementById('newBtn');
+
+function getActiveCharacter(){
+  return state.characters.find(c => c.id === state.activeId) || null;
+}
+function getActiveSnapshot(char){
+  if(!char) return null;
+  return char.snapshots.find(s => s.id === char.activeSnapshotId) || char.snapshots[0];
+}
+
+// ---- Level/progress derived from a 0-100 value (5 levels, 20 points each) ----
+function levelInfo(value){
+  const span = 20;
+  const v = Math.max(0, Math.min(100, value || 0));
+  const lvl = Math.min(5, Math.floor(v / span) + 1);
+  const pct = v >= 100 ? 100 : ((v % span) / span) * 100;
+  return { lvl, pct };
+}
+
+// ---- Rank tiers (title-frame decoration) — track depends on Mythos ----
+const RANK_TRACKS = {
+  Blessed: ['Dormant', 'Awakened', 'Ascended', 'Transcendent', 'Supreme', 'Sacred', 'Divine'],
+  Cursed:  ['Beast', 'Monster', 'Demon', 'Devil', 'Tyrant', 'Terror', 'Titan']
+};
+function rankTrackFor(mythos){ return mythos === 'Cursed' ? RANK_TRACKS.Cursed : RANK_TRACKS.Blessed; }
+function rankLabel(mythos, tier){
+  if(!tier) return '';
+  const track = rankTrackFor(mythos);
+  return track[tier - 1] || '';
+}
+function rankAccent(mythos){ return mythos === 'Cursed' ? 'var(--ember)' : 'var(--gold)'; }
+function rankOptionsHtml(mythos, selectedTier){
+  const track = rankTrackFor(mythos);
+  let opts = `<option value="0" ${!selectedTier ? 'selected' : ''}>— none —</option>`;
+  track.forEach((label, i) => {
+    opts += `<option value="${i + 1}" ${selectedTier == i + 1 ? 'selected' : ''}>${label}</option>`;
+  });
+  return opts;
+}
+
+// ---- Procedural rank-frame ornamentation (gothic banner style, complexity scales with tier 1-7) ----
+function rankSpikes(count, x0, x1, yBase, dir, len){
+  // dir: 1 = spikes point downward (from a top edge), -1 = point upward (from a bottom edge)
+  let out = '';
+  const step = (x1 - x0) / (count + 1);
+  for(let i = 1; i <= count; i++){
+    const x = x0 + step * i;
+    const w = step * 0.5;
+    out += `<polygon points="${x - w / 2},${yBase} ${x + w / 2},${yBase} ${x},${yBase + len * dir}" />`;
+  }
+  return out;
+}
+
+function renderRankFrame(tier, color){
+  // Horizontal banner frame, viewBox 0 0 200 60. Stretches to fill the chip via preserveAspectRatio="none".
+  if(!tier) return '';
+  const sw = 1.4 + tier * 0.28;
+  let shapes = `<rect x="3" y="3" width="194" height="54" rx="5" fill="none" stroke="${color}" stroke-width="${sw}"/>`;
+
+  if(tier >= 2){
+    // end-cap diamonds
+    shapes += `<rect x="6" y="26" width="10" height="10" transform="rotate(45 11 31)" fill="none" stroke="${color}" stroke-width="1.4"/>`;
+    shapes += `<rect x="184" y="26" width="10" height="10" transform="rotate(45 189 31)" fill="none" stroke="${color}" stroke-width="1.4"/>`;
+  }
+  if(tier >= 3){
+    const count = Math.min(tier, 6);
+    shapes += `<g fill="${color}">${rankSpikes(count, 30, 170, 4, -1, 7 + tier)}</g>`;
+  }
+  if(tier >= 5){
+    const count = Math.min(tier - 1, 5);
+    shapes += `<g fill="${color}">${rankSpikes(count, 35, 165, 56, 1, 6 + tier * 0.6)}</g>`;
+  }
+  if(tier >= 4){
+    shapes += `<rect x="94" y="-4" width="12" height="12" transform="rotate(45 100 2)" fill="${color}" style="filter:drop-shadow(0 0 5px ${color})"/>`;
+  }
+  if(tier >= 6){
+    shapes += `<polygon points="14,4 6,-10 22,2" fill="${color}" style="filter:drop-shadow(0 0 3px ${color})"/>`;
+    shapes += `<polygon points="186,4 194,-10 178,2" fill="${color}" style="filter:drop-shadow(0 0 3px ${color})"/>`;
+  }
+  if(tier >= 7){
+    shapes += `<polygon points="100,-16 94,0 106,0" fill="${color}" style="filter:drop-shadow(0 0 6px ${color})"/>`;
+    shapes += `<polygon points="86,-10 82,2 92,2" fill="${color}" opacity="0.85"/>`;
+    shapes += `<polygon points="114,-10 118,2 108,2" fill="${color}" opacity="0.85"/>`;
+  }
+
+  return `<svg class="rank-frame-svg" viewBox="0 0 200 60" preserveAspectRatio="none">${shapes}</svg>`;
+}
+
+function renderRankFrameVertical(tier, color){
+  // Vertical banner frame, viewBox 0 0 120 220 — used for the expanded (tall) avatar.
+  if(!tier) return '';
+  const sw = 1.4 + tier * 0.28;
+  let shapes = `<rect x="3" y="3" width="114" height="214" rx="8" fill="none" stroke="${color}" stroke-width="${sw}"/>`;
+
+  if(tier >= 2){
+    shapes += `<rect x="55" y="6" width="10" height="10" transform="rotate(45 60 11)" fill="none" stroke="${color}" stroke-width="1.4"/>`;
+    shapes += `<rect x="55" y="204" width="10" height="10" transform="rotate(45 60 209)" fill="none" stroke="${color}" stroke-width="1.4"/>`;
+  }
+  if(tier >= 3){
+    const count = Math.min(tier, 6);
+    const step = 180 / (count + 1);
+    for(let i = 1; i <= count; i++){
+      const y = 20 + step * i;
+      shapes += `<polygon points="3,${y - 5} 3,${y + 5} ${3 - (7 + tier)},${y}" fill="${color}"/>`;
+      shapes += `<polygon points="117,${y - 5} 117,${y + 5} ${117 + (7 + tier)},${y}" fill="${color}"/>`;
+    }
+  }
+  if(tier >= 4){
+    shapes += `<rect x="54" y="-6" width="12" height="12" transform="rotate(45 60 0)" fill="${color}" style="filter:drop-shadow(0 0 5px ${color})"/>`;
+  }
+  if(tier >= 6){
+    shapes += `<polygon points="18,4 6,-10 24,0" fill="${color}" style="filter:drop-shadow(0 0 3px ${color})"/>`;
+    shapes += `<polygon points="102,4 114,-10 96,0" fill="${color}" style="filter:drop-shadow(0 0 3px ${color})"/>`;
+  }
+  if(tier >= 7){
+    shapes += `<polygon points="60,-20 54,-4 66,-4" fill="${color}" style="filter:drop-shadow(0 0 6px ${color})"/>`;
+  }
+
+  return `<svg class="rank-frame-svg" viewBox="0 0 120 220" preserveAspectRatio="none">${shapes}</svg>`;
+}
+
+function renderRankFrameCircle(tier, color){
+  // Circular frame for the default (unexpanded) avatar.
+  if(!tier) return '';
+  const size = 160, c = size / 2, r = 72;
+  const sw = 1.6 + tier * 0.3;
+  let shapes = `<circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="${color}" stroke-width="${sw}"/>`;
+
+  if(tier >= 3){
+    const count = Math.min(3 + tier, 14);
+    for(let i = 0; i < count; i++){
+      const a = (Math.PI * 2 / count) * i;
+      const len = 6 + tier;
+      const x1 = c + Math.cos(a) * r, y1 = c + Math.sin(a) * r;
+      const x2 = c + Math.cos(a) * (r + len), y2 = c + Math.sin(a) * (r + len);
+      shapes += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="1.6"/>`;
+    }
+  }
+  if(tier >= 4){
+    shapes += `<rect x="${c - 6}" y="${c - r - 16}" width="12" height="12" transform="rotate(45 ${c} ${c - r - 10})" fill="${color}" style="filter:drop-shadow(0 0 5px ${color})"/>`;
+  }
+  if(tier >= 6){
+    shapes += `<polygon points="${c - r + 8},${c - r + 20} ${c - r - 6},${c - r - 2} ${c - r + 22},${c - r + 6}" fill="${color}" style="filter:drop-shadow(0 0 3px ${color})"/>`;
+    shapes += `<polygon points="${c + r - 8},${c - r + 20} ${c + r + 6},${c - r - 2} ${c + r - 22},${c - r + 6}" fill="${color}" style="filter:drop-shadow(0 0 3px ${color})"/>`;
+  }
+  if(tier >= 7){
+    shapes += `<polygon points="${c},${c - r - 26} ${c - 6},${c - r - 8} ${c + 6},${c - r - 8}" fill="${color}" style="filter:drop-shadow(0 0 6px ${color})"/>`;
+  }
+
+  return `<svg class="rank-frame-svg" viewBox="0 0 ${size} ${size}" preserveAspectRatio="none">${shapes}</svg>`;
+}
+
+// ---- Stats radar chart (SVG) ----
+const STAT_LABELS = ['Power', 'Will', 'Cunning', 'Faith', 'Corruption', 'Renown'];
+// Shared defaults for a brand-new snapshot's non-identity fields (stats/inventory/etc.),
+// used both for a character's very first snapshot and as a fallback when a chapter
+// version has no prior snapshot to carry forward from.
+function defaultSnapExtras(){
+  const stats = {};
+  STAT_LABELS.forEach(l => { stats[l] = 0; });
+  return {
+    stats, inventory: [], skills: [], titles: [], emotionalState: '',
+    portraitPosition: { x: 50, y: 50 }, systemPortrait: '', systemPortraitPosition: { x: 50, y: 50 }
+  };
+}
+
+function renderRadar(stats){
+  const size = 220, center = size / 2, radius = size / 2 - 30;
+  const angleStep = (Math.PI * 2) / STAT_LABELS.length;
+
+  function pointAt(i, frac){
+    const angle = -Math.PI / 2 + i * angleStep;
+    return {
+      x: center + radius * frac * Math.cos(angle),
+      y: center + radius * frac * Math.sin(angle)
+    };
+  }
+
+  let gridPolys = '';
+  [0.25, 0.5, 0.75, 1].forEach(l => {
+    const pts = STAT_LABELS.map((_, i) => { const p = pointAt(i, l); return `${p.x},${p.y}`; }).join(' ');
+    gridPolys += `<polygon points="${pts}" fill="none" style="stroke:var(--line)" stroke-width="1"/>`;
+  });
+
+  let axisLines = '', labels = '';
+  STAT_LABELS.forEach((label, i) => {
+    const p = pointAt(i, 1);
+    axisLines += `<line x1="${center}" y1="${center}" x2="${p.x}" y2="${p.y}" style="stroke:var(--line)" stroke-width="1"/>`;
+    const lp = pointAt(i, 1.18);
+    labels += `<text x="${lp.x}" y="${lp.y}" font-size="9.5" style="fill:var(--dust)" text-anchor="middle" dominant-baseline="middle" font-family="Space Mono, monospace">${label.toUpperCase()}</text>`;
+  });
+
+  const dataPts = STAT_LABELS.map((label, i) => {
+    const val = (stats && stats[label] != null) ? stats[label] : 0;
+    const p = pointAt(i, Math.max(0, Math.min(100, val)) / 100);
+    return `${p.x},${p.y}`;
+  }).join(' ');
+
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+    ${gridPolys}${axisLines}
+    <polygon points="${dataPts}" style="fill:var(--ember-soft); stroke:var(--ember)" stroke-width="2"/>
+    ${labels}
+  </svg>`;
+}
+
+// ---- Skill tree (radial node graph, Rise-of-the-Shield-Hero style) ----
+const DEFAULT_CORRUPTION_COLOR = '#b3492e';
+
+// mode: null = use each skill's own corrupted flag; 'corrupted' = force all to corruptionColor; 'normal' = force all to bone
+function renderSkillTree(skills, corruptionColor, mode){
+  if(!skills.length) return '';
+  const size = 340;
+  const cx = size / 2, cy = size / 2;
+  const outer = skills.slice(1);
+  const outerRadius = outer.length ? Math.min(140, 90 + outer.length * 4) : 0;
+  const nodeR = 30, centerR = 36;
+  const cColor = corruptionColor || DEFAULT_CORRUPTION_COLOR;
+
+  function colorFor(skill){
+    if(mode === 'corrupted') return cColor;
+    if(mode === 'normal') return 'var(--bone)';
+    return skill.corrupted ? cColor : 'var(--bone)';
+  }
+
+  function spikes(x, y, r, col){
+    let out = '';
+    for(let i = 0; i < 8; i++){
+      const a = i * (Math.PI / 4);
+      const x1 = x + Math.cos(a) * (r + 2), y1 = y + Math.sin(a) * (r + 2);
+      const x2 = x + Math.cos(a) * (r + 7), y2 = y + Math.sin(a) * (r + 7);
+      out += `<line class="spike-line" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" style="stroke:${col}" stroke-width="1.5" opacity="0.55"/>`;
+    }
+    return out;
+  }
+
+  function nodeGroup(idx, x, y, r, skill, dx, dy){
+    const c = colorFor(skill);
+    return `<g class="skill-node" data-idx="${idx}" style="transform-origin:${x}px ${y}px; --dx:${dx}px; --dy:${dy}px;">
+      <g class="node-visual" style="transform-origin:${x}px ${y}px;">
+        ${spikes(x, y, r, c)}
+        <circle class="ring-outer" cx="${x}" cy="${y}" r="${r}" fill="var(--ink)" style="stroke:${c}; color:${c};" stroke-width="2"/>
+        <circle class="ring-inner" cx="${x}" cy="${y}" r="${r - 6}" fill="none" style="stroke:${c}" stroke-width="1" opacity="0.5"/>
+        <text class="node-label" x="${x}" y="${y + 4}" text-anchor="middle" style="fill:${c}">LV${levelInfo(skill.level).lvl}</text>
+      </g>
+    </g>`;
+  }
+
+  let lines = '', nodes = nodeGroup(0, cx, cy, centerR, skills[0], 0, 0);
+
+  outer.forEach((s, i) => {
+    const angle = -Math.PI / 2 + i * (Math.PI * 2 / outer.length);
+    const x = cx + outerRadius * Math.cos(angle);
+    const y = cy + outerRadius * Math.sin(angle);
+    lines += `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" style="stroke:var(--line)" stroke-width="1.5"/>`;
+    nodes += nodeGroup(i + 1, x, y, nodeR, s, cx - x, cy - y);
+  });
+
+  return `<svg class="skill-tree-svg" width="100%" height="${size}" viewBox="0 0 ${size} ${size}">
+    <g id="skillRotateGroup" style="transform-origin:${cx}px ${cy}px;">${lines}${nodes}</g>
+  </svg>`;
+}
+
+function wireSkillTooltips(skills){
+  const tooltip = document.getElementById('skillTooltip');
+  document.querySelectorAll('.skill-node').forEach(node => {
+    const skill = skills[parseInt(node.dataset.idx)];
+    node.addEventListener('mouseenter', () => {
+      const lvl = levelInfo(skill.level).lvl;
+      tooltip.innerHTML = `<strong>${escapeHtml(skill.name)} — LV${lvl}${skill.corrupted ? ' · CORRUPTED' : ''}</strong>${escapeHtml(skill.desc || '')}`;
+      tooltip.classList.add('visible');
+    });
+    node.addEventListener('mousemove', (e) => {
+      let x = e.clientX + 16, y = e.clientY + 16;
+      if(x + 240 > window.innerWidth) x = e.clientX - 240 - 16;
+      tooltip.style.left = x + 'px';
+      tooltip.style.top = y + 'px';
+    });
+    node.addEventListener('mouseleave', () => tooltip.classList.remove('visible'));
+  });
+}
+
+// ---- Title rows: flush archival record lines, tier shown as a small readout + tick bar ----
+function renderTitleChip(t, mythos, idx){
+  const tier = t.rankTier || 0;
+  if(tier > 0){
+    const ticks = Array.from({ length: 7 }, (_, i) => `<i class="tick${i < tier ? ' on' : ''}"></i>`).join('');
+    return `<div class="title-chip rank-chip" data-tier="${tier}" data-title-idx="${idx}">
+      <span class="chip-label">${escapeHtml(t.name)}</span>
+      <span class="chip-tier">${escapeHtml(rankLabel(mythos, tier))}</span>
+      <span class="tick-bar">${ticks}</span>
+    </div>`;
+  }
+  return `<div class="title-chip" data-title-idx="${idx}"><span class="chip-label">${escapeHtml(t.name)}</span></div>`;
+}
+
+// ---- Static registration/corner-mark overlay for the record photo frame (not tier-based) ----
+function renderCornerMarks(){
+  return `<svg class="tb-corner-marks" viewBox="0 0 100 100" preserveAspectRatio="none">
+    <g stroke="var(--dust)" stroke-width="0.6" fill="none" opacity="0.8">
+      <path d="M0,6 L0,0 L6,0" vector-effect="non-scaling-stroke"/>
+      <path d="M94,0 L100,0 L100,6" vector-effect="non-scaling-stroke"/>
+      <path d="M100,94 L100,100 L94,100" vector-effect="non-scaling-stroke"/>
+      <path d="M6,100 L0,100 L0,94" vector-effect="non-scaling-stroke"/>
+    </g>
+  </svg>`;
+}
+
+function wireTitleChipTooltips(titles, mythos){
+  const tooltip = document.getElementById('skillTooltip');
+  document.querySelectorAll('.title-chip.rank-chip').forEach(el => {
+    const t = titles[parseInt(el.dataset.titleIdx)];
+    if(!t) return;
+    const label = rankLabel(mythos, t.rankTier);
+    el.addEventListener('mouseenter', () => {
+      tooltip.innerHTML = `<strong>${escapeHtml(t.name)} — ${escapeHtml(label)}</strong>${t.blurb ? escapeHtml(t.blurb) : 'No account yet of how this title was earned.'}`;
+      tooltip.classList.add('visible');
+    });
+    el.addEventListener('mousemove', (e) => {
+      let x = e.clientX + 16, y = e.clientY + 16;
+      if(x + 240 > window.innerWidth) x = e.clientX - 240 - 16;
+      tooltip.style.left = x + 'px';
+      tooltip.style.top = y + 'px';
+    });
+    el.addEventListener('mouseleave', () => tooltip.classList.remove('visible'));
+  });
+}
+
+// ---- Corruption view toggle: merge to center, spin, diverge back out recolored ----
+function toggleCorruptionView(charId, mode){
+  const char = state.characters.find(c => c.id === charId);
+  if(!char || skillViewOverride[charId] === mode) return;
+
+  const wrap = document.querySelector('.skill-tree-wrap');
+  const rotateGroup = document.getElementById('skillRotateGroup');
+  if(!wrap || !rotateGroup){
+    skillViewOverride[charId] = mode;
+    renderSystemSection();
+    return;
+  }
+
+  const targetColor = mode === 'corrupted' ? (char.corruptionColor || DEFAULT_CORRUPTION_COLOR) : 'var(--bone)';
+  const nodes = wrap.querySelectorAll('.skill-node');
+
+  // phase 1: converge outer nodes toward the center node
+  nodes.forEach(n => { if(n.dataset.idx !== '0') n.classList.add('converge'); });
+
+  setTimeout(() => {
+    // phase 2: spin the merged cluster
+    rotateGroup.classList.add('spinning');
+
+    setTimeout(() => {
+      // phase 3: recolor every node, then let them diverge back to position
+      nodes.forEach(n => {
+        n.querySelectorAll('.ring-outer, .ring-inner, .spike-line').forEach(el => { el.style.stroke = targetColor; el.style.color = targetColor; });
+        n.querySelectorAll('.node-label').forEach(el => { el.style.fill = targetColor; });
+      });
+      rotateGroup.classList.remove('spinning');
+      nodes.forEach(n => n.classList.remove('converge'));
+
+      setTimeout(() => {
+        skillViewOverride[charId] = mode;
+        renderSystemSection();
+      }, 600);
+    }, 650);
+  }, 550);
+}
+
+async function setCorruptionColor(charId, colorValue){
+  const char = state.characters.find(c => c.id === charId);
+  if(!char) return;
+  char.corruptionColor = colorValue;
+  await persistState();
+  renderSystemSection();
+}
+
+// ---- Mini system windows: fast, single-purpose edit shortcuts, stacked on their originals ----
+let mwCollapsedState = {};
+function isMwCollapsed(char, key){ return !!mwCollapsedState[char.id + ':' + key]; }
+function toggleMwCollapsed(charId, key, btn){
+  const k = charId + ':' + key;
+  const collapsed = !mwCollapsedState[k];
+  mwCollapsedState[k] = collapsed;
+  const win = btn ? btn.closest('.mini-window') : document.querySelector(`.mini-window[data-mw-key="${key}"]`);
+  if(win){
+    win.classList.toggle('collapsed', collapsed);
+    const toggleBtn = win.querySelector('.mw-toggle');
+    if(toggleBtn){
+      toggleBtn.textContent = collapsed ? '+' : '–';
+      toggleBtn.title = collapsed ? 'Expand' : 'Hide';
+    }
+  } else {
+    renderSystemSection();
+  }
+}
+
+function miniWindow(char, key, filename, label, bodyHtml, openBtnId){
+  const collapsed = isMwCollapsed(char, key);
+  return `
+    <div class="mini-window ${collapsed ? 'collapsed' : ''}" data-mw-key="${key}">
+      <div class="mw-titlebar">
+        <span class="mw-titlebar-left">
+          <button type="button" class="mw-toggle" onclick="toggleMwCollapsed('${char.id}','${key}', this)" title="${collapsed ? 'Expand' : 'Hide'}">${collapsed ? '+' : '–'}</button>
+          <span>${filename}</span>
+        </span>
+        <span class="mw-x">×</span>
+      </div>
+      <div class="mw-body">
+        <div class="mw-label">${label}</div>
+        ${bodyHtml}
+        <button type="button" class="mw-open" id="${openBtnId}">OPEN →</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderMiniWindows(char, snap){
+  const statRows = STAT_LABELS.map(label => {
+    const val = (snap.stats && snap.stats[label] != null) ? snap.stats[label] : 0;
+    const { lvl } = levelInfo(val);
+    return `<div class="mw-stat-row"><span>${label}</span><span>LV${lvl}</span></div>`;
+  }).join('');
+
+  const identityDesc = [char.mythos || null, snap.emotionalState || null].filter(Boolean).join(' · ') || 'Not yet defined.';
+  const skillsDesc = snap.skills.length
+    ? `${snap.skills.length} skill${snap.skills.length === 1 ? '' : 's'} tracked. Levels, corruption states, descriptions.`
+    : 'No skills recorded yet.';
+  const inventoryDesc = snap.inventory.length
+    ? `${snap.inventory.length} item${snap.inventory.length === 1 ? '' : 's'} archived. Icons, photos, descriptions.`
+    : 'Nothing carried yet.';
+  const relDesc = char.relationships.length
+    ? `${char.relationships.length} relationship${char.relationships.length === 1 ? '' : 's'} logged.`
+    : 'No relationships recorded yet.';
+  const arcPreviewSrc = char.storyArc.currentObjective || char.storyArc.currentArc || '';
+  const arcPreview = arcPreviewSrc
+    ? (arcPreviewSrc.length > 70 ? arcPreviewSrc.slice(0, 70).trim() + '…' : arcPreviewSrc)
+    : 'Nothing drafted yet.';
+  const knowledgeDesc = (char.knowledge.length || char.secrets.length)
+    ? `${char.knowledge.length} known · ${char.secrets.length} secret${char.secrets.length === 1 ? '' : 's'}.`
+    : 'Nothing recorded yet.';
+
+  return {
+    identity: miniWindow(char, 'identity', 'IDENTITY.EXE', 'Mythos · state · titles', `<div class="mw-desc bone">${escapeHtml(identityDesc)}</div>`, 'mwOpenIdentity'),
+    stats: miniWindow(char, 'stats', 'STATS.EXE', 'Character stats', `<div class="mw-stat-table">${statRows}</div>`, 'mwOpenStats'),
+    skills: miniWindow(char, 'skills', 'SKILLS.EXE', 'Abilities', `<div class="mw-desc ember">${escapeHtml(skillsDesc)}</div>`, 'mwOpenSkills'),
+    arc: miniWindow(char, 'arc', 'ARC.EXE', 'Story arc draft', `<div class="mw-desc ember">${escapeHtml(arcPreview)}</div>`, 'mwOpenArc'),
+    knowledge: miniWindow(char, 'knowledge', 'KNOWLEDGE.EXE', 'Knowledge · secrets', `<div class="mw-desc verdigris">${escapeHtml(knowledgeDesc)}</div>`, 'mwOpenKnowledge'),
+    inventory: miniWindow(char, 'inventory', 'INVENTORY.EXE', 'Archive', `<div class="mw-desc verdigris">${escapeHtml(inventoryDesc)}</div>`, 'mwOpenInventory'),
+    relationships: miniWindow(char, 'relationships', 'RELATIONSHIPS.EXE', 'Ties', `<div class="mw-desc bone">${escapeHtml(relDesc)}</div>`, 'mwOpenRelationships')
+  };
+}
+
+// ---- System section (stats / inventory / skills / titles / relationships / arc) ----
+function renderSystemSection(){
+  const container = document.getElementById('systemSection');
+  const char = getActiveCharacter();
+  if(!char){ container.innerHTML = ''; return; }
+  const snap = getActiveSnapshot(char);
+  const portraitSrc = snap.systemPortrait || snap.portrait || SILHOUETTE_SVG;
+  const sPos = snap.systemPortraitPosition || { x: 50, y: 50 };
+  const windows = renderMiniWindows(char, snap);
+
+  const sortedTitles = [...snap.titles].sort((a, b) => (b.rankTier || 0) - (a.rankTier || 0));
+  const isDivine = !!char.divineStatus;
+  const recordIndex = String(state.characters.findIndex(c => c.id === char.id) + 1).padStart(3, '0');
+  const accent = char.mythos === 'Blessed' ? 'var(--gold)' : (char.mythos === 'Cursed' ? 'var(--ember)' : 'var(--dust)');
+  const statusLabel = char.mythos ? char.mythos.toUpperCase() : 'UNCLASSIFIED';
+  const divineStatuses = ['Fallen', 'Outer', 'Split'];
+
+  container.innerHTML = `
+    <div class="section-label">SYSTEM — ${escapeHtml(char.name || 'Unnamed')}</div>
+    <div class="terminal-banner" style="--accent:${accent}">
+      ${windows.identity}
+      <div class="tb-head">
+        <span class="tb-record">${isDivine ? 'DIVINE RECORD' : 'CHARACTER RECORD'} // ${recordIndex}</span>
+        <span class="tb-status">● ${escapeHtml(statusLabel)}</span>
+      </div>
+      <div class="tb-body">
+        <div class="avatar-wrap" id="avatarWrap">
+          <div class="avatar-clip">
+            <img src="${portraitSrc}" alt="${escapeHtml(char.name)}" style="object-position:${sPos.x}% ${sPos.y}%;">
+            <div class="expand-hint">CLICK TO EXPAND</div>
+          </div>
+          <div class="tb-portrait-label">${isDivine ? 'STATUE' : 'PORTRAIT'}</div>
+          ${renderCornerMarks()}
+          <button class="reposition-btn avatar-edit-btn" id="editAvatarImageBtn" title="Change or reposition this picture">⤡</button>
+        </div>
+        <div class="tb-identity">
+          <div class="tb-name display">${escapeHtml(char.name || 'Unnamed')}</div>
+          ${sortedTitles.length ? `<div class="titles-row">${sortedTitles.map((t, idx) => renderTitleChip(t, char.mythos, idx)).join('')}</div>` : ''}
+        </div>
+      </div>
+      <div class="tb-strip">
+        ${isDivine ? `
+        <div class="tb-field">
+          <span class="tb-field-label">AUTHORITY</span>
+          <span class="tb-field-value${char.authority ? '' : ' empty'}">${char.authority ? escapeHtml(char.authority) : 'Unrecorded'}</span>
+        </div>` : ''}
+        <div class="tb-field">
+          <span class="tb-field-label">EMOTIONAL STATE</span>
+          <span class="tb-field-value${snap.emotionalState ? '' : ' empty'}">${snap.emotionalState ? escapeHtml(snap.emotionalState) : 'Unrecorded'}</span>
+        </div>
+        <div class="tb-field">
+          <span class="tb-field-label">FACTION</span>
+          <span class="tb-field-value${char.faction ? '' : ' empty'}">${char.faction ? escapeHtml(char.faction) : 'Unassigned'}</span>
+        </div>
+      </div>
+      ${isDivine ? `
+      <div class="tb-divine-strip">
+        <span class="tb-divine-label">DIVINE STATUS</span>
+        <span class="tb-divine-marks">
+          ${divineStatuses.map(ds => `<span class="tb-divine-mark${char.divineStatus === ds ? ' active' : ''}">[${char.divineStatus === ds ? '●' : '○'} ${ds.toUpperCase()}]</span>`).join('')}
+        </span>
+      </div>` : ''}
+    </div>
+
+    <div class="system-grid">
+      <div class="sys-panel-wrap">
+        ${windows.stats}
+        <div class="sys-panel">
+        <div class="panel-titlebar"><span>STATS</span><span class="x">×</span></div>
+        <div class="panel-body">
+          <div class="radar-wrap">${renderRadar(snap.stats)}</div>
+          <div class="stat-bars">
+            ${STAT_LABELS.map(label => {
+              const val = (snap.stats && snap.stats[label] != null) ? snap.stats[label] : 0;
+              const { lvl, pct } = levelInfo(val);
+              return `<div class="stat-bar-row">
+                <span class="stat-label">${label}</span>
+                <span class="lv-tag">LV${lvl}</span>
+                <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+        </div>
+      </div>
+
+      <div class="sys-panel-wrap">
+        ${windows.skills}
+        <div class="sys-panel">
+        <div class="panel-titlebar"><span>SKILLS</span><span class="x">×</span></div>
+        <div class="panel-body">
+          ${(() => {
+            const corruptionStat = (snap.stats && snap.stats['Corruption']) || 0;
+            const showToggle = corruptionStat > 50 && snap.skills.length > 0;
+            if(!showToggle) return '';
+            if(skillViewOverride[char.id] === undefined) skillViewOverride[char.id] = 'corrupted';
+            const mode = skillViewOverride[char.id];
+            return `<div class="corruption-toggle-row">
+              <span class="toggle-label">VIEW</span>
+              <button class="toggle-btn ${mode === 'normal' ? 'active' : ''}" onclick="toggleCorruptionView('${char.id}','normal')">NORMAL</button>
+              <button class="toggle-btn ${mode === 'corrupted' ? 'active' : ''}" onclick="toggleCorruptionView('${char.id}','corrupted')">CORRUPTED</button>
+              <input type="color" class="color-picker-input" id="corruptionColorPicker" value="${char.corruptionColor || DEFAULT_CORRUPTION_COLOR}" title="Corruption color" onchange="setCorruptionColor('${char.id}', this.value)">
+            </div>`;
+          })()}
+          ${snap.skills.length
+            ? `<div class="skill-tree-wrap">${renderSkillTree(snap.skills, char.corruptionColor, (snap.stats && snap.stats['Corruption'] > 50) ? skillViewOverride[char.id] : null)}</div>`
+            : `<div class="sys-empty">No skills recorded yet.</div>`}
+        </div>
+        </div>
+      </div>
+
+      <div class="sys-panel-wrap">
+        ${windows.arc}
+        <div class="sys-panel">
+        <div class="panel-titlebar"><span>STORY ARC</span><span class="x">×</span></div>
+        <div class="panel-body">
+          ${(() => {
+            const sa = char.storyArc;
+            const hasAny = sa.currentObjective || sa.currentArc || sa.currentDevelopment || sa.direction || sa.majorTurningPoints.length || sa.completedDevelopments.length;
+            if(!hasAny) return `<div class="sys-empty">Nothing drafted yet.</div>`;
+            return `
+              ${sa.currentObjective ? `<div class="arc-field"><span class="arc-field-label">Current objective</span><div class="arc-field-value">${escapeHtml(sa.currentObjective)}</div></div>` : ''}
+              ${sa.currentArc ? `<div class="arc-field"><span class="arc-field-label">Current arc</span><div class="arc-field-value">${escapeHtml(sa.currentArc)}</div></div>` : ''}
+              ${sa.currentDevelopment ? `<div class="arc-field"><span class="arc-field-label">Current development</span><div class="arc-field-value">${escapeHtml(sa.currentDevelopment)}</div></div>` : ''}
+              ${sa.majorTurningPoints.length ? `<div class="arc-field"><span class="arc-field-label">Major turning points</span><ul class="arc-list">${sa.majorTurningPoints.map(p => `<li>${escapeHtml(p)}</li>`).join('')}</ul></div>` : ''}
+              ${sa.completedDevelopments.length ? `<div class="arc-field"><span class="arc-field-label">Completed developments</span><ul class="arc-list">${sa.completedDevelopments.map(p => `<li>${escapeHtml(p)}</li>`).join('')}</ul></div>` : ''}
+              ${sa.direction ? `<div class="arc-field"><span class="arc-field-label">Direction</span><div class="arc-field-value">${escapeHtml(sa.direction)}</div></div>` : ''}
+            `;
+          })()}
+        </div>
+        </div>
+      </div>
+
+      <div class="sys-panel-wrap">
+        ${windows.knowledge}
+        <div class="sys-panel">
+        <div class="panel-titlebar"><span>KNOWLEDGE &amp; SECRETS</span><span class="x">×</span></div>
+        <div class="panel-body">
+          <div class="know-sec-block">
+            <span class="arc-field-label">Knowledge</span>
+            ${char.knowledge.length
+              ? `<ul class="knowledge-list">${char.knowledge.map(k => `<li>${escapeHtml(k)}</li>`).join('')}</ul>`
+              : `<div class="sys-empty">Nothing known yet.</div>`}
+          </div>
+          <div class="know-sec-block">
+            <span class="arc-field-label">Secrets</span>
+            ${char.secrets.length
+              ? `<ul class="secrets-list">${char.secrets.map(s => `<li><div class="secret-text">${escapeHtml(s.text)}</div><div class="secret-meta${s.characterKnows ? ' known' : ''}">Character knows: ${s.characterKnows ? 'Yes' : 'No'} · Known by: ${escapeHtml(s.knownBy || '—')}</div></li>`).join('')}</ul>`
+              : `<div class="sys-empty">No secrets recorded yet.</div>`}
+          </div>
+        </div>
+        </div>
+      </div>
+
+      <div class="sys-panel-wrap">
+        ${windows.inventory}
+        <div class="sys-panel">
+        <div class="panel-titlebar"><span>INVENTORY</span><span class="x">×</span></div>
+        <div class="panel-body">
+          ${snap.inventory.length
+            ? `<div class="archive-list">${snap.inventory.map(item => `
+                <div class="archive-item">
+                  <div class="archive-icon">${item.icon ? `<img src="${item.icon}" alt="">` : ''}</div>
+                  <div class="archive-body">
+                    <div class="archive-title">${escapeHtml(item.name || 'Untitled item')}</div>
+                    ${item.desc ? `<div class="archive-desc">${escapeHtml(item.desc)}</div>` : ''}
+                  </div>
+                  ${item.image ? `<div class="archive-photo"><img src="${item.image}" alt=""></div>` : ''}
+                </div>
+              `).join('')}</div>`
+            : `<div class="sys-empty">Nothing carried yet.</div>`}
+        </div>
+        </div>
+      </div>
+
+      <div class="sys-panel-wrap">
+        ${windows.relationships}
+        <div class="sys-panel">
+        <div class="panel-titlebar"><span>RELATIONSHIPS</span><span class="x">×</span></div>
+        <div class="panel-body">
+          ${char.relationships.length
+            ? `<ul class="relationship-list">${char.relationships.map(r => `<li><div class="rel-name">${escapeHtml(r.name)}<span class="rel-tag">${escapeHtml(r.relation || '')}</span></div>${r.note ? `<div class="rel-note">${escapeHtml(r.note)}</div>` : ''}</li>`).join('')}</ul>`
+            : `<div class="sys-empty">No relationships recorded yet.</div>`}
+        </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:22px;">
+      <button class="btn primary" id="editSystemBtn">Edit system sheet</button>
+    </div>
+  `;
+
+  document.getElementById('avatarWrap').addEventListener('click', () => {
+    document.getElementById('avatarWrap').classList.toggle('expanded');
+  });
+  document.getElementById('editAvatarImageBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    openAvatarImageModal(char, snap);
+  });
+  document.getElementById('editSystemBtn').addEventListener('click', () => openSystemForm(char, snap));
+  document.getElementById('mwOpenIdentity').addEventListener('click', () => { const c=getActiveCharacter(); openIdentityForm(c, getActiveSnapshot(c)); });
+  document.getElementById('mwOpenStats').addEventListener('click', () => { const c=getActiveCharacter(); openStatsOnlyForm(c, getActiveSnapshot(c)); });
+  document.getElementById('mwOpenSkills').addEventListener('click', () => { const c=getActiveCharacter(); openSkillsOnlyForm(c, getActiveSnapshot(c)); });
+  document.getElementById('mwOpenInventory').addEventListener('click', () => { const c=getActiveCharacter(); openInventoryOnlyForm(c, getActiveSnapshot(c)); });
+  document.getElementById('mwOpenRelationships').addEventListener('click', () => { openRelationshipsOnlyForm(getActiveCharacter()); });
+  document.getElementById('mwOpenArc').addEventListener('click', () => { openArcOnlyForm(getActiveCharacter()); });
+  document.getElementById('mwOpenKnowledge').addEventListener('click', () => { openKnowledgeOnlyForm(getActiveCharacter()); });
+  if(snap.skills.length) wireSkillTooltips(snap.skills);
+  if(sortedTitles.some(t => t.rankTier > 0)) wireTitleChipTooltips(sortedTitles, char.mythos);
+}
+
+// ============================================================
+// GENERATION SECTION
+// A separate, structured layer on top of the Dossier: distinguishes
+// STATIC character info (pulled read-only from the Dossier) from
+// TIMELINE-DEPENDENT info (owned here, one record per chapter snapshot).
+// Every timeline entry is tagged with its provenance (author / ai-generated /
+// ai-suggested) and a status (pending / committed / rejected) so nothing
+// the AI proposes becomes canon without confirmation, and rejected proposals
+// never carry into later chapters. Stored in the same state blob under
+// `generationStates`, so any future page reading STORAGE_KEY can retrieve
+// e.g. Character -> CurrentObjective for a given chapter without parsing prose.
+// ============================================================
+const TIMELINE_FIELDS = [
+  { key: 'currentLocation', label: 'Current Location', external: 'Primarily tracked by the future World Map.' },
+  { key: 'currentRelationships', label: 'Current Relationships' },
+  { key: 'currentKnowledge', label: 'Current Knowledge' },
+  { key: 'injuries', label: 'Injuries' },
+  { key: 'possessions', label: 'Possessions' },
+  { key: 'currentObjectives', label: 'Current Objectives' },
+  { key: 'currentAffiliations', label: 'Current Affiliations' },
+  { key: 'recentEvents', label: 'Recent Events', external: 'Primarily tracked by the future Chapter Generator.' },
+  { key: 'characterDevelopment', label: 'Character Development' },
+  { key: 'knownSecrets', label: 'Known Secrets' },
+  { key: 'politicalSocialStatus', label: 'Political / Social Status', external: 'Primarily tracked by the future World Map.' }
+];
+const SOURCE_LABEL = { author: 'AUTHOR', 'ai-generated': 'AI-GENERATED', 'ai-suggested': 'AI-SUGGESTED' };
+
+function emptyTimeline(){
+  const t = {};
+  TIMELINE_FIELDS.forEach(f => { t[f.key] = []; });
+  return t;
+}
+function findGenState(charId, snapshotId){
+  return state.generationStates.find(s => s.characterId === charId && s.snapshotId === snapshotId);
+}
+function makeEntry(text, source){
+  return { id: 'ge_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7), text, source, status: source === 'author' ? 'committed' : 'pending', createdAt: Date.now() };
+}
+// Finds/creates the generation state for the character's currently active snapshot,
+// autofilling timeline fields from the nearest prior chapter's COMMITTED entries only.
+function ensureGenState(char, snap){
+  let gs = findGenState(char.id, snap.id);
+  if(gs) return gs;
+  const idx = char.snapshots.findIndex(s => s.id === snap.id);
+  let priorCommitted = null;
+  for(let i = idx - 1; i >= 0; i--){
+    const cand = findGenState(char.id, char.snapshots[i].id);
+    if(cand && cand.status === 'committed'){ priorCommitted = cand; break; }
+  }
+  const timeline = emptyTimeline();
+  if(priorCommitted){
+    TIMELINE_FIELDS.forEach(f => {
+      timeline[f.key] = priorCommitted.timeline[f.key]
+        .filter(e => e.status === 'committed')
+        .map(e => ({ ...e, id: 'ge_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7) }));
+    });
+  }
+  gs = { id: 'gs_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7), characterId: char.id, snapshotId: snap.id, status: 'draft', timeline, createdAt: Date.now(), committedAt: null };
+  state.generationStates.push(gs);
+  return gs;
+}
+
+function renderGenerationSection(){
+  const char = getActiveCharacter();
+  const container = document.getElementById('generationSection');
+  if(!char){ container.innerHTML = ''; return; }
+  const snap = getActiveSnapshot(char);
+  const gs = ensureGenState(char, snap);
+  const locked = gs.status === 'committed';
+
+  const staticRows = [
+    ['Name', char.name],
+    ['Identity', [char.storyline, char.mythos].filter(Boolean).join(' · ')],
+    ['Faction (baseline)', char.faction],
+    ['Abilities / Titles', (snap.titles || []).map(t => t.name).join(', ')],
+    ['Skills', (snap.skills || []).map(s => s.name).join(', ')],
+    ['Background', [snap.blurb, snap.backstory].filter(Boolean).join(' — ')],
+    ['Core Relationships', (char.relationships || []).map(r => r.name + (r.relation ? ` (${r.relation})` : '')).join(', ')],
+    ['Appearance', ''],
+    ['Personality', '']
+  ];
+
+  container.innerHTML = `
+    <div class="section-label">GENERATION — ${escapeHtml(char.name || 'Unnamed')}</div>
+    <div class="gen-banner">
+      <div class="gen-head">
+        <span class="gen-head-title">CHARACTER STATE // ${escapeHtml(snap.chapterRange || 'This chapter')}</span>
+        <div class="gen-chapter-controls">
+          <span class="gen-status-pill ${gs.status}">${gs.status}</span>
+          ${locked
+            ? `<button class="gen-mini-btn" id="genReopenBtn">Reopen to edit</button>`
+            : `<button class="gen-mini-btn accent" id="genCommitBtn">Commit chapter state</button>`}
+        </div>
+      </div>
+      <div class="gen-body">
+        <div class="gen-columns">
+          <div class="gen-static-col">
+            <div class="gen-col-label">Static — from the Dossier</div>
+            ${staticRows.map(([label, value]) => `
+              <div class="gen-static-row">
+                <div class="gen-static-row-label">${escapeHtml(label)}</div>
+                <div class="gen-static-row-value${value ? '' : ' empty'}">${value ? escapeHtml(value) : 'Not yet captured in the Dossier'}</div>
+              </div>
+            `).join('')}
+            <div class="gen-static-note">Edit these in the Dossier above — they stay the same across chapters.</div>
+          </div>
+          <div class="gen-timeline-col">
+            <div class="gen-col-label">Timeline-dependent — as of ${escapeHtml(snap.chapterRange || 'this chapter')}</div>
+            ${TIMELINE_FIELDS.map(f => renderGenField(f, gs.timeline[f.key], locked)).join('')}
+          </div>
+        </div>
+        <div class="gen-commit-bar">
+          <div class="gen-commit-note">${locked
+            ? 'This chapter state is committed. Later chapters build on its confirmed entries only.'
+            : 'Confirm or reject each proposed entry, then commit — only confirmed entries carry into the next chapter.'}</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  if(locked){
+    document.getElementById('genReopenBtn').addEventListener('click', async () => {
+      gs.status = 'draft';
+      gs.committedAt = null;
+      await persistState();
+      renderGenerationSection();
+    });
+  } else {
+    document.getElementById('genCommitBtn').addEventListener('click', async () => {
+      TIMELINE_FIELDS.forEach(f => {
+        gs.timeline[f.key] = gs.timeline[f.key].filter(e => e.status !== 'pending');
+      });
+      gs.status = 'committed';
+      gs.committedAt = Date.now();
+      await persistState();
+      renderGenerationSection();
+    });
+  }
+
+  if(!locked){
+    TIMELINE_FIELDS.forEach(f => {
+      const addBtn = document.getElementById('genAdd_' + f.key);
+      const genBtn = document.getElementById('genGen_' + f.key);
+      const input = document.getElementById('genInput_' + f.key);
+      if(addBtn) addBtn.addEventListener('click', async () => {
+        const text = input.value.trim();
+        if(!text) return;
+        gs.timeline[f.key].push(makeEntry(text, 'author'));
+        input.value = '';
+        await persistState();
+        renderGenerationSection();
+      });
+      if(input) input.addEventListener('keydown', async (e) => {
+        if(e.key === 'Enter') addBtn.click();
+      });
+      if(genBtn) genBtn.addEventListener('click', async () => {
+        await generateEntryStub(gs, f);
+        renderGenerationSection();
+      });
+    });
+    container.querySelectorAll('.gen-entry-actions button.confirm').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const { field, id } = btn.dataset;
+        const entry = gs.timeline[field].find(e => e.id === id);
+        if(entry) entry.status = 'committed';
+        await persistState();
+        renderGenerationSection();
+      });
+    });
+    container.querySelectorAll('.gen-entry-actions button.reject').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const { field, id } = btn.dataset;
+        gs.timeline[field] = gs.timeline[field].filter(e => e.id !== id);
+        await persistState();
+        renderGenerationSection();
+      });
+    });
+    container.querySelectorAll('.gen-entry-actions button.remove').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const { field, id } = btn.dataset;
+        gs.timeline[field] = gs.timeline[field].filter(e => e.id !== id);
+        await persistState();
+        renderGenerationSection();
+      });
+    });
+  }
+}
+
+function renderGenField(fieldConfig, entries, locked){
+  const { key, label, external } = fieldConfig;
+  return `
+    <div class="gen-field-block">
+      <div class="gen-field-head">
+        <div>
+          <div class="gen-field-title">${escapeHtml(label)}</div>
+          ${external ? `<div class="gen-field-external">${escapeHtml(external)}</div>` : ''}
+        </div>
+        ${!locked ? `<div class="gen-field-actions">
+          <button class="gen-mini-btn" id="genGen_${key}" title="Draft an AI-suggested entry to review">✦ Generate</button>
+        </div>` : ''}
+      </div>
+      <div class="gen-entry-list">
+        ${entries.length ? entries.map(e => `
+          <div class="gen-entry ${e.status}">
+            <span class="gen-tag ${e.source}">${SOURCE_LABEL[e.source]}</span>
+            <span class="gen-entry-text">${escapeHtml(e.text)}</span>
+            ${!locked ? `<span class="gen-entry-actions">
+              ${e.status === 'pending' ? `
+                <button class="confirm" data-field="${key}" data-id="${e.id}" title="Confirm">✓</button>
+                <button class="reject" data-field="${key}" data-id="${e.id}" title="Reject">✕</button>
+              ` : `
+                <button class="remove" data-field="${key}" data-id="${e.id}" title="Remove">×</button>
+              `}
+            </span>` : ''}
+          </div>
+        `).join('') : `<div class="gen-no-entries">Nothing recorded yet.</div>`}
+      </div>
+      ${!locked ? `<div class="gen-add-row">
+        <input type="text" id="genInput_${key}" placeholder="Add an entry the author has established...">
+        <button class="gen-mini-btn" id="genAdd_${key}">+ Add</button>
+      </div>` : ''}
+    </div>
+  `;
+}
+
+// Placeholder for future LLM wiring — currently drafts an empty AI-suggested
+// entry, tagged for review, so the confirm/reject workflow is fully functional
+// ahead of an actual model being connected.
+async function generateEntryStub(gs, fieldConfig){
+  const text = window.prompt(`Draft an AI-suggested "${fieldConfig.label}" entry to review (stand-in until a model is connected):`, '');
+  if(!text || !text.trim()) return;
+  gs.timeline[fieldConfig.key].push(makeEntry(text.trim(), 'ai-suggested'));
+  await persistState();
+}
+
+function renderAll(){
+  renderPoster();
+  renderRail();
+  renderSystemSection();
+  renderGenerationSection();
+}
+
+function renderPoster(){
+  const char = getActiveCharacter();
+  const atlasLink = document.getElementById('atlasLink');
+  if(!char){
+    editBtn.style.display = 'none';
+    deleteBtn.style.display = 'none';
+    if(atlasLink) atlasLink.href = 'atlas.html';
+    posterWrap.innerHTML = `
+      <div class="empty-state">
+        <div class="display">No profiles yet</div>
+        <p>Build your first character — name, storyline, faction, and the story reasons behind them. It'll live here as a dossier you can flip between while you write.</p>
+        <button class="btn primary" onclick="openCharacterForm()">Create first profile</button>
+      </div>`;
+    return;
+  }
+  editBtn.style.display = 'inline-block';
+  deleteBtn.style.display = 'inline-block';
+  if(atlasLink) atlasLink.href = 'atlas.html?char=' + encodeURIComponent(char.id);
+
+  const snap = getActiveSnapshot(char);
+  const pPos = snap.portraitPosition || { x: 50, y: 50 };
+  const portraitHtml = snap.portrait
+    ? `<img src="${snap.portrait}" alt="${escapeHtml(char.name)}" style="object-position:${pPos.x}% ${pPos.y}%;">`
+    : `<img class="silhouette" src="${SILHOUETTE_SVG}" alt="No portrait set">`;
+
+  const chevron = `<svg viewBox="0 0 24 24" width="16" height="16"><path d="M8 5 L16 12 L8 19" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+  posterWrap.innerHTML = `
+    <div class="poster">
+      <div class="poster-controls"></div>
+      <div class="portrait-stage">
+        <div class="chapter-overlay">
+          <div class="name display">${escapeHtml(char.name || 'Unnamed')}</div>
+          <div class="storyline display">${escapeHtml(char.storyline || '—')}</div>
+        </div>
+        <div class="side-gallery left">
+          <button class="page-arrow up" id="leftUp">${chevron}</button>
+          <div class="gallery-col" id="galleryLeft"></div>
+          <button class="page-arrow down" id="leftDown">${chevron}</button>
+        </div>
+        <div class="side-gallery right">
+          <button class="page-arrow up" id="rightUp">${chevron}</button>
+          <div class="gallery-col" id="galleryRight"></div>
+          <button class="page-arrow down" id="rightDown">${chevron}</button>
+        </div>
+        <div class="ghost-type">${escapeHtml(snap.chapterRange || '')}</div>
+        <div class="portrait">
+          ${portraitHtml}
+          ${snap.portrait ? `<button class="reposition-btn" id="repositionPortraitBtn" title="Reposition image">⤡</button>` : ''}
+        </div>
+      </div>
+      <div class="poster-footer">
+        <div class="faction-word display ${factionClass(char.faction)}">${escapeHtml(factionLabel(char.faction))}</div>
+        <div class="lore-text">
+          ${snap.blurb ? `<p class="blurb">${escapeHtml(snap.blurb)}</p>` : ''}
+          ${snap.backstory ? `<p class="backstory">${escapeHtml(snap.backstory)}</p>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+
+  renderGalleries(char);
+  const repositionBtn = document.getElementById('repositionPortraitBtn');
+  if(repositionBtn){
+    repositionBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openPortraitPositionModal(char, snap);
+    });
+  }
+}
+
+// per-character, per-side paging offsets (not persisted — resets on reload)
+const GALLERY_WINDOW = 3;
+let pageState = {};
+// transient, not persisted — which corruption-view mode is showing per character this session
+let skillViewOverride = {};
+
+function renderGalleries(char){
+  const leftList = [];
+  const rightList = [];
+  char.snapshots.forEach((snap, idx) => (idx % 2 === 0 ? leftList : rightList).push(snap));
+
+  if(!pageState[char.id]) pageState[char.id] = { left: 0, right: 0 };
+
+  renderSideGallery('left', char, leftList);
+  renderSideGallery('right', char, rightList);
+}
+
+function renderSideGallery(side, char, list){
+  const maxStart = Math.max(0, list.length - GALLERY_WINDOW);
+  let start = pageState[char.id][side];
+  if(start > maxStart) start = maxStart;
+  pageState[char.id][side] = start;
+
+  const visible = list.slice(start, start + GALLERY_WINDOW);
+  const col = document.getElementById(side === 'left' ? 'galleryLeft' : 'galleryRight');
+  col.innerHTML = '';
+
+  visible.forEach(snap => {
+    const thumb = document.createElement('div');
+    thumb.className = 'gallery-thumb' + (snap.id === char.activeSnapshotId ? ' active' : '');
+    thumb.innerHTML = `
+      ${snap.portrait ? `<img src="${snap.portrait}" alt="">` : `<img src="${SILHOUETTE_SVG}" style="opacity:.35" alt="">`}
+      ${snap.chapterRange ? `<div class="snap-label">${escapeHtml(snap.chapterRange)}</div>` : ''}
+      ${char.snapshots.length > 1 ? `<div class="snap-delete" title="Remove this version">&times;</div>` : ''}
+    `;
+    thumb.addEventListener('click', (e) => {
+      if(e.target.classList.contains('snap-delete')){
+        confirmDeleteSnapshot(char.id, snap.id);
+      }else{
+        switchSnapshot(char.id, snap.id);
+      }
+    });
+    col.appendChild(thumb);
+  });
+
+  const upBtn = document.getElementById(side === 'left' ? 'leftUp' : 'rightUp');
+  const downBtn = document.getElementById(side === 'left' ? 'leftDown' : 'rightDown');
+  upBtn.classList.toggle('hidden', start <= 0);
+  downBtn.classList.toggle('hidden', start + GALLERY_WINDOW >= list.length);
+  upBtn.onclick = () => {
+    pageState[char.id][side] = Math.max(0, start - 1);
+    renderSideGallery(side, char, list);
+  };
+  downBtn.onclick = () => {
+    pageState[char.id][side] = Math.min(maxStart, start + 1);
+    renderSideGallery(side, char, list);
+  };
+}
+
+function renderRail(){
+  rail.innerHTML = '';
+  state.characters.forEach(c => {
+    const snap = getActiveSnapshot(c);
+    const thumb = document.createElement('div');
+    thumb.className = 'thumb' + (c.id === state.activeId ? ' active' : '');
+    thumb.title = c.name || 'Unnamed';
+    thumb.innerHTML = (snap && snap.portrait)
+      ? `<img src="${snap.portrait}" alt="${escapeHtml(c.name)}">`
+      : `<div class="initial">${(c.name || '?').charAt(0).toUpperCase()}</div>`;
+    thumb.addEventListener('click', () => switchActiveCharacter(c.id));
+    rail.appendChild(thumb);
+  });
+  const addTile = document.createElement('div');
+  addTile.className = 'thumb-add';
+  addTile.textContent = '+';
+  addTile.title = 'New character';
+  addTile.addEventListener('click', () => openCharacterForm());
+  rail.appendChild(addTile);
+}
+
+async function switchActiveCharacter(id){
+  state.activeId = id;
+  renderAll();
+  await persistState();
+}
+
+async function switchSnapshot(charId, snapId){
+  const char = state.characters.find(c => c.id === charId);
+  if(!char) return;
+  char.activeSnapshotId = snapId;
+  renderAll();
+  await persistState();
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+function escapeAttr(str){
+  return (str || '').replace(/"/g, '&quot;');
+}
+
+// ============================================================
+// FORM / MODAL FLOW
+// ============================================================
+const modalBackdrop = document.getElementById('modalBackdrop');
+const modalContent = document.getElementById('modalContent');
+let pendingPortrait = null;
+let editingCharId = null;
+
+function openModal(){ modalBackdrop.classList.add('visible'); }
+function closeModal(){
+  modalBackdrop.classList.remove('visible');
+  pendingPortrait = null; editingCharId = null; pendingInventoryItems = []; invUploadTarget = null;
+  setTimeout(() => { modalContent.innerHTML=''; }, 220);
+}
+
+function portraitFieldHtml(){
+  return `
+    <div class="field">
+      <label>Portrait</label>
+      <label class="dropzone" id="dropzone" for="fileInput">
+        ${pendingPortrait ? `<img id="dzPreview" src="${pendingPortrait}">` : ''}
+        <span id="dzLabel">${pendingPortrait ? 'Click to replace image' : 'Click to add an image (optional)'}</span>
+      </label>
+      <input type="file" id="fileInput" accept="image/*" class="visually-hidden-input">
+    </div>
+  `;
+}
+function wireDropzone(){
+  document.getElementById('fileInput').addEventListener('change', handleFileInput);
+}
+
+// ---- Character form: identity (name/storyline/faction) + its active snapshot's fields ----
+function openCharacterForm(existingChar){
+  editingCharId = existingChar ? existingChar.id : null;
+  const snap = existingChar ? getActiveSnapshot(existingChar) : null;
+  pendingPortrait = snap ? snap.portrait : null;
+
+  modalContent.innerHTML = `
+    <h2>${existingChar ? 'Edit profile' : 'New character profile'}</h2>
+    <p class="sub">Fill in what you know. You can always come back and change it later.</p>
+
+    ${portraitFieldHtml()}
+
+    <div class="field-row">
+      <div class="field">
+        <label>Name</label>
+        <input type="text" id="fName" value="${existingChar ? escapeAttr(existingChar.name) : ''}" placeholder="Character name">
+      </div>
+      <div class="field">
+        <label>Storyline (race)</label>
+        <input type="text" id="fStoryline" value="${existingChar ? escapeAttr(existingChar.storyline) : ''}" placeholder="e.g. Human, Demon, God-touched">
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Faction</label>
+        <select id="fFaction">
+          <option value="">— choose —</option>
+          ${FACTIONS.map(f => `<option value="${f}" ${existingChar && existingChar.faction===f ? 'selected':''}>${f}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label>Chapter range</label>
+        <input type="text" id="fChapterRange" value="${snap ? escapeAttr(snap.chapterRange) : ''}" placeholder="e.g. CH 1 – CH 5">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Blurb — why they joined, in one line</label>
+      <input type="text" id="fBlurb" value="${snap ? escapeAttr(snap.blurb) : ''}" placeholder="A short line about their reason for joining">
+    </div>
+
+    <div class="field">
+      <label>Backstory</label>
+      <textarea id="fBackstory" placeholder="A bit more about their past">${snap ? (snap.backstory||'') : ''}</textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" onclick="reviewCharacterSave()">Save profile</button>
+    </div>
+  `;
+  wireDropzone();
+  openModal();
+}
+
+function reviewCharacterSave(){
+  const existingChar = state.characters.find(c => c.id === editingCharId) || null;
+  const charId = editingCharId || ('char_' + Date.now());
+  const snapId = existingChar ? existingChar.activeSnapshotId : ('snap_' + Date.now());
+
+  const fields = {
+    name: document.getElementById('fName').value.trim(),
+    storyline: document.getElementById('fStoryline').value.trim(),
+    faction: document.getElementById('fFaction').value,
+    chapterRange: document.getElementById('fChapterRange').value.trim(),
+    blurb: document.getElementById('fBlurb').value.trim(),
+    backstory: document.getElementById('fBackstory').value.trim(),
+    portrait: pendingPortrait
+  };
+
+  const draftChar = migrateCharacter({
+    ...(existingChar || {}),
+    id: charId,
+    name: fields.name, storyline: fields.storyline, faction: fields.faction,
+    activeSnapshotId: snapId,
+    snapshots: existingChar
+      ? existingChar.snapshots.map(s => s.id === snapId
+          ? { ...s, chapterRange: fields.chapterRange, blurb: fields.blurb, backstory: fields.backstory, portrait: fields.portrait }
+          : s)
+      : [{ id: snapId, chapterRange: fields.chapterRange, blurb: fields.blurb, backstory: fields.backstory, portrait: fields.portrait, ...defaultSnapExtras() }]
+  });
+
+  modalContent.innerHTML = `
+    <div class="confirm-box">
+      <div class="display">Save this profile?</div>
+      <p>${draftChar.name ? escapeHtml(draftChar.name) : 'This character'} will be added to your dossier${editingCharId ? ' with these changes' : ''}. You can edit or delete it later.</p>
+      <div class="confirm-actions">
+        <button class="btn ghost" id="backToEdit">Keep editing</button>
+        <button class="btn primary" id="confirmSave">Save profile</button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('confirmSave').addEventListener('click', async () => {
+    const idx = state.characters.findIndex(c => c.id === draftChar.id);
+    if(idx >= 0){ state.characters[idx] = draftChar; }
+    else{ state.characters.push(draftChar); }
+    state.activeId = draftChar.id;
+    await persistState();
+    renderAll();
+    closeModal();
+  });
+  document.getElementById('backToEdit').addEventListener('click', () => {
+    openCharacterForm(draftChar);
+  });
+}
+
+// ---- Snapshot form: a new chapter-version of the CURRENT character (no identity fields) ----
+function openSnapshotForm(){
+  const char = getActiveCharacter();
+  if(!char) return openCharacterForm();
+
+  pendingPortrait = null;
+
+  modalContent.innerHTML = `
+    <h2>New chapter version — ${escapeHtml(char.name || 'Unnamed')}</h2>
+    <p class="sub">A different point in the story for this same character — its own portrait, chapter range, and notes. Stats, inventory, skills, titles, and emotional state start out carried over from the current chapter, and can be edited from here once saved.</p>
+
+    ${portraitFieldHtml()}
+
+    <div class="field">
+      <label>Chapter range</label>
+      <input type="text" id="fChapterRange" value="" placeholder="e.g. CH 6 – CH 10">
+    </div>
+
+    <div class="field">
+      <label>Blurb — one line for this point in the story</label>
+      <input type="text" id="fBlurb" value="" placeholder="A short line">
+    </div>
+
+    <div class="field">
+      <label>Backstory / notes</label>
+      <textarea id="fBackstory" placeholder="What's changed by this point"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" onclick="reviewSnapshotSave()">Save version</button>
+    </div>
+  `;
+  wireDropzone();
+  openModal();
+}
+
+function reviewSnapshotSave(){
+  const char = getActiveCharacter();
+  if(!char) return;
+  const prevSnap = char.snapshots.find(s => s.id === char.activeSnapshotId);
+
+  const draftSnap = {
+    id: 'snap_' + Date.now(),
+    chapterRange: document.getElementById('fChapterRange').value.trim(),
+    blurb: document.getElementById('fBlurb').value.trim(),
+    backstory: document.getElementById('fBackstory').value.trim(),
+    portrait: pendingPortrait,
+    ...defaultSnapExtras(),
+    ...(prevSnap ? {
+      stats: { ...prevSnap.stats },
+      inventory: (prevSnap.inventory || []).map(i => ({ ...i })),
+      skills: (prevSnap.skills || []).map(s => ({ ...s })),
+      titles: (prevSnap.titles || []).map(t => ({ ...t })),
+      emotionalState: prevSnap.emotionalState || ''
+    } : {})
+  };
+
+  modalContent.innerHTML = `
+    <div class="confirm-box">
+      <div class="display">Save this version?</div>
+      <p>This becomes a new chapter version of ${escapeHtml(char.name || 'this character')}. You can switch between versions from the galleries, or remove it later.</p>
+      <div class="confirm-actions">
+        <button class="btn ghost" id="backToEdit">Keep editing</button>
+        <button class="btn primary" id="confirmSave">Save version</button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('confirmSave').addEventListener('click', async () => {
+    char.snapshots.push(draftSnap);
+    char.activeSnapshotId = draftSnap.id;
+    await persistState();
+    renderAll();
+    closeModal();
+  });
+  document.getElementById('backToEdit').addEventListener('click', () => {
+    openSnapshotForm();
+    // re-populate the fields they'd already entered
+    setTimeout(() => {
+      document.getElementById('fChapterRange').value = draftSnap.chapterRange;
+      document.getElementById('fBlurb').value = draftSnap.blurb;
+      document.getElementById('fBackstory').value = draftSnap.backstory;
+      pendingPortrait = draftSnap.portrait;
+      if(pendingPortrait){
+        document.getElementById('dropzone').innerHTML = `<img id="dzPreview" src="${pendingPortrait}"><span>Click to replace image</span>`;
+      }
+    }, 0);
+  });
+}
+
+function confirmDeleteSnapshot(charId, snapId){
+  const char = state.characters.find(c => c.id === charId);
+  if(!char || char.snapshots.length <= 1) return;
+  const snap = char.snapshots.find(s => s.id === snapId);
+
+  modalContent.innerHTML = `
+    <div class="confirm-box">
+      <div class="display">Remove this version?</div>
+      <p>${snap && snap.chapterRange ? escapeHtml(snap.chapterRange) : 'This chapter version'} will be removed from ${escapeHtml(char.name || 'this character')}. This can't be undone.</p>
+      <div class="confirm-actions">
+        <button class="btn ghost" id="cancelDelete">Cancel</button>
+        <button class="btn primary" id="confirmDelete" style="background:var(--ember);border-color:var(--ember);">Remove</button>
+      </div>
+    </div>
+  `;
+  openModal();
+  document.getElementById('cancelDelete').addEventListener('click', closeModal);
+  document.getElementById('confirmDelete').addEventListener('click', async () => {
+    char.snapshots = char.snapshots.filter(s => s.id !== snapId);
+    if(char.activeSnapshotId === snapId){
+      char.activeSnapshotId = char.snapshots[0].id;
+    }
+    await persistState();
+    renderAll();
+    closeModal();
+  });
+}
+
+// ---- System sheet form (stats/inventory/skills/titles are per chapter-version;
+//      mythos/relationships/story arc belong to the character as a whole) ----
+// ---- Story Arc structured-field helpers (shared by the full system form and the ARC.EXE quick-edit) ----
+function arcFieldsHtml(prefix, sa){
+  return `
+    <div class="field">
+      <label>Current objective — what they're currently trying to accomplish</label>
+      <input type="text" id="${prefix}CurrentObjective" value="${escapeAttr(sa.currentObjective || '')}" placeholder="e.g. Find the missing relic">
+    </div>
+    <div class="field">
+      <label>Current arc — what stage of their narrative they're currently in</label>
+      <textarea id="${prefix}CurrentArc" style="min-height:100px;" placeholder="Draft the character's current arc here...">${sa.currentArc || ''}</textarea>
+    </div>
+    <div class="field">
+      <label>Current development — how they're currently changing</label>
+      <textarea id="${prefix}CurrentDevelopment" style="min-height:100px;">${sa.currentDevelopment || ''}</textarea>
+    </div>
+    <div class="field">
+      <label>Major turning points — one per line</label>
+      <textarea id="${prefix}TurningPoints" placeholder="Watched the village burn">${(sa.majorTurningPoints || []).join('\n')}</textarea>
+    </div>
+    <div class="field">
+      <label>Completed developments — one per line</label>
+      <textarea id="${prefix}CompletedDevelopments" placeholder="Learned to trust again">${(sa.completedDevelopments || []).join('\n')}</textarea>
+    </div>
+    <div class="field">
+      <label>Direction — where their development is currently heading</label>
+      <textarea id="${prefix}Direction" style="min-height:80px;">${sa.direction || ''}</textarea>
+    </div>
+  `;
+}
+function readArcFields(prefix){
+  return {
+    currentObjective: document.getElementById(`${prefix}CurrentObjective`).value.trim(),
+    currentArc: document.getElementById(`${prefix}CurrentArc`).value.trim(),
+    currentDevelopment: document.getElementById(`${prefix}CurrentDevelopment`).value.trim(),
+    majorTurningPoints: document.getElementById(`${prefix}TurningPoints`).value.split('\n').map(s => s.trim()).filter(Boolean),
+    completedDevelopments: document.getElementById(`${prefix}CompletedDevelopments`).value.split('\n').map(s => s.trim()).filter(Boolean),
+    direction: document.getElementById(`${prefix}Direction`).value.trim()
+  };
+}
+
+// ---- Knowledge & Secrets structured-field helpers ----
+function knowledgeFieldsHtml(prefix, char){
+  return `
+    <div class="field">
+      <label>Knowledge — one per line</label>
+      <textarea id="${prefix}Knowledge" placeholder="Knows the war has begun">${(char.knowledge || []).map(escapeHtml).join('\n')}</textarea>
+    </div>
+    <div class="field">
+      <label>Secrets — one per line, as Secret | Character knows? (yes/no) | Known by</label>
+      <textarea id="${prefix}Secrets" placeholder="Caused the destruction of a village | yes | Character only">${(char.secrets || []).map(s => `${s.text} | ${s.characterKnows ? 'yes' : 'no'} | ${s.knownBy || ''}`).join('\n')}</textarea>
+    </div>
+  `;
+}
+function readKnowledgeFields(prefix){
+  const knowledge = document.getElementById(`${prefix}Knowledge`).value.split('\n').map(s => s.trim()).filter(Boolean);
+  const secrets = document.getElementById(`${prefix}Secrets`).value.split('\n').map(s => s.trim()).filter(Boolean).map(line => {
+    const parts = line.split('|').map(p => p.trim());
+    return { text: parts[0] || '', characterKnows: (parts[1] || '').toLowerCase().startsWith('y'), knownBy: parts[2] || '' };
+  });
+  return { knowledge, secrets };
+}
+
+function openSystemForm(char, snap){
+  const statsVals = STAT_LABELS.map(l => (snap.stats && snap.stats[l] != null) ? snap.stats[l] : 0);
+  pendingInventoryItems = (snap.inventory || []).map(it => ({ id: it.id, name: it.name || '', desc: it.desc || '', icon: it.icon || '', image: it.image || '' }));
+
+  modalContent.innerHTML = `
+    <h2>Edit system sheet — ${escapeHtml(char.name || 'Unnamed')}</h2>
+    <p class="sub">Stats, inventory, skills, and titles belong to this chapter version. Mythos, relationships, and the story arc belong to the character as a whole.</p>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Mythos</label>
+        <select id="sysMythos">
+          <option value="">— choose —</option>
+          <option value="Blessed" ${char.mythos === 'Blessed' ? 'selected' : ''}>Blessed</option>
+          <option value="Cursed" ${char.mythos === 'Cursed' ? 'selected' : ''}>Cursed</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Emotional state (this version)</label>
+        <input type="text" id="sysEmotional" value="${escapeAttr(snap.emotionalState)}" placeholder="e.g. Numb, Resolved, Afraid">
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Divine status</label>
+        <select id="sysDivineStatus">
+          <option value="">— not divine —</option>
+          <option value="Fallen" ${char.divineStatus === 'Fallen' ? 'selected' : ''}>Fallen</option>
+          <option value="Outer" ${char.divineStatus === 'Outer' ? 'selected' : ''}>Outer</option>
+          <option value="Split" ${char.divineStatus === 'Split' ? 'selected' : ''}>Split</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Authority (gods only — shown in place of Nature on the record)</label>
+        <input type="text" id="sysAuthority" value="${escapeAttr(char.authority || '')}" placeholder="e.g. Void, Nothing, Erasure">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Titles (this version) — one per line, as Name | Rank (0-7) | How they earned it</label>
+      <textarea id="sysTitles" placeholder="The Hollow Blade | 3 | Forged from the fragment's own bone">${(snap.titles || []).map(t => `${t.name} | ${t.rankTier || 0} | ${t.blurb || ''}`).join('\n')}</textarea>
+    </div>
+
+    <div class="field">
+      <label>Stats (this version) — 0 to 100</label>
+      <div class="field-row" style="flex-wrap:wrap;">
+        ${STAT_LABELS.map((label, i) => `
+          <div class="field" style="min-width:100px; flex:1;">
+            <label>${label}</label>
+            <input type="text" inputmode="numeric" class="statInput" data-label="${label}" value="${statsVals[i]}">
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Inventory (this version) — icon, name, description, and a photo per item</label>
+      <div id="inventoryEditorWrap" class="inv-editor-wrap"></div>
+      <input type="file" id="invFileInput" accept="image/*" class="visually-hidden-input">
+    </div>
+
+    <div class="field">
+      <label>Skills (this version) — one per line, as Name | Level (0-100) | Corrupted (yes/no) | Description</label>
+      <textarea id="sysSkills" placeholder="Ashbind | 60 | no | Can silence sound in a small radius">${(snap.skills || []).map(s => `${s.name} | ${s.level || 0} | ${s.corrupted ? 'yes' : 'no'} | ${s.desc || ''}`).join('\n')}</textarea>
+    </div>
+
+    <div class="field">
+      <label>Relationships (whole character) — one per line, as Name | Relation | Note</label>
+      <textarea id="sysRelationships" placeholder="Maki | Girlfriend | Met at Hourai restaurant">${(char.relationships || []).map(r => `${r.name} | ${r.relation || ''} | ${r.note || ''}`).join('\n')}</textarea>
+    </div>
+
+    <div class="field">
+      <label class="display" style="font-size:20px; margin-bottom:2px;">Story arc (whole character)</label>
+    </div>
+    ${arcFieldsHtml('sys', char.storyArc)}
+
+    <div class="field">
+      <label class="display" style="font-size:20px; margin-bottom:2px;">Knowledge &amp; secrets (whole character)</label>
+    </div>
+    ${knowledgeFieldsHtml('sys', char)}
+
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" id="sysSaveBtn">Save system sheet</button>
+    </div>
+  `;
+
+  document.getElementById('sysSaveBtn').addEventListener('click', () => reviewSystemSave(char.id, snap.id));
+  document.getElementById('invFileInput').addEventListener('change', handleInventoryFileInput);
+  renderInventoryEditor();
+  openModal();
+}
+
+// ---- Inventory item editor (icon + name + description + photo, per item) ----
+let pendingInventoryItems = [];
+let invUploadTarget = null; // { idx, field: 'icon' | 'image' }
+
+function syncInventoryFromDOM(){
+  document.querySelectorAll('.inv-edit-row').forEach((row, idx) => {
+    if(!pendingInventoryItems[idx]) return;
+    const nameInput = row.querySelector('.inv-name-input');
+    const descInput = row.querySelector('.inv-desc-input');
+    pendingInventoryItems[idx].name = nameInput ? nameInput.value : pendingInventoryItems[idx].name;
+    pendingInventoryItems[idx].desc = descInput ? descInput.value : pendingInventoryItems[idx].desc;
+  });
+}
+
+function renderInventoryEditor(){
+  const wrap = document.getElementById('inventoryEditorWrap');
+  if(!wrap) return;
+  wrap.innerHTML = `
+    ${pendingInventoryItems.map((item, idx) => `
+      <div class="inv-edit-row" data-idx="${idx}">
+        <div class="inv-img-drop" onclick="triggerInvImageInput(${idx}, 'icon')" title="Icon image">
+          ${item.icon ? `<img src="${item.icon}">` : `<span>Icon</span>`}
+        </div>
+        <div class="inv-edit-fields">
+          <input type="text" class="inv-name-input" placeholder="Item name" value="${escapeAttr(item.name)}">
+          <textarea class="inv-desc-input" placeholder="Description">${escapeHtml(item.desc || '')}</textarea>
+        </div>
+        <div class="inv-img-drop large" onclick="triggerInvImageInput(${idx}, 'image')" title="Photo">
+          ${item.image ? `<img src="${item.image}">` : `<span>Photo</span>`}
+        </div>
+        <button type="button" class="inv-remove-btn" onclick="removeInventoryItem(${idx})">×</button>
+      </div>
+    `).join('')}
+    <button type="button" class="btn ghost inv-add-btn" id="addInvItemBtn">+ Add item</button>
+  `;
+  document.getElementById('addInvItemBtn').addEventListener('click', addInventoryItem);
+}
+
+function addInventoryItem(){
+  syncInventoryFromDOM();
+  pendingInventoryItems.push({ id: 'inv_' + Math.random().toString(36).slice(2), name: '', desc: '', icon: '', image: '' });
+  renderInventoryEditor();
+}
+
+function removeInventoryItem(idx){
+  syncInventoryFromDOM();
+  pendingInventoryItems.splice(idx, 1);
+  renderInventoryEditor();
+}
+
+function triggerInvImageInput(idx, field){
+  syncInventoryFromDOM();
+  invUploadTarget = { idx, field };
+  document.getElementById('invFileInput').click();
+}
+
+function handleInventoryFileInput(e){
+  const file = e.target.files[0];
+  if(!file || !invUploadTarget) return;
+  const { idx, field } = invUploadTarget;
+  const reader = new FileReader();
+  reader.onerror = () => showToast('Could not read that image file — try a different photo.');
+  reader.onload = (ev) => {
+    const img = new Image();
+    img.onerror = () => showToast('That image could not be opened — try a JPEG or PNG instead.');
+    img.onload = () => {
+      try{
+        const maxDim = field === 'icon' ? 200 : 700;
+        let { width, height } = img;
+        if(width > maxDim || height > maxDim){
+          const scale = maxDim / Math.max(width, height);
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        if(pendingInventoryItems[idx]){
+          pendingInventoryItems[idx][field] = canvas.toDataURL('image/jpeg', 0.85);
+        }
+        e.target.value = '';
+        renderInventoryEditor();
+      }catch(err){
+        showToast('Could not process that image — try a smaller photo.');
+      }
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function reviewSystemSave(charId, snapId){
+  const char = state.characters.find(c => c.id === charId);
+  const snap = char.snapshots.find(s => s.id === snapId);
+  if(!char || !snap) return;
+
+  const stats = {};
+  document.querySelectorAll('.statInput').forEach(inp => {
+    const v = parseFloat(inp.value);
+    stats[inp.dataset.label] = isNaN(v) ? 0 : Math.max(0, Math.min(100, v));
+  });
+  syncInventoryFromDOM();
+  const inventory = pendingInventoryItems
+    .filter(it => it.name.trim() || it.desc.trim() || it.icon || it.image)
+    .map(it => ({ id: it.id, name: it.name.trim(), desc: it.desc.trim(), icon: it.icon || '', image: it.image || '' }));
+  const skills = document.getElementById('sysSkills').value.split('\n').map(s => s.trim()).filter(Boolean).map(line => {
+    const parts = line.split('|').map(p => p.trim());
+    const lvl = parseFloat(parts[1]);
+    const corrupted = /^(yes|true|1)$/i.test(parts[2] || '');
+    return { name: parts[0] || '', level: isNaN(lvl) ? 0 : Math.max(0, Math.min(100, lvl)), corrupted, desc: parts[3] || '' };
+  });
+  const titles = document.getElementById('sysTitles').value.split('\n').map(s => s.trim()).filter(Boolean).map(line => {
+    const parts = line.split('|').map(p => p.trim());
+    const tier = parseInt(parts[1]);
+    return { name: parts[0] || '', rankTier: isNaN(tier) ? 0 : Math.max(0, Math.min(7, tier)), blurb: parts[2] || '' };
+  });
+  const relationships = document.getElementById('sysRelationships').value.split('\n').map(s => s.trim()).filter(Boolean).map(line => {
+    const parts = line.split('|').map(p => p.trim());
+    return { name: parts[0] || '', relation: parts[1] || '', note: parts[2] || '' };
+  });
+  const mythos = document.getElementById('sysMythos').value;
+  const emotionalState = document.getElementById('sysEmotional').value.trim();
+  const storyArc = readArcFields('sys');
+  const knowledgeAndSecrets = readKnowledgeFields('sys');
+  const divineStatus = document.getElementById('sysDivineStatus').value;
+  const authority = document.getElementById('sysAuthority').value.trim();
+
+  modalContent.innerHTML = `
+    <div class="confirm-box">
+      <div class="display">Save this system sheet?</div>
+      <p>Updates stats, inventory, skills, and titles for this chapter version, plus mythos, relationships, story arc, and knowledge &amp; secrets for ${escapeHtml(char.name || 'this character')} overall.</p>
+      <div class="confirm-actions">
+        <button class="btn ghost" id="backToSysEdit">Keep editing</button>
+        <button class="btn primary" id="confirmSysSave">Save</button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('confirmSysSave').addEventListener('click', async () => {
+    snap.stats = stats;
+    snap.inventory = inventory;
+    snap.skills = skills;
+    snap.titles = titles;
+    snap.emotionalState = emotionalState;
+    char.mythos = mythos;
+    char.relationships = relationships;
+    char.storyArc = storyArc;
+    char.knowledge = knowledgeAndSecrets.knowledge;
+    char.secrets = knowledgeAndSecrets.secrets;
+    char.divineStatus = divineStatus;
+    char.authority = authority;
+    await persistState();
+    renderAll();
+    closeModal();
+  });
+  document.getElementById('backToSysEdit').addEventListener('click', () => openSystemForm(char, snap));
+}
+
+// ---- Mini-window quick-edit forms (one system piece at a time) ----
+function openIdentityForm(char, snap){
+  modalContent.innerHTML = `
+    <h2>Identity — ${escapeHtml(char.name || 'Unnamed')}</h2>
+    <p class="sub">Mythos and titles belong to the character. Emotional state belongs to this chapter version.</p>
+    <div class="field-row">
+      <div class="field">
+        <label>Mythos</label>
+        <select id="mwMythos">
+          <option value="">— choose —</option>
+          <option value="Blessed" ${char.mythos === 'Blessed' ? 'selected' : ''}>Blessed</option>
+          <option value="Cursed" ${char.mythos === 'Cursed' ? 'selected' : ''}>Cursed</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Emotional state (this version)</label>
+        <input type="text" id="mwEmotional" value="${escapeAttr(snap.emotionalState)}" placeholder="e.g. Numb, Resolved, Afraid">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Divine status</label>
+        <select id="mwDivineStatus">
+          <option value="">— not divine —</option>
+          <option value="Fallen" ${char.divineStatus === 'Fallen' ? 'selected' : ''}>Fallen</option>
+          <option value="Outer" ${char.divineStatus === 'Outer' ? 'selected' : ''}>Outer</option>
+          <option value="Split" ${char.divineStatus === 'Split' ? 'selected' : ''}>Split</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Authority (gods only)</label>
+        <input type="text" id="mwAuthority" value="${escapeAttr(char.authority || '')}" placeholder="e.g. Void, Nothing, Erasure">
+      </div>
+    </div>
+    <div class="field">
+      <label>Titles (this version) — one per line, as Name | Rank (0-7) | How they earned it</label>
+      <textarea id="mwTitles" placeholder="The Hollow Blade | 3 | Forged from the fragment's own bone">${(snap.titles || []).map(t => `${t.name} | ${t.rankTier || 0} | ${t.blurb || ''}`).join('\n')}</textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" id="mwIdentitySave">Save</button>
+    </div>
+  `;
+  document.getElementById('mwIdentitySave').addEventListener('click', async () => {
+    char.mythos = document.getElementById('mwMythos').value;
+    char.divineStatus = document.getElementById('mwDivineStatus').value;
+    char.authority = document.getElementById('mwAuthority').value.trim();
+    snap.emotionalState = document.getElementById('mwEmotional').value.trim();
+    snap.titles = document.getElementById('mwTitles').value.split('\n').map(s => s.trim()).filter(Boolean).map(line => {
+      const parts = line.split('|').map(p => p.trim());
+      const tier = parseInt(parts[1]);
+      return { name: parts[0] || '', rankTier: isNaN(tier) ? 0 : Math.max(0, Math.min(7, tier)), blurb: parts[2] || '' };
+    });
+    await persistState();
+    renderAll();
+    closeModal();
+  });
+  openModal();
+}
+
+function openStatsOnlyForm(char, snap){
+  const statsVals = STAT_LABELS.map(l => (snap.stats && snap.stats[l] != null) ? snap.stats[l] : 0);
+  modalContent.innerHTML = `
+    <h2>Stats — ${escapeHtml(char.name || 'Unnamed')}</h2>
+    <p class="sub">0 to 100, this chapter version.</p>
+    <div class="field-row" style="flex-wrap:wrap;">
+      ${STAT_LABELS.map((label, i) => `
+        <div class="field" style="min-width:100px; flex:1;">
+          <label>${label}</label>
+          <input type="text" inputmode="numeric" class="mwStatInput" data-label="${label}" value="${statsVals[i]}">
+        </div>
+      `).join('')}
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" id="mwStatsSave">Save</button>
+    </div>
+  `;
+  document.getElementById('mwStatsSave').addEventListener('click', async () => {
+    const stats = {};
+    document.querySelectorAll('.mwStatInput').forEach(inp => {
+      const v = parseFloat(inp.value);
+      stats[inp.dataset.label] = isNaN(v) ? 0 : Math.max(0, Math.min(100, v));
+    });
+    snap.stats = stats;
+    await persistState();
+    renderAll();
+    closeModal();
+  });
+  openModal();
+}
+
+function openSkillsOnlyForm(char, snap){
+  modalContent.innerHTML = `
+    <h2>Skills — ${escapeHtml(char.name || 'Unnamed')}</h2>
+    <p class="sub">One per line, as Name | Level (0-100) | Corrupted (yes/no) | Description.</p>
+    <div class="field">
+      <textarea id="mwSkills" style="min-height:160px;" placeholder="Ashbind | 60 | no | Can silence sound in a small radius">${(snap.skills || []).map(s => `${s.name} | ${s.level || 0} | ${s.corrupted ? 'yes' : 'no'} | ${s.desc || ''}`).join('\n')}</textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" id="mwSkillsSave">Save</button>
+    </div>
+  `;
+  document.getElementById('mwSkillsSave').addEventListener('click', async () => {
+    const skills = document.getElementById('mwSkills').value.split('\n').map(s => s.trim()).filter(Boolean).map(line => {
+      const parts = line.split('|').map(p => p.trim());
+      const lvl = parseFloat(parts[1]);
+      const corrupted = /^(yes|true|1)$/i.test(parts[2] || '');
+      return { name: parts[0] || '', level: isNaN(lvl) ? 0 : Math.max(0, Math.min(100, lvl)), corrupted, desc: parts[3] || '' };
+    });
+    snap.skills = skills;
+    await persistState();
+    renderAll();
+    closeModal();
+  });
+  openModal();
+}
+
+function openInventoryOnlyForm(char, snap){
+  pendingInventoryItems = (snap.inventory || []).map(it => ({ id: it.id, name: it.name || '', desc: it.desc || '', icon: it.icon || '', image: it.image || '' }));
+  modalContent.innerHTML = `
+    <h2>Inventory — ${escapeHtml(char.name || 'Unnamed')}</h2>
+    <p class="sub">Icon, name, description, and a photo per item. This chapter version.</p>
+    <div class="field">
+      <div id="inventoryEditorWrap" class="inv-editor-wrap"></div>
+      <input type="file" id="invFileInput" accept="image/*" class="visually-hidden-input">
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" id="mwInvSave">Save</button>
+    </div>
+  `;
+  document.getElementById('invFileInput').addEventListener('change', handleInventoryFileInput);
+  renderInventoryEditor();
+  document.getElementById('mwInvSave').addEventListener('click', async () => {
+    syncInventoryFromDOM();
+    snap.inventory = pendingInventoryItems
+      .filter(it => it.name.trim() || it.desc.trim() || it.icon || it.image)
+      .map(it => ({ id: it.id, name: it.name.trim(), desc: it.desc.trim(), icon: it.icon || '', image: it.image || '' }));
+    await persistState();
+    renderAll();
+    closeModal();
+  });
+  openModal();
+}
+
+function openRelationshipsOnlyForm(char){
+  modalContent.innerHTML = `
+    <h2>Relationships — ${escapeHtml(char.name || 'Unnamed')}</h2>
+    <p class="sub">One per line, as Name | Relation | Note. Belongs to the character as a whole.</p>
+    <div class="field">
+      <textarea id="mwRelationships" style="min-height:160px;" placeholder="Maki | Girlfriend | Met at Hourai restaurant">${(char.relationships || []).map(r => `${r.name} | ${r.relation || ''} | ${r.note || ''}`).join('\n')}</textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" id="mwRelSave">Save</button>
+    </div>
+  `;
+  document.getElementById('mwRelSave').addEventListener('click', async () => {
+    const relationships = document.getElementById('mwRelationships').value.split('\n').map(s => s.trim()).filter(Boolean).map(line => {
+      const parts = line.split('|').map(p => p.trim());
+      return { name: parts[0] || '', relation: parts[1] || '', note: parts[2] || '' };
+    });
+    char.relationships = relationships;
+    await persistState();
+    renderAll();
+    closeModal();
+  });
+  openModal();
+}
+
+function openArcOnlyForm(char){
+  modalContent.innerHTML = `
+    <h2>Story arc — ${escapeHtml(char.name || 'Unnamed')}</h2>
+    <p class="sub">Belongs to the character as a whole.</p>
+    ${arcFieldsHtml('mwArc', char.storyArc)}
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" id="mwArcSave">Save</button>
+    </div>
+  `;
+  document.getElementById('mwArcSave').addEventListener('click', async () => {
+    char.storyArc = readArcFields('mwArc');
+    await persistState();
+    renderAll();
+    closeModal();
+  });
+  openModal();
+}
+
+function openKnowledgeOnlyForm(char){
+  modalContent.innerHTML = `
+    <h2>Knowledge &amp; secrets — ${escapeHtml(char.name || 'Unnamed')}</h2>
+    <p class="sub">Belongs to the character as a whole. Each entry is stored independently.</p>
+    ${knowledgeFieldsHtml('mwK', char)}
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" id="mwKnowledgeSave">Save</button>
+    </div>
+  `;
+  document.getElementById('mwKnowledgeSave').addEventListener('click', async () => {
+    const result = readKnowledgeFields('mwK');
+    char.knowledge = result.knowledge;
+    char.secrets = result.secrets;
+    await persistState();
+    renderAll();
+    closeModal();
+  });
+  openModal();
+}
+
+// ---- Drag-to-reposition: shared by the poster portrait and avatar modals ----
+function wireAdjustDrag(previewEl, imgEl, getPos, setPos){
+  let dragging = false, startX = 0, startY = 0, startPos = { x: 50, y: 50 };
+
+  function down(e){
+    dragging = true;
+    previewEl.classList.add('dragging');
+    const pt = e.touches ? e.touches[0] : e;
+    startX = pt.clientX; startY = pt.clientY;
+    startPos = { ...getPos() };
+    e.preventDefault();
+  }
+  function move(e){
+    if(!dragging) return;
+    const pt = e.touches ? e.touches[0] : e;
+    const rect = previewEl.getBoundingClientRect();
+    const dx = pt.clientX - startX;
+    const dy = pt.clientY - startY;
+    const newX = Math.max(0, Math.min(100, startPos.x - (dx / rect.width) * 100));
+    const newY = Math.max(0, Math.min(100, startPos.y - (dy / rect.height) * 100));
+    setPos({ x: newX, y: newY });
+    imgEl.style.objectPosition = `${newX}% ${newY}%`;
+  }
+  function up(){
+    dragging = false;
+    previewEl.classList.remove('dragging');
+  }
+
+  previewEl.addEventListener('mousedown', down);
+  window.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', up);
+  previewEl.addEventListener('touchstart', down, { passive: false });
+  window.addEventListener('touchmove', move, { passive: false });
+  window.addEventListener('touchend', up);
+
+  return () => {
+    window.removeEventListener('mousemove', move);
+    window.removeEventListener('mouseup', up);
+    window.removeEventListener('touchmove', move);
+    window.removeEventListener('touchend', up);
+  };
+}
+
+// ---- Poster portrait: reposition only (image itself is set via the main form) ----
+function openPortraitPositionModal(char, snap){
+  if(!snap.portrait) return;
+  let pos = { ...(snap.portraitPosition || { x: 50, y: 50 }) };
+
+  modalContent.innerHTML = `
+    <h2>Reposition portrait</h2>
+    <p class="sub">Drag the image to adjust how it's framed on the poster.</p>
+    <div class="adjust-preview rect" id="adjustPreview">
+      <img id="adjustImg" src="${snap.portrait}" style="object-position:${pos.x}% ${pos.y}%;">
+    </div>
+    <p class="adjust-hint">Click and drag inside the frame</p>
+    <div class="modal-actions">
+      <button class="btn ghost" id="cancelPositionBtn">Cancel</button>
+      <button class="btn primary" id="savePositionBtn">Save position</button>
+    </div>
+  `;
+
+  const preview = document.getElementById('adjustPreview');
+  const img = document.getElementById('adjustImg');
+  const cleanup = wireAdjustDrag(preview, img, () => pos, (p) => { pos = p; });
+
+  document.getElementById('savePositionBtn').addEventListener('click', async () => {
+    snap.portraitPosition = pos;
+    cleanup();
+    await persistState();
+    renderAll();
+    closeModal();
+  });
+  document.getElementById('cancelPositionBtn').addEventListener('click', () => { cleanup(); closeModal(); });
+  openModal();
+}
+
+// ---- Avatar (system section): optional separate image + its own position ----
+function openAvatarImageModal(char, snap){
+  let pos = { ...(snap.systemPortraitPosition || { x: 50, y: 50 }) };
+  let newSystemPortrait = snap.systemPortrait || null; // null = "use main portrait"
+  const startSrc = snap.systemPortrait || snap.portrait || SILHOUETTE_SVG;
+
+  modalContent.innerHTML = `
+    <h2>System picture</h2>
+    <p class="sub">Optional — upload a different image for this section, or leave it using the main portrait. Drag to adjust framing.</p>
+    <div class="field">
+      <label class="dropzone" id="avatarDropzone" for="avatarFileInput"><span>Click to upload a different image</span></label>
+      <input type="file" id="avatarFileInput" accept="image/*" class="visually-hidden-input">
+    </div>
+    <div class="adjust-preview rect" id="adjustPreview">
+      <img id="adjustImg" src="${startSrc}" style="object-position:${pos.x}% ${pos.y}%;">
+    </div>
+    <p class="adjust-hint">Click and drag inside the frame</p>
+    <div class="modal-actions">
+      <button class="btn ghost" id="useMainPortraitBtn">Use main portrait instead</button>
+      <button class="btn primary" id="saveAvatarImgBtn">Save</button>
+    </div>
+    <div class="modal-actions" style="border-top:none; margin-top:8px; padding-top:0; justify-content:flex-end;">
+      <button class="btn ghost" id="cancelAvatarImgBtn">Cancel</button>
+    </div>
+  `;
+
+  const preview = document.getElementById('adjustPreview');
+  const img = document.getElementById('adjustImg');
+  const cleanup = wireAdjustDrag(preview, img, () => pos, (p) => { pos = p; });
+
+  document.getElementById('avatarFileInput').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onerror = () => showToast('Could not read that image file — try a different photo.');
+    reader.onload = (ev) => {
+      const im = new Image();
+      im.onerror = () => showToast('That image could not be opened — try a JPEG or PNG instead.');
+      im.onload = () => {
+        try{
+          const maxDim = 900;
+          let { width, height } = im;
+          if(width > maxDim || height > maxDim){
+            const scale = maxDim / Math.max(width, height);
+            width = Math.round(width * scale);
+            height = Math.round(height * scale);
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width; canvas.height = height;
+          canvas.getContext('2d').drawImage(im, 0, 0, width, height);
+          newSystemPortrait = canvas.toDataURL('image/jpeg', 0.88);
+          img.src = newSystemPortrait;
+        }catch(err){
+          showToast('Could not process that image — try a smaller photo.');
+        }
+      };
+      im.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  document.getElementById('useMainPortraitBtn').addEventListener('click', () => {
+    newSystemPortrait = null;
+    img.src = snap.portrait || SILHOUETTE_SVG;
+  });
+
+  document.getElementById('saveAvatarImgBtn').addEventListener('click', async () => {
+    snap.systemPortrait = newSystemPortrait || '';
+    snap.systemPortraitPosition = pos;
+    cleanup();
+    await persistState();
+    renderAll();
+    closeModal();
+  });
+  document.getElementById('cancelAvatarImgBtn').addEventListener('click', () => { cleanup(); closeModal(); });
+  openModal();
+}
+
+function handleFileInput(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onerror = () => showToast('Could not read that image file — try a different photo.');
+  reader.onload = (ev) => {
+    const img = new Image();
+    img.onerror = () => showToast('That image could not be opened — try a JPEG or PNG instead.');
+    img.onload = () => {
+      try{
+        // downscale to keep storage light
+        const maxDim = 900;
+        let { width, height } = img;
+        if(width > maxDim || height > maxDim){
+          const scale = maxDim / Math.max(width, height);
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        pendingPortrait = canvas.toDataURL('image/jpeg', 0.88);
+
+        const dz = document.getElementById('dropzone');
+        dz.innerHTML = `<img id="dzPreview" src="${pendingPortrait}"><span>Click to replace image</span>`;
+      }catch(err){
+        showToast('Could not process that image — try a smaller photo.');
+      }
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ============================================================
+// TOP-LEVEL CONTROLS
+// ============================================================
+newBtn.addEventListener('click', () => {
+  const char = getActiveCharacter();
+  if(char) openSnapshotForm();
+  else openCharacterForm();
+});
+editBtn.addEventListener('click', () => {
+  const char = getActiveCharacter();
+  if(char) openCharacterForm(char);
+});
+deleteBtn.addEventListener('click', () => {
+  const char = getActiveCharacter();
+  if(!char) return;
+  modalContent.innerHTML = `
+    <div class="confirm-box">
+      <div class="display">Delete ${escapeHtml(char.name || 'this profile')}?</div>
+      <p>This removes the character and all of its chapter versions permanently. This can't be undone.</p>
+      <div class="confirm-actions">
+        <button class="btn ghost" id="cancelDelete">Cancel</button>
+        <button class="btn primary" id="confirmDelete" style="background:var(--ember);border-color:var(--ember);">Delete</button>
+      </div>
+    </div>
+  `;
+  openModal();
+  document.getElementById('cancelDelete').addEventListener('click', closeModal);
+  document.getElementById('confirmDelete').addEventListener('click', async () => {
+    state.characters = state.characters.filter(c => c.id !== char.id);
+    state.activeId = state.characters.length ? state.characters[0].id : null;
+    await persistState();
+    renderAll();
+    closeModal();
+  });
+});
+
+modalBackdrop.addEventListener('click', (e) => {
+  if(e.target === modalBackdrop) closeModal();
+});
+
+// ============================================================
+// INIT
+// ============================================================
+(async function init(){
+  await loadState();
+  const params = new URLSearchParams(window.location.search);
+  const linkedCharId = params.get('char');
+  if(linkedCharId && state.characters.find(c => c.id === linkedCharId)){
+    state.activeId = linkedCharId;
+  } else if(!state.activeId && state.characters.length){
+    state.activeId = state.characters[0].id;
+  }
+  renderAll();
+})();
+
+// ============================================================
+// STORYBOOK — type "open" anywhere on the page to trigger it
+// ============================================================
+let openBuffer = '';
+document.addEventListener('keydown', (e) => {
+  const tag = document.activeElement.tagName;
+  if(tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  if(document.getElementById('bookStage').classList.contains('active')) return;
+  if(document.getElementById('loadingPopup').classList.contains('visible')) return;
+  if(e.key.length === 1){
+    openBuffer = (openBuffer + e.key).slice(-10).toLowerCase();
+    if(openBuffer.endsWith('open')){
+      openBuffer = '';
+      startStoryBookSequence();
+    }
+  }
+});
+
+function startStoryBookSequence(){
+  const popup = document.getElementById('loadingPopup');
+  const fill = document.getElementById('loadingBarFill');
+  const pct = document.getElementById('loadingPct');
+  fill.style.width = '0%';
+  pct.textContent = '0%';
+  popup.classList.add('visible');
+
+  let p = 0;
+  const iv = setInterval(() => {
+    p += Math.random() * 18 + 7;
+    if(p >= 100){
+      p = 100;
+      clearInterval(iv);
+      fill.style.width = '100%';
+      pct.textContent = '100%';
+      setTimeout(() => {
+        popup.classList.remove('visible');
+        openTheBook();
+      }, 400);
+      return;
+    }
+    fill.style.width = p + '%';
+    pct.textContent = Math.floor(p) + '%';
+  }, 220);
+}
+
+function openTheBook(){
+  document.getElementById('bookBackdrop').classList.add('active');
+  const stage = document.getElementById('bookStage');
+  stage.classList.add('active');
+  const book = document.getElementById('theBook');
+  requestAnimationFrame(() => {
+    book.classList.add('dropped');
+    setTimeout(() => {
+      book.classList.add('open');
+      initTerminal();
+    }, 900);
+  });
+}
+
+function closeTheBook(){
+  const book = document.getElementById('theBook');
+  book.classList.remove('open');
+  setTimeout(() => {
+    book.classList.remove('dropped');
+    setTimeout(() => {
+      document.getElementById('bookBackdrop').classList.remove('active');
+      document.getElementById('bookStage').classList.remove('active');
+    }, 700);
+  }, 500);
+}
+
+document.getElementById('bookCloseBtn').addEventListener('click', closeTheBook);
+document.getElementById('loadingCloseX').addEventListener('click', () => {
+  document.getElementById('loadingPopup').classList.remove('visible');
+});
+
+function initTerminal(){
+  const input = document.getElementById('terminalInput');
+  const log = document.getElementById('terminalLog');
+  if(!input.dataset.wired){
+    input.dataset.wired = 'true';
+    log.innerHTML = '<div>Storybook terminal ready. Type "help" for commands.</div>';
+    input.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if(e.key === 'Enter'){
+        const cmd = input.value.trim();
+        if(cmd){
+          log.innerHTML += `<div class="term-cmd">&gt; ${escapeHtml(cmd)}</div>`;
+          log.innerHTML += `<div>${runStorybookCommand(cmd)}</div>`;
+          log.scrollTop = log.scrollHeight;
+        }
+        input.value = '';
+      }
+    });
+  }
+  setTimeout(() => input.focus(), 50);
+}
+
+function runStorybookCommand(cmd){
+  const lower = cmd.toLowerCase();
+  if(lower === 'help') return 'Available commands: help, clear, open lib (opl). More can be added on request.';
+  if(lower === 'clear'){
+    setTimeout(() => { document.getElementById('terminalLog').innerHTML = ''; }, 0);
+    return '';
+  }
+  if(lower === 'open lib' || lower === 'opl'){
+    renderLibraryPage();
+    return 'Opening the library...';
+  }
+  return `Unrecognized command: "${escapeHtml(cmd)}" — tell Claude what this should do.`;
+}
+
+// ---- Library page: shows the active character's Generation timeline data
+// (from generationStates) as text on the book's left page. Each entry can be
+// deleted directly from here, regardless of whether its chapter is committed.
+const LEFT_PAGE_DEFAULT_HTML = `
+        <h3>Storybook</h3>
+        <ul class="book-links">
+          <li><a href="index.html">Character Dossier</a></li>
+          <li><a href="atlas.html">World Map</a></li>
+          <li><a href="epitaph-hub.html">Hub</a></li>
+        </ul>
+        <p class="book-hint">Placeholder links for now — tell Claude where these should actually point.</p>
+      `;
+
+function restoreLeftPage(){
+  document.querySelector('.book-page.left-page').innerHTML = LEFT_PAGE_DEFAULT_HTML;
+}
+
+function renderLibraryPage(){
+  const leftPage = document.querySelector('.book-page.left-page');
+  const char = getActiveCharacter();
+  if(!char){
+    leftPage.innerHTML = `<div class="lib-page-header">No active character.</div><span class="lib-back" id="libBackBtn">← back</span>`;
+    document.getElementById('libBackBtn').addEventListener('click', restoreLeftPage);
+    return;
+  }
+  const snap = getActiveSnapshot(char);
+  const gs = findGenState(char.id, snap.id);
+  const timeline = gs ? gs.timeline : emptyTimeline();
+
+  leftPage.innerHTML = `
+    <div class="lib-page-header"><strong>${escapeHtml(char.name || 'Unnamed')}</strong> | ${escapeHtml(snap.chapterRange || 'Untitled chapter')}</div>
+    ${TIMELINE_FIELDS.map(f => `
+      <div class="lib-field">
+        <div class="lib-field-label">${escapeHtml(f.label)}</div>
+        ${(timeline[f.key] && timeline[f.key].length) ? timeline[f.key].map(e => `
+          <div class="lib-entry">
+            <span>${escapeHtml(e.text)}${e.status !== 'committed' ? `<span class="lib-entry-meta">(${escapeHtml(e.status)})</span>` : ''}</span>
+            <button class="lib-del" data-field="${f.key}" data-id="${e.id}" title="Delete">×</button>
+          </div>
+        `).join('') : `<div class="lib-empty">Nothing recorded.</div>`}
+      </div>
+    `).join('')}
+    <span class="lib-back" id="libBackBtn">← back to storybook</span>
+  `;
+
+  leftPage.querySelectorAll('.lib-del').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const { field, id } = btn.dataset;
+      if(gs){
+        gs.timeline[field] = gs.timeline[field].filter(e => e.id !== id);
+        await persistState();
+      }
+      renderLibraryPage();
+      renderGenerationSection();
+    });
+  });
+  document.getElementById('libBackBtn').addEventListener('click', restoreLeftPage);
+}
+
+</script>
+
+</body>
+</html>

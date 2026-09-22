@@ -1,0 +1,1196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Epitaph — Atlas HUD Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0c0b09;
+    --ink-deep:#060504;
+    --bone:#ece6d8;
+    --dust:#9c927e;
+    --ember:#b3492e;
+    --verdigris:#5b7a72;
+    --line: rgba(236,230,216,0.14);
+    --panel:#141210;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;background:var(--ink);color:var(--bone);font-family:'Space Mono',monospace;overflow:hidden;}
+
+  .hud{
+    position:relative; width:100vw; height:100vh;
+    background:
+      radial-gradient(ellipse at 50% 30%, #14100c 0%, var(--ink) 60%, var(--ink-deep) 100%);
+    display:flex; flex-direction:column;
+  }
+  .hud::before{
+    content:'';
+    position:absolute; inset:0;
+    background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 48px 48px;
+    opacity:0.35;
+    pointer-events:none;
+  }
+
+  /* ---- top bar ---- */
+  .top-bar{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:20px 28px; position:relative; z-index:2;
+  }
+  .top-bar .brand{
+    font-family:'Bebas Neue', sans-serif; letter-spacing:0.1em; font-size:15px; color:var(--dust);
+  }
+  .top-bar .brand span{ color:var(--bone); }
+  .top-icons{ display:flex; gap:14px; }
+  .icon-btn{
+    width:30px; height:30px; border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center;
+    color:var(--dust); cursor:pointer; background:transparent;
+    transition: border-color .2s ease, color .2s ease;
+  }
+  .icon-btn:hover{ border-color:var(--dust); color:var(--bone); }
+  .icon-btn svg{ width:14px; height:14px; }
+
+  /* ---- main layout ---- */
+  .hud-body{ flex:1; display:flex; position:relative; z-index:2; padding:0 28px 28px; }
+
+  /* ---- left panel ---- */
+  .panel-left{ width:220px; flex:0 0 auto; display:flex; flex-direction:column; gap:34px; }
+  .panel-label{
+    font-family:'Bebas Neue', sans-serif; letter-spacing:0.12em; font-size:13px; color:var(--dust); margin-bottom:14px;
+  }
+  .scale-row{ display:flex; gap:10px; }
+  .scale-icon{
+    width:44px; height:44px; border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; color:var(--dust); position:relative;
+    transition: border-color .2s ease, color .2s ease;
+  }
+  .scale-icon svg{ width:20px; height:20px; }
+  .scale-icon:hover{ color:var(--bone); border-color:var(--dust); }
+  .scale-icon.active{ background:var(--bone); color:var(--ink); border-color:var(--bone); }
+  .scale-icon .tip{
+    position:absolute; top:52px; left:50%; transform:translateX(-50%);
+    font-size:9.5px; color:var(--dust); white-space:nowrap; opacity:0; transition:opacity .15s ease;
+    pointer-events:none;
+  }
+  .scale-icon:hover .tip{ opacity:1; }
+
+  .layer-list{ display:flex; flex-direction:column; }
+  .layer-item{
+    display:flex; align-items:center; gap:12px;
+    padding:11px 10px; cursor:pointer; border-left:2px solid transparent;
+    color:var(--dust); font-size:13px; transition: color .2s ease, border-color .2s ease;
+  }
+  .layer-item svg{ width:16px; height:16px; flex:0 0 auto; }
+  .layer-item:hover{ color:var(--bone); }
+  .layer-item.active{ color:var(--bone); border-left-color:var(--ember); background:rgba(179,73,46,0.08); }
+  .layer-item .name{ font-weight:700; }
+
+  /* ---- center stage ---- */
+  .stage{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; }
+  .dial-wrap{ position:relative; width:420px; height:420px; display:flex; align-items:center; justify-content:center; }
+  .orbit{
+    position:absolute; inset:0; border:1px solid var(--line); border-radius:50%;
+  }
+  .orbit::after{
+    content:''; position:absolute; bottom:-1px; left:50%; transform:translateX(-50%);
+    width:70px; height:2px; background:var(--bone);
+  }
+  .orbit-outer{ inset:-26px; border-color: rgba(236,230,216,0.06); }
+  .orbit-scan{
+    inset:-46px; border:none;
+    border-top:1px dashed rgba(236,230,216,0.1);
+    border-radius:50%;
+    animation: orbitSpin 90s linear infinite;
+  }
+  @keyframes orbitSpin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
+  .map-glyph{ width:340px; height:340px; position:relative; }
+  .map-glyph svg{ width:100%; height:100%; overflow:visible; }
+  .scale-readout{ text-align:center; margin-top:20px; }
+  .scale-readout .label{ font-size:11px; color:var(--dust); letter-spacing:0.08em; margin-bottom:6px; }
+  .scale-readout .value{ font-family:'Bebas Neue', sans-serif; font-size:24px; letter-spacing:0.06em; color:var(--bone); display:flex; gap:8px; justify-content:center; align-items:center; }
+  .scale-readout .value .crumb{ cursor:pointer; }
+  .scale-readout .value .crumb:hover{ color: var(--ember); }
+  .scale-readout .value .crumb.current{ color: var(--bone); cursor:default; }
+  .scale-readout .value .sep{ color: var(--dust); font-size:16px; }
+
+  .scale-prompt{
+    position:absolute; top:6px; left:50%; transform:translateX(-50%);
+    font-family:'Space Mono', monospace; font-size:10.5px; letter-spacing:0.08em;
+    color: var(--ember); text-align:center; white-space:nowrap;
+    opacity:0; pointer-events:none; transition:opacity 0.2s ease;
+  }
+  .scale-prompt.on{ opacity:1; }
+
+  .continent-shape{ fill: rgba(236,230,216,0.03); stroke: var(--dust); stroke-width:0.8; cursor:pointer; transition: fill 0.2s ease, stroke 0.2s ease; }
+  .continent-shape:hover{ fill: rgba(236,230,216,0.09); stroke: var(--bone); }
+  .continent-label{ font-family:'Space Mono', monospace; font-size:7px; fill: var(--dust); letter-spacing:0.06em; pointer-events:none; }
+
+  .city-mark{ cursor:pointer; }
+  .city-mark .diamond{ fill: var(--bone); }
+  .city-mark .leader{ stroke: var(--dust); stroke-width:0.4; }
+  .city-mark .city-label{ font-family:'Space Mono', monospace; font-size:6px; fill: var(--dust); letter-spacing:0.04em; }
+  .city-mark:hover .diamond{ fill: var(--ember); }
+  .city-mark:hover .city-label{ fill: var(--bone); }
+
+  /* ---- right panel ---- */
+  .panel-right{ width:230px; flex:0 0 auto; display:flex; flex-direction:column; gap:30px; }
+  .view-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .view-cell{
+    aspect-ratio:1.3/1; border:1px solid var(--line);
+    display:flex; flex-direction:column; align-items:flex-start; justify-content:flex-end;
+    padding:10px; cursor:pointer; color:var(--dust); font-size:12px; font-weight:700;
+    transition: all .2s ease; gap:6px;
+  }
+  .view-cell svg{ width:18px; height:18px; }
+  .view-cell:hover{ border-color:var(--dust); color:var(--bone); }
+  .view-cell.active{ background:var(--bone); color:var(--ink); border-color:var(--bone); }
+
+  .slider-block{ display:flex; flex-direction:column; gap:16px; }
+  .slider-row .label{ font-size:11px; color:var(--dust); letter-spacing:0.06em; margin-bottom:8px; display:flex; justify-content:space-between; }
+  .slider-track{ position:relative; height:2px; background:var(--line); }
+  .slider-fill{ position:absolute; top:0; left:0; bottom:0; background:var(--bone); }
+  .slider-row.disabled .label, .slider-row.disabled .fill-label{ color:#5a5348; }
+  .slider-row.disabled .slider-fill{ background:#4a4438; }
+  .fill-label{ font-size:9.5px; color:var(--dust); }
+
+  /* ---- bottom bar ---- */
+  .bottom-bar{
+    position:absolute; bottom:20px; left:28px; right:28px;
+    display:flex; justify-content:space-between; align-items:flex-end;
+    z-index:2; pointer-events:none;
+  }
+  .brand-tag{
+    border:1px solid var(--line); padding:10px 14px;
+    font-family:'Bebas Neue', sans-serif; font-size:14px; letter-spacing:0.06em; line-height:1.3; color:var(--bone);
+  }
+  .counter{ font-size:12px; color:var(--dust); }
+
+  /* ================= LIVE CHARACTERS LAYER ================= */
+
+  /* world outline — subtle backdrop for markers when Characters view is active */
+  .world-outline{
+    position:absolute; inset:0; opacity:0; pointer-events:none;
+    transition: opacity 0.3s ease;
+  }
+  .world-outline.on{ opacity:0.16; }
+  .world-outline svg{ width:100%; height:100%; }
+
+  /* archival header — small system label, not a title */
+  .char-header{
+    position:absolute; top:-6px; left:50%; transform:translateX(-50%);
+    display:none;
+    text-align:center; pointer-events:none;
+  }
+  .char-header.on{ display:block; }
+  .char-header .h-title{
+    font-family:'Bebas Neue', sans-serif; font-size:13px; letter-spacing:0.16em; color:var(--bone);
+  }
+  .char-header .h-rule{ width:180px; height:1px; background:var(--line); margin:5px auto; }
+  .char-header .h-meta{ font-size:9px; letter-spacing:0.1em; color:var(--ember); margin-bottom:4px; }
+  .char-header .h-stats{ font-size:9px; color:var(--dust); letter-spacing:0.04em; display:flex; gap:12px; justify-content:center; }
+  .char-header .h-stats b{ color:var(--bone); font-weight:700; }
+  .char-header .h-time{ font-size:8.5px; color:var(--dust); letter-spacing:0.08em; margin-top:4px; }
+
+  /* markers */
+  .char-markers{ position:absolute; inset:0; display:none; }
+  .char-markers.on{ display:block; }
+  .char-marker{
+    position:absolute; transform:translate(-50%,-50%);
+    display:flex; flex-direction:column; align-items:center;
+    cursor:pointer; pointer-events:auto;
+  }
+  .char-marker .pip{
+    width:7px; height:7px; background:var(--bone); border:1px solid var(--bone);
+    transition: all 0.2s ease;
+  }
+  .char-marker .tag{
+    margin-top:5px; font-size:8.5px; letter-spacing:0.05em; color:var(--dust);
+    white-space:nowrap; background:rgba(6,5,4,0.6); padding:1px 4px;
+  }
+  .char-marker:hover .pip{ background:var(--bone); box-shadow:0 0 0 4px rgba(236,230,216,0.12); }
+  .char-marker:hover .tag{ color:var(--bone); }
+  .char-marker.selected .pip{ background:var(--ember); border-color:var(--ember); box-shadow:0 0 0 5px rgba(179,73,46,0.16); }
+  .char-marker.selected .tag{ color:var(--bone); }
+
+  .char-marker[data-status="Moving"] .pip{ border-radius:0 60% 60% 60%; }
+  .char-marker[data-status="Unknown"] .pip{ background:transparent; border-style:dashed; }
+  .char-marker[data-status="Off-map"] .pip{ opacity:0.35; }
+  .char-marker[data-status="Deceased"] .pip{ background:var(--ink); border-color:var(--dust); }
+  .char-marker.dimmed{ opacity:0.22; }
+
+  .char-marker.projected .pip{
+    width:7px; height:7px; background:transparent; border:1px dashed var(--dust);
+  }
+  .char-marker.projected .tag{ color:var(--dust); font-style:italic; }
+
+  .proj-line{ position:absolute; pointer-events:none; }
+
+  .loc-anchor{
+    position:absolute; transform:translate(-50%,-50%);
+    display:flex; flex-direction:column; align-items:center;
+    cursor:pointer; pointer-events:auto;
+  }
+  .loc-anchor .plus{
+    width:11px; height:11px; position:relative; opacity:0.55;
+  }
+  .loc-anchor .plus::before, .loc-anchor .plus::after{
+    content:''; position:absolute; background:var(--dust);
+  }
+  .loc-anchor .plus::before{ top:50%; left:0; right:0; height:1px; transform:translateY(-50%); }
+  .loc-anchor .plus::after{ left:50%; top:0; bottom:0; width:1px; transform:translateX(-50%); }
+  .loc-anchor .loc-tag{
+    margin-top:4px; font-size:8px; letter-spacing:0.06em; color:var(--dust);
+    text-transform:uppercase; white-space:nowrap;
+  }
+  .loc-anchor:hover .plus::before, .loc-anchor:hover .plus::after{ background:var(--bone); }
+  .loc-anchor:hover .loc-tag{ color:var(--bone); }
+
+  /* hover identification readout */
+  .char-tooltip{
+    position:fixed; z-index:50; pointer-events:none;
+    background: var(--panel); border:1px solid var(--line);
+    padding:10px 13px; min-width:190px;
+    font-size:10px; letter-spacing:0.02em; color:var(--dust);
+    opacity:0; transition:opacity 0.12s ease;
+  }
+  .char-tooltip.visible{ opacity:1; }
+  .char-tooltip .t-id{ font-size:9px; color:var(--ember); letter-spacing:0.08em; margin-bottom:5px; }
+  .char-tooltip .t-name{ font-family:'Bebas Neue', sans-serif; font-size:16px; letter-spacing:0.04em; color:var(--bone); margin-bottom:7px; }
+  .char-tooltip .t-row{ display:flex; justify-content:space-between; gap:14px; padding:2px 0; }
+  .char-tooltip .t-row span:first-child{ color:#6d6558; }
+  .char-tooltip .t-row span:last-child{ color:var(--bone); text-align:right; }
+
+  /* observation filter strip (left panel, characters view only) */
+  .char-filter{ display:none; flex-direction:column; gap:2px; }
+  .char-filter.on{ display:flex; }
+  .char-filter .f-label{ font-size:9px; letter-spacing:0.1em; color:var(--dust); margin-bottom:6px; }
+  .char-filter .f-btn{
+    text-align:left; background:transparent; border:none; border-left:2px solid transparent;
+    color:var(--dust); font-family:'Space Mono', monospace; font-size:10.5px; letter-spacing:0.04em;
+    padding:5px 8px; cursor:pointer;
+  }
+  .char-filter .f-btn:hover{ color:var(--bone); }
+  .char-filter .f-btn.active{ color:var(--bone); border-left-color:var(--ember); background:rgba(179,73,46,0.07); }
+
+  /* right panel: subject index + subject record (characters view only) */
+  .subject-index{ display:none; flex-direction:column; gap:0; }
+  .subject-index.on{ display:flex; }
+  .subject-index .idx-row{
+    display:flex; justify-content:space-between; gap:8px;
+    padding:8px 4px; border-bottom:1px solid var(--line);
+    cursor:pointer; font-size:10.5px; color:var(--dust);
+  }
+  .subject-index .idx-row:hover{ color:var(--bone); }
+  .subject-index .idx-num{ color:#6d6558; width:22px; flex:0 0 auto; }
+  .subject-index .idx-name{ flex:1; color:var(--bone); font-weight:700; }
+  .subject-index .idx-status{ font-size:9px; color:var(--dust); }
+
+  .subject-record{ display:none; flex-direction:column; gap:10px; }
+  .subject-record.on{ display:flex; }
+  .subject-record .r-back{
+    background:none; border:none; color:var(--dust); font-size:9.5px; letter-spacing:0.06em;
+    cursor:pointer; text-align:left; padding:0; margin-bottom:2px;
+  }
+  .subject-record .r-back:hover{ color:var(--bone); }
+  .subject-record .r-id{ font-size:9px; color:var(--ember); letter-spacing:0.1em; }
+  .subject-record .r-name{ font-family:'Bebas Neue', sans-serif; font-size:22px; letter-spacing:0.03em; color:var(--bone); }
+  .subject-record .r-row{ display:flex; justify-content:space-between; font-size:10.5px; padding:5px 0; border-bottom:1px solid var(--line); }
+  .subject-record .r-row span:first-child{ color:var(--dust); letter-spacing:0.06em; font-size:9.5px; }
+  .subject-record .r-row span:last-child{ color:var(--bone); text-align:right; }
+  .subject-record .r-block-label{ font-size:9px; letter-spacing:0.08em; color:var(--dust); margin-top:6px; }
+  .subject-record .r-activity{ font-size:11px; color:var(--bone); line-height:1.5; font-style:italic; }
+  .subject-record .r-proj{ font-size:10.5px; color:var(--dust); line-height:1.7; }
+  .subject-record .r-proj b{ color:var(--bone); font-weight:700; }
+  .subject-record .r-open-btn{
+    margin-top:6px; background:transparent; border:1px solid var(--line); color:var(--bone);
+    font-family:'Space Mono', monospace; font-size:10.5px; letter-spacing:0.05em; padding:9px; cursor:pointer;
+    transition: border-color 0.2s ease;
+  }
+  .subject-record .r-open-btn:hover{ border-color:var(--dust); }
+</style>
+</head>
+<body>
+
+<div class="hud">
+  <div class="top-bar">
+    <div class="brand">EPITAPH ATLAS — <span id="crumbLabel">PLANET</span></div>
+    <div class="top-icons">
+      <a class="icon-btn" href="index.html" title="Character Dossier" style="text-decoration:none; font-family:'Bebas Neue',sans-serif; font-size:12px; letter-spacing:0.06em; width:auto; padding:0 10px;">DOSSIER</a>
+      <button class="icon-btn" title="Reset view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12a9 9 0 1 1 3 6.7M3 12v6h6"/></svg></button>
+      <button class="icon-btn" title="Fullscreen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg></button>
+    </div>
+  </div>
+
+  <div class="hud-body">
+    <!-- LEFT: scale + layers -->
+    <div class="panel-left">
+      <div>
+        <div class="panel-label">Scale</div>
+        <div class="scale-row" id="scaleRow">
+          <div class="scale-icon active" data-scale="Planet" title="Planet">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg>
+            <span class="tip">Planet</span>
+          </div>
+          <div class="scale-icon" data-scale="Continent" title="Continent">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 15 8 8l4 3 3-6 5 4-2 9-8 2z"/></svg>
+            <span class="tip">Continent</span>
+          </div>
+          <div class="scale-icon" data-scale="Country" title="Country">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 4v16M4 4l16 3-6 4 6 4-16 3"/></svg>
+            <span class="tip">Country</span>
+          </div>
+          <div class="scale-icon" data-scale="City" title="City">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 21V9l5-4 5 4v12M14 21v-8l6-3v11"/></svg>
+            <span class="tip">City</span>
+          </div>
+          <div class="scale-icon" data-scale="Site" title="Site">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M12 3 4 9v12h16V9z"/><path d="M9 21v-6h6v6"/></svg>
+            <span class="tip">Site</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="panel-label">Layers</div>
+        <div class="layer-list" id="layerList">
+          <div class="layer-item active" data-layer="Terrain">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 18 9 8l4 6 3-4 5 8z"/></svg>
+            <span class="name">Terrain</span>
+          </div>
+          <div class="layer-item active" data-layer="Settlements">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="5" y="10" width="4" height="9"/><rect x="10" y="6" width="4" height="13"/><rect x="15" y="12" width="4" height="7"/></svg>
+            <span class="name">Settlements</span>
+          </div>
+          <div class="layer-item" data-layer="Temples">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 21h16M5 21V10l7-6 7 6v11M9 21v-7h6v7"/></svg>
+            <span class="name">Temples</span>
+          </div>
+          <div class="layer-item" data-layer="Trade Routes">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 18c4-8 12-8 16-14M15 4h5v5"/></svg>
+            <span class="name">Trade Routes</span>
+          </div>
+          <div class="layer-item" data-layer="Corruption">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M12 3 8 10l3 1-4 10 9-12-4-1z"/></svg>
+            <span class="name">Corruption</span>
+          </div>
+          <div class="layer-item" data-layer="Borders">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-dasharray="3 3"><path d="M4 4h16v16H4z"/></svg>
+            <span class="name">Borders</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="char-filter" id="charFilter">
+        <div class="f-label">CHARACTER OBSERVATION — FILTER</div>
+        <button class="f-btn active" data-filter="all">ALL</button>
+        <button class="f-btn" data-filter="Active">ACTIVE</button>
+        <button class="f-btn" data-filter="Moving">MOVING</button>
+        <button class="f-btn" data-filter="Unknown">UNKNOWN</button>
+        <button class="f-btn" data-filter="Off-map">OFF-MAP</button>
+      </div>
+    </div>
+
+    <!-- CENTER: dial + readout -->
+    <div class="stage">
+      <div class="world-outline" id="worldOutline">
+        <svg viewBox="0 0 400 260" preserveAspectRatio="xMidYMid meet">
+          <path d="M40 90 90 60 150 75 140 110 100 130 60 150 30 120z" fill="none" stroke="var(--bone)" stroke-width="0.8"/>
+          <path d="M180 50 240 45 270 90 250 130 210 140 190 100z" fill="none" stroke="var(--bone)" stroke-width="0.8"/>
+          <path d="M290 70 340 60 370 100 350 150 300 140 285 105z" fill="none" stroke="var(--bone)" stroke-width="0.8"/>
+          <path d="M120 160 170 155 190 190 160 220 125 210z" fill="none" stroke="var(--bone)" stroke-width="0.8"/>
+        </svg>
+      </div>
+
+      <div class="char-header" id="charHeader">
+        <div class="h-title">LIVE CHARACTERS</div>
+        <div class="h-rule"></div>
+        <div class="h-meta">FIELD OBSERVATION // ACTIVE</div>
+        <div class="h-stats">
+          <span>SUBJECTS: <b id="statPresent">—</b></span>
+          <span>VISIBLE: <b id="statVisible">—</b></span>
+          <span>UNKNOWN: <b id="statUnknown">—</b></span>
+        </div>
+        <div class="h-time">ERA 0 // CH 3 // FIELD LOG 184</div>
+      </div>
+
+      <div class="char-markers" id="charMarkers"></div>
+
+      <div class="scale-prompt" id="scalePrompt"></div>
+
+      <div class="dial-wrap" id="dialWrap">
+        <div class="orbit"></div>
+        <div class="orbit orbit-outer"></div>
+        <div class="orbit orbit-scan"></div>
+        <div class="map-glyph" id="mapGlyph"></div>
+      </div>
+      <div class="scale-readout">
+        <div class="label">LOCATION</div>
+        <div class="value" id="scaleValue"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: view modes + sliders -->
+    <div class="panel-right">
+      <div>
+        <div class="panel-label">View</div>
+        <div class="view-grid" id="viewGrid">
+          <div class="view-cell active" data-view="Physical">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 16 8 9l4 5 3-4 6 8"/></svg>
+            Physical
+          </div>
+          <div class="view-cell" data-view="Political">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-dasharray="2 2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+            Political
+          </div>
+          <div class="view-cell" data-view="Corruption">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M12 2 9 10l3 1-5 11 10-13-4-1z"/></svg>
+            Corruption
+          </div>
+          <div class="view-cell" data-view="Characters">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="8" r="3"/><path d="M5 21c0-4 3-7 7-7s7 3 7 7"/></svg>
+            Characters
+          </div>
+        </div>
+      </div>
+
+      <div class="slider-block" id="sliderBlock">
+        <div class="slider-row">
+          <div class="label"><span>Detail</span><span class="fill-label">70%</span></div>
+          <div class="slider-track"><div class="slider-fill" style="width:70%;"></div></div>
+        </div>
+        <div class="slider-row disabled">
+          <div class="label"><span>Era Blend</span><span class="fill-label">Era 1 not yet available</span></div>
+          <div class="slider-track"><div class="slider-fill" style="width:0%;"></div></div>
+        </div>
+      </div>
+
+      <div class="subject-index" id="subjectIndex">
+        <div class="panel-label">Live Subject Index</div>
+        <div id="indexList"></div>
+      </div>
+
+      <div class="subject-record" id="subjectRecord">
+        <button class="r-back" id="recordBack">← BACK TO INDEX</button>
+        <div class="r-id" id="recId">SUBJECT // 001</div>
+        <div class="r-name" id="recName">—</div>
+        <div class="r-row"><span>STATUS</span><span id="recStatus">—</span></div>
+        <div class="r-row"><span>LOCATION</span><span id="recLocation">—</span></div>
+        <div class="r-row"><span>CHAPTER / STATE</span><span id="recChapter">—</span></div>
+        <div class="r-block-label">CURRENT OBJECTIVE</div>
+        <div class="r-activity" id="recObjective">—</div>
+        <div id="recProjBlock" style="display:none;">
+          <div class="r-block-label">PROJECTED</div>
+          <div class="r-proj" id="recProj"></div>
+        </div>
+        <button class="r-open-btn" id="recOpenDossier">OPEN DOSSIER</button>
+      </div>
+
+      <div class="subject-record" id="locationRecord">
+        <button class="r-back" id="locationBack">← BACK TO INDEX</button>
+        <div class="r-id" id="locId">LOCATION</div>
+        <div class="r-name" id="locName">—</div>
+        <div class="r-row"><span>TYPE</span><span id="locType">—</span></div>
+        <div class="r-row"><span>REGION</span><span id="locParent">—</span></div>
+        <div class="r-block-label">DESCRIPTION</div>
+        <div class="r-activity" id="locDesc">—</div>
+        <div class="r-block-label">CHARACTERS PRESENT</div>
+        <div class="r-proj" id="locCharsPresent">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <div class="brand-tag">EPITAPH<br>ATLAS</div>
+    <div class="counter" id="siteCounter">5 sealed sites</div>
+  </div>
+</div>
+
+<div class="char-tooltip" id="charTooltip"></div>
+
+<script>
+// ============================================================
+// WORLD DATA — the single source of geography. Continents and
+// cities live here, once, with fixed positions. Nothing else in
+// the Atlas invents a coordinate; everything reads from this.
+// Structured to support ERA_1 later (destroyed/abandoned states)
+// without reshaping this object.
+// ============================================================
+const WORLD_DATA = {
+  ERA_0: {
+    planet: 'Earth',
+    continents: [
+      {
+        id: 'north-america', name: 'NORTH AMERICA',
+        shape: 'M70 70 130 55 165 90 150 130 110 150 65 140 45 105z',
+        labelX: 105, labelY: 60, cloud:{cx:105,cy:105,rx:55,ry:45},
+        cities: [
+          { id: 'C-01', name: 'AURELIA', type: 'Technological Megacity', population: '14.2M', x: 95, y: 95, description: 'The largest surviving population center on the continent, built around orbital launch infrastructure.' },
+          { id: 'C-02', name: 'VANTH', type: 'Industrial City', population: '6.1M', x: 130, y: 110, description: 'A dense industrial region feeding raw material into Aurelia.' },
+          { id: 'C-03', name: 'HELIOS-7', type: 'Energy City', population: '2.4M', x: 75, y: 120, description: 'A solar and geothermal energy complex powering the western coast.' }
+        ]
+      },
+      {
+        id: 'south-america', name: 'SOUTH AMERICA',
+        shape: 'M95 175 130 165 145 200 130 235 100 240 80 205z',
+        labelX: 100, labelY: 250, cloud:{cx:112,cy:205,rx:30,ry:35},
+        cities: [
+          { id: 'C-04', name: 'SOLSTICE', type: 'Agricultural Tech Center', population: '4.8M', x: 105, y: 195, description: 'Engineered agricultural terraces feeding the southern hemisphere.' },
+          { id: 'C-05', name: 'VERDANT REACH', type: 'Scientific City', population: '1.9M', x: 120, y: 215, description: 'A research settlement embedded in the interior.' }
+        ]
+      },
+      {
+        id: 'europe', name: 'EUROPE',
+        shape: 'M185 55 225 45 245 65 235 90 200 95 180 75z',
+        labelX: 210, labelY: 40, cloud:{cx:212,cy:70,rx:30,ry:22},
+        cities: [
+          { id: 'C-06', name: 'NEXUS', type: 'Governmental Center', population: '9.7M', x: 205, y: 65, description: 'Seat of the surviving continental administration.' },
+          { id: 'C-07', name: 'FERRUM', type: 'Industrial City', population: '5.3M', x: 225, y: 75, description: 'Heavy manufacturing hub in the continental interior.' },
+          { id: 'C-08', name: 'LUMENDOCK', type: 'Financial Center', population: '3.6M', x: 195, y: 80, description: 'A coastal trade and finance city.' }
+        ]
+      },
+      {
+        id: 'africa', name: 'AFRICA',
+        shape: 'M195 105 230 95 250 130 240 175 210 190 190 150z',
+        labelX: 215, labelY: 195, cloud:{cx:220,cy:145,rx:28,ry:42},
+        cities: [
+          { id: 'C-09', name: 'MERIDIAN HOLD', type: 'Medical Research Center', population: '3.1M', x: 215, y: 135, description: 'A research complex studying long-term effects of the corruption fields.' },
+          { id: 'C-10', name: 'SUNSPIRE', type: 'Energy City', population: '2.7M', x: 230, y: 155, description: 'Vast solar collection fields spanning the northern desert.' }
+        ]
+      },
+      {
+        id: 'asia', name: 'ASIA',
+        shape: 'M255 55 310 50 335 85 320 120 280 125 255 95z',
+        labelX: 295, labelY: 40, cloud:{cx:295,cy:88,rx:38,ry:35},
+        cities: [
+          { id: 'C-11', name: 'HELIX PRIME', type: 'Technological Megacity', population: '18.6M', x: 290, y: 75, description: 'The single largest city on Earth, spanning three former districts.' },
+          { id: 'C-12', name: 'TIDEWORKS', type: 'Oceanic City', population: '4.4M', x: 320, y: 95, description: 'A floating industrial settlement anchored offshore.' },
+          { id: 'C-13', name: 'REDLINE', type: 'Military-Industrial City', population: '2.9M', x: 270, y: 105, description: 'A fortified production city in the continental interior.' },
+          { id: 'C-14', name: 'ORBITAL DOWN', type: 'Orbital Research Center', population: '0.6M', x: 305, y: 60, description: 'Ground anchor for the continent\'s orbital elevator.' }
+        ]
+      },
+      {
+        id: 'oceania', name: 'OCEANIA',
+        shape: 'M290 170 320 165 335 190 320 210 295 205z',
+        labelX: 310, labelY: 220, cloud:{cx:312,cy:188,rx:20,ry:18},
+        cities: [
+          { id: 'C-15', name: 'FARSIGHT', type: 'Transportation Hub', population: '1.8M', x: 310, y: 188, description: 'The primary transit link between the eastern and western hemispheres.' }
+        ]
+      }
+    ]
+  }
+};
+
+const atlasState = { era: 'ERA_0', scale: 'Planet', selectedContinent: null };
+
+function currentWorld(){ return WORLD_DATA[atlasState.era]; }
+function continentById(id){ return currentWorld().continents.find(c => c.id === id) || null; }
+
+// --- Globe (Planet scale) ---
+function seededRand(seed){
+  let s = seed % 2147483647;
+  if(s <= 0) s += 2147483646;
+  return function(){
+    s = (s * 16807) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
+
+function renderGlobe(){
+  const world = currentWorld();
+  const glyph = document.getElementById('mapGlyph');
+  const cx = 200, cy = 180, R = 170;
+
+  let gridLines = '';
+  // latitude ellipses — equator widest, others compress toward the poles
+  [ -0.78, -0.42, 0, 0.42, 0.78 ].forEach(f => {
+    const ry = Math.cos(f * Math.PI / 2) * R;
+    gridLines += `<ellipse cx="${cx}" cy="${cy + f * R}" rx="${R}" ry="${ry * 0.24}" fill="none" stroke="var(--line)" stroke-width="0.5"/>`;
+  });
+  // meridians — converge toward the poles like an orthographic globe;
+  // the center one is the straight "front-facing" line
+  [-0.85, -0.55, -0.25, 0, 0.25, 0.55, 0.85].forEach(f => {
+    const midX = cx + f * R;
+    const poleX = cx + f * R * 0.15;
+    gridLines += `<path d="M${poleX} ${cy - R} Q ${midX} ${cy} ${poleX} ${cy + R}" fill="none" stroke="var(--line)" stroke-width="${f === 0 ? 0.6 : 0.4}"/>`;
+  });
+  gridLines += `<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="var(--dust)" stroke-width="0.9"/>`;
+
+  // coordinate tick ring — longer + labeled every 90°, short ticks between
+  let ticks = '';
+  const tickLabels = { 0: '0°', 90: '90°E', 180: '180°', 270: '90°W' };
+  for(let deg = 0; deg < 360; deg += 10){
+    const a = (deg - 90) * Math.PI / 180;
+    const long = deg % 90 === 0;
+    const r1 = R + 3, r2 = long ? R + 12 : R + 7;
+    const x1 = cx + Math.cos(a) * r1, y1 = cy + Math.sin(a) * r1;
+    const x2 = cx + Math.cos(a) * r2, y2 = cy + Math.sin(a) * r2;
+    ticks += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--dust)" stroke-width="${long ? 0.8 : 0.4}" opacity="${long ? 0.7 : 0.35}"/>`;
+    if(tickLabels[deg]){
+      const lx = cx + Math.cos(a) * (r2 + 12), ly = cy + Math.sin(a) * (r2 + 12);
+      ticks += `<text x="${lx}" y="${ly}" text-anchor="middle" class="continent-label" style="font-size:6.5px;">${tickLabels[deg]}</text>`;
+    }
+  }
+
+  // registration marks — small crosshairs just outside the ring, N/E/S/W
+  let regMarks = '';
+  [0, 90, 180, 270].forEach(deg => {
+    const a = (deg - 90) * Math.PI / 180;
+    const rx = cx + Math.cos(a) * (R + 26), ry = cy + Math.sin(a) * (R + 26);
+    regMarks += `<g opacity="0.5">
+      <line x1="${rx - 5}" y1="${ry}" x2="${rx + 5}" y2="${ry}" stroke="var(--dust)" stroke-width="0.6"/>
+      <line x1="${rx}" y1="${ry - 5}" x2="${rx}" y2="${ry + 5}" stroke="var(--dust)" stroke-width="0.6"/>
+    </g>`;
+  });
+
+  let continentShapes = '';
+  world.continents.forEach((cont, ci) => {
+    continentShapes += `<path class="continent-shape" data-cont="${cont.id}" d="${cont.shape}"/>`;
+
+    // point-cloud texture — deterministic scatter within the continent's region
+    const rand = seededRand(1000 + ci * 37);
+    let cloud = '';
+    for(let i = 0; i < 22; i++){
+      const ang = rand() * Math.PI * 2;
+      const rad = Math.sqrt(rand());
+      const px = cont.cloud.cx + Math.cos(ang) * cont.cloud.rx * rad;
+      const py = cont.cloud.cy + Math.sin(ang) * cont.cloud.ry * rad;
+      cloud += `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="${(rand() * 0.6 + 0.3).toFixed(1)}" fill="var(--bone)" opacity="${(rand() * 0.25 + 0.12).toFixed(2)}"/>`;
+    }
+    continentShapes += `<g class="point-cloud">${cloud}</g>`;
+
+    continentShapes += `<text class="continent-label" x="${cont.labelX}" y="${cont.labelY}" text-anchor="middle">${cont.name}</text>`;
+    const flag = cont.cities[0];
+    if(flag){
+      continentShapes += `<g class="city-mark" data-cont="${cont.id}" data-city="${flag.id}">
+        <line class="leader" x1="${flag.x}" y1="${flag.y}" x2="${flag.x + 10}" y2="${flag.y - 8}"/>
+        <rect class="diamond" x="${flag.x - 1.4}" y="${flag.y - 1.4}" width="2.8" height="2.8" transform="rotate(45 ${flag.x} ${flag.y})"/>
+        <text class="city-label" x="${flag.x + 12}" y="${flag.y - 7}">${flag.name}</text>
+      </g>`;
+    }
+  });
+
+  // sparse ocean point-cloud — background texture, very restrained
+  const oceanRand = seededRand(77);
+  let oceanDots = '';
+  for(let i = 0; i < 16; i++){
+    const ang = oceanRand() * Math.PI * 2;
+    const rad = Math.sqrt(oceanRand()) * R * 0.94;
+    oceanDots += `<circle cx="${(cx + Math.cos(ang) * rad).toFixed(1)}" cy="${(cy + Math.sin(ang) * rad).toFixed(1)}" r="0.5" fill="var(--dust)" opacity="0.18"/>`;
+  }
+
+  // a few unidentified glowing data points — restrained, not decorative excess
+  const glowPoints = [[130, 60], [300, 230], [225, 260]];
+  let glow = '';
+  glowPoints.forEach(([gx, gy]) => {
+    glow += `<circle cx="${gx}" cy="${gy}" r="4" fill="var(--ember)" opacity="0.5" style="filter:blur(2px);"/><circle cx="${gx}" cy="${gy}" r="1" fill="var(--ember)" opacity="0.9"/>`;
+  });
+
+  glyph.innerHTML = `<svg viewBox="0 0 400 360">${gridLines}${oceanDots}${continentShapes}${glow}${ticks}${regMarks}</svg>`;
+
+  glyph.querySelectorAll('.continent-shape').forEach(el => {
+    const cont = continentById(el.dataset.cont);
+    el.addEventListener('mouseenter', (e) => showWorldTooltip(e, `${cont.name}`, [
+      ['CITIES', cont.cities.length], ['TYPE', 'CONTINENT']
+    ]));
+    el.addEventListener('mousemove', moveWorldTooltip);
+    el.addEventListener('mouseleave', hideWorldTooltip);
+    el.addEventListener('click', () => selectContinent(cont.id));
+  });
+  glyph.querySelectorAll('.city-mark').forEach(el => {
+    const cont = continentById(el.dataset.cont);
+    const city = cont.cities.find(c => c.id === el.dataset.city);
+    el.addEventListener('mouseenter', (e) => showWorldTooltip(e, city.name, [
+      ['TYPE', city.type], ['POP.', city.population], ['REGION', cont.name]
+    ]));
+    el.addEventListener('mousemove', moveWorldTooltip);
+    el.addEventListener('mouseleave', hideWorldTooltip);
+    el.addEventListener('click', (e) => { e.stopPropagation(); selectContinent(cont.id); });
+  });
+}
+
+// --- Continent zoom ---
+function renderContinentView(contId){
+  const cont = continentById(contId);
+  const glyph = document.getElementById('mapGlyph');
+  let cities = '';
+  cont.cities.forEach((city, i) => {
+    // spread cities out for legibility at this zoom, independent of their tiny planet-view position
+    const angle = (Math.PI * 2 / cont.cities.length) * i - Math.PI / 2;
+    const zx = 200 + Math.cos(angle) * 110;
+    const zy = 180 + Math.sin(angle) * 100;
+    cities += `<g class="city-mark" data-city="${city.id}">
+      <line class="leader" x1="${zx}" y1="${zy}" x2="${zx + 16}" y2="${zy - 12}"/>
+      <rect class="diamond" x="${zx - 2.2}" y="${zy - 2.2}" width="4.4" height="4.4" transform="rotate(45 ${zx} ${zy})"/>
+      <text class="city-label" x="${zx + 19}" y="${zy - 11}" style="font-size:9px;">${city.name}</text>
+    </g>`;
+  });
+  glyph.innerHTML = `<svg viewBox="0 0 400 360">
+    <circle cx="200" cy="180" r="170" fill="none" stroke="var(--line)" stroke-width="0.6"/>
+    <text class="continent-label" x="200" y="30" text-anchor="middle" style="font-size:11px;">${cont.name}</text>
+    ${cities}
+  </svg>`;
+
+  glyph.querySelectorAll('.city-mark').forEach(el => {
+    const city = cont.cities.find(c => c.id === el.dataset.city);
+    el.addEventListener('mouseenter', (e) => showWorldTooltip(e, city.name, [
+      ['TYPE', city.type], ['POPULATION', city.population], ['STATUS', 'ACTIVE']
+    ]));
+    el.addEventListener('mousemove', moveWorldTooltip);
+    el.addEventListener('mouseleave', hideWorldTooltip);
+    el.addEventListener('click', () => showScalePrompt('SELECT COUNTRY — not yet available at this depth', true));
+  });
+}
+
+function selectContinent(id){
+  atlasState.selectedContinent = id;
+  atlasState.scale = 'Continent';
+  document.querySelectorAll('.scale-icon').forEach(s => s.classList.toggle('active', s.dataset.scale === 'Continent'));
+  showScalePrompt('', false);
+  renderContinentView(id);
+  updateBreadcrumb();
+}
+
+function updateBreadcrumb(){
+  const el = document.getElementById('scaleValue');
+  let html = `<span class="crumb ${!atlasState.selectedContinent ? 'current' : ''}" id="crumbEarth">EARTH</span>`;
+  if(atlasState.selectedContinent){
+    const cont = continentById(atlasState.selectedContinent);
+    html += `<span class="sep">›</span><span class="crumb current">${cont.name}</span>`;
+  }
+  el.innerHTML = html;
+  document.getElementById('crumbEarth').addEventListener('click', () => {
+    atlasState.selectedContinent = null;
+    atlasState.scale = 'Planet';
+    document.querySelectorAll('.scale-icon').forEach(s => s.classList.toggle('active', s.dataset.scale === 'Planet'));
+    showScalePrompt('', false);
+    renderGlobe();
+    updateBreadcrumb();
+  });
+}
+
+function showScalePrompt(text, on){
+  const el = document.getElementById('scalePrompt');
+  el.textContent = text;
+  el.classList.toggle('on', on);
+}
+
+function showWorldTooltip(e, title, rows){
+  const tip = document.getElementById('charTooltip');
+  tip.innerHTML = `<div class="t-name" style="margin-bottom:6px;">${title}</div>` +
+    rows.map(r => `<div class="t-row"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('');
+  tip.classList.add('visible');
+  moveWorldTooltip(e);
+}
+function moveWorldTooltip(e){
+  const tip = document.getElementById('charTooltip');
+  let x = e.clientX + 16, y = e.clientY + 16;
+  if(x + 210 > window.innerWidth) x = e.clientX - 210 - 16;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+function hideWorldTooltip(){ document.getElementById('charTooltip').classList.remove('visible'); }
+
+document.querySelectorAll('.scale-icon').forEach(el => {
+  el.addEventListener('click', () => {
+    const scale = el.dataset.scale;
+    document.querySelectorAll('.scale-icon').forEach(s => s.classList.remove('active'));
+    el.classList.add('active');
+    atlasState.scale = scale;
+    document.getElementById('crumbLabel').textContent = scale.toUpperCase();
+
+    if(scale === 'Planet'){
+      atlasState.selectedContinent = null;
+      showScalePrompt('', false);
+      renderGlobe();
+      updateBreadcrumb();
+    } else if(scale === 'Continent'){
+      if(atlasState.selectedContinent){
+        renderContinentView(atlasState.selectedContinent);
+      } else {
+        showScalePrompt('SELECT CONTINENT — hover over a continent, then click', true);
+      }
+    } else {
+      // Country / City / Site: honest stub — depth not yet built
+      showScalePrompt(`SELECT ${scale.toUpperCase()} — not yet available at this depth`, true);
+    }
+  });
+});
+
+renderGlobe();
+updateBreadcrumb();
+
+document.querySelectorAll('.layer-item').forEach(el => {
+  el.addEventListener('click', () => el.classList.toggle('active'));
+});
+document.querySelectorAll('.view-cell').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('.view-cell').forEach(v => v.classList.remove('active'));
+    el.classList.add('active');
+    setCharactersMode(el.dataset.view === 'Characters');
+  });
+});
+
+// ============================================================
+// LIVE CHARACTERS — foundation layer
+// Data shape matches the future Dossier/Atlas/Timeline contract:
+// currentLocation, movementHistory[], projections[] are kept distinct.
+// ============================================================
+// ============================================================
+// LOCATION NODES — the stable geographic reference system.
+// Every coordinate lives here, exactly once. Characters and their
+// projections reference a locationId; they never store their own
+// x/y. Moving a character means changing which ID they point to.
+// ============================================================
+const LOCATIONS = [
+  { id: 'LOC_STARTVILLAGE', name: 'Starting Village', type: 'Village', parentId: null, x: 60, y: 120, description: 'A small settlement at the edge of the known continent.' },
+  { id: 'LOC_FOREST', name: 'Forest', type: 'Site', parentId: null, x: 46, y: 108, description: 'Dense woodland bordering the village.' },
+  { id: 'LOC_RUINEDTEMPLE', name: 'Ruined Temple', type: 'Temple', parentId: null, x: 205, y: 95, description: 'A collapsed temple, one of several sites tied to the old god.' },
+  { id: 'LOC_OLDBATTLEFIELD', name: 'Old Battlefield', type: 'Ruin', parentId: null, x: 340, y: 130, description: 'The site of a battle from an earlier era, long since gone quiet.' },
+  { id: 'LOC_NORTHVILLAGE', name: 'Northern Village', type: 'Village', parentId: null, x: 150, y: 175, description: 'A quiet farming village in the north.' }
+];
+function locationById(id){ return LOCATIONS.find(l => l.id === id) || null; }
+
+// ============================================================
+// CHARACTERS — identity/state lives in the Dossier; this is only
+// the spatial slice, keyed by the same character id. Name, chapter,
+// and current objective are NOT duplicated here — they're read live
+// from the Dossier's own storage (see dossierCharName/dossierChapterLabel/
+// dossierCurrentObjective below) so nothing can drift out of sync.
+// currentLocationId is the single source of truth for where a marker
+// renders. movementHistory logs past locationIds; projections point
+// at possible future locationIds.
+// ============================================================
+const DOSSIER_STORAGE_KEY = 'epitaph-character-profiles';
+const ATLAS_STORAGE_KEY = 'epitaph-atlas-data';
+
+let dossierState = { characters: [], activeId: null, generationStates: [] };
+let CHARACTERS = [];
+
+function loadDossierState(){
+  try{
+    const raw = localStorage.getItem(DOSSIER_STORAGE_KEY);
+    if(raw) dossierState = JSON.parse(raw);
+  }catch(e){ console.error('Could not read Dossier data', e); }
+}
+
+function loadAtlasState(){
+  try{
+    const raw = localStorage.getItem(ATLAS_STORAGE_KEY);
+    if(raw){
+      const parsed = JSON.parse(raw);
+      CHARACTERS = parsed.characters || [];
+    }
+  }catch(e){
+    console.error('Could not read Atlas data', e);
+    CHARACTERS = [];
+  }
+}
+
+function persistAtlasState(){
+  try{
+    localStorage.setItem(ATLAS_STORAGE_KEY, JSON.stringify({ characters: CHARACTERS }));
+  }catch(e){
+    console.error('Could not save Atlas data', e);
+  }
+}
+
+// Additive, non-destructive: gives every Dossier character a spatial
+// record here if it doesn't have one yet, and drops records for
+// characters no longer in the Dossier. Never touches an existing
+// character's location/movement/projection data.
+function syncRosterFromDossier(){
+  const dossierIds = new Set(dossierState.characters.map(c => c.id));
+  CHARACTERS = CHARACTERS.filter(c => dossierIds.has(c.id));
+  dossierState.characters.forEach(dc => {
+    if(!CHARACTERS.find(c => c.id === dc.id)){
+      CHARACTERS.push({ id: dc.id, status: 'Unknown', currentLocationId: null, movementHistory: [], projections: [], associated: [] });
+    }
+  });
+  persistAtlasState();
+}
+
+function dossierCharById(id){ return dossierState.characters.find(c => c.id === id) || null; }
+function dossierCharName(id){ const dc = dossierCharById(id); return dc ? (dc.name || 'Unnamed') : 'Unknown character'; }
+function dossierActiveSnap(id){
+  const dc = dossierCharById(id);
+  if(!dc) return null;
+  return (dc.snapshots || []).find(s => s.id === dc.activeSnapshotId) || null;
+}
+function dossierChapterLabel(id){
+  const snap = dossierActiveSnap(id);
+  return snap ? (snap.chapterRange || '—') : '—';
+}
+function dossierCurrentObjective(id){
+  const dc = dossierCharById(id);
+  const snap = dossierActiveSnap(id);
+  if(!dc || !snap) return 'Unknown';
+  const gs = (dossierState.generationStates || []).find(s => s.characterId === dc.id && s.snapshotId === snap.id);
+  if(!gs) return 'Unknown';
+  const committed = (gs.timeline.currentObjectives || []).filter(e => e.status === 'committed');
+  if(!committed.length) return 'Unknown';
+  return committed[committed.length - 1].text;
+}
+
+loadDossierState();
+loadAtlasState();
+syncRosterFromDossier();
+
+let activeFilter = 'all';
+let selectedCharId = null;
+let selectedLocId = null;
+
+// small fixed offsets so co-located characters cluster around the
+// anchor instead of stacking exactly on top of one another
+const CLUSTER_OFFSETS = [[0, 0], [11, -9], [-11, -9], [11, 9], [-11, 9], [0, -16]];
+
+function charById(id){ return CHARACTERS.find(c => c.id === id); }
+function charactersAt(locId){ return CHARACTERS.filter(c => c.currentLocationId === locId); }
+
+function setCharactersMode(on){
+  document.getElementById('worldOutline').classList.toggle('on', on);
+  document.getElementById('charHeader').classList.toggle('on', on);
+  document.getElementById('charMarkers').classList.toggle('on', on);
+  document.getElementById('charFilter').classList.toggle('on', on);
+  document.querySelector('.stage').classList.toggle('characters-mode', on);
+  document.getElementById('sliderBlock').style.display = on ? 'none' : 'flex';
+  document.getElementById('subjectIndex').classList.toggle('on', on && !selectedCharId && !selectedLocId);
+  document.getElementById('subjectRecord').classList.toggle('on', on && !!selectedCharId);
+  document.getElementById('locationRecord').classList.toggle('on', on && !!selectedLocId);
+  if(on) renderCharacterLayer();
+}
+
+function renderCharacterLayer(){
+  const present = CHARACTERS.length;
+  const visible = CHARACTERS.filter(c => c.currentLocationId).length;
+  const unknown = CHARACTERS.filter(c => c.status === 'Unknown').length;
+  document.getElementById('statPresent').textContent = String(present).padStart(3, '0');
+  document.getElementById('statVisible').textContent = String(visible).padStart(3, '0');
+  document.getElementById('statUnknown').textContent = String(unknown).padStart(3, '0');
+
+  const markersEl = document.getElementById('charMarkers');
+  markersEl.innerHTML = '';
+
+  // one anchor per occupied location — the location stays the real
+  // point of reference, characters are occupants drawn around it
+  const occupiedLocIds = [...new Set(CHARACTERS.filter(c => c.currentLocationId).map(c => c.currentLocationId))];
+  occupiedLocIds.forEach(locId => {
+    const loc = locationById(locId);
+    if(!loc) return;
+    const anchor = document.createElement('div');
+    anchor.className = 'loc-anchor';
+    anchor.style.left = loc.x + 'px';
+    anchor.style.top = loc.y + 'px';
+    anchor.innerHTML = `<div class="plus"></div><div class="loc-tag">${escapeHud(loc.name)}</div>`;
+    anchor.addEventListener('click', () => selectLocation(locId));
+    markersEl.appendChild(anchor);
+
+    const occupants = charactersAt(locId);
+    occupants.forEach((c, idx) => {
+      const off = CLUSTER_OFFSETS[idx % CLUSTER_OFFSETS.length];
+      const idNum = String(CHARACTERS.indexOf(c) + 1).padStart(2, '0');
+      const matchesFilter = activeFilter === 'all' || c.status === activeFilter;
+      const m = document.createElement('div');
+      m.className = 'char-marker' + (matchesFilter ? '' : ' dimmed') + (c.id === selectedCharId ? ' selected' : '');
+      m.dataset.status = c.status;
+      m.style.left = (loc.x + off[0]) + 'px';
+      m.style.top = (loc.y + off[1]) + 'px';
+      m.innerHTML = `<div class="pip"></div><div class="tag">[${idNum}] ${escapeHud(dossierCharName(c.id))}</div>`;
+      wireMarkerEvents(m, c);
+      markersEl.appendChild(m);
+    });
+  });
+
+  // projection markers + connecting line, only for the selected character
+  if(selectedCharId){
+    const c = charById(selectedCharId);
+    const fromLoc = c.currentLocationId ? locationById(c.currentLocationId) : null;
+    if(fromLoc){
+      c.projections.forEach(p => {
+        const toLoc = locationById(p.locationId);
+        if(!toLoc) return;
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        line.setAttribute('class', 'proj-line');
+        line.setAttribute('width', '100%'); line.setAttribute('height', '100%');
+        line.innerHTML = `<line x1="${fromLoc.x}" y1="${fromLoc.y}" x2="${toLoc.x}" y2="${toLoc.y}" stroke="var(--dust)" stroke-width="1" stroke-dasharray="2 3" opacity="0.5"/>`;
+        markersEl.appendChild(line);
+
+        const pm = document.createElement('div');
+        pm.className = 'char-marker projected';
+        pm.style.left = toLoc.x + 'px';
+        pm.style.top = toLoc.y + 'px';
+        pm.innerHTML = `<div class="pip"></div><div class="tag">${escapeHud(toLoc.name)}</div>`;
+        markersEl.appendChild(pm);
+      });
+    }
+  }
+
+  renderSubjectIndex();
+}
+
+function wireMarkerEvents(el, c){
+  el.addEventListener('mouseenter', (e) => showCharTooltip(e, c));
+  el.addEventListener('mousemove', moveCharTooltip);
+  el.addEventListener('mouseleave', hideCharTooltip);
+  el.addEventListener('click', (e) => { e.stopPropagation(); selectCharacter(c.id); });
+}
+
+function showCharTooltip(e, c){
+  const tip = document.getElementById('charTooltip');
+  const idNum = String(CHARACTERS.indexOf(c) + 1).padStart(3, '0');
+  const loc = c.currentLocationId ? locationById(c.currentLocationId) : null;
+  tip.innerHTML = `
+    <div class="t-id">SUBJECT // ${idNum}</div>
+    <div class="t-name">${escapeHud(dossierCharName(c.id))}</div>
+    <div class="t-row"><span>STATUS</span><span>${escapeHud(c.status)}</span></div>
+    <div class="t-row"><span>LOCATION</span><span>${escapeHud(loc ? loc.name : 'Unknown')}</span></div>
+    <div class="t-row"><span>LAST OBSERVED</span><span>${escapeHud(dossierChapterLabel(c.id))}</span></div>
+  `;
+  tip.classList.add('visible');
+  moveCharTooltip(e);
+}
+function moveCharTooltip(e){
+  const tip = document.getElementById('charTooltip');
+  let x = e.clientX + 16, y = e.clientY + 16;
+  if(x + 210 > window.innerWidth) x = e.clientX - 210 - 16;
+  tip.style.left = x + 'px';
+  tip.style.top = y + 'px';
+}
+function hideCharTooltip(){ document.getElementById('charTooltip').classList.remove('visible'); }
+
+function selectCharacter(id){
+  selectedCharId = id;
+  selectedLocId = null;
+  document.getElementById('subjectIndex').classList.remove('on');
+  document.getElementById('locationRecord').classList.remove('on');
+  document.getElementById('subjectRecord').classList.add('on');
+  renderCharacterLayer();
+  renderSubjectRecord(charById(id));
+}
+
+function renderSubjectRecord(c){
+  const idNum = String(CHARACTERS.indexOf(c) + 1).padStart(3, '0');
+  const loc = c.currentLocationId ? locationById(c.currentLocationId) : null;
+  document.getElementById('recId').textContent = 'SUBJECT // ' + idNum;
+  document.getElementById('recName').textContent = dossierCharName(c.id);
+  document.getElementById('recStatus').textContent = c.status;
+  document.getElementById('recChapter').textContent = dossierChapterLabel(c.id);
+  document.getElementById('recObjective').textContent = dossierCurrentObjective(c.id);
+
+  const locEl = document.getElementById('recLocation');
+  locEl.textContent = loc ? loc.name : 'Unknown';
+  if(loc){
+    locEl.style.cursor = 'pointer';
+    locEl.style.textDecoration = 'underline';
+    locEl.onclick = () => selectLocation(loc.id);
+  } else {
+    locEl.style.cursor = 'default';
+    locEl.style.textDecoration = 'none';
+    locEl.onclick = null;
+  }
+
+  const projBlock = document.getElementById('recProjBlock');
+  if(c.projections && c.projections.length){
+    projBlock.style.display = 'block';
+    document.getElementById('recProj').innerHTML = c.projections.map(p => {
+      const toLoc = locationById(p.locationId);
+      return `→ <b>${escapeHud(toLoc ? toLoc.name : 'Unknown')}</b>${p.expectedChapter ? ' (' + escapeHud(p.expectedChapter) + ')' : ''}${p.reason ? '<br><span style="opacity:.75">' + escapeHud(p.reason) + '</span>' : ''}`;
+    }).join('<br><br>');
+  } else {
+    projBlock.style.display = 'none';
+  }
+
+  document.getElementById('recOpenDossier').onclick = () => {
+    window.location.href = 'index.html?char=' + encodeURIComponent(c.id);
+  };
+}
+
+function selectLocation(locId){
+  selectedLocId = locId;
+  selectedCharId = null;
+  document.getElementById('subjectIndex').classList.remove('on');
+  document.getElementById('subjectRecord').classList.remove('on');
+  document.getElementById('locationRecord').classList.add('on');
+  renderCharacterLayer();
+  renderLocationRecord(locationById(locId));
+}
+
+function renderLocationRecord(loc){
+  document.getElementById('locName').textContent = loc.name;
+  document.getElementById('locType').textContent = loc.type;
+  const parent = loc.parentId ? locationById(loc.parentId) : null;
+  document.getElementById('locParent').textContent = parent ? parent.name : '—';
+  document.getElementById('locDesc').textContent = loc.description || 'No record on file.';
+
+  const occupants = charactersAt(loc.id);
+  const listEl = document.getElementById('locCharsPresent');
+  if(occupants.length){
+    listEl.innerHTML = occupants.map(c => `<div class="idx-row" data-char-id="${c.id}" style="border-bottom:1px solid var(--line); padding:6px 0; cursor:pointer;">${escapeHud(dossierCharName(c.id))} <span style="color:var(--dust); font-size:9px;">— ${escapeHud(c.status)}</span></div>`).join('');
+    listEl.querySelectorAll('[data-char-id]').forEach(row => {
+      row.addEventListener('click', () => selectCharacter(row.dataset.charId));
+    });
+  } else {
+    listEl.innerHTML = 'None currently recorded.';
+  }
+}
+
+function backToIndex(){
+  selectedCharId = null;
+  selectedLocId = null;
+  document.getElementById('subjectRecord').classList.remove('on');
+  document.getElementById('locationRecord').classList.remove('on');
+  document.getElementById('subjectIndex').classList.add('on');
+  renderCharacterLayer();
+}
+document.getElementById('recordBack').addEventListener('click', backToIndex);
+document.getElementById('locationBack').addEventListener('click', backToIndex);
+
+function renderSubjectIndex(){
+  const list = document.getElementById('indexList');
+  list.innerHTML = CHARACTERS.map((c, i) => {
+    const idNum = String(i + 1).padStart(3, '0');
+    return `<div class="idx-row" data-char-id="${c.id}">
+      <span class="idx-num">${idNum}</span>
+      <span class="idx-name">${escapeHud(dossierCharName(c.id))}</span>
+      <span class="idx-status">${escapeHud(c.status)}</span>
+    </div>`;
+  }).join('');
+  list.querySelectorAll('.idx-row').forEach(row => {
+    row.addEventListener('click', () => selectCharacter(row.dataset.charId));
+  });
+}
+
+document.querySelectorAll('.f-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.f-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeFilter = btn.dataset.filter;
+    renderCharacterLayer();
+  });
+});
+
+function escapeHud(str){
+  const d = document.createElement('div');
+  d.textContent = str == null ? '' : str;
+  return d.innerHTML;
+}
+
+// ---- Deep link from the Dossier: atlas.html?char=<dossierCharId> ----
+// opens straight into the Characters view with that subject selected.
+(function handleDeepLink(){
+  const params = new URLSearchParams(window.location.search);
+  const charId = params.get('char');
+  if(!charId || !charById(charId)) return;
+  document.querySelectorAll('.view-cell').forEach(v => v.classList.remove('active'));
+  const charactersCell = document.querySelector('.view-cell[data-view="Characters"]');
+  if(charactersCell) charactersCell.classList.add('active');
+  setCharactersMode(true);
+  selectCharacter(charId);
+})();
+</script>
+
+</body>
+</html>
