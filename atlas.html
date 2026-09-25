@@ -173,12 +173,13 @@
   /* ================= LIVE CHARACTERS LAYER ================= */
 
   /* world outline — subtle backdrop for markers when Characters view is active */
-  .world-outline{
-    position:absolute; inset:0; opacity:0; pointer-events:none;
-    transition: opacity 0.3s ease;
+  /* Characters view now renders its markers directly on the real globe
+     (moved inside .dial-wrap in the HTML) instead of a separate flat
+     backdrop — only the Planet/Continent readout, irrelevant while
+     browsing characters, still needs to hide. */
+  .stage.characters-mode .scale-readout{
+    display:none;
   }
-  .world-outline.on{ opacity:0.16; }
-  .world-outline svg{ width:100%; height:100%; }
 
   /* archival header — small system label, not a title */
   .char-header{
@@ -397,15 +398,6 @@
 
     <!-- CENTER: dial + readout -->
     <div class="stage">
-      <div class="world-outline" id="worldOutline">
-        <svg viewBox="0 0 400 260" preserveAspectRatio="xMidYMid meet">
-          <path d="M40 90 90 60 150 75 140 110 100 130 60 150 30 120z" fill="none" stroke="var(--bone)" stroke-width="0.8"/>
-          <path d="M180 50 240 45 270 90 250 130 210 140 190 100z" fill="none" stroke="var(--bone)" stroke-width="0.8"/>
-          <path d="M290 70 340 60 370 100 350 150 300 140 285 105z" fill="none" stroke="var(--bone)" stroke-width="0.8"/>
-          <path d="M120 160 170 155 190 190 160 220 125 210z" fill="none" stroke="var(--bone)" stroke-width="0.8"/>
-        </svg>
-      </div>
-
       <div class="char-header" id="charHeader">
         <div class="h-title">LIVE CHARACTERS</div>
         <div class="h-rule"></div>
@@ -418,8 +410,6 @@
         <div class="h-time">ERA 0 // CH 3 // FIELD LOG 184</div>
       </div>
 
-      <div class="char-markers" id="charMarkers"></div>
-
       <div class="scale-prompt" id="scalePrompt"></div>
 
       <div class="dial-wrap" id="dialWrap">
@@ -427,6 +417,10 @@
         <div class="orbit orbit-outer"></div>
         <div class="orbit orbit-scan"></div>
         <div class="map-glyph" id="mapGlyph"></div>
+        <!-- character markers render directly on the globe itself now, not
+             a separate disconnected backdrop, so they inherit its exact
+             420x420 box (see .dial-wrap) instead of the full stage. -->
+        <div class="char-markers" id="charMarkers"></div>
       </div>
       <div class="scale-readout">
         <div class="label">LOCATION</div>
@@ -855,6 +849,230 @@ const LOCATIONS = [
 function locationById(id){ return LOCATIONS.find(l => l.id === id) || null; }
 
 // ============================================================
+// WORLD DATABASE — the shared source of truth for all geography:
+// ERA -> CONTINENT -> COUNTRY -> CITY -> SPECIAL SITE.
+// This is a separate, additive data layer — it does NOT change how the
+// globe currently renders (that still reads the original WORLD_DATA object
+// above, completely untouched). Other systems (the Dossier, and eventually
+// the Chapter Generator) query this by ID instead of typing or duplicating
+// geography themselves. Special Sites exist only in ERA_1 — the supernatural
+// layer that begins after the divine destruction — per the design doc.
+// Persisted once under its own key; if it already exists in storage, that
+// version is kept as-is rather than reseeded, so a future editing UI could
+// safely add to it without this overwriting those edits on every reload.
+// ============================================================
+const WORLD_DB_STORAGE_KEY = 'epitaph-world-database';
+
+const SPECIAL_SITE_TYPES = [
+  { id: 'VOIDED', label: 'Voided' },
+  { id: 'STORYBORN', label: 'Storyborn' },
+  { id: 'ANGEL', label: 'Angel' },
+  { id: 'DEMON', label: 'Demon' },
+  { id: 'ANTHOLONIUS', label: 'Antholonius' },
+  { id: 'OTHER', label: 'Other' }
+];
+
+const WORLD_DB_ERAS = [
+  { id: 'ERA_0', name: 'Era 0', description: 'Earth at the height of advanced human civilization.' },
+  { id: 'ERA_1', name: 'Era 1', description: 'Earth after the divine destruction and transformation into Epitaph.' }
+];
+
+const ERA_0_CONTINENTS = [
+  { id: 'north-america', name: 'North America' },
+  { id: 'south-america', name: 'South America' },
+  { id: 'europe', name: 'Europe' },
+  { id: 'africa', name: 'Africa' },
+  { id: 'asia', name: 'Asia' },
+  { id: 'oceania', name: 'Australia / Oceania' },
+  { id: 'antarctica', name: 'Antarctica' }
+];
+
+// Curated, not exhaustive, per the design doc's own instruction — a useful
+// subset of real countries/cities, with the Atlas's existing fictional
+// Epitaph cities folded in as established cities within a real country
+// rather than a second, disconnected fictional geography.
+const ERA_0_COUNTRIES = [
+  { id: 'united-states', name: 'United States', continentId: 'north-america' },
+  { id: 'canada', name: 'Canada', continentId: 'north-america' },
+  { id: 'mexico', name: 'Mexico', continentId: 'north-america' },
+
+  { id: 'brazil', name: 'Brazil', continentId: 'south-america' },
+  { id: 'argentina', name: 'Argentina', continentId: 'south-america' },
+  { id: 'peru', name: 'Peru', continentId: 'south-america' },
+
+  { id: 'united-kingdom', name: 'United Kingdom', continentId: 'europe' },
+  { id: 'france', name: 'France', continentId: 'europe' },
+  { id: 'germany', name: 'Germany', continentId: 'europe' },
+
+  { id: 'egypt', name: 'Egypt', continentId: 'africa' },
+  { id: 'nigeria', name: 'Nigeria', continentId: 'africa' },
+  { id: 'south-africa', name: 'South Africa', continentId: 'africa' },
+  { id: 'kenya', name: 'Kenya', continentId: 'africa' },
+
+  { id: 'japan', name: 'Japan', continentId: 'asia' },
+  { id: 'china', name: 'China', continentId: 'asia' },
+  { id: 'india', name: 'India', continentId: 'asia' },
+  { id: 'south-korea', name: 'South Korea', continentId: 'asia' },
+
+  { id: 'australia', name: 'Australia', continentId: 'oceania' },
+  { id: 'new-zealand', name: 'New Zealand', continentId: 'oceania' },
+
+  // Antarctica has no real countries — represented as a single nominal
+  // territory so the dependent dropdowns don't dead-end on this continent.
+  { id: 'antarctic-territories', name: 'Antarctic Research Territories', continentId: 'antarctica' }
+];
+
+const ERA_0_CITIES = [
+  { id: 'new-york', name: 'New York', countryId: 'united-states', lat: 40.71, lng: -74.01 },
+  { id: 'washington', name: 'Washington', countryId: 'united-states', lat: 38.90, lng: -77.04 },
+  { id: 'los-angeles', name: 'Los Angeles', countryId: 'united-states', lat: 34.05, lng: -118.24 },
+  { id: 'chicago', name: 'Chicago', countryId: 'united-states', lat: 41.88, lng: -87.63 },
+  { id: 'miami', name: 'Miami', countryId: 'united-states', lat: 25.76, lng: -80.19 },
+  { id: 'san-francisco', name: 'San Francisco', countryId: 'united-states', lat: 37.77, lng: -122.42 },
+  { id: 'aurelia', name: 'Aurelia', countryId: 'united-states', lat: 39.5, lng: -98.0, fictional: true },
+  { id: 'vanth', name: 'Vanth', countryId: 'united-states', lat: 36.0, lng: -95.0, fictional: true },
+  { id: 'helios-7', name: 'Helios-7', countryId: 'united-states', lat: 34.0, lng: -117.0, fictional: true },
+
+  { id: 'toronto', name: 'Toronto', countryId: 'canada', lat: 43.65, lng: -79.38 },
+  { id: 'vancouver', name: 'Vancouver', countryId: 'canada', lat: 49.28, lng: -123.12 },
+  { id: 'montreal', name: 'Montreal', countryId: 'canada', lat: 45.50, lng: -73.57 },
+
+  { id: 'mexico-city', name: 'Mexico City', countryId: 'mexico', lat: 19.43, lng: -99.13 },
+  { id: 'guadalajara', name: 'Guadalajara', countryId: 'mexico', lat: 20.67, lng: -103.35 },
+
+  { id: 'sao-paulo', name: 'São Paulo', countryId: 'brazil', lat: -23.55, lng: -46.63 },
+  { id: 'rio-de-janeiro', name: 'Rio de Janeiro', countryId: 'brazil', lat: -22.91, lng: -43.17 },
+  { id: 'solstice', name: 'Solstice', countryId: 'brazil', lat: -15.0, lng: -47.0, fictional: true },
+  { id: 'verdant-reach', name: 'Verdant Reach', countryId: 'brazil', lat: -10.0, lng: -55.0, fictional: true },
+
+  { id: 'buenos-aires', name: 'Buenos Aires', countryId: 'argentina', lat: -34.60, lng: -58.38 },
+  { id: 'lima', name: 'Lima', countryId: 'peru', lat: -12.05, lng: -77.04 },
+
+  { id: 'london', name: 'London', countryId: 'united-kingdom', lat: 51.51, lng: -0.13 },
+  { id: 'manchester', name: 'Manchester', countryId: 'united-kingdom', lat: 53.48, lng: -2.24 },
+  { id: 'lumendock', name: 'Lumendock', countryId: 'united-kingdom', lat: 55.0, lng: -3.0, fictional: true },
+
+  { id: 'paris', name: 'Paris', countryId: 'france', lat: 48.86, lng: 2.35 },
+  { id: 'lyon', name: 'Lyon', countryId: 'france', lat: 45.76, lng: 4.84 },
+
+  { id: 'berlin', name: 'Berlin', countryId: 'germany', lat: 52.52, lng: 13.40 },
+  { id: 'munich', name: 'Munich', countryId: 'germany', lat: 48.14, lng: 11.58 },
+  { id: 'nexus', name: 'Nexus', countryId: 'germany', lat: 50.0, lng: 10.0, fictional: true },
+  { id: 'ferrum', name: 'Ferrum', countryId: 'germany', lat: 51.0, lng: 9.0, fictional: true },
+
+  { id: 'cairo', name: 'Cairo', countryId: 'egypt', lat: 30.04, lng: 31.24 },
+  { id: 'lagos', name: 'Lagos', countryId: 'nigeria', lat: 6.52, lng: 3.38 },
+
+  { id: 'johannesburg', name: 'Johannesburg', countryId: 'south-africa', lat: -26.20, lng: 28.05 },
+  { id: 'cape-town', name: 'Cape Town', countryId: 'south-africa', lat: -33.92, lng: 18.42 },
+  { id: 'meridian-hold', name: 'Meridian Hold', countryId: 'south-africa', lat: -29.0, lng: 25.0, fictional: true },
+  { id: 'sunspire', name: 'Sunspire', countryId: 'south-africa', lat: -24.0, lng: 22.0, fictional: true },
+
+  { id: 'nairobi', name: 'Nairobi', countryId: 'kenya', lat: -1.29, lng: 36.82 },
+
+  { id: 'tokyo', name: 'Tokyo', countryId: 'japan', lat: 35.68, lng: 139.65 },
+  { id: 'osaka', name: 'Osaka', countryId: 'japan', lat: 34.69, lng: 135.50 },
+  { id: 'helix-prime', name: 'Helix Prime', countryId: 'japan', lat: 36.0, lng: 138.0, fictional: true },
+  { id: 'orbital-down', name: 'Orbital Down', countryId: 'japan', lat: 35.0, lng: 136.0, fictional: true },
+
+  { id: 'beijing', name: 'Beijing', countryId: 'china', lat: 39.90, lng: 116.41 },
+  { id: 'shanghai', name: 'Shanghai', countryId: 'china', lat: 31.23, lng: 121.47 },
+  { id: 'tideworks', name: 'Tideworks', countryId: 'china', lat: 30.0, lng: 123.0, fictional: true },
+
+  { id: 'mumbai', name: 'Mumbai', countryId: 'india', lat: 19.08, lng: 72.88 },
+  { id: 'new-delhi', name: 'New Delhi', countryId: 'india', lat: 28.61, lng: 77.21 },
+
+  { id: 'seoul', name: 'Seoul', countryId: 'south-korea', lat: 37.57, lng: 126.98 },
+  { id: 'redline', name: 'Redline', countryId: 'south-korea', lat: 36.5, lng: 127.5, fictional: true },
+
+  { id: 'sydney', name: 'Sydney', countryId: 'australia', lat: -33.87, lng: 151.21 },
+  { id: 'melbourne', name: 'Melbourne', countryId: 'australia', lat: -37.81, lng: 144.96 },
+  { id: 'farsight', name: 'Farsight', countryId: 'australia', lat: -25.0, lng: 133.0, fictional: true },
+
+  { id: 'auckland', name: 'Auckland', countryId: 'new-zealand', lat: -36.85, lng: 174.76 },
+
+  { id: 'mcmurdo-station', name: 'McMurdo Station', countryId: 'antarctic-territories', lat: -77.85, lng: 166.67 }
+];
+
+// Era 1 continents/countries/cities are a genuinely separate dataset — not
+// the same object references as Era 0's — so a "destroyed," "lost," or
+// otherwise diverged record can eventually be edited per-era without ever
+// touching the Era 0 data above, per the doc's era-separation requirement.
+const ERA_1_CONTINENTS = ERA_0_CONTINENTS.map(c => ({ ...c }));
+const ERA_1_COUNTRIES = ERA_0_COUNTRIES.map(c => ({ ...c, status: 'Surviving' }));
+const ERA_1_CITIES = ERA_0_CITIES.map(c => ({ ...c, status: 'Surviving' }));
+
+// Special Sites exist ONLY in Era 1. cityId may be null for sites that
+// exist independently of any city (wilderness, ruins, unclaimed territory) —
+// continentId/countryId are still required so they remain placeable.
+const ERA_1_SPECIAL_SITES = [
+  { id: 'temple-voided-001', type: 'VOIDED', name: 'Temple of the Voided',
+    continentId: 'north-america', countryId: 'united-states', cityId: 'aurelia', lat: 39.5, lng: -98.0, status: 'UNKNOWN' },
+  { id: 'voided-settlement-001', type: 'VOIDED', name: 'Voided Settlement — The Hollow Reach',
+    continentId: 'europe', countryId: 'germany', cityId: null, lat: 51.5, lng: 9.5, status: 'UNKNOWN' },
+  { id: 'storyborn-church-001', type: 'STORYBORN', name: 'Church of the Storyborn',
+    continentId: 'asia', countryId: 'japan', cityId: 'tokyo', lat: 35.68, lng: 139.65, status: 'UNKNOWN' },
+  { id: 'storyborn-settlement-001', type: 'STORYBORN', name: 'Storyborn Settlement — Verdant Reach',
+    continentId: 'south-america', countryId: 'brazil', cityId: 'verdant-reach', lat: -10.0, lng: -55.0, status: 'UNKNOWN' },
+  { id: 'angel-settlement-001', type: 'ANGEL', name: 'Angel Settlement — Lumendock',
+    continentId: 'europe', countryId: 'united-kingdom', cityId: 'lumendock', lat: 55.0, lng: -3.0, status: 'UNKNOWN' },
+  { id: 'demon-settlement-001', type: 'DEMON', name: 'Demon Settlement — Sunspire',
+    continentId: 'africa', countryId: 'south-africa', cityId: 'sunspire', lat: -24.0, lng: 22.0, status: 'UNKNOWN' },
+  { id: 'antholonius-temple-001', type: 'ANTHOLONIUS', name: 'Temple of Antholonius — Fragment I',
+    continentId: 'north-america', countryId: 'united-states', cityId: 'aurelia', lat: 39.5, lng: -98.0, status: 'UNKNOWN' },
+  { id: 'antholonius-temple-002', type: 'ANTHOLONIUS', name: 'Temple of Antholonius — Fragment II',
+    continentId: 'europe', countryId: 'germany', cityId: null, lat: 49.0, lng: 11.0, status: 'UNKNOWN' },
+  { id: 'antholonius-temple-003', type: 'ANTHOLONIUS', name: 'Temple of Antholonius — Fragment III',
+    continentId: 'asia', countryId: 'china', cityId: null, lat: 34.0, lng: 108.0, status: 'UNKNOWN' }
+];
+
+function buildDefaultWorldDatabase(){
+  return {
+    eras: WORLD_DB_ERAS,
+    continents: [
+      ...ERA_0_CONTINENTS.map(c => ({ ...c, era: 'ERA_0' })),
+      ...ERA_1_CONTINENTS.map(c => ({ ...c, era: 'ERA_1' }))
+    ],
+    countries: [
+      ...ERA_0_COUNTRIES.map(c => ({ ...c, era: 'ERA_0' })),
+      ...ERA_1_COUNTRIES.map(c => ({ ...c, era: 'ERA_1' }))
+    ],
+    cities: [
+      ...ERA_0_CITIES.map(c => ({ ...c, era: 'ERA_0' })),
+      ...ERA_1_CITIES.map(c => ({ ...c, era: 'ERA_1' }))
+    ],
+    specialSites: ERA_1_SPECIAL_SITES.map(s => ({ ...s, era: 'ERA_1' })),
+    specialSiteTypes: SPECIAL_SITE_TYPES
+  };
+}
+
+let WDB = null;
+
+function loadWorldDatabase(){
+  try{
+    const raw = localStorage.getItem(WORLD_DB_STORAGE_KEY);
+    if(raw){
+      WDB = JSON.parse(raw);
+    } else {
+      WDB = buildDefaultWorldDatabase();
+      localStorage.setItem(WORLD_DB_STORAGE_KEY, JSON.stringify(WDB));
+    }
+  }catch(e){
+    console.error('Could not load World Database', e);
+    WDB = buildDefaultWorldDatabase();
+  }
+}
+
+function wdbContinents(eraId){ return WDB.continents.filter(c => c.era === eraId); }
+function wdbCountries(eraId, continentId){ return WDB.countries.filter(c => c.era === eraId && c.continentId === continentId); }
+function wdbCities(eraId, countryId){ return WDB.cities.filter(c => c.era === eraId && c.countryId === countryId); }
+function wdbSpecialSites(eraId, countryId, cityId){
+  return WDB.specialSites.filter(s => s.era === eraId && s.countryId === countryId && (s.cityId === cityId || !s.cityId));
+}
+
+loadWorldDatabase();
+
+// ============================================================
 // CHARACTERS — identity/state lives in the Dossier; this is only
 // the spatial slice, keyed by the same character id. Name, chapter,
 // and current objective are NOT duplicated here — they're read live
@@ -892,7 +1110,7 @@ function loadAtlasState(){
 
 function persistAtlasState(){
   try{
-    localStorage.setItem(ATLAS_STORAGE_KEY, JSON.stringify({ characters: CHARACTERS }));
+    localStorage.setItem(ATLAS_STORAGE_KEY, JSON.stringify({ characters: CHARACTERS, locations: LOCATIONS }));
   }catch(e){
     console.error('Could not save Atlas data', e);
   }
@@ -951,7 +1169,6 @@ function charById(id){ return CHARACTERS.find(c => c.id === id); }
 function charactersAt(locId){ return CHARACTERS.filter(c => c.currentLocationId === locId); }
 
 function setCharactersMode(on){
-  document.getElementById('worldOutline').classList.toggle('on', on);
   document.getElementById('charHeader').classList.toggle('on', on);
   document.getElementById('charMarkers').classList.toggle('on', on);
   document.getElementById('charFilter').classList.toggle('on', on);

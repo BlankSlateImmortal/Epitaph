@@ -1221,6 +1221,19 @@
     font-family:'Source Serif 4', serif; font-size:13px; padding:7px 10px; border-radius:2px;
   }
   .gen-add-row input:focus{ outline:none; border-color: var(--dust); }
+  .gen-add-row select{
+    flex:1; background: var(--ink); border:1px solid var(--line); color: var(--bone);
+    font-family:'Source Serif 4', serif; font-size:13px; padding:7px 10px; border-radius:2px;
+  }
+  .gen-add-row select:focus{ outline:none; border-color: var(--dust); }
+  .gen-empty-hint{ font-size:12px; color: var(--dust); font-style:italic; padding:6px 0; }
+  .gen-loc-cascade{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; width:100%; }
+  .gen-loc-cascade select{
+    flex:1 1 140px; min-width:110px;
+    background: var(--ink); border:1px solid var(--line); color: var(--bone);
+    font-family:'Source Serif 4', serif; font-size:12.5px; padding:6px 8px; border-radius:2px;
+  }
+  .gen-loc-cascade select:focus{ outline:none; border-color: var(--dust); }
 
   .gen-commit-bar{
     display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
@@ -1296,7 +1309,7 @@
       <div class="book-page left-page">
         <h3>Storybook</h3>
         <ul class="book-links">
-          <li><a href="index.html">Character Dossier</a></li>
+          <li><a href="epitaph-character-dossier.html">Character Dossier</a></li>
           <li><a href="atlas.html">World Map</a></li>
           <li><a href="epitaph-hub.html">Hub</a></li>
         </ul>
@@ -1344,7 +1357,44 @@
 // }
 // ============================================================
 const STORAGE_KEY = 'epitaph-character-profiles';
+const WORLD_DB_STORAGE_KEY = 'epitaph-world-database';
 let state = { characters: [], activeId: null, generationStates: [] };
+
+// Reads the Atlas's World Database (Era -> Continent -> Country -> City ->
+// Special Site) — the single shared source of geography. Never duplicated
+// here; read live so the Dossier's location field can't drift from the
+// Atlas's actual data. Returns null if the Atlas has never been opened yet
+// in this browser (nothing has seeded the database into storage).
+function getWorldDatabase(){
+  try{
+    const raw = localStorage.getItem(WORLD_DB_STORAGE_KEY);
+    if(!raw) return null;
+    return JSON.parse(raw);
+  }catch(e){
+    return null;
+  }
+}
+function wdbEras(wdb){ return wdb.eras; }
+function wdbContinents(wdb, eraId){ return wdb.continents.filter(c => c.era === eraId); }
+function wdbCountries(wdb, eraId, continentId){ return wdb.countries.filter(c => c.era === eraId && c.continentId === continentId); }
+function wdbCities(wdb, eraId, countryId){ return wdb.cities.filter(c => c.era === eraId && c.countryId === countryId); }
+function wdbSpecialSites(wdb, eraId, countryId, cityId){
+  return wdb.specialSites.filter(s => s.era === eraId && s.countryId === countryId && (s.cityId === cityId || !s.cityId));
+}
+// Builds a readable label like "Temple of the Voided, Aurelia, United States,
+// North America (Era 1)" from a {eraId,continentId,countryId,cityId,
+// specialSiteId} reference — used as the entry's display text, while the
+// reference itself is kept on the entry too so the location stays an
+// addressable ID, not just a string (per the World Database spec).
+function resolveLocationLabel(wdb, ref){
+  const era = wdb.eras.find(e => e.id === ref.eraId);
+  const continent = wdb.continents.find(c => c.id === ref.continentId && c.era === ref.eraId);
+  const country = wdb.countries.find(c => c.id === ref.countryId && c.era === ref.eraId);
+  const city = ref.cityId ? wdb.cities.find(c => c.id === ref.cityId && c.era === ref.eraId) : null;
+  const site = ref.specialSiteId ? wdb.specialSites.find(s => s.id === ref.specialSiteId) : null;
+  const parts = [site, city, country, continent].filter(Boolean).map(x => x.name);
+  return parts.join(', ') + (era ? ` (${era.name})` : '');
+}
 
 // ---- Lightweight toast notifications — used whenever something fails silently
 // otherwise (image can't be read/decoded, save can't be persisted, etc.) ----
@@ -2257,7 +2307,7 @@ function renderGenerationSection(){
           </div>
           <div class="gen-timeline-col">
             <div class="gen-col-label">Timeline-dependent — as of ${escapeHtml(snap.chapterRange || 'this chapter')}</div>
-            ${TIMELINE_FIELDS.map(f => renderGenField(f, gs.timeline[f.key], locked)).join('')}
+            ${TIMELINE_FIELDS.map(f => renderGenField(f, gs.timeline[f.key], locked, char)).join('')}
           </div>
         </div>
         <div class="gen-commit-bar">
@@ -2289,6 +2339,7 @@ function renderGenerationSection(){
   }
 
   if(!locked){
+    wireLocationCascade(gs);
     TIMELINE_FIELDS.forEach(f => {
       const addBtn = document.getElementById('genAdd_' + f.key);
       const genBtn = document.getElementById('genGen_' + f.key);
@@ -2337,8 +2388,86 @@ function renderGenerationSection(){
   }
 }
 
-function renderGenField(fieldConfig, entries, locked){
+// Wires the Era -> Continent -> Country -> City -> Special Site dependent
+// dropdowns for the Current Location field. Each change repopulates only
+// the selects below it, so picking a Continent immediately narrows Country
+// to real matches, same for Country -> City -> Special Site. No-ops if the
+// Atlas has never been opened yet in this browser (no World Database to read).
+function wireLocationCascade(gs){
+  const wdb = getWorldDatabase();
+  const eraSel = document.getElementById('genLocEra');
+  if(!wdb || !eraSel) return;
+  const contSel = document.getElementById('genLocContinent');
+  const countrySel = document.getElementById('genLocCountry');
+  const citySel = document.getElementById('genLocCity');
+  const siteSel = document.getElementById('genLocSite');
+  const addBtn = document.getElementById('genLocAdd');
+
+  function fillSelect(sel, options, placeholder){
+    sel.innerHTML = (placeholder ? `<option value="">${escapeHtml(placeholder)}</option>` : '')
+      + options.map(o => `<option value="${escapeAttr(o.id)}">${escapeHtml(o.name)}</option>`).join('');
+  }
+  function refreshContinents(){ fillSelect(contSel, wdbContinents(wdb, eraSel.value)); refreshCountries(); }
+  function refreshCountries(){ fillSelect(countrySel, wdbCountries(wdb, eraSel.value, contSel.value)); refreshCities(); }
+  function refreshCities(){ fillSelect(citySel, wdbCities(wdb, eraSel.value, countrySel.value), '— None / not city-specific —'); refreshSites(); }
+  function refreshSites(){ fillSelect(siteSel, wdbSpecialSites(wdb, eraSel.value, countrySel.value, citySel.value || null), '— None —'); }
+
+  fillSelect(eraSel, wdbEras(wdb));
+  refreshContinents();
+
+  eraSel.addEventListener('change', refreshContinents);
+  contSel.addEventListener('change', refreshCountries);
+  countrySel.addEventListener('change', refreshCities);
+  citySel.addEventListener('change', refreshSites);
+
+  addBtn.addEventListener('click', async () => {
+    if(!countrySel.value) return;
+    const ref = {
+      eraId: eraSel.value,
+      continentId: contSel.value,
+      countryId: countrySel.value,
+      cityId: citySel.value || null,
+      specialSiteId: siteSel.value || null
+    };
+    const entry = makeEntry(resolveLocationLabel(wdb, ref), 'author');
+    entry.locationRef = ref;
+    gs.timeline.currentLocation.push(entry);
+    await persistState();
+    renderGenerationSection();
+  });
+}
+
+function renderGenField(fieldConfig, entries, locked, char){
   const { key, label, external } = fieldConfig;
+
+  // Current Location and Current Relationships reference real entities that
+  // already exist elsewhere (the Atlas's location list, the Dossier's own
+  // character roster) — picked from a dropdown instead of freeform text so
+  // they can't drift out of sync with what's actually on the map/roster.
+  let addRowHtml = `
+    <input type="text" id="genInput_${key}" placeholder="Add an entry the author has established...">
+    <button class="gen-mini-btn" id="genAdd_${key}">+ Add</button>
+  `;
+  if(key === 'currentLocation'){
+    const wdb = getWorldDatabase();
+    addRowHtml = wdb
+      ? `<div class="gen-loc-cascade">
+           <select id="genLocEra"></select>
+           <select id="genLocContinent"></select>
+           <select id="genLocCountry"></select>
+           <select id="genLocCity"></select>
+           <select id="genLocSite"></select>
+           <button class="gen-mini-btn" id="genLocAdd">+ Add</button>
+         </div>`
+      : `<span class="gen-empty-hint">No world data recorded on the Atlas yet — open it once to load Era, Continent, Country, and City options.</span>`;
+  } else if(key === 'currentRelationships'){
+    const otherChars = char ? state.characters.filter(c => c.id !== char.id) : [];
+    addRowHtml = otherChars.length
+      ? `<select id="genInput_${key}">${otherChars.map(c => `<option value="${escapeAttr(c.name)}">${escapeHtml(c.name)}</option>`).join('')}</select>
+         <button class="gen-mini-btn" id="genAdd_${key}">+ Add</button>`
+      : `<span class="gen-empty-hint">No other characters in the Dossier yet.</span>`;
+  }
+
   return `
     <div class="gen-field-block">
       <div class="gen-field-head">
@@ -2366,10 +2495,7 @@ function renderGenField(fieldConfig, entries, locked){
           </div>
         `).join('') : `<div class="gen-no-entries">Nothing recorded yet.</div>`}
       </div>
-      ${!locked ? `<div class="gen-add-row">
-        <input type="text" id="genInput_${key}" placeholder="Add an entry the author has established...">
-        <button class="gen-mini-btn" id="genAdd_${key}">+ Add</button>
-      </div>` : ''}
+      ${!locked ? `<div class="gen-add-row">${addRowHtml}</div>` : ''}
     </div>
   `;
 }
@@ -3712,7 +3838,7 @@ function runStorybookCommand(cmd){
 const LEFT_PAGE_DEFAULT_HTML = `
         <h3>Storybook</h3>
         <ul class="book-links">
-          <li><a href="index.html">Character Dossier</a></li>
+          <li><a href="epitaph-character-dossier.html">Character Dossier</a></li>
           <li><a href="atlas.html">World Map</a></li>
           <li><a href="epitaph-hub.html">Hub</a></li>
         </ul>
