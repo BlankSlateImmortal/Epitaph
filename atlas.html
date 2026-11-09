@@ -291,6 +291,49 @@
   .subject-index .idx-name{ flex:1; color:var(--bone); font-weight:700; }
   .subject-index .idx-status{ font-size:9px; color:var(--dust); }
 
+  .subject-index .idx-where{ display:block; font-weight:400; font-size:9px; color:var(--dust); margin-top:2px; }
+
+  /* ================= WORLD DATABASE LAYERS (P4) ================= */
+  .map-glyph.no-terrain .point-cloud, .map-glyph.no-terrain .terrain-grid{ display:none; }
+  .map-glyph.layer-cities .legacy-flag{ display:none; }
+  .geo-city{ cursor:pointer; }
+  .geo-city .diamond{ fill: var(--bone); opacity:0.85; }
+  .geo-city.fictional .diamond{ fill: var(--dust); }
+  .geo-city.altered .diamond{ fill: none; stroke: var(--dust); stroke-width:0.6; }
+  .geo-city.current .diamond{ fill: var(--ember); opacity:1; }
+  .geo-city .city-label{ font-family:'Space Mono', monospace; font-size:6.5px; fill: var(--dust); letter-spacing:0.04em; }
+  .geo-city:hover .diamond{ fill: var(--ember); opacity:1; }
+  .geo-city:hover .city-label{ fill: var(--bone); }
+  .country-label{ font-family:'Space Mono', monospace; font-size:8px; fill: var(--dust); letter-spacing:0.12em; cursor:pointer; opacity:0.8; }
+  .country-label.small{ font-size:4.6px; letter-spacing:0.06em; opacity:0.65; }
+  .country-label:hover{ fill: var(--bone); opacity:1; }
+  .geo-site{ cursor:pointer; }
+  .geo-site path{ fill: none; stroke: var(--ember); stroke-width:0.9; }
+  .geo-site.type-voided path{ stroke: var(--verdigris); }
+  .geo-site.type-storyborn path{ stroke: var(--bone); }
+  .geo-site.type-angel path{ stroke: #c9b37a; }
+  .geo-site.type-demon path{ stroke: #9a3a2a; }
+  .geo-site.type-antholonius path{ stroke: var(--ember); fill: rgba(179,73,46,0.25); }
+  .geo-site.current path, .geo-site:hover path{ stroke-width:1.6; }
+  .geo-site .site-label{ font-family:'Space Mono', monospace; font-size:6px; fill: var(--dust); letter-spacing:0.04em; }
+  .geo-site:hover .site-label{ fill: var(--bone); }
+  .site-filter{ display:none; flex-direction:column; gap:2px; margin:2px 0 6px 14px; }
+  .site-filter.on{ display:flex; }
+  .site-filter .f-btn{
+    text-align:left; background:transparent; border:none; border-left:2px solid transparent;
+    color:var(--dust); font-family:'Space Mono', monospace; font-size:9.5px; letter-spacing:0.04em; padding:3px 8px; cursor:pointer;
+  }
+  .site-filter .f-btn:hover{ color:var(--bone); }
+  .site-filter .f-btn.active{ color:var(--bone); border-left-color:var(--ember); }
+  .era-row{ display:flex; gap:0; }
+  .era-btn{
+    flex:1; background:transparent; border:1px solid var(--line); color:var(--dust);
+    font-family:'Space Mono', monospace; font-size:11px; letter-spacing:0.08em; padding:8px 0; cursor:pointer;
+  }
+  .era-btn + .era-btn{ border-left:none; }
+  .era-btn:hover{ color:var(--bone); border-color:var(--dust); }
+  .era-btn.active{ background:var(--bone); color:var(--ink); border-color:var(--bone); }
+
   .subject-record{ display:none; flex-direction:column; gap:10px; }
   .subject-record.on{ display:flex; }
   .subject-record .r-back{
@@ -319,7 +362,7 @@
 
 <div class="hud">
   <div class="top-bar">
-    <div class="brand">EPITAPH ATLAS — <span id="crumbLabel">PLANET</span></div>
+    <div class="brand">EPITAPH ATLAS — <span id="crumbLabel">WORLD</span></div>
     <div class="top-icons">
       <a class="icon-btn" href="index.html" title="Character Dossier" style="text-decoration:none; font-family:'Bebas Neue',sans-serif; font-size:12px; letter-spacing:0.06em; width:auto; padding:0 10px;">DOSSIER</a>
       <button class="icon-btn" title="Reset view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12a9 9 0 1 1 3 6.7M3 12v6h6"/></svg></button>
@@ -333,9 +376,9 @@
       <div>
         <div class="panel-label">Scale</div>
         <div class="scale-row" id="scaleRow">
-          <div class="scale-icon active" data-scale="Planet" title="Planet">
+          <div class="scale-icon active" data-scale="World" title="World">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg>
-            <span class="tip">Planet</span>
+            <span class="tip">World</span>
           </div>
           <div class="scale-icon" data-scale="Continent" title="Continent">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 15 8 8l4 3 3-6 5 4-2 9-8 2z"/></svg>
@@ -349,9 +392,9 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 21V9l5-4 5 4v12M14 21v-8l6-3v11"/></svg>
             <span class="tip">City</span>
           </div>
-          <div class="scale-icon" data-scale="Site" title="Site">
+          <div class="scale-icon" data-scale="Site" title="Special Site">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M12 3 4 9v12h16V9z"/><path d="M9 21v-6h6v6"/></svg>
-            <span class="tip">Site</span>
+            <span class="tip">Special Site</span>
           </div>
         </div>
       </div>
@@ -363,25 +406,30 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 18 9 8l4 6 3-4 5 8z"/></svg>
             <span class="name">Terrain</span>
           </div>
-          <div class="layer-item active" data-layer="Settlements">
+          <div class="layer-item" data-layer="Countries">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 4v16M4 4l16 3-6 4 6 4-16 3"/></svg>
+            <span class="name">Countries</span>
+          </div>
+          <div class="layer-item active" data-layer="Cities">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="5" y="10" width="4" height="9"/><rect x="10" y="6" width="4" height="13"/><rect x="15" y="12" width="4" height="7"/></svg>
-            <span class="name">Settlements</span>
+            <span class="name">Cities</span>
           </div>
-          <div class="layer-item" data-layer="Temples">
+          <div class="layer-item" data-layer="Special Sites">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 21h16M5 21V10l7-6 7 6v11M9 21v-7h6v7"/></svg>
-            <span class="name">Temples</span>
+            <span class="name">Special Sites</span>
           </div>
-          <div class="layer-item" data-layer="Trade Routes">
+          <div class="site-filter" id="siteFilter"></div>
+          <div class="layer-item" data-layer="Routes">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 18c4-8 12-8 16-14M15 4h5v5"/></svg>
-            <span class="name">Trade Routes</span>
+            <span class="name">Routes</span>
+          </div>
+          <div class="layer-item" data-layer="Characters">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="8" r="3"/><path d="M5 21c0-4 3-7 7-7s7 3 7 7"/></svg>
+            <span class="name">Characters</span>
           </div>
           <div class="layer-item" data-layer="Corruption">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M12 3 8 10l3 1-4 10 9-12-4-1z"/></svg>
             <span class="name">Corruption</span>
-          </div>
-          <div class="layer-item" data-layer="Borders">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-dasharray="3 3"><path d="M4 4h16v16H4z"/></svg>
-            <span class="name">Borders</span>
           </div>
         </div>
       </div>
@@ -405,9 +453,9 @@
         <div class="h-stats">
           <span>SUBJECTS: <b id="statPresent">—</b></span>
           <span>VISIBLE: <b id="statVisible">—</b></span>
-          <span>UNKNOWN: <b id="statUnknown">—</b></span>
+          <span>UNPLACED: <b id="statUnknown">—</b></span>
         </div>
-        <div class="h-time">ERA 0 // CH 3 // FIELD LOG 184</div>
+        <div class="h-time" id="hTime">ERA 0 // WORLD</div>
       </div>
 
       <div class="scale-prompt" id="scalePrompt"></div>
@@ -430,6 +478,14 @@
 
     <!-- RIGHT: view modes + sliders -->
     <div class="panel-right">
+      <div>
+        <div class="panel-label">Era</div>
+        <div class="era-row" id="eraRow">
+          <button class="era-btn active" data-era="ERA_0" title="Earth at the height of human civilization">ERA 0</button>
+          <button class="era-btn" data-era="ERA_1" title="Earth after the divine destruction">ERA 1</button>
+        </div>
+      </div>
+
       <div>
         <div class="panel-label">View</div>
         <div class="view-grid" id="viewGrid">
@@ -456,10 +512,6 @@
         <div class="slider-row">
           <div class="label"><span>Detail</span><span class="fill-label">70%</span></div>
           <div class="slider-track"><div class="slider-fill" style="width:70%;"></div></div>
-        </div>
-        <div class="slider-row disabled">
-          <div class="label"><span>Era Blend</span><span class="fill-label">Era 1 not yet available</span></div>
-          <div class="slider-track"><div class="slider-fill" style="width:0%;"></div></div>
         </div>
       </div>
 
@@ -500,7 +552,7 @@
 
   <div class="bottom-bar">
     <div class="brand-tag">EPITAPH<br>ATLAS</div>
-    <div class="counter" id="siteCounter">5 sealed sites</div>
+    <div class="counter" id="siteCounter"></div>
   </div>
 </div>
 
@@ -579,9 +631,10 @@ const WORLD_DATA = {
   }
 };
 
-const atlasState = { era: 'ERA_0', scale: 'Planet', selectedContinent: null };
+const atlasState = { era: 'ERA_0' };
 
-function currentWorld(){ return WORLD_DATA[atlasState.era]; }
+// Era 1 reuses the Era 0 globe drawing; what changes between eras is the World Database layer.
+function currentWorld(){ return WORLD_DATA[atlasState.era] || WORLD_DATA.ERA_0; }
 function continentById(id){ return currentWorld().continents.find(c => c.id === id) || null; }
 
 // --- Globe (Planet scale) ---
@@ -660,7 +713,7 @@ function renderGlobe(){
     continentShapes += `<text class="continent-label" x="${cont.labelX}" y="${cont.labelY}" text-anchor="middle">${cont.name}</text>`;
     const flag = cont.cities[0];
     if(flag){
-      continentShapes += `<g class="city-mark" data-cont="${cont.id}" data-city="${flag.id}">
+      continentShapes += `<g class="city-mark legacy-flag" data-cont="${cont.id}" data-city="${flag.id}">
         <line class="leader" x1="${flag.x}" y1="${flag.y}" x2="${flag.x + 10}" y2="${flag.y - 8}"/>
         <rect class="diamond" x="${flag.x - 1.4}" y="${flag.y - 1.4}" width="2.8" height="2.8" transform="rotate(45 ${flag.x} ${flag.y})"/>
         <text class="city-label" x="${flag.x + 12}" y="${flag.y - 7}">${flag.name}</text>
@@ -707,76 +760,128 @@ function renderGlobe(){
   });
 }
 
-// --- Continent zoom ---
-function renderContinentView(contId){
-  const cont = continentById(contId);
-  const glyph = document.getElementById('mapGlyph');
-  let cities = '';
-  cont.cities.forEach((city, i) => {
-    // spread cities out for legibility at this zoom, independent of their tiny planet-view position
-    const angle = (Math.PI * 2 / cont.cities.length) * i - Math.PI / 2;
-    const zx = 200 + Math.cos(angle) * 110;
-    const zy = 180 + Math.sin(angle) * 100;
-    cities += `<g class="city-mark" data-city="${city.id}">
-      <line class="leader" x1="${zx}" y1="${zy}" x2="${zx + 16}" y2="${zy - 12}"/>
-      <rect class="diamond" x="${zx - 2.2}" y="${zy - 2.2}" width="4.4" height="4.4" transform="rotate(45 ${zx} ${zy})"/>
-      <text class="city-label" x="${zx + 19}" y="${zy - 11}" style="font-size:9px;">${city.name}</text>
-    </g>`;
-  });
-  glyph.innerHTML = `<svg viewBox="0 0 400 360">
-    <circle cx="200" cy="180" r="170" fill="none" stroke="var(--line)" stroke-width="0.6"/>
-    <text class="continent-label" x="200" y="30" text-anchor="middle" style="font-size:11px;">${cont.name}</text>
-    ${cities}
-  </svg>`;
+// ============================================================
+// GEOGRAPHY VIEW — reads the World Database (P4)
+// Scale hierarchy: WORLD → CONTINENT → COUNTRY → CITY → SPECIAL SITE.
+// Scale = where am I looking. Layers = what am I showing. Kept separate.
+//
+// Projection decision: the World globe is illustrated — its continent
+// outlines are hand-drawn, not an orthographic projection of real
+// coastlines — so a real lat/lng can't be dropped onto it directly.
+// At WORLD scale each continent's real-world bounding box is mapped onto
+// the area its drawn outline occupies (CONTINENT_FRAMES). Places stay in
+// the right order relative to each other, and every marker lands on its
+// own continent's shape. From CONTINENT scale down, a true equirectangular
+// projection (longitude scaled by cos(latitude)) is fitted to the area
+// in view, so real and fictional cities sit where their coordinates say.
+// Coordinates come only from the World Database; characters never carry
+// their own.
+// ============================================================
+const VB_W = 400, VB_H = 360;
+const CONTINENT_FRAMES = {
+  'north-america': { lng: [-168, -52], lat: [14, 72],  box: [61, 69, 149, 141] },
+  'south-america': { lng: [-82, -34],  lat: [-56, 13], box: [88, 177, 136, 233] },
+  'europe':        { lng: [-11, 41],   lat: [35, 62],  box: [188, 52, 236, 88] },
+  'africa':        { lng: [-18, 52],   lat: [-35, 37], box: [198, 111, 242, 179] },
+  'asia':          { lng: [60, 146],   lat: [5, 56],   box: [265, 60, 325, 116] },
+  'oceania':       { lng: [112, 179],  lat: [-48, -9], box: [296, 174, 328, 202] },
+  'antarctica':    { lng: [-180, 180], lat: [-90, -60], box: [120, 318, 280, 334] }
+};
+const SCALES = ['World', 'Continent', 'Country', 'City', 'Site'];
+const SCALE_LABEL = { World: 'WORLD', Continent: 'CONTINENT', Country: 'COUNTRY', City: 'CITY', Site: 'SPECIAL SITE' };
 
-  glyph.querySelectorAll('.city-mark').forEach(el => {
-    const city = cont.cities.find(c => c.id === el.dataset.city);
-    el.addEventListener('mouseenter', (e) => showWorldTooltip(e, city.name, [
-      ['TYPE', city.type], ['POPULATION', city.population], ['STATUS', 'ACTIVE']
-    ]));
-    el.addEventListener('mousemove', moveWorldTooltip);
-    el.addEventListener('mouseleave', hideWorldTooltip);
-    el.addEventListener('click', () => showScalePrompt('SELECT COUNTRY — not yet available at this depth', true));
-  });
+// what is being looked at; ids are always read together with the era
+const geo = { scale: 'World', continentId: null, countryId: null, cityId: null, siteId: null };
+// what is being shown
+const layers = new Set(['Terrain', 'Cities']);
+let siteTypeFilter = 'ALL';
+let activeProjection = null;
+
+function eraNow(){ return atlasState.era; }
+function eraName(id){ const e = (WDB && WDB.eras || []).find(x => x.id === id); return e ? e.name : id; }
+function hasNum(v){ return typeof v === 'number' && isFinite(v); }
+function geoCont(id, era){ return WDB.continents.find(c => c.id === id && c.era === (era || eraNow())) || null; }
+function geoCountry(id, era){ return WDB.countries.find(c => c.id === id && c.era === (era || eraNow())) || null; }
+function geoCity(id, era){ return WDB.cities.find(c => c.id === id && c.era === (era || eraNow())) || null; }
+function geoSite(id, era){ return (WDB.specialSites || []).find(s => s.id === id && s.era === (era || eraNow())) || null; }
+function eraCities(era){ return WDB.cities.filter(c => c.era === (era || eraNow()) && hasNum(c.lat) && hasNum(c.lng)); }
+function eraSites(era){ return (WDB.specialSites || []).filter(s => s.era === (era || eraNow()) && hasNum(s.lat) && hasNum(s.lng)); }
+function cityContinent(city){ const co = geoCountry(city.countryId, city.era); return co ? co.continentId : null; }
+function siteTypeLabel(id){ const t = (WDB.specialSiteTypes || []).find(x => x.id === id); return t ? t.label : (id || 'Other'); }
+function countryCentroid(countryId, era){
+  const pts = WDB.cities.filter(c => c.era === (era || eraNow()) && c.countryId === countryId && hasNum(c.lat) && hasNum(c.lng));
+  if(!pts.length) return null;
+  return { lat: pts.reduce((a, c) => a + c.lat, 0) / pts.length, lng: pts.reduce((a, c) => a + c.lng, 0) / pts.length };
 }
 
-function selectContinent(id){
-  atlasState.selectedContinent = id;
-  atlasState.scale = 'Continent';
-  document.querySelectorAll('.scale-icon').forEach(s => s.classList.toggle('active', s.dataset.scale === 'Continent'));
-  showScalePrompt('', false);
-  renderContinentView(id);
-  updateBreadcrumb();
+// ---- projections ----
+function worldPoint(lat, lng, continentId){
+  const f = CONTINENT_FRAMES[continentId];
+  if(!f) return null;
+  const tx = Math.max(0, Math.min(1, (lng - f.lng[0]) / (f.lng[1] - f.lng[0])));
+  const ty = Math.max(0, Math.min(1, (f.lat[1] - lat) / (f.lat[1] - f.lat[0])));
+  return { x: f.box[0] + tx * (f.box[2] - f.box[0]), y: f.box[1] + ty * (f.box[3] - f.box[1]) };
 }
-
-function updateBreadcrumb(){
-  const el = document.getElementById('scaleValue');
-  let html = `<span class="crumb ${!atlasState.selectedContinent ? 'current' : ''}" id="crumbEarth">EARTH</span>`;
-  if(atlasState.selectedContinent){
-    const cont = continentById(atlasState.selectedContinent);
-    html += `<span class="sep">›</span><span class="crumb current">${cont.name}</span>`;
+function fitProjection(b){
+  const midLat = (b.minLat + b.maxLat) / 2, midLng = (b.minLng + b.maxLng) / 2;
+  const k = Math.max(0.2, Math.cos(midLat * Math.PI / 180));
+  const w = Math.max(0.01, (b.maxLng - b.minLng) * k), h = Math.max(0.01, b.maxLat - b.minLat);
+  const s = Math.min(250 / w, 230 / h);
+  return {
+    kind: 'fit', bounds: b, scale: s, midLat, midLng, k,
+    point(lat, lng){ return { x: VB_W / 2 + (lng - midLng) * k * s, y: VB_H / 2 - (lat - midLat) * s }; }
+  };
+}
+function boundsOf(points, padDeg, minSpan){
+  if(!points.length) return null;
+  let b = { minLat: Infinity, maxLat: -Infinity, minLng: Infinity, maxLng: -Infinity };
+  points.forEach(p => { b.minLat = Math.min(b.minLat, p.lat); b.maxLat = Math.max(b.maxLat, p.lat); b.minLng = Math.min(b.minLng, p.lng); b.maxLng = Math.max(b.maxLng, p.lng); });
+  b = { minLat: b.minLat - padDeg, maxLat: b.maxLat + padDeg, minLng: b.minLng - padDeg, maxLng: b.maxLng + padDeg };
+  const growLat = Math.max(0, minSpan - (b.maxLat - b.minLat)) / 2, growLng = Math.max(0, minSpan - (b.maxLng - b.minLng)) / 2;
+  return { minLat: b.minLat - growLat, maxLat: b.maxLat + growLat, minLng: b.minLng - growLng, maxLng: b.maxLng + growLng };
+}
+function viewBounds(){
+  if(geo.scale === 'Continent'){
+    // fit to what's actually recorded on this continent; fall back to its full frame
+    const pts = eraCities().filter(c => cityContinent(c) === geo.continentId).concat(eraSites().filter(s => s.continentId === geo.continentId));
+    const fit = boundsOf(pts, 2, 10);
+    if(fit) return fit;
+    const f = CONTINENT_FRAMES[geo.continentId];
+    return f ? { minLat: f.lat[0], maxLat: f.lat[1], minLng: f.lng[0], maxLng: f.lng[1] } : null;
   }
-  el.innerHTML = html;
-  document.getElementById('crumbEarth').addEventListener('click', () => {
-    atlasState.selectedContinent = null;
-    atlasState.scale = 'Planet';
-    document.querySelectorAll('.scale-icon').forEach(s => s.classList.toggle('active', s.dataset.scale === 'Planet'));
-    showScalePrompt('', false);
-    renderGlobe();
-    updateBreadcrumb();
-  });
+  if(geo.scale === 'Country'){
+    const pts = eraCities().filter(c => c.countryId === geo.countryId).concat(eraSites().filter(s => s.countryId === geo.countryId));
+    return boundsOf(pts, 0.6, 2.5);
+  }
+  if(geo.scale === 'City'){
+    const city = geoCity(geo.cityId);
+    if(!city) return null;
+    const pts = [city].concat(eraSites().filter(s => s.cityId === city.id));
+    return boundsOf(pts, 0.3, 1);
+  }
+  if(geo.scale === 'Site'){
+    const site = geoSite(geo.siteId);
+    return site ? boundsOf([site], 0.2, 0.5) : null;
+  }
+  return null;
+}
+// Places a lat/lng on whatever is on screen; continentId is needed at WORLD scale.
+function projectPoint(lat, lng, continentId){
+  if(!activeProjection) return null;
+  if(activeProjection.kind === 'world') return worldPoint(lat, lng, continentId);
+  return activeProjection.point(lat, lng);
 }
 
+// ---- tooltips / prompts (unchanged behaviour) ----
 function showScalePrompt(text, on){
   const el = document.getElementById('scalePrompt');
   el.textContent = text;
   el.classList.toggle('on', on);
 }
-
 function showWorldTooltip(e, title, rows){
   const tip = document.getElementById('charTooltip');
-  tip.innerHTML = `<div class="t-name" style="margin-bottom:6px;">${title}</div>` +
-    rows.map(r => `<div class="t-row"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('');
+  tip.innerHTML = `<div class="t-name" style="margin-bottom:6px;">${escapeHud(title)}</div>` +
+    rows.map(r => `<div class="t-row"><span>${escapeHud(r[0])}</span><span>${escapeHud(r[1])}</span></div>`).join('');
   tip.classList.add('visible');
   moveWorldTooltip(e);
 }
@@ -787,39 +892,223 @@ function moveWorldTooltip(e){
   tip.style.left = x + 'px'; tip.style.top = y + 'px';
 }
 function hideWorldTooltip(){ document.getElementById('charTooltip').classList.remove('visible'); }
+function hoverable(el, title, rows){
+  el.addEventListener('mouseenter', (e) => showWorldTooltip(e, title, rows));
+  el.addEventListener('mousemove', moveWorldTooltip);
+  el.addEventListener('mouseleave', hideWorldTooltip);
+}
 
-document.querySelectorAll('.scale-icon').forEach(el => {
+// ---- navigation ----
+function setScaleIcons(){
+  document.querySelectorAll('.scale-icon').forEach(s => s.classList.toggle('active', s.dataset.scale === geo.scale));
+  document.getElementById('crumbLabel').textContent = SCALE_LABEL[geo.scale];
+}
+function goWorld(){ Object.assign(geo, { scale: 'World', continentId: null, countryId: null, cityId: null, siteId: null }); renderView(); }
+function selectContinent(id){ if(!geoCont(id)) return; Object.assign(geo, { scale: 'Continent', continentId: id, countryId: null, cityId: null, siteId: null }); renderView(); }
+function selectCountry(id){
+  const co = geoCountry(id); if(!co) return;
+  Object.assign(geo, { scale: 'Country', continentId: co.continentId, countryId: id, cityId: null, siteId: null }); renderView();
+}
+function selectCity(id){
+  const city = geoCity(id); if(!city) return;
+  Object.assign(geo, { scale: 'City', continentId: cityContinent(city), countryId: city.countryId, cityId: id, siteId: null }); renderView();
+  if(charactersModeOn()) selectLocation('city', id);
+}
+function selectSite(id){
+  const site = geoSite(id); if(!site) return;
+  Object.assign(geo, { scale: 'Site', continentId: site.continentId, countryId: site.countryId, cityId: site.cityId || null, siteId: id }); renderView();
+  if(charactersModeOn()) selectLocation('site', id);
+}
+function goToScale(scale){
+  const depth = SCALES.indexOf(scale);
+  const have = [true, !!geo.continentId, !!geo.countryId, !!geo.cityId, !!geo.siteId];
+  if(!have[depth]){
+    const hint = { Continent: 'click a continent', Country: 'turn on Countries or Cities and click one', City: 'click a city', Site: 'turn on Special Sites (Era 1) and click one' }[scale];
+    showScalePrompt(`SELECT ${SCALE_LABEL[scale]} — ${hint}`, true);
+    return;
+  }
+  if(scale === 'World') return goWorld();
+  if(scale === 'Continent') return selectContinent(geo.continentId);
+  if(scale === 'Country') return selectCountry(geo.countryId);
+  if(scale === 'City') return selectCity(geo.cityId);
+  return selectSite(geo.siteId);
+}
+function updateBreadcrumb(){
+  const el = document.getElementById('scaleValue');
+  const parts = [['World', 'EARTH']];
+  const cont = geo.continentId && geoCont(geo.continentId);
+  const country = geo.countryId && geoCountry(geo.countryId);
+  const city = geo.cityId && geoCity(geo.cityId);
+  const site = geo.siteId && geoSite(geo.siteId);
+  if(cont) parts.push(['Continent', cont.name.toUpperCase()]);
+  if(country) parts.push(['Country', country.name.toUpperCase()]);
+  if(city) parts.push(['City', city.name.toUpperCase()]);
+  if(site) parts.push(['Site', site.name.toUpperCase()]);
+  el.innerHTML = parts.map((p, i) => `${i ? '<span class="sep">›</span>' : ''}<span class="crumb ${i === parts.length - 1 ? 'current' : ''}" data-scale="${p[0]}">${escapeHud(p[1])}</span>`).join('');
+  el.querySelectorAll('.crumb:not(.current)').forEach(c => c.addEventListener('click', () => goToScale(c.dataset.scale)));
+}
+
+// ---- rendering ----
+function niceStep(span){ const raw = span / 5, p = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / p; return (n < 1.5 ? 1 : n < 3.5 ? 2 : n < 7.5 ? 5 : 10) * p; }
+function renderZoomBase(title, sub){
+  const proj = activeProjection, b = proj.bounds;
+  const latStep = niceStep(b.maxLat - b.minLat), lngStep = niceStep(b.maxLng - b.minLng);
+  let grid = '';
+  for(let lat = Math.ceil((b.minLat - 10) / latStep) * latStep; lat <= b.maxLat + 10; lat += latStep){
+    const p1 = proj.point(lat, b.minLng - 30), p2 = proj.point(lat, b.maxLng + 30);
+    grid += `<line x1="${p1.x.toFixed(1)}" y1="${p1.y.toFixed(1)}" x2="${p2.x.toFixed(1)}" y2="${p2.y.toFixed(1)}" stroke="var(--line)" stroke-width="0.5"/>`;
+  }
+  for(let lng = Math.ceil((b.minLng - 30) / lngStep) * lngStep; lng <= b.maxLng + 30; lng += lngStep){
+    const p1 = proj.point(b.minLat - 10, lng), p2 = proj.point(b.maxLat + 10, lng);
+    grid += `<line x1="${p1.x.toFixed(1)}" y1="${p1.y.toFixed(1)}" x2="${p2.x.toFixed(1)}" y2="${p2.y.toFixed(1)}" stroke="var(--line)" stroke-width="0.5"/>`;
+  }
+  return `<svg viewBox="0 0 ${VB_W} ${VB_H}">
+    <defs><clipPath id="zoomClip"><circle cx="200" cy="180" r="170"/></clipPath></defs>
+    <g class="terrain-grid" clip-path="url(#zoomClip)">${grid}</g>
+    <circle cx="200" cy="180" r="170" fill="none" stroke="var(--dust)" stroke-width="0.9"/>
+    <text class="continent-label" x="200" y="22" text-anchor="middle" style="font-size:11px;">${escapeHud(title)}</text>
+    ${sub ? `<text class="continent-label" x="200" y="34" text-anchor="middle" style="font-size:6.5px;">${escapeHud(sub)}</text>` : ''}
+    <g class="geo-overlay" clip-path="url(#zoomClip)"></g>
+  </svg>`;
+}
+function inScope(place){
+  if(!place || place.eraId !== eraNow()) return false;
+  if(geo.scale === 'World') return true;
+  if(geo.scale === 'Continent') return place.continentId === geo.continentId;
+  if(geo.scale === 'Country') return place.countryId === geo.countryId;
+  if(geo.scale === 'City') return place.cityId === geo.cityId;
+  return place.siteId === geo.siteId;
+}
+function renderView(){
+  if(!WDB) return;
+  const glyph = document.getElementById('mapGlyph');
+  hideWorldTooltip();
+  showScalePrompt('', false);
+  if(geo.scale === 'World'){
+    activeProjection = { kind: 'world' };
+    renderGlobe();
+    glyph.querySelector('svg').insertAdjacentHTML('beforeend', '<g class="geo-overlay"></g>');
+  } else {
+    const b = viewBounds();
+    if(!b){ goWorld(); return; }
+    activeProjection = fitProjection(b);
+    const cont = geoCont(geo.continentId), country = geoCountry(geo.countryId), city = geoCity(geo.cityId), site = geoSite(geo.siteId);
+    const title = (site || city || country || cont || { name: '' }).name.toUpperCase();
+    const sub = geo.scale === 'Site' ? siteTypeLabel(site.type).toUpperCase() + ' SITE' + (city ? ' — ' + city.name.toUpperCase() : '')
+      : geo.scale === 'City' ? (country ? country.name.toUpperCase() : '') + (city.fictional ? ' — PLACEHOLDER COORDINATES' : '')
+      : geo.scale === 'Country' ? (cont ? cont.name.toUpperCase() : '') : eraName(eraNow()).toUpperCase();
+    glyph.innerHTML = renderZoomBase(title, sub);
+  }
+  glyph.classList.toggle('no-terrain', !layers.has('Terrain'));
+  glyph.classList.toggle('layer-cities', layers.has('Cities'));
+  const overlay = glyph.querySelector('.geo-overlay');
+  overlay.innerHTML = buildOverlay();
+  wireOverlay(overlay);
+  setScaleIcons();
+  updateBreadcrumb();
+  updateEraUi();
+  renderCharacterLayer();
+}
+function buildOverlay(){
+  const era = eraNow();
+  const world = geo.scale === 'World';
+  let out = '';
+  if(layers.has('Countries')){
+    WDB.countries.filter(c => c.era === era && (world || c.continentId === geo.continentId)).forEach(co => {
+      if(geo.scale !== 'World' && geo.scale !== 'Continent' && co.id !== geo.countryId) return;
+      const c = countryCentroid(co.id, era); if(!c) return;
+      const p = projectPoint(c.lat, c.lng, co.continentId); if(!p) return;
+      out += `<text class="country-label${world ? ' small' : ''}" data-country="${co.id}" x="${p.x.toFixed(1)}" y="${(p.y - (world ? 4 : 9)).toFixed(1)}" text-anchor="middle">${escapeHud(co.name.toUpperCase())}</text>`;
+    });
+  }
+  if(layers.has('Cities')){
+    eraCities(era).forEach(city => {
+      const cid = cityContinent(city);
+      if(!world && cid !== geo.continentId) return;
+      if((geo.scale === 'Country' || geo.scale === 'City' || geo.scale === 'Site') && city.countryId !== geo.countryId) return;
+      const p = projectPoint(city.lat, city.lng, cid); if(!p) return;
+      const sz = world ? 1.1 : 2.4, showLabel = !world;
+      const cls = 'geo-city' + (city.fictional ? ' fictional' : '') + (city.status && city.status !== 'Surviving' ? ' altered' : '') + (city.id === geo.cityId ? ' current' : '');
+      out += `<g class="${cls}" data-city="${city.id}">
+        <rect class="diamond" x="${(p.x - sz).toFixed(1)}" y="${(p.y - sz).toFixed(1)}" width="${sz * 2}" height="${sz * 2}" transform="rotate(45 ${p.x.toFixed(1)} ${p.y.toFixed(1)})"/>
+        ${showLabel ? `<text class="city-label" x="${(p.x + 5).toFixed(1)}" y="${(p.y - 4).toFixed(1)}">${escapeHud(city.name.toUpperCase())}</text>` : ''}
+      </g>`;
+    });
+  }
+  if(layers.has('Special Sites')){
+    eraSites(era).forEach(site => {
+      if(siteTypeFilter !== 'ALL' && site.type !== siteTypeFilter) return;
+      if(!world && site.continentId !== geo.continentId) return;
+      if((geo.scale === 'Country' || geo.scale === 'City' || geo.scale === 'Site') && site.countryId !== geo.countryId) return;
+      if(geo.scale === 'City' && site.cityId && site.cityId !== geo.cityId) return;
+      const p = projectPoint(site.lat, site.lng, site.continentId); if(!p) return;
+      const r = world ? 2.2 : 4;
+      out += `<g class="geo-site type-${String(site.type || 'OTHER').toLowerCase()}${site.id === geo.siteId ? ' current' : ''}" data-site="${site.id}">
+        <path d="M${p.x.toFixed(1)} ${(p.y - r).toFixed(1)} L${(p.x + r).toFixed(1)} ${(p.y + r * 0.8).toFixed(1)} L${(p.x - r).toFixed(1)} ${(p.y + r * 0.8).toFixed(1)} Z"/>
+        ${world ? '' : `<text class="site-label" x="${(p.x + r + 3).toFixed(1)}" y="${(p.y + 3).toFixed(1)}">${escapeHud(site.name.toUpperCase())}</text>`}
+      </g>`;
+    });
+  }
+  return out;
+}
+function wireOverlay(overlay){
+  const era = eraNow();
+  overlay.querySelectorAll('.country-label').forEach(el => {
+    const co = geoCountry(el.dataset.country);
+    const n = WDB.cities.filter(c => c.era === era && c.countryId === co.id).length;
+    hoverable(el, co.name, [['TYPE', 'COUNTRY'], ['CITIES', n], ['ERA', eraName(era)]].concat(co.status ? [['STATUS', co.status]] : []));
+    el.addEventListener('click', (e) => { e.stopPropagation(); selectCountry(co.id); });
+  });
+  overlay.querySelectorAll('.geo-city').forEach(el => {
+    const city = geoCity(el.dataset.city), co = geoCountry(city.countryId);
+    hoverable(el, city.name, [['TYPE', city.fictional ? 'CITY (FICTIONAL)' : 'CITY'], ['COUNTRY', co ? co.name : '—'], ['COORDS', `${city.lat.toFixed(2)}, ${city.lng.toFixed(2)}`]].concat(city.status ? [['STATUS', city.status]] : []));
+    el.addEventListener('click', (e) => { e.stopPropagation(); selectCity(city.id); });
+  });
+  overlay.querySelectorAll('.geo-site').forEach(el => {
+    const site = geoSite(el.dataset.site), city = site.cityId ? geoCity(site.cityId) : null;
+    hoverable(el, site.name, [['TYPE', siteTypeLabel(site.type).toUpperCase()], ['CITY', city ? city.name : 'NONE'], ['STATUS', site.status || '—']]);
+    el.addEventListener('click', (e) => { e.stopPropagation(); selectSite(site.id); });
+  });
+}
+
+// ---- layers + site type filter ----
+function renderSiteFilter(){
+  const box = document.getElementById('siteFilter');
+  const types = [{ id: 'ALL', label: 'All' }].concat(WDB.specialSiteTypes || []);
+  box.innerHTML = types.map(t => `<button class="f-btn${t.id === siteTypeFilter ? ' active' : ''}" data-site-type="${t.id}">${escapeHud(t.label.toUpperCase())}</button>`).join('');
+  box.classList.toggle('on', layers.has('Special Sites'));
+  box.querySelectorAll('[data-site-type]').forEach(b => b.addEventListener('click', () => { siteTypeFilter = b.dataset.siteType; renderSiteFilter(); renderView(); }));
+}
+const NO_DATA_LAYERS = { Routes: 'ROUTES — no route data in the World Database yet', Corruption: 'CORRUPTION — no corruption data in the World Database yet' };
+document.querySelectorAll('.layer-item').forEach(el => {
   el.addEventListener('click', () => {
-    const scale = el.dataset.scale;
-    document.querySelectorAll('.scale-icon').forEach(s => s.classList.remove('active'));
-    el.classList.add('active');
-    atlasState.scale = scale;
-    document.getElementById('crumbLabel').textContent = scale.toUpperCase();
-
-    if(scale === 'Planet'){
-      atlasState.selectedContinent = null;
-      showScalePrompt('', false);
-      renderGlobe();
-      updateBreadcrumb();
-    } else if(scale === 'Continent'){
-      if(atlasState.selectedContinent){
-        renderContinentView(atlasState.selectedContinent);
-      } else {
-        showScalePrompt('SELECT CONTINENT — hover over a continent, then click', true);
-      }
-    } else {
-      // Country / City / Site: honest stub — depth not yet built
-      showScalePrompt(`SELECT ${scale.toUpperCase()} — not yet available at this depth`, true);
-    }
+    const name = el.dataset.layer;
+    if(layers.has(name)) layers.delete(name); else layers.add(name);
+    el.classList.toggle('active', layers.has(name));
+    renderSiteFilter();
+    renderView();
+    if(layers.has(name) && NO_DATA_LAYERS[name]) showScalePrompt(NO_DATA_LAYERS[name], true);
+    if(name === 'Special Sites' && layers.has(name) && !eraSites().length) showScalePrompt('SPECIAL SITES — none in ' + eraName(eraNow()).toUpperCase() + '. They exist only in Era 1.', true);
   });
 });
+function syncLayerItems(){ document.querySelectorAll('.layer-item').forEach(el => el.classList.toggle('active', layers.has(el.dataset.layer))); }
 
-renderGlobe();
-updateBreadcrumb();
-
-document.querySelectorAll('.layer-item').forEach(el => {
-  el.addEventListener('click', () => el.classList.toggle('active'));
-});
+// ---- era ----
+function setEra(era){
+  if(!WDB.eras.find(e => e.id === era)) return;
+  atlasState.era = era;
+  // ids are shared across eras; drop any level that doesn't exist in this one
+  if(geo.siteId && !geoSite(geo.siteId)) Object.assign(geo, { siteId: null, scale: geo.cityId ? 'City' : 'Country' });
+  renderView();
+}
+function updateEraUi(){
+  document.querySelectorAll('.era-btn').forEach(b => b.classList.toggle('active', b.dataset.era === eraNow()));
+  const n = eraSites().length;
+  document.getElementById('siteCounter').textContent = n ? `${n} special site${n === 1 ? '' : 's'} // ${eraName(eraNow()).toUpperCase()}` : `No special sites in ${eraName(eraNow())}`;
+  document.getElementById('hTime').textContent = `${eraName(eraNow()).toUpperCase()} // ${SCALE_LABEL[geo.scale]}`;
+}
+document.querySelectorAll('.era-btn').forEach(b => b.addEventListener('click', () => setEra(b.dataset.era)));
+document.querySelectorAll('.scale-icon').forEach(el => el.addEventListener('click', () => goToScale(el.dataset.scale)));
 document.querySelectorAll('.view-cell').forEach(el => {
   el.addEventListener('click', () => {
     document.querySelectorAll('.view-cell').forEach(v => v.classList.remove('active'));
@@ -827,6 +1116,7 @@ document.querySelectorAll('.view-cell').forEach(el => {
     setCharactersMode(el.dataset.view === 'Characters');
   });
 });
+document.querySelector('.icon-btn[title="Reset view"]').addEventListener('click', goWorld);
 
 // ============================================================
 // LIVE CHARACTERS — foundation layer
@@ -1159,93 +1449,110 @@ syncRosterFromDossier();
 
 let activeFilter = 'all';
 let selectedCharId = null;
-let selectedLocId = null;
+let selectedLoc = null; // { kind: 'city'|'site', id }
 
-// small fixed offsets so co-located characters cluster around the
-// anchor instead of stacking exactly on top of one another
-const CLUSTER_OFFSETS = [[0, 0], [11, -9], [-11, -9], [11, 9], [-11, 9], [0, -16]];
-
+// ---- where a character is: Dossier → locationRef → World Database ----
+// The latest committed Current Location entry of the character's active
+// chapter (the Generation section). Pending or rejected entries never place
+// a marker; only committed canon does.
+function latestCommittedLocation(charId){
+  const dc = dossierCharById(charId), snap = dossierActiveSnap(charId);
+  if(!dc || !snap) return null;
+  const gs = (dossierState.generationStates || []).find(s => s.characterId === dc.id && s.snapshotId === snap.id);
+  if(!gs || !gs.timeline) return null;
+  const list = (gs.timeline.currentLocation || []).filter(e => e && e.status === 'committed' && e.locationRef);
+  return list.length ? list[list.length - 1] : null;
+}
+// Resolves a {eraId, continentId, countryId, cityId, specialSiteId} reference
+// to a place with coordinates (special site → city → country centre).
+function resolveLocationRef(ref){
+  if(!ref || !WDB) return null;
+  const era = ref.eraId;
+  const site = ref.specialSiteId ? geoSite(ref.specialSiteId, era) : null;
+  const city = ref.cityId ? geoCity(ref.cityId, era) : (site && site.cityId ? geoCity(site.cityId, era) : null);
+  const country = ref.countryId ? geoCountry(ref.countryId, era) : null;
+  const continentId = ref.continentId || (country && country.continentId) || (site && site.continentId) || null;
+  const place = { eraId: era, continentId, countryId: (country && country.id) || (site && site.countryId) || (city && city.countryId) || null,
+    cityId: city ? city.id : null, siteId: site ? site.id : null, lat: null, lng: null, kind: null };
+  if(site && hasNum(site.lat)){ Object.assign(place, { lat: site.lat, lng: site.lng, kind: 'site', name: site.name }); }
+  else if(city && hasNum(city.lat)){ Object.assign(place, { lat: city.lat, lng: city.lng, kind: 'city', name: city.name }); }
+  else if(country){ const c = countryCentroid(country.id, era); if(c) Object.assign(place, { lat: c.lat, lng: c.lng, kind: 'country', name: country.name }); }
+  place.label = [site, city, country, continentId && geoCont(continentId, era)].filter(Boolean).map(x => x.name).join(', ') + ` (${eraName(era)})`;
+  return place;
+}
+function placeOf(charId){
+  const entry = latestCommittedLocation(charId);
+  return entry ? resolveLocationRef(entry.locationRef) : null;
+}
+function charactersModeOn(){ return document.querySelector('.stage').classList.contains('characters-mode'); }
 function charById(id){ return CHARACTERS.find(c => c.id === id); }
-function charactersAt(locId){ return CHARACTERS.filter(c => c.currentLocationId === locId); }
+function placeKey(p){ return p.kind === 'site' ? 'site:' + p.siteId : p.kind === 'city' ? 'city:' + p.cityId : 'country:' + p.countryId; }
 
 function setCharactersMode(on){
+  if(on && !layers.has('Characters')){ layers.add('Characters'); syncLayerItems(); }
   document.getElementById('charHeader').classList.toggle('on', on);
-  document.getElementById('charMarkers').classList.toggle('on', on);
   document.getElementById('charFilter').classList.toggle('on', on);
   document.querySelector('.stage').classList.toggle('characters-mode', on);
   document.getElementById('sliderBlock').style.display = on ? 'none' : 'flex';
-  document.getElementById('subjectIndex').classList.toggle('on', on && !selectedCharId && !selectedLocId);
+  document.getElementById('subjectIndex').classList.toggle('on', on && !selectedCharId && !selectedLoc);
   document.getElementById('subjectRecord').classList.toggle('on', on && !!selectedCharId);
-  document.getElementById('locationRecord').classList.toggle('on', on && !!selectedLocId);
-  if(on) renderCharacterLayer();
+  document.getElementById('locationRecord').classList.toggle('on', on && !!selectedLoc);
+  renderCharacterLayer();
 }
 
+// Mapping from the SVG's 400x360 viewBox to pixels inside .dial-wrap,
+// measured live so markers stay on the globe at any size.
+function svgToDial(){
+  const svg = document.querySelector('#mapGlyph svg'), wrap = document.getElementById('dialWrap');
+  if(!svg) return null;
+  const r = svg.getBoundingClientRect(), w = wrap.getBoundingClientRect();
+  const s = Math.min(r.width / VB_W, r.height / VB_H);
+  const ox = r.left - w.left + (r.width - VB_W * s) / 2, oy = r.top - w.top + (r.height - VB_H * s) / 2;
+  return (p) => ({ x: ox + p.x * s, y: oy + p.y * s });
+}
+const CLUSTER_OFFSETS = [[0, 0], [11, -9], [-11, -9], [11, 9], [-11, 9], [0, -16]];
+
 function renderCharacterLayer(){
-  const present = CHARACTERS.length;
-  const visible = CHARACTERS.filter(c => c.currentLocationId).length;
-  const unknown = CHARACTERS.filter(c => c.status === 'Unknown').length;
-  document.getElementById('statPresent').textContent = String(present).padStart(3, '0');
-  document.getElementById('statVisible').textContent = String(visible).padStart(3, '0');
-  document.getElementById('statUnknown').textContent = String(unknown).padStart(3, '0');
+  const placed = CHARACTERS.map(c => ({ c, place: placeOf(c.id) }));
+  const located = placed.filter(x => x.place && x.place.kind);
+  const inView = located.filter(x => inScope(x.place));
+  document.getElementById('statPresent').textContent = String(CHARACTERS.length).padStart(3, '0');
+  document.getElementById('statVisible').textContent = String(layers.has('Characters') ? inView.length : 0).padStart(3, '0');
+  document.getElementById('statUnknown').textContent = String(CHARACTERS.length - located.length).padStart(3, '0');
 
   const markersEl = document.getElementById('charMarkers');
   markersEl.innerHTML = '';
-
-  // one anchor per occupied location — the location stays the real
-  // point of reference, characters are occupants drawn around it
-  const occupiedLocIds = [...new Set(CHARACTERS.filter(c => c.currentLocationId).map(c => c.currentLocationId))];
-  occupiedLocIds.forEach(locId => {
-    const loc = locationById(locId);
-    if(!loc) return;
-    const anchor = document.createElement('div');
-    anchor.className = 'loc-anchor';
-    anchor.style.left = loc.x + 'px';
-    anchor.style.top = loc.y + 'px';
-    anchor.innerHTML = `<div class="plus"></div><div class="loc-tag">${escapeHud(loc.name)}</div>`;
-    anchor.addEventListener('click', () => selectLocation(locId));
-    markersEl.appendChild(anchor);
-
-    const occupants = charactersAt(locId);
-    occupants.forEach((c, idx) => {
-      const off = CLUSTER_OFFSETS[idx % CLUSTER_OFFSETS.length];
-      const idNum = String(CHARACTERS.indexOf(c) + 1).padStart(2, '0');
-      const matchesFilter = activeFilter === 'all' || c.status === activeFilter;
-      const m = document.createElement('div');
-      m.className = 'char-marker' + (matchesFilter ? '' : ' dimmed') + (c.id === selectedCharId ? ' selected' : '');
-      m.dataset.status = c.status;
-      m.style.left = (loc.x + off[0]) + 'px';
-      m.style.top = (loc.y + off[1]) + 'px';
-      m.innerHTML = `<div class="pip"></div><div class="tag">[${idNum}] ${escapeHud(dossierCharName(c.id))}</div>`;
-      wireMarkerEvents(m, c);
-      markersEl.appendChild(m);
-    });
-  });
-
-  // projection markers + connecting line, only for the selected character
-  if(selectedCharId){
-    const c = charById(selectedCharId);
-    const fromLoc = c.currentLocationId ? locationById(c.currentLocationId) : null;
-    if(fromLoc){
-      c.projections.forEach(p => {
-        const toLoc = locationById(p.locationId);
-        if(!toLoc) return;
-        const line = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        line.setAttribute('class', 'proj-line');
-        line.setAttribute('width', '100%'); line.setAttribute('height', '100%');
-        line.innerHTML = `<line x1="${fromLoc.x}" y1="${fromLoc.y}" x2="${toLoc.x}" y2="${toLoc.y}" stroke="var(--dust)" stroke-width="1" stroke-dasharray="2 3" opacity="0.5"/>`;
-        markersEl.appendChild(line);
-
-        const pm = document.createElement('div');
-        pm.className = 'char-marker projected';
-        pm.style.left = toLoc.x + 'px';
-        pm.style.top = toLoc.y + 'px';
-        pm.innerHTML = `<div class="pip"></div><div class="tag">${escapeHud(toLoc.name)}</div>`;
-        markersEl.appendChild(pm);
+  markersEl.classList.toggle('on', layers.has('Characters'));
+  const toDial = svgToDial();
+  if(layers.has('Characters') && toDial){
+    const groups = {};
+    inView.forEach(x => { (groups[placeKey(x.place)] = groups[placeKey(x.place)] || []).push(x); });
+    Object.keys(groups).forEach(key => {
+      const first = groups[key][0].place;
+      const vp = projectPoint(first.lat, first.lng, first.continentId);
+      if(!vp) return;
+      const pt = toDial(vp);
+      const anchor = document.createElement('div');
+      anchor.className = 'loc-anchor';
+      anchor.style.left = pt.x + 'px'; anchor.style.top = pt.y + 'px';
+      anchor.innerHTML = `<div class="plus"></div><div class="loc-tag">${escapeHud(first.name || '')}</div>`;
+      if(first.kind === 'site' || first.kind === 'city') anchor.addEventListener('click', () => selectLocation(first.kind, first.kind === 'site' ? first.siteId : first.cityId));
+      markersEl.appendChild(anchor);
+      groups[key].forEach((x, idx) => {
+        const c = x.c, off = CLUSTER_OFFSETS[idx % CLUSTER_OFFSETS.length];
+        const idNum = String(CHARACTERS.indexOf(c) + 1).padStart(2, '0');
+        const matchesFilter = activeFilter === 'all' || c.status === activeFilter;
+        const m = document.createElement('div');
+        m.className = 'char-marker' + (matchesFilter ? '' : ' dimmed') + (c.id === selectedCharId ? ' selected' : '');
+        m.dataset.status = c.status;
+        m.style.left = (pt.x + off[0]) + 'px'; m.style.top = (pt.y + off[1]) + 'px';
+        m.innerHTML = `<div class="pip"></div><div class="tag">[${idNum}] ${escapeHud(dossierCharName(c.id))}</div>`;
+        wireMarkerEvents(m, c);
+        markersEl.appendChild(m);
       });
-    }
+    });
   }
-
-  renderSubjectIndex();
+  renderSubjectIndex(placed);
 }
 
 function wireMarkerEvents(el, c){
@@ -1254,101 +1561,91 @@ function wireMarkerEvents(el, c){
   el.addEventListener('mouseleave', hideCharTooltip);
   el.addEventListener('click', (e) => { e.stopPropagation(); selectCharacter(c.id); });
 }
-
 function showCharTooltip(e, c){
   const tip = document.getElementById('charTooltip');
   const idNum = String(CHARACTERS.indexOf(c) + 1).padStart(3, '0');
-  const loc = c.currentLocationId ? locationById(c.currentLocationId) : null;
+  const place = placeOf(c.id);
   tip.innerHTML = `
     <div class="t-id">SUBJECT // ${idNum}</div>
     <div class="t-name">${escapeHud(dossierCharName(c.id))}</div>
     <div class="t-row"><span>STATUS</span><span>${escapeHud(c.status)}</span></div>
-    <div class="t-row"><span>LOCATION</span><span>${escapeHud(loc ? loc.name : 'Unknown')}</span></div>
+    <div class="t-row"><span>LOCATION</span><span>${escapeHud(place && place.name ? place.name : 'Unknown')}</span></div>
     <div class="t-row"><span>LAST OBSERVED</span><span>${escapeHud(dossierChapterLabel(c.id))}</span></div>
   `;
   tip.classList.add('visible');
   moveCharTooltip(e);
 }
-function moveCharTooltip(e){
-  const tip = document.getElementById('charTooltip');
-  let x = e.clientX + 16, y = e.clientY + 16;
-  if(x + 210 > window.innerWidth) x = e.clientX - 210 - 16;
-  tip.style.left = x + 'px';
-  tip.style.top = y + 'px';
-}
-function hideCharTooltip(){ document.getElementById('charTooltip').classList.remove('visible'); }
+function moveCharTooltip(e){ moveWorldTooltip(e); }
+function hideCharTooltip(){ hideWorldTooltip(); }
 
 function selectCharacter(id){
   selectedCharId = id;
-  selectedLocId = null;
+  selectedLoc = null;
   document.getElementById('subjectIndex').classList.remove('on');
   document.getElementById('locationRecord').classList.remove('on');
   document.getElementById('subjectRecord').classList.add('on');
   renderCharacterLayer();
   renderSubjectRecord(charById(id));
 }
-
+// Moves the view so the place is on screen (switching era if needed).
+function focusPlace(place){
+  if(!place || !place.kind) return;
+  if(place.eraId !== eraNow()) atlasState.era = place.eraId;
+  if(place.kind === 'site') selectSite(place.siteId);
+  else if(place.kind === 'city') selectCity(place.cityId);
+  else selectCountry(place.countryId);
+}
 function renderSubjectRecord(c){
   const idNum = String(CHARACTERS.indexOf(c) + 1).padStart(3, '0');
-  const loc = c.currentLocationId ? locationById(c.currentLocationId) : null;
+  const place = placeOf(c.id);
   document.getElementById('recId').textContent = 'SUBJECT // ' + idNum;
   document.getElementById('recName').textContent = dossierCharName(c.id);
   document.getElementById('recStatus').textContent = c.status;
   document.getElementById('recChapter').textContent = dossierChapterLabel(c.id);
   document.getElementById('recObjective').textContent = dossierCurrentObjective(c.id);
-
   const locEl = document.getElementById('recLocation');
-  locEl.textContent = loc ? loc.name : 'Unknown';
-  if(loc){
-    locEl.style.cursor = 'pointer';
-    locEl.style.textDecoration = 'underline';
-    locEl.onclick = () => selectLocation(loc.id);
-  } else {
-    locEl.style.cursor = 'default';
-    locEl.style.textDecoration = 'none';
-    locEl.onclick = null;
-  }
-
-  const projBlock = document.getElementById('recProjBlock');
-  if(c.projections && c.projections.length){
-    projBlock.style.display = 'block';
-    document.getElementById('recProj').innerHTML = c.projections.map(p => {
-      const toLoc = locationById(p.locationId);
-      return `→ <b>${escapeHud(toLoc ? toLoc.name : 'Unknown')}</b>${p.expectedChapter ? ' (' + escapeHud(p.expectedChapter) + ')' : ''}${p.reason ? '<br><span style="opacity:.75">' + escapeHud(p.reason) + '</span>' : ''}`;
-    }).join('<br><br>');
-  } else {
-    projBlock.style.display = 'none';
-  }
-
-  document.getElementById('recOpenDossier').onclick = () => {
-    window.location.href = 'index.html?char=' + encodeURIComponent(c.id);
-  };
+  locEl.textContent = place ? place.label : 'Unknown — no committed location';
+  locEl.style.cursor = place && place.kind ? 'pointer' : 'default';
+  locEl.style.textDecoration = place && place.kind ? 'underline' : 'none';
+  locEl.onclick = place && place.kind ? () => { focusPlace(place); selectCharacter(c.id); } : null;
+  document.getElementById('recProjBlock').style.display = 'none';
+  document.getElementById('recOpenDossier').onclick = () => { window.location.href = 'index.html?char=' + encodeURIComponent(c.id); };
 }
 
-function selectLocation(locId){
-  selectedLocId = locId;
+function selectLocation(kind, id){
+  selectedLoc = { kind, id };
   selectedCharId = null;
   document.getElementById('subjectIndex').classList.remove('on');
   document.getElementById('subjectRecord').classList.remove('on');
   document.getElementById('locationRecord').classList.add('on');
   renderCharacterLayer();
-  renderLocationRecord(locationById(locId));
+  renderLocationRecord();
 }
-
-function renderLocationRecord(loc){
-  document.getElementById('locName').textContent = loc.name;
-  document.getElementById('locType').textContent = loc.type;
-  const parent = loc.parentId ? locationById(loc.parentId) : null;
-  document.getElementById('locParent').textContent = parent ? parent.name : '—';
-  document.getElementById('locDesc').textContent = loc.description || 'No record on file.';
-
-  const occupants = charactersAt(loc.id);
+function renderLocationRecord(){
+  if(!selectedLoc) return;
+  const era = eraNow();
+  const item = selectedLoc.kind === 'site' ? geoSite(selectedLoc.id) : geoCity(selectedLoc.id);
+  if(!item){ backToIndex(); return; }
+  const country = geoCountry(item.countryId), cont = geoCont(item.continentId || (country && country.continentId));
+  const city = selectedLoc.kind === 'site' && item.cityId ? geoCity(item.cityId) : null;
+  document.getElementById('locId').textContent = (selectedLoc.kind === 'site' ? 'SPECIAL SITE' : 'CITY') + ' // ' + eraName(era).toUpperCase();
+  document.getElementById('locName').textContent = item.name;
+  document.getElementById('locType').textContent = selectedLoc.kind === 'site' ? siteTypeLabel(item.type) : (item.fictional ? 'City (fictional)' : 'City');
+  document.getElementById('locParent').textContent = [city, country, cont].filter(Boolean).map(x => x.name).join(', ') || '—';
+  const notes = [];
+  if(item.status) notes.push('Status: ' + item.status + '.');
+  if(item.fictional) notes.push('Coordinates are placeholders until the author sets them.');
+  notes.push(`Coordinates ${item.lat.toFixed(2)}, ${item.lng.toFixed(2)}.`);
+  document.getElementById('locDesc').textContent = notes.join(' ');
+  const occupants = CHARACTERS.filter(c => {
+    const p = placeOf(c.id);
+    if(!p || p.eraId !== era) return false;
+    return selectedLoc.kind === 'site' ? p.siteId === item.id : p.cityId === item.id;
+  });
   const listEl = document.getElementById('locCharsPresent');
   if(occupants.length){
-    listEl.innerHTML = occupants.map(c => `<div class="idx-row" data-char-id="${c.id}" style="border-bottom:1px solid var(--line); padding:6px 0; cursor:pointer;">${escapeHud(dossierCharName(c.id))} <span style="color:var(--dust); font-size:9px;">— ${escapeHud(c.status)}</span></div>`).join('');
-    listEl.querySelectorAll('[data-char-id]').forEach(row => {
-      row.addEventListener('click', () => selectCharacter(row.dataset.charId));
-    });
+    listEl.innerHTML = occupants.map(c => `<div class="idx-row" data-char-id="${escapeHud(c.id)}" style="border-bottom:1px solid var(--line); padding:6px 0; cursor:pointer;">${escapeHud(dossierCharName(c.id))} <span style="color:var(--dust); font-size:9px;">— ${escapeHud(c.status)}</span></div>`).join('');
+    listEl.querySelectorAll('[data-char-id]').forEach(row => row.addEventListener('click', () => selectCharacter(row.dataset.charId)));
   } else {
     listEl.innerHTML = 'None currently recorded.';
   }
@@ -1356,33 +1653,32 @@ function renderLocationRecord(loc){
 
 function backToIndex(){
   selectedCharId = null;
-  selectedLocId = null;
+  selectedLoc = null;
   document.getElementById('subjectRecord').classList.remove('on');
   document.getElementById('locationRecord').classList.remove('on');
-  document.getElementById('subjectIndex').classList.add('on');
+  document.getElementById('subjectIndex').classList.toggle('on', charactersModeOn());
   renderCharacterLayer();
 }
 document.getElementById('recordBack').addEventListener('click', backToIndex);
 document.getElementById('locationBack').addEventListener('click', backToIndex);
 
-function renderSubjectIndex(){
+function renderSubjectIndex(placed){
   const list = document.getElementById('indexList');
-  list.innerHTML = CHARACTERS.map((c, i) => {
+  list.innerHTML = (placed || CHARACTERS.map(c => ({ c, place: placeOf(c.id) }))).map((x, i) => {
     const idNum = String(i + 1).padStart(3, '0');
-    return `<div class="idx-row" data-char-id="${c.id}">
+    const where = x.place && x.place.kind ? x.place.name : 'no location';
+    return `<div class="idx-row" data-char-id="${escapeHud(x.c.id)}">
       <span class="idx-num">${idNum}</span>
-      <span class="idx-name">${escapeHud(dossierCharName(c.id))}</span>
-      <span class="idx-status">${escapeHud(c.status)}</span>
+      <span class="idx-name">${escapeHud(dossierCharName(x.c.id))}<span class="idx-where">${escapeHud(where)}</span></span>
+      <span class="idx-status">${escapeHud(x.c.status)}</span>
     </div>`;
   }).join('');
-  list.querySelectorAll('.idx-row').forEach(row => {
-    row.addEventListener('click', () => selectCharacter(row.dataset.charId));
-  });
+  list.querySelectorAll('.idx-row').forEach(row => row.addEventListener('click', () => selectCharacter(row.dataset.charId)));
 }
 
-document.querySelectorAll('.f-btn').forEach(btn => {
+document.querySelectorAll('.f-btn[data-filter]').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.f-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.f-btn[data-filter]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     activeFilter = btn.dataset.filter;
     renderCharacterLayer();
@@ -1395,8 +1691,15 @@ function escapeHud(str){
   return d.innerHTML;
 }
 
-// ---- Deep link from the Dossier: atlas.html?char=<dossierCharId> ----
-// opens straight into the Characters view with that subject selected.
+let resizeTimer = null;
+window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(renderCharacterLayer, 120); });
+
+// ---- first render, then the deep link from the Dossier ----
+// atlas.html?char=<dossierCharId> opens the Characters view with that
+// subject selected and the view moved to where they are.
+renderSiteFilter();
+syncLayerItems();
+renderView();
 (function handleDeepLink(){
   const params = new URLSearchParams(window.location.search);
   const charId = params.get('char');
@@ -1405,6 +1708,8 @@ function escapeHud(str){
   const charactersCell = document.querySelector('.view-cell[data-view="Characters"]');
   if(charactersCell) charactersCell.classList.add('active');
   setCharactersMode(true);
+  const place = placeOf(charId);
+  if(place && place.kind) focusPlace(place);
   selectCharacter(charId);
 })();
 </script>
