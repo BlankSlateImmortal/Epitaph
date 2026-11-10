@@ -1258,10 +1258,10 @@
     .gen-columns{ flex-direction:column; }
   }
 </style>
-<link rel="stylesheet" href="assets/epitaph-theme.css?v=1">
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=5">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-<script src="assets/portrait-gen.js?v=1"></script>
-<script src="assets/epitaph-muses.js?v=1"></script>
+<script src="assets/portrait-gen.js?v=5"></script>
+<script src="assets/epitaph-muses.js?v=5"></script>
 </head>
 <body>
 <svg class="grain" width="0" height="0">
@@ -1520,7 +1520,7 @@ function migrateCharacter(c){
         name: it.name || '', desc: it.desc || '', icon: it.icon || '', image: it.image || ''
       };
     }),
-    skills: (s.skills || []).map(sk => ({ name: sk.name, desc: sk.desc || '', level: sk.level != null ? sk.level : 0, corrupted: !!sk.corrupted })),
+    skills: (s.skills || []).map(sk => ({ name: sk.name, desc: sk.desc || '', level: sk.level != null ? sk.level : 0, corrupted: !!sk.corrupted, parent: sk.parent || '' })),
     titles: (s.titles || []).map(t => {
       if(typeof t === 'string') return { name: t, rankTier: 0, blurb: '' };
       return { name: t.name || '', rankTier: t.rankTier || 0, blurb: t.blurb || '' };
@@ -2076,6 +2076,18 @@ function renderMiniWindows(char, snap){
 }
 
 // ---- System section (stats / inventory / skills / titles / relationships / arc) ----
+// ============================================================
+// SYSTEM SHEET — codex tabs (stats rings, authority tree, inventory,
+// ties, arc, knowledge). One page at a time, slanted tabs to switch.
+// ============================================================
+let sysTab = 'stats';
+const skillFocus = {};   // charId -> focused node key ('root' or skill index)
+let invFocus = {};       // charId -> selected inventory item id
+const CODEX_TABS = [
+  ['stats', 'Stats'], ['skills', 'Skills'], ['inventory', 'Inventory'],
+  ['ties', 'Ties'], ['arc', 'Arc'], ['knowledge', 'Knowledge']
+];
+
 function renderSystemSection(){
   const container = document.getElementById('systemSection');
   const char = getActiveCharacter();
@@ -2083,8 +2095,6 @@ function renderSystemSection(){
   const snap = getActiveSnapshot(char);
   const portraitSrc = snap.systemPortrait || snap.portrait || SILHOUETTE_SVG;
   const sPos = snap.systemPortraitPosition || { x: 50, y: 50 };
-  const windows = renderMiniWindows(char, snap);
-
   const sortedTitles = [...snap.titles].sort((a, b) => (b.rankTier || 0) - (a.rankTier || 0));
   const isDivine = !!char.divineStatus;
   const recordIndex = String(state.characters.findIndex(c => c.id === char.id) + 1).padStart(3, '0');
@@ -2094,8 +2104,7 @@ function renderSystemSection(){
 
   container.innerHTML = `
     <div class="section-label">SYSTEM — ${escapeHtml(char.name || 'Unnamed')}</div>
-    <div class="terminal-banner" style="--accent:${accent}">
-      ${windows.identity}
+    <div class="terminal-banner compact" style="--accent:${accent}">
       <div class="tb-head">
         <span class="tb-record">${isDivine ? 'DIVINE RECORD' : 'CHARACTER RECORD'} // ${recordIndex}</span>
         <span class="tb-status">● ${escapeHtml(statusLabel)}</span>
@@ -2113,198 +2122,267 @@ function renderSystemSection(){
         <div class="tb-identity">
           <div class="tb-name display">${escapeHtml(char.name || 'Unnamed')}</div>
           ${sortedTitles.length ? `<div class="titles-row">${sortedTitles.map((t, idx) => renderTitleChip(t, char.mythos, idx)).join('')}</div>` : ''}
-        </div>
-      </div>
-      <div class="tb-strip">
-        ${isDivine ? `
-        <div class="tb-field">
-          <span class="tb-field-label">AUTHORITY</span>
-          <span class="tb-field-value${char.authority ? '' : ' empty'}">${char.authority ? escapeHtml(char.authority) : 'Unrecorded'}</span>
-        </div>` : ''}
-        <div class="tb-field">
-          <span class="tb-field-label">EMOTIONAL STATE</span>
-          <span class="tb-field-value${snap.emotionalState ? '' : ' empty'}">${snap.emotionalState ? escapeHtml(snap.emotionalState) : 'Unrecorded'}</span>
-        </div>
-        <div class="tb-field">
-          <span class="tb-field-label">FACTION</span>
-          <span class="tb-field-value${char.faction ? '' : ' empty'}">${char.faction ? escapeHtml(char.faction) : 'Unassigned'}</span>
-        </div>
-      </div>
-      ${isDivine ? `
-      <div class="tb-divine-strip">
-        <span class="tb-divine-label">DIVINE STATUS</span>
-        <span class="tb-divine-marks">
-          ${divineStatuses.map(ds => `<span class="tb-divine-mark${char.divineStatus === ds ? ' active' : ''}">[${char.divineStatus === ds ? '●' : '○'} ${ds.toUpperCase()}]</span>`).join('')}
-        </span>
-      </div>` : ''}
-    </div>
-
-    <div class="system-grid">
-      <div class="sys-panel-wrap">
-        ${windows.stats}
-        <div class="sys-panel">
-        <div class="panel-titlebar"><span>STATS</span><span class="x">×</span></div>
-        <div class="panel-body">
-          <div class="radar-wrap">${renderRadar(snap.stats)}</div>
-          <div class="stat-bars">
-            ${STAT_LABELS.map(label => {
-              const val = (snap.stats && snap.stats[label] != null) ? snap.stats[label] : 0;
-              const { lvl, pct } = levelInfo(val);
-              return `<div class="stat-bar-row">
-                <span class="stat-label">${label}</span>
-                <span class="lv-tag">LV${lvl}</span>
-                <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
-              </div>`;
-            }).join('')}
+          <div class="tb-strip inline">
+            ${isDivine ? `<div class="tb-field"><span class="tb-field-label">AUTHORITY</span><span class="tb-field-value${char.authority ? '' : ' empty'}">${char.authority ? escapeHtml(char.authority) : 'Unrecorded'}</span></div>` : ''}
+            <div class="tb-field"><span class="tb-field-label">EMOTIONAL STATE</span><span class="tb-field-value${snap.emotionalState ? '' : ' empty'}">${snap.emotionalState ? escapeHtml(snap.emotionalState) : 'Unrecorded'}</span></div>
+            <div class="tb-field"><span class="tb-field-label">FACTION</span><span class="tb-field-value${char.faction ? '' : ' empty'}">${char.faction ? escapeHtml(char.faction) : 'Unassigned'}</span></div>
           </div>
-        </div>
-        </div>
-      </div>
-
-      <div class="sys-panel-wrap">
-        ${windows.skills}
-        <div class="sys-panel">
-        <div class="panel-titlebar"><span>SKILLS</span><span class="x">×</span></div>
-        <div class="panel-body">
-          ${(() => {
-            const corruptionStat = (snap.stats && snap.stats['Corruption']) || 0;
-            const showToggle = corruptionStat > 50 && snap.skills.length > 0;
-            if(!showToggle) return '';
-            if(skillViewOverride[char.id] === undefined) skillViewOverride[char.id] = 'corrupted';
-            const mode = skillViewOverride[char.id];
-            return `<div class="corruption-toggle-row">
-              <span class="toggle-label">VIEW</span>
-              <button class="toggle-btn ${mode === 'normal' ? 'active' : ''}" onclick="toggleCorruptionView('${char.id}','normal')">NORMAL</button>
-              <button class="toggle-btn ${mode === 'corrupted' ? 'active' : ''}" onclick="toggleCorruptionView('${char.id}','corrupted')">CORRUPTED</button>
-              <input type="color" class="color-picker-input" id="corruptionColorPicker" value="${char.corruptionColor || DEFAULT_CORRUPTION_COLOR}" title="Corruption color" onchange="setCorruptionColor('${char.id}', this.value)">
-            </div>`;
-          })()}
-          ${snap.skills.length
-            ? `<div class="skill-tree-wrap">${renderSkillTree(snap.skills, char.corruptionColor, (snap.stats && snap.stats['Corruption'] > 50) ? skillViewOverride[char.id] : null)}</div>`
-            : `<div class="sys-empty">No skills recorded yet.</div>`}
-        </div>
-        </div>
-      </div>
-
-      <div class="sys-panel-wrap">
-        ${windows.arc}
-        <div class="sys-panel">
-        <div class="panel-titlebar"><span>STORY ARC</span><span class="x">×</span></div>
-        <div class="panel-body">
-          ${(() => {
-            const sa = char.storyArc;
-            const hasAny = sa.currentObjective || sa.currentArc || sa.currentDevelopment || sa.direction || sa.majorTurningPoints.length || sa.completedDevelopments.length;
-            if(!hasAny) return `<div class="sys-empty">Nothing drafted yet.</div>`;
-            return `
-              ${sa.currentObjective ? `<div class="arc-field"><span class="arc-field-label">Current objective</span><div class="arc-field-value">${escapeHtml(sa.currentObjective)}</div></div>` : ''}
-              ${sa.currentArc ? `<div class="arc-field"><span class="arc-field-label">Current arc</span><div class="arc-field-value">${escapeHtml(sa.currentArc)}</div></div>` : ''}
-              ${sa.currentDevelopment ? `<div class="arc-field"><span class="arc-field-label">Current development</span><div class="arc-field-value">${escapeHtml(sa.currentDevelopment)}</div></div>` : ''}
-              ${sa.majorTurningPoints.length ? `<div class="arc-field"><span class="arc-field-label">Major turning points</span><ul class="arc-list">${sa.majorTurningPoints.map(p => `<li>${escapeHtml(p)}</li>`).join('')}</ul></div>` : ''}
-              ${sa.completedDevelopments.length ? `<div class="arc-field"><span class="arc-field-label">Completed developments</span><ul class="arc-list">${sa.completedDevelopments.map(p => `<li>${escapeHtml(p)}</li>`).join('')}</ul></div>` : ''}
-              ${sa.direction ? `<div class="arc-field"><span class="arc-field-label">Direction</span><div class="arc-field-value">${escapeHtml(sa.direction)}</div></div>` : ''}
-            `;
-          })()}
-        </div>
-        </div>
-      </div>
-
-      <div class="sys-panel-wrap">
-        ${windows.knowledge}
-        <div class="sys-panel">
-        <div class="panel-titlebar"><span>KNOWLEDGE &amp; SECRETS</span><span class="x">×</span></div>
-        <div class="panel-body">
-          <div class="know-sec-block">
-            <span class="arc-field-label">Knowledge</span>
-            ${char.knowledge.length
-              ? `<ul class="knowledge-list">${char.knowledge.map(k => `<li>${escapeHtml(k)}</li>`).join('')}</ul>`
-              : `<div class="sys-empty">Nothing known yet.</div>`}
-          </div>
-          <div class="know-sec-block">
-            <span class="arc-field-label">Secrets</span>
-            ${char.secrets.length
-              ? `<ul class="secrets-list">${char.secrets.map(s => `<li><div class="secret-text">${escapeHtml(s.text)}</div><div class="secret-meta${s.characterKnows ? ' known' : ''}">Character knows: ${s.characterKnows ? 'Yes' : 'No'} · Known by: ${escapeHtml(s.knownBy || '—')}</div></li>`).join('')}</ul>`
-              : `<div class="sys-empty">No secrets recorded yet.</div>`}
-          </div>
-        </div>
-        </div>
-      </div>
-
-      <div class="sys-panel-wrap">
-        ${windows.inventory}
-        <div class="sys-panel">
-        <div class="panel-titlebar"><span>INVENTORY</span><span class="x">×</span></div>
-        <div class="panel-body">
-          ${snap.inventory.length
-            ? `<div class="archive-list">${snap.inventory.map(item => `
-                <div class="archive-item">
-                  <div class="archive-icon">${item.icon ? `<img src="${item.icon}" alt="">` : ''}</div>
-                  <div class="archive-body">
-                    <div class="archive-title">${escapeHtml(item.name || 'Untitled item')}</div>
-                    ${item.desc ? `<div class="archive-desc">${escapeHtml(item.desc)}</div>` : ''}
-                  </div>
-                  ${item.image ? `<div class="archive-photo"><img src="${item.image}" alt=""></div>` : ''}
-                </div>
-              `).join('')}</div>`
-            : `<div class="sys-empty">Nothing carried yet.</div>`}
-        </div>
-        </div>
-      </div>
-
-      <div class="sys-panel-wrap">
-        ${windows.relationships}
-        <div class="sys-panel">
-        <div class="panel-titlebar"><span>RELATIONSHIPS</span><span class="x">×</span></div>
-        <div class="panel-body">
-          ${char.relationships.length
-            ? `<ul class="relationship-list">${char.relationships.map(r => {
-                const target = findCharacterById(r.charId);
-                const nameHtml = target
-                  ? `<button type="button" class="rel-link" data-char-id="${escapeAttr(target.id)}" title="Open ${escapeAttr(target.name || 'this character')}'s dossier">${escapeHtml(relationshipDisplayName(r))}</button>`
-                  : escapeHtml(r.name);
-                return `<li><div class="rel-name">${nameHtml}<span class="rel-tag">${escapeHtml(r.relation || '')}</span></div>${r.note ? `<div class="rel-note">${escapeHtml(r.note)}</div>` : ''}</li>`;
-              }).join('')}</ul>`
-            : `<div class="sys-empty">No relationships recorded yet.</div>`}
-          ${(() => {
-            const inferred = inferredRelationships(char);
-            if(!inferred.length) return '';
-            return `<ul class="relationship-list inferred">${inferred.map(r => `<li><div class="rel-name"><button type="button" class="rel-link" data-char-id="${escapeAttr(r.charId)}" title="Open ${escapeAttr(r.name)}'s dossier">${escapeHtml(r.name)}</button><span class="rel-inferred-mark">inferred</span></div><div class="rel-note">${r.relation ? `Lists you as: ${escapeHtml(r.relation)}` : 'Lists you as a relationship'}${r.note ? ` — ${escapeHtml(r.note)}` : ''}</div></li>`).join('')}</ul>`;
-          })()}
-        </div>
+          ${isDivine ? `<div class="tb-divine-marks">${divineStatuses.map(ds => `<span class="tb-divine-mark${char.divineStatus === ds ? ' active' : ''}">[${char.divineStatus === ds ? '●' : '○'} ${ds.toUpperCase()}]</span>`).join('')}</div>` : ''}
+          <button class="slant-btn" id="mwOpenIdentity" type="button">Edit identity</button>
         </div>
       </div>
     </div>
 
-    <div style="margin-top:22px;">
-      <button class="btn primary" id="editSystemBtn">Edit system sheet</button>
+    <div class="codex">
+      <div class="codex-tabs" role="tablist" aria-label="System sheet pages">
+        <div class="menu-slant">
+          ${CODEX_TABS.map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${sysTab === k}" class="${sysTab === k ? 'on' : ''}">${l}</button>`).join('')}
+        </div>
+        <button class="slant-btn primary" id="editSystemBtn" type="button">Edit whole sheet</button>
+      </div>
+      <div class="codex-page" id="codexPage" role="tabpanel"></div>
     </div>
   `;
 
-  document.getElementById('avatarWrap').addEventListener('click', () => {
-    document.getElementById('avatarWrap').classList.toggle('expanded');
-  });
-  document.getElementById('editAvatarImageBtn').addEventListener('click', (e) => {
-    e.stopPropagation();
-    openAvatarImageModal(char, snap);
-  });
+  document.getElementById('avatarWrap').addEventListener('click', () => document.getElementById('avatarWrap').classList.toggle('expanded'));
+  document.getElementById('editAvatarImageBtn').addEventListener('click', (e) => { e.stopPropagation(); openAvatarImageModal(char, snap); });
   document.getElementById('editSystemBtn').addEventListener('click', () => openSystemForm(char, snap));
-  document.querySelectorAll('#systemSection .rel-link').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = btn.dataset.charId;
-      if(findCharacterById(id)){
-        switchActiveCharacter(id);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
-    });
-  });
-  document.getElementById('mwOpenIdentity').addEventListener('click', () => { const c=getActiveCharacter(); openIdentityForm(c, getActiveSnapshot(c)); });
-  document.getElementById('mwOpenStats').addEventListener('click', () => { const c=getActiveCharacter(); openStatsOnlyForm(c, getActiveSnapshot(c)); });
-  document.getElementById('mwOpenSkills').addEventListener('click', () => { const c=getActiveCharacter(); openSkillsOnlyForm(c, getActiveSnapshot(c)); });
-  document.getElementById('mwOpenInventory').addEventListener('click', () => { const c=getActiveCharacter(); openInventoryOnlyForm(c, getActiveSnapshot(c)); });
-  document.getElementById('mwOpenRelationships').addEventListener('click', () => { openRelationshipsOnlyForm(getActiveCharacter()); });
-  document.getElementById('mwOpenArc').addEventListener('click', () => { openArcOnlyForm(getActiveCharacter()); });
-  document.getElementById('mwOpenKnowledge').addEventListener('click', () => { openKnowledgeOnlyForm(getActiveCharacter()); });
-  if(snap.skills.length) wireSkillTooltips(snap.skills);
+  document.getElementById('mwOpenIdentity').addEventListener('click', () => openIdentityForm(char, snap));
+  container.querySelectorAll('.codex-tabs [data-tab]').forEach(b => b.addEventListener('click', () => {
+    if(sysTab === b.dataset.tab) return;
+    sysTab = b.dataset.tab;
+    container.querySelectorAll('.codex-tabs [data-tab]').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); });
+    renderCodexPage(char, snap, true);
+  }));
   if(sortedTitles.some(t => t.rankTier > 0)) wireTitleChipTooltips(sortedTitles, char.mythos);
+  renderCodexPage(char, snap, false);
+}
+
+function codexLeft(n, eyebrow, big, meta, editId, editLabel){
+  return `<div class="codex-left">
+    <span class="codex-eyebrow">Page ${String(n).padStart(2, '0')} · ${escapeHtml(eyebrow)}</span>
+    <p class="codex-big">${escapeHtml(big)}</p>
+    ${meta ? `<p class="codex-meta">${meta}</p>` : ''}
+    ${editId ? `<button class="slant-btn" type="button" id="${editId}">${escapeHtml(editLabel || 'Edit')}</button>` : ''}
+  </div>`;
+}
+
+function renderCodexPage(char, snap, animate){
+  const page = document.getElementById('codexPage');
+  if(!page) return;
+  const n = CODEX_TABS.findIndex(t => t[0] === sysTab) + 1;
+  let html = '';
+  if(sysTab === 'stats'){
+    const r = 44, c = 2 * Math.PI * r;
+    const ranked = (snap.titles || []).slice().sort((a, b) => (b.rankTier || 0) - (a.rankTier || 0))[0];
+    html = codexLeft(n, 'Stats', char.name || 'Unnamed',
+      `${escapeHtml([char.storyline, char.mythos, char.authority ? 'Concept: ' + char.authority : ''].filter(Boolean).join(' · ') || 'No identity recorded')}${ranked ? `<br><span class="crt">&gt; Rank: ${escapeHtml(ranked.name)}${ranked.rankTier ? ' (' + escapeHtml(rankLabel(char.mythos, ranked.rankTier)) + ')' : ''}</span>` : ''}`,
+      'mwOpenStats', 'Edit stats') +
+      `<div class="codex-right"><div class="gauges">${STAT_LABELS.map(label => {
+        const v = Math.max(0, Math.min(100, Number((snap.stats || {})[label]) || 0));
+        const hot = label === 'Corruption';
+        return `<div class="gauge"><svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle cx="60" cy="60" r="${r}" fill="none" stroke="var(--amber-dim)" stroke-width="6" stroke-dasharray="3 3"/>
+          <circle class="g-arc" cx="60" cy="60" r="${r}" fill="none" stroke="${hot ? 'var(--ember)' : 'var(--amber)'}" stroke-width="6" stroke-dasharray="${(c * v / 100).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 60 60)"/>
+          <text x="60" y="66" text-anchor="middle" class="g-val">${v}</text>
+          <text x="60" y="84" text-anchor="middle" class="g-lv">LV${levelInfo(v).lvl}</text>
+        </svg><span>${escapeHtml(label.toUpperCase())}</span></div>`;
+      }).join('')}</div></div>`;
+  } else if(sysTab === 'skills'){
+    html = codexLeft(n, 'Skills', char.authority || 'Authorities',
+      snap.skills.length ? `${snap.skills.length} skill${snap.skills.length === 1 ? '' : 's'} · use ← → to move along a branch, ↑ ↓ for siblings` : 'No skills recorded yet.',
+      'mwOpenSkills', 'Edit skills') +
+      `<div class="codex-right">${snap.skills.length ? `<div class="atree" id="atree" tabindex="0" aria-label="Authority tree. Arrow keys move between skills."></div><div class="atree-detail" id="atreeDetail" aria-live="polite"></div>` : `<div class="sys-empty">Add skills with “Edit skills”. Give a skill a fifth column naming the skill it branches from to grow the tree.</div>`}</div>`;
+  } else if(sysTab === 'inventory'){
+    const items = snap.inventory || [];
+    const slots = Math.max(8, Math.ceil((items.length + 1) / 4) * 4);
+    const sel = items.find(i => i.id === invFocus[char.id]) || items[0];
+    html = codexLeft(n, 'Inventory', 'Carried', `${items.length} item${items.length === 1 ? '' : 's'} · this chapter version`, 'mwOpenInventory', 'Edit inventory') +
+      `<div class="codex-right"><div class="inv-grid">${Array.from({ length: slots }, (_, i) => {
+        const it = items[i];
+        if(!it) return `<div class="inv-slot empty" aria-hidden="true"></div>`;
+        return `<button type="button" class="inv-slot${sel && sel.id === it.id ? ' on' : ''}" data-inv="${escapeAttr(it.id)}">
+          ${it.icon ? `<img src="${it.icon}" alt="">` : (it.image ? `<img src="${it.image}" alt="">` : `<b>◈</b>`)}
+          <span>${escapeHtml(it.name || 'Untitled')}</span></button>`;
+      }).join('')}</div>
+      ${sel ? `<div class="inv-detail">${sel.image ? `<img src="${sel.image}" alt="">` : ''}<div><h4>${escapeHtml(sel.name || 'Untitled item')}</h4><p>${sel.desc ? escapeHtml(sel.desc) : '<span class="dim">No description.</span>'}</p></div></div>` : ''}</div>`;
+  } else if(sysTab === 'ties'){
+    const inferred = inferredRelationships(char);
+    const row = (target, name, rel, note, tag) => {
+      const img = target
+        ? (target.snapshots && getActiveSnapshot(target).portrait ? `<img src="${getActiveSnapshot(target).portrait}" alt="">` : `<img src="${SILHOUETTE_SVG}" data-gen-char="${escapeAttr(target.id)}" alt="">`)
+        : `<img src="${SILHOUETTE_SVG}" alt="" class="unknown">`;
+      return `<div class="tie">${img}<div><div class="tie-name">${target ? `<button type="button" class="rel-link" data-char-id="${escapeAttr(target.id)}">${escapeHtml(name)}</button>` : escapeHtml(name)}${tag ? `<span class="rel-inferred-mark">${tag}</span>` : ''}</div><div class="tie-rel">${escapeHtml(rel || '')}${note ? ' · ' + escapeHtml(note) : ''}</div></div></div>`;
+    };
+    html = codexLeft(n, 'Ties', 'Bonds', `${char.relationships.length} recorded${inferred.length ? ` · ${inferred.length} inferred from other files` : ''}`, 'mwOpenRelationships', 'Edit ties') +
+      `<div class="codex-right">${char.relationships.length || inferred.length
+        ? char.relationships.map(r => row(findCharacterById(r.charId), relationshipDisplayName(r), r.relation, r.note)).join('') +
+          inferred.map(r => row(findCharacterById(r.charId), r.name, r.relation ? 'Lists you as: ' + r.relation : 'Lists you as a relationship', r.note, 'inferred')).join('')
+        : `<div class="sys-empty">No relationships recorded yet.</div>`}</div>`;
+  } else if(sysTab === 'arc'){
+    const sa = char.storyArc;
+    const lines = [];
+    if(sa.currentObjective) lines.push(['OBJECTIVE', sa.currentObjective]);
+    if(sa.currentArc) lines.push(['ARC', sa.currentArc, 'dim']);
+    if(sa.currentDevelopment) lines.push(['DEVELOPMENT', sa.currentDevelopment]);
+    sa.majorTurningPoints.forEach((t, i) => lines.push(['TURNING POINT ' + String(i + 1).padStart(2, '0'), t, 'dim']));
+    sa.completedDevelopments.forEach(t => lines.push(['DONE', t, 'done']));
+    if(sa.direction) lines.push(['DIRECTION', sa.direction]);
+    html = codexLeft(n, 'Arc', snap.chapterRange || 'Story arc', 'Where this character is heading.', 'mwOpenArc', 'Edit arc') +
+      `<div class="codex-right crt-log">${lines.length ? lines.map(([k, v, c]) => `<p class="${c || ''}">&gt; ${k}: ${escapeHtml(v)}</p>`).join('') : `<p class="dim">&gt; nothing drafted yet</p>`}</div>`;
+  } else if(sysTab === 'knowledge'){
+    html = codexLeft(n, 'Knowledge', 'Known', `${char.knowledge.length} known · ${char.secrets.length} secret${char.secrets.length === 1 ? '' : 's'}`, 'mwOpenKnowledge', 'Edit knowledge') +
+      `<div class="codex-right crt-log">
+        ${char.knowledge.length ? char.knowledge.map(k => `<p>&gt; ${escapeHtml(k)}</p>`).join('') : `<p class="dim">&gt; nothing known yet</p>`}
+        <p class="sep">— SECRETS —</p>
+        ${char.secrets.length ? char.secrets.map(sc => `<p class="${sc.characterKnows ? '' : 'dim'}">&gt; ${escapeHtml(sc.text)}<br><small>character knows: ${sc.characterKnows ? 'yes' : 'no'} · known by: ${escapeHtml(sc.knownBy || '—')}</small></p>`).join('') : `<p class="dim">&gt; no secrets recorded</p>`}
+      </div>`;
+  }
+  page.innerHTML = html;
+
+  const on = (id, fn) => { const el = document.getElementById(id); if(el) el.addEventListener('click', fn); };
+  on('mwOpenStats', () => openStatsOnlyForm(char, snap));
+  on('mwOpenSkills', () => openSkillsOnlyForm(char, snap));
+  on('mwOpenInventory', () => openInventoryOnlyForm(char, snap));
+  on('mwOpenRelationships', () => openRelationshipsOnlyForm(char));
+  on('mwOpenArc', () => openArcOnlyForm(char));
+  on('mwOpenKnowledge', () => openKnowledgeOnlyForm(char));
+  page.querySelectorAll('.rel-link').forEach(btn => btn.addEventListener('click', () => {
+    if(findCharacterById(btn.dataset.charId)){ switchActiveCharacter(btn.dataset.charId); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  }));
+  page.querySelectorAll('[data-inv]').forEach(b => b.addEventListener('click', () => { invFocus[char.id] = b.dataset.inv; renderCodexPage(char, snap, false); }));
+  hydrateGenPortraits(page);
+  if(sysTab === 'skills' && snap.skills.length) renderAuthorityTree(char, snap, animate);
+
+  if(HAS_GSAP && !REDUCED_MOTION && animate){
+    gsap.fromTo(page.children, { x: 30, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5, stagger: 0.08, ease: 'power3.out' });
+  }
+  if(HAS_GSAP && !REDUCED_MOTION && sysTab === 'stats'){
+    gsap.fromTo(page.querySelectorAll('.g-arc'), { strokeDashoffset: 300 }, { strokeDashoffset: 0, duration: 1, ease: 'power2.out', stagger: 0.06 });
+  }
+}
+
+// ---- Authority tree: a navigable constellation, one node in focus at a time ----
+// Skills can name a parent skill (5th column in the skills editor); anything
+// without a parent branches from the character's Concept / Authority.
+function buildSkillTree(char, snap){
+  const nodes = { root: { key: 'root', name: char.authority || 'Concept', level: 100, root: true, children: [], parent: null } };
+  snap.skills.forEach((sk, i) => { nodes['s' + i] = { key: 's' + i, name: sk.name || 'Unnamed skill', level: sk.level || 0, desc: sk.desc || '', corrupted: !!sk.corrupted, parentName: sk.parent || '', children: [], parent: null }; });
+  const byName = {};
+  Object.values(nodes).forEach(nd => { if(!nd.root) byName[nd.name.toLowerCase()] = nd; });
+  Object.values(nodes).forEach(nd => {
+    if(nd.root) return;
+    let par = nd.parentName ? byName[nd.parentName.toLowerCase()] : null;
+    // guard against loops (a skill can't descend from itself)
+    let walk = par; while(walk){ if(walk === nd){ par = null; break; } walk = walk.parentName ? byName[walk.parentName.toLowerCase()] : null; }
+    nd.parent = par ? par.key : 'root';
+    nodes[nd.parent].children.push(nd.key);
+  });
+  return nodes;
+}
+let atreeLoop = null;
+function renderAuthorityTree(char, snap, animate){
+  const host = document.getElementById('atree'), detail = document.getElementById('atreeDetail');
+  if(!host) return;
+  const nodes = buildSkillTree(char, snap);
+  let focus = nodes[skillFocus[char.id]] ? skillFocus[char.id] : (nodes.root.children[0] || 'root');
+  const corrColor = char.corruptionColor || DEFAULT_CORRUPTION_COLOR;
+  const W = 640, H = 330, CX = 320, CY = 165;
+
+  function layout(fk){
+    const f = nodes[fk], pos = {};
+    pos[fk] = { x: CX, y: CY, r: 34, role: 'focus' };
+    if(f.parent){ pos[f.parent] = { x: 96, y: CY, r: 20, role: 'parent' };
+      const sibs = nodes[f.parent].children.filter(k => k !== fk);
+      sibs.slice(0, 4).forEach((k, i) => { pos[k] = { x: 200, y: i % 2 ? CY + 110 + Math.floor(i / 2) * 18 : CY - 110 - Math.floor(i / 2) * 18, r: 13, role: 'sibling' }; });
+    }
+    const kids = f.children.slice(0, 5);
+    kids.forEach((k, i) => { const spread = kids.length === 1 ? 0 : (i / (kids.length - 1) - 0.5) * 220; pos[k] = { x: 520, y: CY + spread, r: 18, role: 'child' }; });
+    return pos;
+  }
+  function draw(){
+    const f = nodes[focus], pos = layout(focus);
+    const color = nd => nd.corrupted ? corrColor : 'var(--amber)';
+    let links = '', marks = '';
+    Object.entries(pos).forEach(([k, p]) => {
+      if(k === focus) return;
+      const nd = nodes[k], from = p.role === 'child' ? pos[focus] : (p.role === 'parent' ? pos[focus] : pos[f.parent]);
+      if(from) links += `<path class="atree-link ${p.role}" d="M${from.x} ${from.y} C${(from.x + p.x) / 2} ${from.y} ${(from.x + p.x) / 2} ${p.y} ${p.x} ${p.y}" stroke="${color(nd)}"/>`;
+    });
+    Object.entries(pos).forEach(([k, p]) => {
+      const nd = nodes[k], circ = 2 * Math.PI * (p.r + 6), done = circ * Math.min(100, nd.level) / 100;
+      const label = nd.name.length > 22 ? nd.name.slice(0, 21) + '…' : nd.name;
+      marks += `<g transform="translate(${p.x} ${p.y})"><g class="atree-node ${p.role}${nd.root ? ' root' : ''}${nd.corrupted ? ' corrupt' : ''}" data-key="${k}">
+        ${p.role === 'focus' ? `<circle class="atree-halo" r="${p.r + 22}"/><g class="atree-orbit">${[0, 1, 2].map(i => `<circle r="2.4" cx="${(p.r + 14) * Math.cos(i * 2.094)}" cy="${(p.r + 14) * Math.sin(i * 2.094)}"/>`).join('')}</g>` : ''}
+        <circle class="atree-track" r="${p.r + 6}"/>
+        ${nd.root ? '' : `<circle class="atree-prog" r="${p.r + 6}" stroke="${color(nd)}" stroke-dasharray="${done.toFixed(1)} ${circ.toFixed(1)}" transform="rotate(-90)"/>`}
+        <circle class="atree-core" r="${p.r}" ${nd.root ? '' : `stroke="${color(nd)}"`}/>
+        ${p.role === 'focus' ? `<text class="atree-lv" y="6" text-anchor="middle">${nd.root ? '◆' : 'LV' + levelInfo(nd.level).lvl}</text>` : ''}
+        <text class="atree-label" y="${p.r + (p.role === 'focus' ? 30 : 22)}" text-anchor="middle">${escapeHtml(label.toUpperCase())}</text>
+      </g></g>`;
+    });
+    const stars = Array.from({ length: 46 }, (_, i) => `<circle cx="${(i * 137) % W}" cy="${(i * 71) % H}" r="${i % 9 === 0 ? 1.3 : 0.6}" opacity="${0.12 + (i % 5) * 0.07}"/>`).join('');
+    const crumbs = []; let w = f; while(w){ crumbs.unshift(w); w = w.parent ? nodes[w.parent] : null; }
+    host.innerHTML = `
+      <svg viewBox="0 0 ${W} ${H}" aria-hidden="true"><g class="atree-stars">${stars}</g>${links}${marks}</svg>
+      <div class="atree-crumbs">${crumbs.map(c => `<button type="button" data-key="${c.key}" class="${c.key === focus ? 'on' : ''}">${escapeHtml(c.name.toUpperCase())}</button>`).join('<span>›</span>')}</div>
+      <div class="atree-nav">
+        <button type="button" data-go="parent" ${f.parent ? '' : 'disabled'} aria-label="Back to parent">← BACK</button>
+        <button type="button" data-go="prev" aria-label="Previous sibling">↑</button>
+        <button type="button" data-go="next" aria-label="Next sibling">↓</button>
+        <button type="button" data-go="child" ${f.children.length ? '' : 'disabled'} aria-label="Into first branch">BRANCH →</button>
+      </div>`;
+    // description, S1 console style
+    const lvl = levelInfo(f.level);
+    detail.innerHTML = f.root
+      ? `<div class="sig-bar"><span>CONCEPT · ${escapeHtml(f.name.toUpperCase())}</span><span class="dim">${f.children.length} BRANCH${f.children.length === 1 ? '' : 'ES'}</span></div><p class="crt">&gt; every skill grows from here. pick a branch →</p>`
+      : `<div class="sig-bar"><span>${escapeHtml(f.name.toUpperCase())}</span><span class="dim">${f.corrupted ? 'CORRUPTED · ' : ''}LV${lvl.lvl} · ${Math.round(f.level)}/100</span></div>
+         <i class="seg${f.corrupted ? ' hot' : ''}" style="width:${Math.min(100, f.level)}%"></i>
+         <p>${f.desc ? escapeHtml(f.desc) : '<span class="dim">No description yet.</span>'}</p>
+         <p class="crt dim">&gt; branches from ${escapeHtml(nodes[f.parent].name)}${f.children.length ? ` · leads to ${f.children.map(k => escapeHtml(nodes[k].name)).join(', ')}` : ''}</p>`;
+    host.querySelectorAll('.atree-node:not(.focus), .atree-crumbs button').forEach(el => el.addEventListener('click', () => go(el.dataset.key)));
+    host.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => step(b.dataset.go)));
+    animateTree();
+  }
+  function step(dir){
+    const f = nodes[focus];
+    if(dir === 'parent' && f.parent) go(f.parent, 'left');
+    else if(dir === 'child' && f.children.length) go(f.children[0], 'right');
+    else if((dir === 'prev' || dir === 'next') && f.parent){
+      const sib = nodes[f.parent].children, i = sib.indexOf(focus);
+      go(sib[(i + (dir === 'next' ? 1 : -1) + sib.length) % sib.length], dir === 'next' ? 'down' : 'up');
+    }
+  }
+  function go(key, from){
+    if(!nodes[key] || key === focus) return;
+    const prev = nodes[focus];
+    from = from || (nodes[key].parent === focus ? 'right' : (prev.parent === key ? 'left' : 'down'));
+    focus = key; skillFocus[char.id] = key; lastFrom = from; draw();
+  }
+  let lastFrom = animate ? 'fade' : null;
+  function animateTree(){
+    if(atreeLoop){ atreeLoop.forEach(t => t.kill()); atreeLoop = null; }
+    if(!HAS_GSAP || REDUCED_MOTION) return;
+    const svg = host.querySelector('svg');
+    const dx = { right: 120, left: -120 }[lastFrom] || 0, dy = { down: 60, up: -60 }[lastFrom] || 0;
+    if(lastFrom){
+      gsap.fromTo(svg.querySelectorAll('.atree-node'), { opacity: 0, x: (i, el) => (el.classList.contains('focus') ? dx : dx * 0.5), y: dy }, { opacity: 1, x: 0, y: 0, duration: 0.55, ease: 'power3.out', stagger: 0.03 });
+      gsap.fromTo(svg.querySelectorAll('.atree-link'), { strokeDashoffset: 260 }, { strokeDashoffset: 0, duration: 0.8, ease: 'power2.out' });
+      gsap.fromTo(svg.querySelector('.focus .atree-prog'), { strokeDashoffset: 260 }, { strokeDashoffset: 0, duration: 1, ease: 'power2.out' });
+      gsap.fromTo(detail.children, { opacity: 0, x: 16 }, { opacity: 1, x: 0, duration: 0.4, stagger: 0.05 });
+    }
+    atreeLoop = [
+      gsap.to(svg.querySelector('.atree-orbit'), { rotation: 360, svgOrigin: '0 0', duration: 6, ease: 'none', repeat: -1 }),
+      gsap.fromTo(svg.querySelector('.atree-halo'), { attr: { 'stroke-opacity': 0.5 }, scale: 0.92, svgOrigin: '0 0' }, { attr: { 'stroke-opacity': 0 }, scale: 1.25, duration: 2.2, ease: 'sine.out', repeat: -1 }),
+      gsap.to(svg.querySelector('.atree-stars'), { x: -14, duration: 14, ease: 'sine.inOut', repeat: -1, yoyo: true }),
+      gsap.to(svg.querySelectorAll('.atree-link'), { strokeDashoffset: -40, duration: 2.4, ease: 'none', repeat: -1 })
+    ];
+  }
+  host.addEventListener('keydown', (e) => {
+    const map = { ArrowLeft: 'parent', ArrowRight: 'child', ArrowUp: 'prev', ArrowDown: 'next' };
+    if(map[e.key]){ e.preventDefault(); step(map[e.key]); }
+  });
+  draw();
 }
 
 // ============================================================
@@ -2369,6 +2447,11 @@ function ensureGenState(char, snap){
   return gs;
 }
 
+// Generation view state: which field is open in the terminal, which line is selected.
+let genField = 'currentLocation';
+let genSel = 0;
+const GEN_STATUS_LABEL = { pending: 'PENDING', committed: 'COMMITTED', rejected: 'REJECTED' };
+
 function renderGenerationSection(){
   const char = getActiveCharacter();
   const container = document.getElementById('generationSection');
@@ -2376,124 +2459,150 @@ function renderGenerationSection(){
   const snap = getActiveSnapshot(char);
   const gs = ensureGenState(char, snap);
   const locked = gs.status === 'committed';
+  TIMELINE_FIELDS.forEach(f => { if(!Array.isArray(gs.timeline[f.key])) gs.timeline[f.key] = []; });
 
   const staticRows = [
     ['Name', char.name],
     ['Identity', [char.storyline, char.mythos].filter(Boolean).join(' · ')],
-    ['Faction (baseline)', char.faction],
-    ['Abilities / Titles', (snap.titles || []).map(t => t.name).join(', ')],
+    ['Faction', char.faction],
+    ['Titles', (snap.titles || []).map(t => t.name).join(', ')],
     ['Skills', (snap.skills || []).map(s => s.name).join(', ')],
     ['Background', [snap.blurb, snap.backstory].filter(Boolean).join(' — ')],
-    ['Core Relationships', (char.relationships || []).map(r => relationshipDisplayName(r) + (r.relation ? ` (${r.relation})` : '')).join(', ')],
-    ['Appearance', ''],
-    ['Personality', '']
+    ['Core ties', (char.relationships || []).map(r => relationshipDisplayName(r) + (r.relation ? ` (${r.relation})` : '')).join(', ')]
   ];
+  const isStatic = genField === '__static';
+  const field = TIMELINE_FIELDS.find(f => f.key === genField) || null;
+  if(!isStatic && !field) genField = 'currentLocation';
+  const entries = isStatic ? [] : gs.timeline[genField];
+  if(genSel >= entries.length) genSel = Math.max(0, entries.length - 1);
+  const pendingTotal = TIMELINE_FIELDS.reduce((n, f) => n + gs.timeline[f.key].filter(e => e.status === 'pending').length, 0);
+
+  // chapter timeline (every chapter version of this character)
+  const stops = char.snapshots.map((s, i) => {
+    const sgs = findGenState(char.id, s.id);
+    const done = sgs && sgs.status === 'committed';
+    const locEntries = sgs ? (sgs.timeline.currentLocation || []).filter(e => e.status === 'committed') : [];
+    const where = locEntries.length ? locEntries[locEntries.length - 1].text.split(',')[0] : (done ? '—' : 'draft');
+    return { s, i, done, where, on: s.id === snap.id };
+  });
+  const pct = n => stops.length === 1 ? 50 : 6 + (n / (stops.length - 1)) * 88;
+  const activeIdx = stops.findIndex(x => x.on);
+
+  let addRow = '';
+  if(!locked && !isStatic){
+    if(genField === 'currentLocation'){
+      addRow = getWorldDatabase()
+        ? `<div class="gen-loc-cascade term-cascade">
+             <select id="genLocEra" aria-label="Era"></select><select id="genLocContinent" aria-label="Continent"></select>
+             <select id="genLocCountry" aria-label="Country"></select><select id="genLocCity" aria-label="City"></select>
+             <select id="genLocSite" aria-label="Special site"></select><button class="term-btn" id="genLocAdd" type="button">+ ADD</button>
+           </div>`
+        : `<p class="dim">&gt; no world data yet — open the Atlas once to load places</p>`;
+    } else if(genField === 'currentRelationships'){
+      const others = state.characters.filter(c => c.id !== char.id);
+      addRow = others.length
+        ? `<form class="term-prompt" id="genForm"><span>&gt;</span><select id="genInputSel" aria-label="Character">${others.map(c => `<option value="${escapeAttr(c.name)}">${escapeHtml(c.name)}</option>`).join('')}</select><input id="genInput" placeholder="relation (optional), then enter" aria-label="Relation"><button class="term-btn" type="submit">+ ADD</button></form>`
+        : `<p class="dim">&gt; no other characters in the Dossier yet</p>`;
+    } else {
+      addRow = `<form class="term-prompt" id="genForm"><span>&gt;</span><input id="genInput" placeholder="type a new ${escapeAttr(field.label.toLowerCase())} entry and press enter" aria-label="New entry"></form>`;
+    }
+  }
 
   container.innerHTML = `
     <div class="section-label">GENERATION — ${escapeHtml(char.name || 'Unnamed')}</div>
-    <div class="gen-banner">
-      <div class="gen-head">
-        <span class="gen-head-title">CHARACTER STATE // ${escapeHtml(snap.chapterRange || 'This chapter')}</span>
-        <div class="gen-chapter-controls">
-          <span class="gen-status-pill ${gs.status}">${gs.status}</span>
-          ${locked
-            ? `<button class="gen-mini-btn" id="genReopenBtn">Reopen to edit</button>`
-            : `<button class="gen-mini-btn accent" id="genCommitBtn">Commit chapter state</button>`}
+    <div class="gen2">
+      <div class="gen2-track">
+        <div class="gen2-rail">
+          <div class="gen2-fill" id="gen2Fill" style="width:${pct(Math.max(0, activeIdx))}%"></div>
+          ${stops.map(x => `<button type="button" class="gen2-stop${x.done ? ' done' : ''}${x.on ? ' on' : ''}" data-snap="${escapeAttr(x.s.id)}" style="left:${pct(x.i)}%" aria-label="Chapter ${escapeAttr(x.s.chapterRange || String(x.i + 1))}${x.done ? ', committed' : ''}">
+            <small>${escapeHtml(x.where)}</small><i></i><span>${escapeHtml(x.s.chapterRange || 'CH ' + (x.i + 1))}</span></button>`).join('')}
         </div>
       </div>
-      <div class="gen-body">
-        <div class="gen-columns">
-          <div class="gen-static-col">
-            <div class="gen-col-label">Static — from the Dossier</div>
-            ${staticRows.map(([label, value]) => `
-              <div class="gen-static-row">
-                <div class="gen-static-row-label">${escapeHtml(label)}</div>
-                <div class="gen-static-row-value${value ? '' : ' empty'}">${value ? escapeHtml(value) : 'Not yet captured in the Dossier'}</div>
-              </div>
-            `).join('')}
-            <div class="gen-static-note">Edit these in the Dossier above — they stay the same across chapters.</div>
+      <div class="gen2-body">
+        <div class="gen2-side" role="tablist" aria-label="Timeline fields">
+          <div class="hdr">FIELDS · ${escapeHtml(snap.chapterRange || 'THIS CHAPTER')}</div>
+          ${TIMELINE_FIELDS.map(f => {
+            const pend = gs.timeline[f.key].filter(e => e.status === 'pending').length;
+            return `<button type="button" role="tab" aria-selected="${genField === f.key}" class="${genField === f.key ? 'on' : ''}" data-field="${f.key}"><span>${escapeHtml(f.label.replace(/^Current /, '').toUpperCase())}</span><span>${pend ? pend + '!' : (gs.timeline[f.key].length || '')}</span></button>`;
+          }).join('')}
+          <button type="button" role="tab" aria-selected="${isStatic}" class="static${isStatic ? ' on' : ''}" data-field="__static"><span>DOSSIER (READ-ONLY)</span><span>i</span></button>
+        </div>
+        <div class="gen2-term" id="gen2Term" tabindex="0" aria-label="Generation log. Up and down select, Y commits, N rejects, Delete removes, G drafts a suggestion.">
+          <div class="gen2-log" id="gen2Log">
+            ${isStatic
+              ? `<div class="ln sys"><span class="t">SYS</span><span>static profile · edit these in the Dossier above</span><span></span></div>` +
+                staticRows.map(([k, v]) => `<div class="ln"><span class="t">${escapeHtml(k.toUpperCase().slice(0, 10))}</span><span class="${v ? '' : 'dim'}">${v ? escapeHtml(v) : 'not captured yet'}</span><span></span></div>`).join('')
+              : `<div class="ln sys"><span class="t">SYS</span><span>open ${escapeHtml(field.label.toLowerCase())} · ${escapeHtml(snap.chapterRange || 'this chapter')} · ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}${field.external ? ' · ' + escapeHtml(field.external.toLowerCase()) : ''}</span><span></span></div>` +
+                (entries.length ? entries.map((e, i) => `<div class="ln${i === genSel ? ' sel' : ''} ${e.status}" data-i="${i}">
+                  <span class="t">${escapeHtml((SOURCE_LABEL[e.source] || e.source || '').slice(0, 9))}</span>
+                  <span class="txt">${escapeHtml(e.text)}</span>
+                  <span class="st ${e.status}">[${GEN_STATUS_LABEL[e.status] || e.status}]</span>
+                </div>`).join('') : `<div class="ln"><span class="t">SYS</span><span class="dim">no entries yet</span><span></span></div>`)}
           </div>
-          <div class="gen-timeline-col">
-            <div class="gen-col-label">Timeline-dependent — as of ${escapeHtml(snap.chapterRange || 'this chapter')}</div>
-            ${TIMELINE_FIELDS.map(f => renderGenField(f, gs.timeline[f.key], locked, char)).join('')}
+          ${addRow}
+          <div class="gen2-keys">
+            ${locked ? `<span>&gt; chapter locked — reopen to edit</span>` : (isStatic ? `<span>&gt; read-only</span>` : `<span><kbd>↑↓</kbd>select</span><span><kbd>Y</kbd>commit</span><span><kbd>N</kbd>reject</span><span><kbd>Del</kbd>remove</span><span><kbd>G</kbd>draft suggestion</span>`)}
           </div>
         </div>
-        <div class="gen-commit-bar">
-          <div class="gen-commit-note">${locked
-            ? 'This chapter state is committed. Later chapters build on its confirmed entries only.'
-            : 'Confirm or reject each proposed entry, then commit — only confirmed entries carry into the next chapter.'}</div>
-        </div>
+      </div>
+      <div class="gen2-foot">
+        <span class="crt">${locked ? '&gt; committed · later chapters build on its confirmed entries only' : (pendingTotal ? `&gt; ${pendingTotal} pending · only committed entries carry into the next chapter` : '&gt; all reviewed · ready to commit')}</span>
+        <span class="gen2-actions">
+          <span class="gen-status-pill ${gs.status}">${gs.status}</span>
+          ${locked ? `<button class="slant-btn" id="genReopenBtn" type="button">Reopen to edit</button>` : `<button class="slant-btn primary" id="genCommitBtn" type="button">Commit chapter state</button>`}
+        </span>
       </div>
     </div>
   `;
 
+  const rerender = async (keepFocus) => { await persistState(); renderGenerationSection(); if(keepFocus){ const t = document.getElementById('gen2Term'); if(t) t.focus({ preventScroll: true }); } };
+  container.querySelectorAll('.gen2-stop').forEach(b => b.addEventListener('click', () => { if(b.dataset.snap !== char.activeSnapshotId) switchSnapshot(char.id, b.dataset.snap); }));
+  container.querySelectorAll('.gen2-side [data-field]').forEach(b => b.addEventListener('click', () => { genField = b.dataset.field; genSel = 0; renderGenerationSection(); const t = document.getElementById('gen2Term'); if(t) t.focus({ preventScroll: true }); }));
+  container.querySelectorAll('.gen2-log .ln[data-i]').forEach(ln => ln.addEventListener('click', () => { genSel = +ln.dataset.i; container.querySelectorAll('.gen2-log .ln[data-i]').forEach(x => x.classList.toggle('sel', x === ln)); }));
+
   if(locked){
-    document.getElementById('genReopenBtn').addEventListener('click', async () => {
-      gs.status = 'draft';
-      gs.committedAt = null;
-      await persistState();
-      renderGenerationSection();
-    });
+    document.getElementById('genReopenBtn').addEventListener('click', async () => { gs.status = 'draft'; gs.committedAt = null; await rerender(); });
   } else {
     document.getElementById('genCommitBtn').addEventListener('click', async () => {
-      TIMELINE_FIELDS.forEach(f => {
-        gs.timeline[f.key] = gs.timeline[f.key].filter(e => e.status !== 'pending');
-      });
-      gs.status = 'committed';
-      gs.committedAt = Date.now();
-      await persistState();
-      renderGenerationSection();
+      TIMELINE_FIELDS.forEach(f => { gs.timeline[f.key] = gs.timeline[f.key].filter(e => e.status !== 'pending'); });
+      gs.status = 'committed'; gs.committedAt = Date.now();
+      await rerender();
     });
+    if(!isStatic){
+      const term = document.getElementById('gen2Term');
+      term.addEventListener('keydown', async (e) => {
+        if(e.target.closest('input, select, textarea')) return;
+        const list = gs.timeline[genField], cur = list[genSel];
+        if(e.key === 'ArrowDown'){ e.preventDefault(); genSel = Math.min(list.length - 1, genSel + 1); renderGenerationSection(); document.getElementById('gen2Term').focus({ preventScroll: true }); }
+        else if(e.key === 'ArrowUp'){ e.preventDefault(); genSel = Math.max(0, genSel - 1); renderGenerationSection(); document.getElementById('gen2Term').focus({ preventScroll: true }); }
+        else if((e.key === 'y' || e.key === 'Y') && cur){ cur.status = 'committed'; await rerender(true); }
+        else if((e.key === 'n' || e.key === 'N') && cur){ cur.status = 'rejected'; await rerender(true); }
+        else if((e.key === 'Delete' || e.key === 'Backspace') && cur){ e.preventDefault(); list.splice(genSel, 1); await rerender(true); }
+        else if(e.key === 'g' || e.key === 'G'){ await generateEntryStub(gs, field); renderGenerationSection(); }
+      });
+      const form = document.getElementById('genForm');
+      if(form) form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const inp = document.getElementById('genInput'), sel = document.getElementById('genInputSel');
+        let text = sel ? sel.value + (inp.value.trim() ? ' — ' + inp.value.trim() : '') : inp.value.trim();
+        if(!text) return;
+        gs.timeline[genField].push(makeEntry(text, 'author'));
+        genSel = gs.timeline[genField].length - 1;
+        await persistState(); renderGenerationSection();
+        const again = document.getElementById('genInput'); if(again) again.focus({ preventScroll: true });
+      });
+      if(genField === 'currentLocation') wireLocationCascade(gs);
+    }
   }
 
-  if(!locked){
-    wireLocationCascade(gs);
-    TIMELINE_FIELDS.forEach(f => {
-      const addBtn = document.getElementById('genAdd_' + f.key);
-      const genBtn = document.getElementById('genGen_' + f.key);
-      const input = document.getElementById('genInput_' + f.key);
-      if(addBtn) addBtn.addEventListener('click', async () => {
-        const text = input.value.trim();
-        if(!text) return;
-        gs.timeline[f.key].push(makeEntry(text, 'author'));
-        input.value = '';
-        await persistState();
-        renderGenerationSection();
-      });
-      if(input) input.addEventListener('keydown', async (e) => {
-        if(e.key === 'Enter') addBtn.click();
-      });
-      if(genBtn) genBtn.addEventListener('click', async () => {
-        await generateEntryStub(gs, f);
-        renderGenerationSection();
-      });
-    });
-    container.querySelectorAll('.gen-entry-actions button.confirm').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const { field, id } = btn.dataset;
-        const entry = gs.timeline[field].find(e => e.id === id);
-        if(entry) entry.status = 'committed';
-        await persistState();
-        renderGenerationSection();
-      });
-    });
-    container.querySelectorAll('.gen-entry-actions button.reject').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const { field, id } = btn.dataset;
-        gs.timeline[field] = gs.timeline[field].filter(e => e.id !== id);
-        await persistState();
-        renderGenerationSection();
-      });
-    });
-    container.querySelectorAll('.gen-entry-actions button.remove').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const { field, id } = btn.dataset;
-        gs.timeline[field] = gs.timeline[field].filter(e => e.id !== id);
-        await persistState();
-        renderGenerationSection();
-      });
-    });
+  if(HAS_GSAP && !REDUCED_MOTION){
+    const fill = document.getElementById('gen2Fill');
+    if(renderGenerationSection._lastSnap !== snap.id){
+      gsap.fromTo(fill, { width: 0 }, { width: fill.style.width, duration: 0.8, ease: 'power3.inOut' });
+      gsap.fromTo(container.querySelectorAll('.gen2-log .ln'), { opacity: 0 }, { opacity: 1, duration: 0.05, stagger: 0.05 });
+    }
   }
+  renderGenerationSection._lastSnap = snap.id;
 }
 
 // Wires the Era -> Continent -> Country -> City -> Special Site dependent
@@ -3441,8 +3550,8 @@ function openSystemForm(char, snap){
     </div>
 
     <div class="field">
-      <label>Skills (this version) — one per line, as Name | Level (0-100) | Corrupted (yes/no) | Description</label>
-      <textarea id="sysSkills" placeholder="Ashbind | 60 | no | Can silence sound in a small radius">${(snap.skills || []).map(s => `${s.name} | ${s.level || 0} | ${s.corrupted ? 'yes' : 'no'} | ${s.desc || ''}`).join('\n')}</textarea>
+      <label>Skills (this version) — one per line, as Name | Level (0-100) | Corrupted (yes/no) | Description | Branches from (optional skill name)</label>
+      <textarea id="sysSkills" placeholder="Ashbind | 60 | no | Can silence sound in a small radius">${(snap.skills || []).map(s => `${s.name} | ${s.level || 0} | ${s.corrupted ? 'yes' : 'no'} | ${s.desc || ''}${s.parent ? ' | ' + s.parent : ''}`).join('\n')}</textarea>
     </div>
 
     <div class="field">
@@ -3581,7 +3690,7 @@ function reviewSystemSave(charId, snapId){
     const parts = line.split('|').map(p => p.trim());
     const lvl = parseFloat(parts[1]);
     const corrupted = /^(yes|true|1)$/i.test(parts[2] || '');
-    return { name: parts[0] || '', level: isNaN(lvl) ? 0 : Math.max(0, Math.min(100, lvl)), corrupted, desc: parts[3] || '' };
+    return { name: parts[0] || '', level: isNaN(lvl) ? 0 : Math.max(0, Math.min(100, lvl)), corrupted, desc: parts[3] || '', parent: parts[4] || '' };
   });
   const titles = document.getElementById('sysTitles').value.split('\n').map(s => s.trim()).filter(Boolean).map(line => {
     const parts = line.split('|').map(p => p.trim());
@@ -3722,9 +3831,9 @@ function openStatsOnlyForm(char, snap){
 function openSkillsOnlyForm(char, snap){
   modalContent.innerHTML = `
     <h2>Skills — ${escapeHtml(char.name || 'Unnamed')}</h2>
-    <p class="sub">One per line, as Name | Level (0-100) | Corrupted (yes/no) | Description.</p>
+    <p class="sub">One per line, as Name | Level (0-100) | Corrupted (yes/no) | Description | Branches from. The last part is optional: name another skill to grow the authority tree from it.</p>
     <div class="field">
-      <textarea id="mwSkills" style="min-height:160px;" placeholder="Ashbind | 60 | no | Can silence sound in a small radius">${(snap.skills || []).map(s => `${s.name} | ${s.level || 0} | ${s.corrupted ? 'yes' : 'no'} | ${s.desc || ''}`).join('\n')}</textarea>
+      <textarea id="mwSkills" style="min-height:160px;" placeholder="Ashbind | 60 | no | Can silence sound in a small radius">${(snap.skills || []).map(s => `${s.name} | ${s.level || 0} | ${s.corrupted ? 'yes' : 'no'} | ${s.desc || ''}${s.parent ? ' | ' + s.parent : ''}`).join('\n')}</textarea>
     </div>
     <div class="modal-actions">
       <button class="btn ghost" onclick="closeModal()">Cancel</button>
@@ -3736,7 +3845,7 @@ function openSkillsOnlyForm(char, snap){
       const parts = line.split('|').map(p => p.trim());
       const lvl = parseFloat(parts[1]);
       const corrupted = /^(yes|true|1)$/i.test(parts[2] || '');
-      return { name: parts[0] || '', level: isNaN(lvl) ? 0 : Math.max(0, Math.min(100, lvl)), corrupted, desc: parts[3] || '' };
+      return { name: parts[0] || '', level: isNaN(lvl) ? 0 : Math.max(0, Math.min(100, lvl)), corrupted, desc: parts[3] || '', parent: parts[4] || '' };
     });
     snap.skills = skills;
     await persistState();
