@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Epitaph — Character Dossier</title>
+<title>Epitaph — Dossier</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Space+Mono:wght@400;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Noto+Serif+JP:wght@500;900&family=VT323&family=Space+Mono:wght@400;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
 <style>
   :root{
     --ink:#0c0b09;
@@ -1258,6 +1258,10 @@
     .gen-columns{ flex-direction:column; }
   }
 </style>
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=1">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="assets/portrait-gen.js?v=1"></script>
+<script src="assets/epitaph-muses.js?v=1"></script>
 </head>
 <body>
 <svg class="grain" width="0" height="0">
@@ -1271,9 +1275,10 @@
 
 <div class="app">
   <div class="top-nav">
-    <div class="brand">EPITAPH — Character Dossier</div>
+    <div class="brand">EPITAPH // DOSSIER</div>
     <div class="actions">
       <a class="btn ghost" id="atlasLink" href="atlas.html">Atlas</a>
+      <a class="btn ghost" id="musesLink" href="muses.html">Muses</a>
       <button class="btn ghost" id="editBtn" style="display:none;">Edit</button>
       <button class="btn ghost danger" id="deleteBtn" style="display:none;">Delete</button>
       <button class="btn ghost" id="exportBtn" type="button">Export data</button>
@@ -1496,6 +1501,12 @@ function migrateCharacter(c){
   if(result.corruptionColor === undefined) result.corruptionColor = '';
   if(result.authority === undefined) result.authority = '';
   if(result.divineStatus === undefined) result.divineStatus = '';
+  // muses (reference characters) + generated-portrait settings + vertical glyph
+  if(!Array.isArray(result.museIds)) result.museIds = [];
+  if(typeof result.portraitFigure !== 'string') result.portraitFigure = '';
+  if(typeof result.portraitStyle !== 'string') result.portraitStyle = '';
+  if(typeof result.portraitSeed !== 'string') result.portraitSeed = '';
+  if(typeof result.glyph !== 'string') result.glyph = '';
   // snapshot-level system-sheet fields
   result.snapshots = result.snapshots.map(s => ({
     ...s,
@@ -2092,7 +2103,7 @@ function renderSystemSection(){
       <div class="tb-body">
         <div class="avatar-wrap" id="avatarWrap">
           <div class="avatar-clip">
-            <img src="${portraitSrc}" alt="${escapeHtml(char.name)}" style="object-position:${sPos.x}% ${sPos.y}%;">
+            <img src="${portraitSrc}" ${portraitSrc === SILHOUETTE_SVG ? `data-gen-char="${escapeAttr(char.id)}"` : ''} alt="${escapeHtml(char.name)}" style="object-position:${sPos.x}% ${sPos.y}%;">
             <div class="expand-hint">CLICK TO EXPAND</div>
           </div>
           <div class="tb-portrait-label">${isDivine ? 'STATUE' : 'PORTRAIT'}</div>
@@ -2535,6 +2546,7 @@ function wireLocationCascade(gs){
 }
 
 function renderGenField(fieldConfig, entries, locked, char){
+  entries = Array.isArray(entries) ? entries : [];
   const { key, label, external } = fieldConfig;
 
   // Current Location and Current Relationships reference real entities that
@@ -2610,13 +2622,130 @@ async function generateEntryStub(gs, fieldConfig){
 function renderAll(){
   renderPoster();
   renderRail();
+  hydrateGenPortraits(document.getElementById('rail'));
   renderSystemSection();
+  hydrateGenPortraits(document.getElementById('systemSection'));
   renderGenerationSection();
+}
+
+// ============================================================
+// SIGNAL HERO — generated portraits, glyphs, location readout, motion
+// ============================================================
+const REDUCED_MOTION = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const HAS_GSAP = !!window.gsap;
+function loadMuseList(){ return window.EpitaphMuses ? EpitaphMuses.load() : []; }
+function genOptsFor(char, extra){
+  return window.EpitaphPortrait ? EpitaphPortrait.forCharacter(char, extra) : null;
+}
+// Fills every <img data-gen-char="id"> with that character's generated portrait.
+function hydrateGenPortraits(root){
+  if(!window.EpitaphPortrait) return;
+  (root || document).querySelectorAll('img[data-gen-char]').forEach(img => {
+    const c = state.characters.find(x => x.id === img.dataset.genChar);
+    if(!c) return;
+    const extra = img.dataset.genBg === 'off' ? { background: false } : {};
+    EpitaphPortrait.render(genOptsFor(c, extra)).then(url => { if(img.isConnected) img.src = url; }).catch(() => {});
+  });
+}
+const GLYPHS = [
+  [/primordial|origin/i, '原初'], [/\bgod|deity|divine/i, '神'], [/demon|devil|fiend/i, '魔'],
+  [/angel|seraph/i, '天使'], [/void|nothing|null/i, '虚無'], [/story|author|fate/i, '物語'],
+  [/dream/i, '夢'], [/human|mortal/i, '人間']
+];
+function glyphFor(char){
+  if(char.glyph) return char.glyph;
+  const hay = [char.storyline, char.authority, char.faction].join(' ');
+  const hit = GLYPHS.find(([re]) => re.test(hay));
+  return hit ? hit[1] : '記録';
+}
+// Real moon age today (days since new moon), for the readout.
+function lunarAgeToday(){
+  const synodic = 29.530588853, ref = Date.UTC(2000, 0, 6, 18, 14);
+  const days = (Date.now() - ref) / 86400000;
+  return Math.floor(((days % synodic) + synodic) % synodic);
+}
+// Latest committed location for the active chapter, resolved to a name + coordinates.
+function heroLocation(char){
+  const snap = getActiveSnapshot(char);
+  const gs = (state.generationStates || []).find(g => g.characterId === char.id && g.snapshotId === snap.id);
+  const list = gs && gs.timeline ? (gs.timeline.currentLocation || []).filter(e => e && e.status === 'committed' && e.locationRef) : [];
+  if(!list.length) return null;
+  const ref = list[list.length - 1].locationRef, wdb = getWorldDatabase();
+  if(!wdb) return { label: list[list.length - 1].text, era: ref.eraId };
+  const site = ref.specialSiteId ? wdb.specialSites.find(x => x.id === ref.specialSiteId && x.era === ref.eraId) : null;
+  const city = ref.cityId ? wdb.cities.find(x => x.id === ref.cityId && x.era === ref.eraId) : null;
+  const country = wdb.countries.find(x => x.id === ref.countryId && x.era === ref.eraId);
+  const pick = [site, city, country].find(x => x && typeof x.lat === 'number');
+  const era = wdb.eras.find(e => e.id === ref.eraId);
+  return { name: (site || city || country || {}).name || '', lat: pick ? pick.lat : null, lng: pick ? pick.lng : null, era: era ? era.name : ref.eraId };
+}
+function fmtCoord(v, pos, neg){
+  const a = Math.abs(v), d = Math.floor(a), m = Math.round((a - d) * 60);
+  return `${v >= 0 ? pos : neg} ${d}°${String(m).padStart(2, '0')}′`;
+}
+function eraNumeral(era){
+  const m = String(era || '').match(/(\d+)/);
+  return m ? ('ERA ' + ['0', 'I', 'II', 'III', 'IV', 'V'][+m[1]] ) : 'ERA —';
+}
+
+// Rotating sphere of digits behind the portrait (Void Archive). One loop at a time.
+let heroSphere = null;
+function startHeroSphere(cv, seedStr){
+  if(heroSphere) heroSphere.stop();
+  const ctx = cv.getContext('2d'), pts = [], N = 460;
+  let h = 0; for(const ch of seedStr) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  for(let i = 0; i < N; i++){ const y = 1 - (i / (N - 1)) * 2, r = Math.sqrt(1 - y * y), th = i * 2.39996; pts.push([Math.cos(th) * r, y, Math.sin(th) * r, (i * 7 + h) % 10]); }
+  let a = 0, raf = 0, alive = true;
+  function frame(){
+    const w = cv.clientWidth, hh = cv.clientHeight; if(!w || !hh) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    if(cv.width !== Math.round(w * dpr)){ cv.width = Math.round(w * dpr); cv.height = Math.round(hh * dpr); }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, hh);
+    const R = Math.min(w, hh) * 0.38, cx = w * 0.5, cy = hh * 0.44;
+    ctx.font = '10px "VT323", "Space Mono", monospace'; ctx.textAlign = 'center';
+    for(const [x, y, z, d] of pts){
+      const xr = x * Math.cos(a) - z * Math.sin(a), zr = x * Math.sin(a) + z * Math.cos(a);
+      const yr = y * Math.cos(0.35) - zr * Math.sin(0.35), z2 = y * Math.sin(0.35) + zr * Math.cos(0.35);
+      const sdepth = (z2 + 1.6) / 2.6;
+      ctx.fillStyle = `rgba(255,178,56,${(0.05 + sdepth * 0.55).toFixed(2)})`;
+      ctx.fillText(d, cx + xr * R, cy + yr * R);
+    }
+  }
+  function loop(){ if(!alive) return; if(!document.hidden){ a += 0.0032; frame(); } raf = requestAnimationFrame(loop); }
+  frame(); if(!REDUCED_MOTION) raf = requestAnimationFrame(loop);
+  const onResize = () => frame(); window.addEventListener('resize', onResize);
+  heroSphere = { stop(){ alive = false; cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); } };
+}
+function splitChars(el){
+  const text = el.textContent;
+  el.innerHTML = [...text].map(c => `<span class="ch">${c === ' ' ? '&nbsp;' : escapeHtml(c)}</span>`).join('');
+  return el.querySelectorAll('.ch');
+}
+let lastHeroCharId = null;
+function playHeroIntro(char){
+  const wrap = document.querySelector('.sig-hero'); if(!wrap) return;
+  const nameEl = wrap.querySelector('.sig-name');
+  const chars = splitChars(nameEl);
+  if(!HAS_GSAP || REDUCED_MOTION) return;
+  const fresh = lastHeroCharId !== char.id; lastHeroCharId = char.id;
+  gsap.killTweensOf('.sig-portrait');
+  const tl = gsap.timeline({ defaults: { ease: 'expo.out' } });
+  if(fresh){
+    tl.fromTo(chars, { opacity: 0, filter: 'blur(10px)', yPercent: 30 }, { opacity: 1, filter: 'blur(0px)', yPercent: 0, duration: 1.1, stagger: { each: 0.045, from: 'center' } })
+      .fromTo('.sig-portrait', { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1, duration: 1 }, '<.1')
+      .fromTo('.sig-vert .jp', { yPercent: -30, opacity: 0 }, { yPercent: 0, opacity: 1, duration: 0.9 }, '<')
+      .fromTo('.sig-meter i', { scaleX: 0 }, { scaleX: 1, duration: 0.7, ease: 'steps(12)', stagger: 0.07 }, '<.15')
+      .fromTo('.sig-log p', { opacity: 0 }, { opacity: 1, duration: 0.05, stagger: 0.12 }, '<.2');
+  }
+  // gentle float, forever
+  gsap.to('.sig-portrait', { y: -10, duration: 3.2, ease: 'sine.inOut', repeat: -1, yoyo: true, delay: fresh ? 1 : 0 });
+  gsap.to('#sigHudRing', { rotation: 360, svgOrigin: '200 176', duration: 70, ease: 'none', repeat: -1 });
 }
 
 function renderPoster(){
   const char = getActiveCharacter();
   const atlasLink = document.getElementById('atlasLink');
+  if(heroSphere){ heroSphere.stop(); heroSphere = null; }
   if(!char){
     editBtn.style.display = 'none';
     deleteBtn.style.display = 'none';
@@ -2629,53 +2758,111 @@ function renderPoster(){
       </div>`;
     return;
   }
-  editBtn.style.display = 'inline-block';
-  deleteBtn.style.display = 'inline-block';
+  editBtn.style.display = 'inline-flex';
+  deleteBtn.style.display = 'inline-flex';
   if(atlasLink) atlasLink.href = 'atlas.html?char=' + encodeURIComponent(char.id);
 
   const snap = getActiveSnapshot(char);
   const pPos = snap.portraitPosition || { x: 50, y: 50 };
+  const idx = state.characters.findIndex(c => c.id === char.id) + 1;
+  const total = state.characters.length;
   const portraitHtml = snap.portrait
     ? `<img src="${snap.portrait}" alt="${escapeHtml(char.name)}" style="object-position:${pPos.x}% ${pPos.y}%;">`
-    : `<img class="silhouette" src="${SILHOUETTE_SVG}" alt="No portrait set">`;
-
-  const chevron = `<svg viewBox="0 0 24 24" width="16" height="16"><path d="M8 5 L16 12 L8 19" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    : `<img class="gen-portrait" src="${SILHOUETTE_SVG}" data-gen-char="${escapeAttr(char.id)}" data-gen-bg="off" alt="Generated portrait of ${escapeAttr(char.name || 'this character')}">`;
+  const titles = (snap.titles || []).slice().sort((a, b) => (b.rankTier || 0) - (a.rankTier || 0));
+  const topTitle = titles[0] ? titles[0].name : (snap.blurb || '');
+  const rankWord = (char.storyline || 'Unclassified');
+  const rankClass = char.divineStatus ? 'divine' : (char.mythos === 'Cursed' ? 'cursed' : '');
+  const statusWord = [char.mythos, char.divineStatus ? char.divineStatus + ' divine' : ''].filter(Boolean).join(' · ') || 'Unclassified';
+  const loc = heroLocation(char);
+  const coordHtml = loc && typeof loc.lat === 'number'
+    ? `<span>${fmtCoord(loc.lat, 'N', 'S')} · ${fmtCoord(loc.lng, 'E', 'W')}</span>`
+    : `<span>${loc && loc.name ? escapeHtml(loc.name) : 'Location <b>unplaced</b>'}</span>`;
+  const statRows = STAT_LABELS.map(l => {
+    const v = Math.max(0, Math.min(100, Number((snap.stats || {})[l]) || 0));
+    return `<div class="sig-meter"><span>${escapeHtml(l.toUpperCase())}</span><i class="${v < 35 ? 'low' : ''}" style="width:${v}%"></i><span>${v}</span></div>`;
+  }).join('');
+  const museList = loadMuseList();
+  const muses = (char.museIds || []).map(id => museList.find(m => m.id === id)).filter(Boolean);
+  const chapters = char.snapshots.map((s, i) => `
+      <li class="${s.id === char.activeSnapshotId ? 'on' : ''}" data-snap="${escapeAttr(s.id)}" tabindex="0" role="button" aria-pressed="${s.id === char.activeSnapshotId}">
+        <span>${String(i + 1).padStart(2, '0')} ${escapeHtml(s.chapterRange || 'Untitled chapter')}</span>
+        ${char.snapshots.length > 1 ? `<span class="del" data-del="${escapeAttr(s.id)}" title="Remove this version" aria-label="Remove this version">×</span>` : ''}
+      </li>`).join('');
 
   posterWrap.innerHTML = `
-    <div class="poster">
-      <div class="poster-controls"></div>
-      <div class="portrait-stage">
-        <div class="chapter-overlay">
-          <div class="name display">${escapeHtml(char.name || 'Unnamed')}</div>
-          <div class="storyline display">${escapeHtml(char.storyline || '—')}</div>
-        </div>
-        <div class="side-gallery left">
-          <button class="page-arrow up" id="leftUp">${chevron}</button>
-          <div class="gallery-col" id="galleryLeft"></div>
-          <button class="page-arrow down" id="leftDown">${chevron}</button>
-        </div>
-        <div class="side-gallery right">
-          <button class="page-arrow up" id="rightUp">${chevron}</button>
-          <div class="gallery-col" id="galleryRight"></div>
-          <button class="page-arrow down" id="rightDown">${chevron}</button>
-        </div>
-        <div class="ghost-type">${escapeHtml(snap.chapterRange || '')}</div>
-        <div class="portrait">
+    <section class="sig-hero" aria-label="${escapeAttr(char.name || 'Character')} dossier">
+      <div class="sig-vert">
+        <span class="idx">EPITAPH / ${String(idx).padStart(3, '0')}</span>
+        <span class="jp" lang="ja">${escapeHtml(glyphFor(char))}</span>
+        <span class="idx">${escapeHtml(eraNumeral(loc && loc.era))}</span>
+      </div>
+      <div class="sig-space">
+        <canvas class="sig-sphere" id="sigSphere" aria-hidden="true"></canvas>
+        <svg class="sig-hud" viewBox="0 0 400 400" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+          <g id="sigHudRing" fill="none" stroke="#ffb238" stroke-opacity=".35">
+            <circle cx="200" cy="176" r="160" stroke-dasharray="1 7"/>
+            <path d="M28 176 h30 M342 176 h30" />
+            <circle cx="200" cy="16" r="3.5" fill="#ffb238" stroke="none"/>
+          </g>
+          <circle cx="200" cy="176" r="176" fill="none" stroke="#8a5a14" stroke-opacity=".5"/>
+        </svg>
+        <div class="sig-coords">${coordHtml}<span>Lunar age <b>${lunarAgeToday()}</b></span></div>
+        <div class="sig-portrait">
           ${portraitHtml}
           ${snap.portrait ? `<button class="reposition-btn" id="repositionPortraitBtn" title="Reposition image">⤡</button>` : ''}
         </div>
-      </div>
-      <div class="poster-footer">
-        <div class="faction-word display ${factionClass(char.faction)}">${escapeHtml(factionLabel(char.faction))}</div>
-        <div class="lore-text">
-          ${snap.blurb ? `<p class="blurb">${escapeHtml(snap.blurb)}</p>` : ''}
-          ${snap.backstory ? `<p class="backstory">${escapeHtml(snap.backstory)}</p>` : ''}
+        <div class="sig-name-block">
+          <div class="sig-rank ${rankClass}">${escapeHtml(rankWord)}</div>
+          <h1 class="sig-name">${escapeHtml(char.name || 'Unnamed')}</h1>
+          <div class="sig-sub">${topTitle ? `<b>${escapeHtml(topTitle)}</b> · ` : ''}${escapeHtml(snap.chapterRange || 'No chapter set')}</div>
         </div>
       </div>
-    </div>
+      <div class="sig-file">
+        <div class="sig-bar"><span>SUBJECT FILE</span><span>${String(idx).padStart(2, '0')}/${String(total).padStart(2, '0')}</span></div>
+        <div class="sig-sec">
+          <dl class="sig-dl">
+            <dt>IDENT</dt><dd>${escapeHtml(char.storyline || '—')}</dd>
+            <dt>FACTION</dt><dd>${escapeHtml(char.faction || '—')}</dd>
+            <dt>STATUS</dt><dd>${escapeHtml(statusWord)}</dd>
+            <dt>CONCEPT</dt><dd>${escapeHtml(char.authority || '—')}</dd>
+            <dt>TITLES</dt><dd>${titles.length ? titles.map(t => escapeHtml(t.name)).join(' / ') : '—'}</dd>
+          </dl>
+          ${muses.length ? `<div class="sig-muses" aria-label="Muses">${muses.map(m => `<a href="muses.html#${encodeURIComponent(m.id)}">◇ ${escapeHtml(m.name)}</a>`).join('')}</div>` : ''}
+        </div>
+        <div class="sig-sec">${statRows}</div>
+        <div class="sig-bar"><span>CHAPTER LOG</span><span class="dim">${char.snapshots.length} VER</span></div>
+        <div class="sig-sec"><ul class="sig-chapters" id="sigChapters">${chapters}</ul></div>
+        <div class="sig-bar"><span>FIELD NOTES</span><span class="dim">${escapeHtml(snap.emotionalState || '—')}</span></div>
+        <div class="sig-sec sig-log">
+          ${snap.blurb ? `<p>&gt; ${escapeHtml(snap.blurb)}</p>` : ''}
+          ${snap.backstory ? `<p class="dim">${escapeHtml(snap.backstory)}</p>` : ''}
+          ${!snap.blurb && !snap.backstory ? `<p class="dim">&gt; no notes for this chapter</p>` : ''}
+          <p>&gt; <span class="sig-cursor"></span></p>
+        </div>
+      </div>
+    </section>
+    <nav class="menu-slant sig-menu" aria-label="Dossier sections">
+      <a href="#systemSection">System sheet</a>
+      <a href="#generationSection">Generation</a>
+      <a href="${atlasLink ? atlasLink.getAttribute('href') : 'atlas.html'}">Atlas ↗</a>
+      <a href="muses.html">Muses ↗</a>
+      <button type="button" id="sigNewChapter">+ New chapter</button>
+    </nav>
   `;
 
-  renderGalleries(char);
+  startHeroSphere(document.getElementById('sigSphere'), char.id + (char.name || ''));
+  document.querySelectorAll('#sigChapters li').forEach(li => {
+    const go = (e) => {
+      const del = e.target.closest('[data-del]');
+      if(del){ e.stopPropagation(); confirmDeleteSnapshot(char.id, del.dataset.del); return; }
+      if(li.dataset.snap !== char.activeSnapshotId) switchSnapshot(char.id, li.dataset.snap);
+    };
+    li.addEventListener('click', go);
+    li.addEventListener('keydown', (e) => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); go(e); } });
+  });
+  const nc = document.getElementById('sigNewChapter');
+  if(nc) nc.addEventListener('click', () => openSnapshotForm());
   const repositionBtn = document.getElementById('repositionPortraitBtn');
   if(repositionBtn){
     repositionBtn.addEventListener('click', (e) => {
@@ -2683,6 +2870,8 @@ function renderPoster(){
       openPortraitPositionModal(char, snap);
     });
   }
+  hydrateGenPortraits(posterWrap);
+  playHeroIntro(char);
 }
 
 // per-character, per-side paging offsets (not persisted — resets on reload)
@@ -2753,7 +2942,7 @@ function renderRail(){
     thumb.title = c.name || 'Unnamed';
     thumb.innerHTML = (snap && snap.portrait)
       ? `<img src="${snap.portrait}" alt="${escapeHtml(c.name)}">`
-      : `<div class="initial">${(c.name || '?').charAt(0).toUpperCase()}</div>`;
+      : `<img src="${SILHOUETTE_SVG}" data-gen-char="${escapeAttr(c.id)}" alt="${escapeHtml(c.name)}">`;
     thumb.addEventListener('click', () => switchActiveCharacter(c.id));
     rail.appendChild(thumb);
   });
@@ -2831,6 +3020,24 @@ function openCharacterForm(existingChar){
 
     ${portraitFieldHtml()}
 
+    <div class="field">
+      <label>Generated portrait — used whenever no image is uploaded</label>
+      <div class="gen-preview">
+        <img id="genPrev" alt="Generated portrait preview" src="${SILHOUETTE_SVG}">
+        <div class="gen-row">
+          <select id="fFigure" aria-label="Figure">
+            <option value="">Figure: auto</option>
+            ${(window.EpitaphPortrait ? EpitaphPortrait.ARCHETYPES : []).map(a => `<option value="${a}" ${existingChar && existingChar.portraitFigure === a ? 'selected' : ''}>${a}</option>`).join('')}
+          </select>
+          <select id="fStyle" aria-label="Style">
+            <option value="">Style: auto</option>
+            ${(window.EpitaphPortrait ? EpitaphPortrait.STYLES : []).map(a => `<option value="${a}" ${existingChar && existingChar.portraitStyle === a ? 'selected' : ''}>${a}</option>`).join('')}
+          </select>
+          <button type="button" class="btn ghost" id="genReroll">↻ Reroll</button>
+        </div>
+      </div>
+    </div>
+
     <div class="field-row">
       <div class="field">
         <label>Name</label>
@@ -2866,13 +3073,68 @@ function openCharacterForm(existingChar){
       <textarea id="fBackstory" placeholder="A bit more about their past">${snap ? (snap.backstory||'') : ''}</textarea>
     </div>
 
+    <div class="field">
+      <label>Muses — reference characters to build from (pick any number)</label>
+      <div class="muse-picker" id="musePicker">
+        ${loadMuseList().map(m => `<label><input type="checkbox" value="${escapeAttr(m.id)}" ${existingChar && (existingChar.museIds || []).includes(m.id) ? 'checked' : ''}> ${escapeHtml(m.name)}</label>`).join('') || '<span class="gen-empty-hint">No muses yet — add some on the Muses page.</span>'}
+      </div>
+      <div class="muse-guide" id="museGuide"></div>
+    </div>
+
+    <div class="field">
+      <label>Vertical glyph (optional, shown beside the portrait)</label>
+      <input type="text" id="fGlyph" maxlength="6" value="${existingChar ? escapeAttr(existingChar.glyph || '') : ''}" placeholder="e.g. 夢母 — leave blank to pick one from the storyline">
+    </div>
+
     <div class="modal-actions">
       <button class="btn ghost" onclick="closeModal()">Cancel</button>
       <button class="btn primary" onclick="reviewCharacterSave()">Save profile</button>
     </div>
   `;
   wireDropzone();
+  wireCharacterExtras(existingChar);
   openModal();
+}
+
+// Generated-portrait preview + muse guide inside the character form.
+let pendingPortraitSeed = '';
+function wireCharacterExtras(existingChar){
+  pendingPortraitSeed = existingChar ? (existingChar.portraitSeed || '') : '';
+  const prev = document.getElementById('genPrev');
+  const refresh = () => {
+    if(!window.EpitaphPortrait || !prev) return;
+    const draft = {
+      name: document.getElementById('fName').value.trim() || 'Unnamed',
+      storyline: document.getElementById('fStoryline').value.trim(),
+      faction: document.getElementById('fFaction').value,
+      mythos: existingChar ? existingChar.mythos : '', divineStatus: existingChar ? existingChar.divineStatus : '',
+      portraitFigure: document.getElementById('fFigure').value, portraitStyle: document.getElementById('fStyle').value,
+      portraitSeed: pendingPortraitSeed
+    };
+    EpitaphPortrait.render(EpitaphPortrait.forCharacter(draft)).then(u => { prev.src = u; }).catch(() => {});
+  };
+  let t;
+  ['fName', 'fStoryline', 'fFaction', 'fFigure', 'fStyle'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('input', () => { clearTimeout(t); t = setTimeout(refresh, 200); });
+  });
+  const rr = document.getElementById('genReroll');
+  if(rr) rr.addEventListener('click', () => { pendingPortraitSeed = Math.random().toString(36).slice(2, 8); refresh(); });
+  refresh();
+
+  const picker = document.getElementById('musePicker'), guide = document.getElementById('museGuide');
+  const renderGuide = () => {
+    if(!picker || !guide || !window.EpitaphMuses) return;
+    const list = loadMuseList();
+    const ids = [...picker.querySelectorAll('input:checked')].map(i => i.value);
+    guide.innerHTML = ids.map(id => list.find(m => m.id === id)).filter(Boolean).map(m => `
+      <div>
+        <h4>◇ ${escapeHtml(m.name)}${m.source ? ` <small style="font-size:12px;color:var(--dust)">· ${escapeHtml(m.source)}</small>` : ''}</h4>
+        <dl>${EpitaphMuses.FIELDS.filter(f => m[f.key]).map(f => `<dt>${escapeHtml(f.label)}</dt><dd>${escapeHtml(m[f.key])}</dd>`).join('')}</dl>
+      </div>`).join('');
+  };
+  if(picker) picker.addEventListener('change', renderGuide);
+  renderGuide();
 }
 
 function reviewCharacterSave(){
@@ -2887,13 +3149,19 @@ function reviewCharacterSave(){
     chapterRange: document.getElementById('fChapterRange').value.trim(),
     blurb: document.getElementById('fBlurb').value.trim(),
     backstory: document.getElementById('fBackstory').value.trim(),
-    portrait: pendingPortrait
+    portrait: pendingPortrait,
+    museIds: [...document.querySelectorAll('#musePicker input:checked')].map(i => i.value),
+    portraitFigure: (document.getElementById('fFigure') || {}).value || '',
+    portraitStyle: (document.getElementById('fStyle') || {}).value || '',
+    glyph: ((document.getElementById('fGlyph') || {}).value || '').trim()
   };
 
   const draftChar = migrateCharacter({
     ...(existingChar || {}),
     id: charId,
     name: fields.name, storyline: fields.storyline, faction: fields.faction,
+    museIds: fields.museIds, portraitFigure: fields.portraitFigure, portraitStyle: fields.portraitStyle,
+    portraitSeed: pendingPortraitSeed, glyph: fields.glyph,
     activeSnapshotId: snapId,
     snapshots: existingChar
       ? existingChar.snapshots.map(s => s.id === snapId

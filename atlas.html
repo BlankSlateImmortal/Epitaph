@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Epitaph — Atlas HUD Prototype</title>
+<title>Epitaph — Atlas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Noto+Serif+JP:wght@500;900&family=VT323&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root{
     --ink:#0c0b09;
@@ -357,14 +357,19 @@
   }
   .subject-record .r-open-btn:hover{ border-color:var(--dust); }
 </style>
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=1">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="assets/terrain.js?v=1"></script>
 </head>
 <body>
 
 <div class="hud">
   <div class="top-bar">
-    <div class="brand">EPITAPH ATLAS — <span id="crumbLabel">WORLD</span></div>
+    <div class="brand">EPITAPH // ATLAS — <span id="crumbLabel">WORLD</span></div>
     <div class="top-icons">
-      <a class="icon-btn" href="index.html" title="Character Dossier" style="text-decoration:none; font-family:'Bebas Neue',sans-serif; font-size:12px; letter-spacing:0.06em; width:auto; padding:0 10px;">DOSSIER</a>
+      <span class="signal-clock" id="signalClock" aria-label="Session clock">00:00:00</span>
+      <a class="slant-btn" href="index.html" title="Character Dossier">Dossier</a>
+      <a class="slant-btn" href="muses.html" title="Muses">Muses</a>
       <button class="icon-btn" title="Reset view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12a9 9 0 1 1 3 6.7M3 12v6h6"/></svg></button>
       <button class="icon-btn" title="Fullscreen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg></button>
     </div>
@@ -464,6 +469,7 @@
         <div class="orbit"></div>
         <div class="orbit orbit-outer"></div>
         <div class="orbit orbit-scan"></div>
+        <canvas class="terrain-canvas" id="terrainCanvas" aria-hidden="true"></canvas>
         <div class="map-glyph" id="mapGlyph"></div>
         <!-- character markers render directly on the globe itself now, not
              a separate disconnected backdrop, so they inherit its exact
@@ -473,6 +479,7 @@
       <div class="scale-readout">
         <div class="label">LOCATION</div>
         <div class="value" id="scaleValue"></div>
+        <div class="terrain-readout" id="terrainReadout"><span class="dim">DRAG TO MOVE THE LAND · HOVER TO RAISE IT</span></div>
       </div>
     </div>
 
@@ -1000,6 +1007,7 @@ function renderView(){
     glyph.innerHTML = renderZoomBase(title, sub);
   }
   glyph.classList.toggle('no-terrain', !layers.has('Terrain'));
+  syncTerrain();
   glyph.classList.toggle('layer-cities', layers.has('Cities'));
   const overlay = glyph.querySelector('.geo-overlay');
   overlay.innerHTML = buildOverlay();
@@ -1552,7 +1560,46 @@ function renderCharacterLayer(){
       });
     });
   }
+  drawTrackTrail(markersEl, toDial);
   renderSubjectIndex(placed);
+}
+
+// ---- tracking trail: every committed location of the selected subject, in chapter order ----
+function locationHistory(charId){
+  const dc = dossierCharById(charId); if(!dc) return [];
+  const out = [];
+  (dc.snapshots || []).forEach(s => {
+    const gs = (dossierState.generationStates || []).find(g => g.characterId === dc.id && g.snapshotId === s.id);
+    const list = gs && gs.timeline ? (gs.timeline.currentLocation || []).filter(e => e && e.status === 'committed' && e.locationRef) : [];
+    list.forEach(e => { const p = resolveLocationRef(e.locationRef); if(p && p.kind && typeof p.lat === 'number') out.push(Object.assign(p, { chapter: s.chapterRange || '' })); });
+  });
+  return out;
+}
+let trailTween = null;
+function drawTrackTrail(markersEl, toDial){
+  if(trailTween){ trailTween.kill(); trailTween = null; }
+  if(!selectedCharId || !toDial || !layers.has('Characters')) return;
+  const pts = locationHistory(selectedCharId).filter(p => p.eraId === eraNow())
+    .map(p => { const vp = projectPoint(p.lat, p.lng, p.continentId); return vp ? Object.assign(toDial(vp), { name: p.name, chapter: p.chapter }) : null; })
+    .filter(Boolean)
+    .filter((p, i, arr) => i === 0 || Math.hypot(p.x - arr[i - 1].x, p.y - arr[i - 1].y) > 2);
+  if(pts.length < 2) return;
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('class', 'track-svg');
+  const d = pts.map((p, i) => (i ? 'L' : 'M') + p.x.toFixed(1) + ' ' + p.y.toFixed(1)).join(' ');
+  svg.innerHTML = `<path class="trail" d="${d}"/>` +
+    pts.map((p, i) => `<circle class="stop" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.4"/><text class="stop-label" x="${(p.x + 7).toFixed(1)}" y="${(p.y - 6).toFixed(1)}">${String(i + 1).padStart(2, '0')}</text>`).join('') +
+    `<g class="blip"><circle class="blip-ring" r="7"/><circle class="blip-dot" r="2.4"/></g>`;
+  markersEl.insertBefore(svg, markersEl.firstChild);
+  const path = svg.querySelector('.trail'), blip = svg.querySelector('.blip'), L = path.getTotalLength();
+  const st = { t: 0 };
+  const place = () => { const q = path.getPointAtLength(st.t * L); blip.setAttribute('transform', `translate(${q.x.toFixed(1)} ${q.y.toFixed(1)})`); };
+  place();
+  if(window.gsap && !matchMedia('(prefers-reduced-motion: reduce)').matches){
+    gsap.fromTo(path, { strokeDashoffset: L }, { strokeDashoffset: 0, duration: 1.2, ease: 'power2.out' });
+    trailTween = gsap.to(st, { t: 1, duration: Math.max(3, pts.length * 1.6), ease: 'none', repeat: -1, onUpdate: place });
+  }
 }
 
 function wireMarkerEvents(el, c){
@@ -1697,6 +1744,30 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
 // ---- first render, then the deep link from the Dossier ----
 // atlas.html?char=<dossierCharId> opens the Characters view with that
 // subject selected and the view moved to where they are.
+// ---- living terrain under the map (drag to pan, hover to raise) ----
+const terrainReadout = document.getElementById('terrainReadout');
+const terrain = window.EpitaphTerrain ? new EpitaphTerrain(document.getElementById('terrainCanvas'), {
+  host: document.getElementById('dialWrap'), color: '#ffb238', dim: '#8a5a14', lift: 1.4, levels: 10,
+  onReadout(r){
+    if(!terrainReadout) return;
+    if(!r){ terrainReadout.innerHTML = '<span class="dim">DRAG TO MOVE THE LAND · HOVER TO RAISE IT</span>'; return; }
+    terrainReadout.textContent = r.land ? `ELEV ${r.elevation.toLocaleString()} M · ${geo.scale.toUpperCase()}` : `SEA · DEPTH ${Math.abs(r.elevation).toLocaleString()} M`;
+  }
+}) : null;
+function syncTerrain(){
+  if(!terrain) return;
+  const key = [eraNow(), geo.scale, geo.siteId || geo.cityId || geo.countryId || geo.continentId || 'world'].join(':');
+  if(terrain._key !== key){ terrain._key = key; terrain.seed(key); terrain.island = geo.scale === 'World' ? 0 : 1; }
+  terrain.setActive(layers.has('Terrain'));
+  terrain.cv.classList.toggle('world', geo.scale === 'World');
+}
+(function signalClock(){
+  const el = document.getElementById('signalClock'); if(!el) return;
+  const t0 = Date.now();
+  const tick = () => { el.textContent = new Date(Date.now() - t0).toISOString().slice(11, 19); };
+  tick(); setInterval(tick, 1000);
+})();
+
 renderSiteFilter();
 syncLayerItems();
 renderView();

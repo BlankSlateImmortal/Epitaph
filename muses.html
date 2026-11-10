@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Epitaph — Muses</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Noto+Serif+JP:wght@500;900&family=VT323&family=Space+Mono:wght@400;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;1,8..60,400&display=swap" rel="stylesheet">
+<style>
+  /* Layout: nav, title band, muse files in a 2-column grid, generator settings at the end. */
+  :root{ --ink:#080603; --bone:#f1e6cf; --dust:#b5904f; --line:rgba(255,178,56,.17); --panel:#0e0a05; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; background:var(--ink); color:var(--bone); }
+  body{ font-family:'Source Serif 4',Georgia,serif; font-size:16px; line-height:1.5; min-height:100vh; }
+  .app{ max-width:1320px; margin:0 auto; padding:24px max(16px, 3vw) 80px; }
+  .top-nav{ display:flex; justify-content:space-between; align-items:center; padding-bottom:16px; border-bottom:1px solid var(--line); }
+  .top-nav .actions{ display:flex; }
+
+  .m-title{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:20px; align-items:end; padding:34px 0 22px; border-bottom:1px solid var(--line); }
+  .m-title h1{ font-family:var(--f-display); font-weight:400; font-size:clamp(64px,10vw,140px); line-height:.82; margin:0; text-transform:uppercase; letter-spacing:.03em; }
+  .m-title h1 .ch{ display:inline-block; }
+  .m-title p{ font-family:var(--f-mono); font-size:12px; color:var(--dust); max-width:58ch; margin:12px 0 0; }
+  .m-title .jp{ font-family:var(--f-jp); font-weight:900; font-size:44px; writing-mode:vertical-rl; letter-spacing:.2em; color:var(--amber); text-shadow:var(--phosphor-glow); }
+
+  .m-tools{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; padding:18px 0; }
+  .m-tools .count{ font-family:var(--f-crt); font-size:20px; color:var(--amber); text-shadow:var(--phosphor-glow); }
+
+  .m-grid{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:18px; }
+  .muse{ border:1px solid var(--amber-dim); background:var(--panel); display:grid; grid-template-columns:200px minmax(0,1fr); position:relative; scroll-margin-top:20px; }
+  .muse.flash{ box-shadow:0 0 0 2px var(--amber), 0 0 40px rgba(255,178,56,.25); }
+  .muse .pic{ border-right:1px solid var(--amber-dim); background:#050403; position:relative; }
+  .muse .pic img{ display:block; width:100%; height:auto; }
+  .muse .pic .tag{ position:absolute; left:8px; top:8px; font-family:var(--f-crt); font-size:16px; color:var(--ink); background:var(--amber); padding:0 6px; }
+  .muse .body{ display:flex; flex-direction:column; min-width:0; }
+  .muse .bar{ display:flex; justify-content:space-between; align-items:center; gap:8px; padding:8px 14px; border-bottom:1px solid var(--amber-dim); font-family:var(--f-crt); font-size:18px; color:var(--amber); text-shadow:var(--phosphor-glow); }
+  .muse .bar .acts{ display:flex; gap:6px; }
+  .muse .bar button{ font-family:var(--f-crt); font-size:17px; color:var(--amber); background:none; border:1px solid var(--amber-dim); padding:0 8px; cursor:pointer; }
+  .muse .bar button:hover, .muse .bar button:focus-visible{ background:var(--amber); color:var(--ink); outline:none; }
+  .muse h2{ font-family:var(--f-display); font-weight:400; font-size:clamp(40px,4.4vw,64px); line-height:.86; margin:12px 14px 2px; text-transform:uppercase; letter-spacing:.03em; overflow-wrap:anywhere; }
+  .muse .src{ margin:0 14px; font-family:var(--f-mono); font-size:10px; letter-spacing:.2em; text-transform:uppercase; color:var(--dust); }
+  .muse blockquote{ margin:12px 14px 4px; font-style:italic; font-size:16px; border-left:3px solid var(--amber); padding-left:10px; color:var(--bone); }
+  .muse dl{ margin:10px 14px; display:grid; grid-template-columns:104px minmax(0,1fr); gap:6px 12px; font-size:14px; }
+  .muse dt{ font-family:var(--f-mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--dust); padding-top:3px; }
+  .muse dd{ margin:0; }
+  .muse dd.empty{ color:#6b5a3c; font-style:italic; }
+  .muse .quotes{ margin:4px 14px 10px; display:flex; flex-direction:column; gap:6px; }
+  .muse .quotes .q{ display:flex; gap:8px; align-items:baseline; font-size:14px; color:var(--amber-hi); }
+  .muse .quotes .q::before{ content:'“'; color:var(--amber); font-family:var(--f-display); }
+  .muse .quotes .q button{ margin-left:auto; background:none; border:0; color:var(--dust); cursor:pointer; font-size:14px; }
+  .muse .quotes .q button:hover{ color:var(--ember); }
+  .muse .qadd{ display:flex; gap:6px; margin:0 14px 12px; }
+  .muse .qadd input{ flex:1; min-width:0; background:var(--ink); border:1px solid var(--line); color:var(--bone); padding:6px 8px; font-family:'Source Serif 4',serif; font-size:14px; }
+  .muse .qadd button{ font-family:var(--f-crt); font-size:17px; background:none; color:var(--amber); border:1px solid var(--amber-dim); cursor:pointer; padding:0 10px; }
+  .muse .used{ margin-top:auto; padding:8px 14px; border-top:1px solid var(--amber-dim); font-family:var(--f-crt); font-size:17px; color:var(--amber-dim); display:flex; flex-wrap:wrap; gap:8px; }
+  .muse .used a{ color:var(--amber); text-decoration:none; }
+  .muse .used a:hover{ text-decoration:underline; }
+
+  /* edit form */
+  .m-form{ display:grid; gap:10px; padding:12px 14px 14px; }
+  .m-form .row{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .m-form label{ display:flex; flex-direction:column; gap:4px; font-family:var(--f-mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--dust); }
+  .m-form input, .m-form textarea, .m-form select{ background:var(--ink); color:var(--bone); border:1px solid var(--line); padding:7px 9px; font-family:'Source Serif 4',serif; font-size:14px; text-transform:none; letter-spacing:0; min-width:0; }
+  .m-form textarea{ min-height:52px; resize:vertical; }
+  .m-form .acts{ display:flex; gap:8px; justify-content:flex-end; }
+
+  /* generator settings */
+  .gen-set{ margin-top:46px; border-top:1px solid var(--line); padding-top:26px; }
+  .gen-set h2{ font-family:var(--f-crt); font-weight:400; font-size:28px; letter-spacing:.08em; color:var(--amber); text-shadow:var(--phosphor-glow); margin:0; }
+  .gen-set p{ font-family:var(--f-mono); font-size:12px; color:var(--dust); max-width:70ch; }
+  .gen-opts{ display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:10px; margin:12px 0 22px; }
+  .gen-opt{ border:1px solid var(--line); cursor:pointer; position:relative; background:#050403; }
+  .gen-opt img{ display:block; width:100%; height:auto; transition:opacity .2s, filter .2s; }
+  .gen-opt span{ display:flex; justify-content:space-between; font-family:var(--f-crt); font-size:18px; color:var(--amber); padding:4px 8px; border-top:1px solid var(--line); }
+  .gen-opt input{ position:absolute; opacity:0; pointer-events:none; }
+  .gen-opt:has(input:not(:checked)) img{ opacity:.18; filter:grayscale(1); }
+  .gen-opt:has(input:not(:checked)) span{ color:#6b5a3c; text-decoration:line-through; }
+  .gen-opt:has(input:checked){ border-color:var(--amber); }
+  .gen-opt:has(input:focus-visible){ outline:2px solid var(--amber); outline-offset:2px; }
+
+  @media (max-width:980px){ .m-grid{ grid-template-columns:1fr; } }
+  @media (max-width:620px){
+    .muse{ grid-template-columns:1fr; } .muse .pic{ border-right:0; border-bottom:1px solid var(--amber-dim); max-width:260px; }
+    .m-title{ grid-template-columns:1fr; } .m-title .jp{ writing-mode:horizontal-tb; font-size:30px; }
+    .gen-opts{ grid-template-columns:repeat(3, minmax(0,1fr)); }
+    .m-form .row{ grid-template-columns:1fr; }
+  }
+</style>
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=1">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="assets/portrait-gen.js?v=1"></script>
+<script src="assets/epitaph-muses.js?v=1"></script>
+</head>
+<body>
+<div class="app">
+  <div class="top-nav">
+    <div class="brand">EPITAPH // MUSES</div>
+    <div class="actions">
+      <a class="btn ghost" href="index.html">Dossier</a>
+      <a class="btn ghost" href="atlas.html">Atlas</a>
+      <button class="btn primary" id="addMuse" type="button">+ New muse</button>
+    </div>
+  </div>
+
+  <header class="m-title">
+    <div>
+      <h1 id="mTitle">Muses</h1>
+      <p>Reference characters to build from. Link any number of them to a Dossier character and their notes appear as a guide while you fill in the profile. Portraits here are drawn by the generator, never copied from the source art.</p>
+    </div>
+    <span class="jp" lang="ja">霊感</span>
+  </header>
+
+  <div class="m-tools">
+    <span class="count" id="mCount">— MUSES ON FILE</span>
+    <nav class="menu-slant" aria-label="Jump to">
+      <a href="#genSettings">Generator settings</a>
+      <button type="button" id="resetMuses">Restore defaults</button>
+    </nav>
+  </div>
+
+  <main class="m-grid" id="mGrid" aria-live="polite"></main>
+
+  <section class="gen-set" id="genSettings" aria-labelledby="genTitle">
+    <h2 id="genTitle">PORTRAIT GENERATOR</h2>
+    <p>Characters without art get a generated portrait. Switch off any figure or style you don't like and it will never be auto-picked. You can still choose it on purpose in a character's form, and Reroll there gives a new variation.</p>
+    <h3 class="sig-bar" style="padding-left:0;border-bottom:0;margin:0;font-weight:400">FIGURES</h3>
+    <div class="gen-opts" id="figOpts"></div>
+    <h3 class="sig-bar" style="padding-left:0;border-bottom:0;margin:0;font-weight:400">STYLES</h3>
+    <div class="gen-opts" id="styleOpts"></div>
+  </section>
+</div>
+
+<script>
+(function(){
+  const M = window.EpitaphMuses, P = window.EpitaphPortrait;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let muses = M.load();
+  let editing = null; // muse id being edited, or 'new'
+
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  function dossierChars(){
+    try { const st = JSON.parse(localStorage.getItem('epitaph-character-profiles') || '{}'); return Array.isArray(st.characters) ? st.characters : []; } catch(e){ return []; }
+  }
+  function persist(){ if(!M.save(muses)) alert('Could not save — browser storage may be full.'); }
+
+  function card(m){
+    const users = dossierChars().filter(c => Array.isArray(c.museIds) && c.museIds.includes(m.id));
+    if(editing === m.id) return formCard(m);
+    return `
+    <article class="muse" id="${esc(m.id)}">
+      <div class="pic"><img data-muse="${esc(m.id)}" alt="Generated portrait for ${esc(m.name)}" width="240" height="300"><span class="tag">${esc((m.style || 'auto').toUpperCase())}</span></div>
+      <div class="body">
+        <div class="bar"><span>MUSE FILE</span><span class="acts"><button type="button" data-edit="${esc(m.id)}">EDIT</button><button type="button" data-del="${esc(m.id)}">DELETE</button></span></div>
+        <h2>${esc(m.name || 'Unnamed')}</h2>
+        <div class="src">${esc(m.source || 'Source not set')}</div>
+        ${m.epitaph ? `<blockquote>${esc(m.epitaph)}</blockquote>` : ''}
+        <dl>${M.FIELDS.map(f => `<dt>${esc(f.label)}</dt><dd class="${m[f.key] ? '' : 'empty'}">${m[f.key] ? esc(m[f.key]) : 'Not written yet'}</dd>`).join('')}</dl>
+        ${m.quotes.length ? `<div class="quotes">${m.quotes.map((q, i) => `<div class="q"><span>${esc(q)}</span><button type="button" data-qdel="${esc(m.id)}:${i}" aria-label="Remove this line">×</button></div>`).join('')}</div>` : ''}
+        <form class="qadd" data-qadd="${esc(m.id)}"><input type="text" id="q_${esc(m.id)}" placeholder="Add a line you love (saved in this browser only)" aria-label="Add a line for ${esc(m.name)}"><button type="submit">+ ADD</button></form>
+        <div class="used">USED BY: ${users.length ? users.map(c => `<a href="index.html">${esc(c.name || 'Unnamed')}</a>`).join(' · ') : 'no characters yet'}</div>
+      </div>
+    </article>`;
+  }
+
+  function formCard(m){
+    const isNew = editing === 'new';
+    const opt = (list, cur, label) => `<option value="">${label}: auto</option>` + list.map(v => `<option value="${v}" ${cur === v ? 'selected' : ''}>${v}</option>`).join('');
+    return `
+    <article class="muse" id="${esc(m.id)}">
+      <div class="pic"><img data-muse="${esc(m.id)}" id="formPic" alt="Portrait preview" width="240" height="300"></div>
+      <form class="body m-form" id="museForm">
+        <div class="bar" style="margin:-12px -14px 4px"><span>${isNew ? 'NEW MUSE' : 'EDIT MUSE'}</span><span></span></div>
+        <div class="row">
+          <label for="mf_name">Name<input id="mf_name" required value="${esc(m.name)}"></label>
+          <label for="mf_source">Source (book / show)<input id="mf_source" value="${esc(m.source)}"></label>
+        </div>
+        ${M.FIELDS.map(f => `<label for="mf_${f.key}">${esc(f.label)}<textarea id="mf_${f.key}">${esc(m[f.key])}</textarea></label>`).join('')}
+        <label for="mf_epitaph">Epitaph line (your own one-liner)<input id="mf_epitaph" value="${esc(m.epitaph)}"></label>
+        <div class="row">
+          <label for="mf_figure">Portrait figure<select id="mf_figure">${opt(P.ARCHETYPES, m.figure, 'Figure')}</select></label>
+          <label for="mf_style">Portrait style<select id="mf_style">${opt(P.STYLES, m.style, 'Style')}</select></label>
+        </div>
+        <div class="acts"><button type="button" class="btn ghost" id="mf_cancel">Cancel</button><button type="submit" class="btn primary">Save muse</button></div>
+      </form>
+    </article>`;
+  }
+
+  function render(){
+    const list = editing === 'new' ? [M.normalise({ id: 'muse_' + Date.now().toString(36) }), ...muses] : muses;
+    if(editing === 'new') list[0].__new = true;
+    const grid = document.getElementById('mGrid');
+    grid.innerHTML = list.map(card).join('') || '<p class="count">No muses yet. Add one to start your reference wall.</p>';
+    document.getElementById('mCount').textContent = String(muses.length).padStart(2, '0') + ' MUSES ON FILE';
+    grid.querySelectorAll('img[data-muse]').forEach(img => {
+      const m = list.find(x => x.id === img.dataset.muse); if(!m) return;
+      P.render(M.portraitOpts(m)).then(u => { img.src = u; }).catch(() => {});
+    });
+    wire(list);
+  }
+
+  function wire(list){
+    const grid = document.getElementById('mGrid');
+    grid.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => { editing = b.dataset.edit; render(); focusForm(); });
+    grid.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
+      const m = muses.find(x => x.id === b.dataset.del);
+      if(!m || !confirm(`Delete the muse "${m.name}"? Characters that link to it keep their other muses.`)) return;
+      muses = muses.filter(x => x.id !== m.id); persist(); render();
+    });
+    grid.querySelectorAll('[data-qdel]').forEach(b => b.onclick = () => {
+      const [id, i] = b.dataset.qdel.split(':'); const m = muses.find(x => x.id === id);
+      if(m){ m.quotes.splice(+i, 1); persist(); render(); }
+    });
+    grid.querySelectorAll('form[data-qadd]').forEach(f => f.onsubmit = (e) => {
+      e.preventDefault(); const m = muses.find(x => x.id === f.dataset.qadd); const inp = f.querySelector('input');
+      if(m && inp.value.trim()){ m.quotes.push(inp.value.trim()); persist(); render(); }
+    });
+    const form = document.getElementById('museForm');
+    if(form){
+      const draft = list.find(x => x.id === (editing === 'new' ? list[0].id : editing));
+      const pic = document.getElementById('formPic');
+      const preview = () => { P.render(M.portraitOpts({ name: document.getElementById('mf_name').value || 'new', figure: document.getElementById('mf_figure').value, style: document.getElementById('mf_style').value, accent: draft.accent })).then(u => { pic.src = u; }); };
+      ['mf_name', 'mf_figure', 'mf_style'].forEach(id => document.getElementById(id).addEventListener('input', preview));
+      document.getElementById('mf_cancel').onclick = () => { editing = null; render(); };
+      form.onsubmit = (e) => {
+        e.preventDefault();
+        const out = Object.assign({}, draft);
+        delete out.__new;
+        out.name = document.getElementById('mf_name').value.trim();
+        out.source = document.getElementById('mf_source').value.trim();
+        out.epitaph = document.getElementById('mf_epitaph').value.trim();
+        out.figure = document.getElementById('mf_figure').value;
+        out.style = document.getElementById('mf_style').value;
+        M.FIELDS.forEach(f => { out[f.key] = document.getElementById('mf_' + f.key).value.trim(); });
+        if(editing === 'new') muses.unshift(M.normalise(out)); else muses = muses.map(x => x.id === out.id ? M.normalise(out) : x);
+        const id = out.id; editing = null; persist(); render(); flash(id);
+      };
+    }
+  }
+  function focusForm(){ const f = document.getElementById('mf_name'); if(f){ f.closest('.muse').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' }); f.focus({ preventScroll: true }); } }
+  function flash(id){
+    const el = document.getElementById(id); if(!el) return;
+    el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+    el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1800);
+  }
+
+  document.getElementById('addMuse').onclick = () => { editing = 'new'; render(); focusForm(); };
+  document.getElementById('resetMuses').onclick = () => {
+    if(!confirm('Restore the five starter muses? Muses you added stay; edited starter muses are reset.')) return;
+    const custom = muses.filter(m => !M.DEFAULTS.some(d => d.id === m.id));
+    muses = M.DEFAULTS.map(d => M.normalise(JSON.parse(JSON.stringify(d)))).concat(custom); persist(); render();
+  };
+
+  // ---- generator settings ----
+  function renderGenSettings(){
+    const prefs = P.getPrefs();
+    const sample = { name: 'Specimen', storyline: '', mythos: '' };
+    const fig = document.getElementById('figOpts'), sty = document.getElementById('styleOpts');
+    fig.innerHTML = P.ARCHETYPES.map(a => `<label class="gen-opt"><input type="checkbox" data-fig="${a}" ${prefs.figures.includes(a) ? 'checked' : ''}><img alt="${a} figure" data-prev-fig="${a}"><span>${a.toUpperCase()}<b>${prefs.figures.includes(a) ? 'ON' : 'OFF'}</b></span></label>`).join('');
+    sty.innerHTML = P.STYLES.map(s => `<label class="gen-opt"><input type="checkbox" data-sty="${s}" ${prefs.styles.includes(s) ? 'checked' : ''}><img alt="${s} style" data-prev-sty="${s}"><span>${s.toUpperCase()}<b>${prefs.styles.includes(s) ? 'ON' : 'OFF'}</b></span></label>`).join('');
+    fig.querySelectorAll('img').forEach(img => P.render(Object.assign({}, sample, { archetype: img.dataset.prevFig, style: 'ink', accent: '#ffb238' })).then(u => img.src = u));
+    sty.querySelectorAll('img').forEach(img => P.render(Object.assign({}, sample, { archetype: 'hood', style: img.dataset.prevSty, accent: '#ffb238' })).then(u => img.src = u));
+    const save = () => {
+      const figures = [...fig.querySelectorAll('input:checked')].map(i => i.dataset.fig);
+      const styles = [...sty.querySelectorAll('input:checked')].map(i => i.dataset.sty);
+      if(!figures.length || !styles.length){ alert('Keep at least one figure and one style switched on.'); renderGenSettings(); return; }
+      P.setPrefs({ figures, styles }); renderGenSettings();
+    };
+    fig.querySelectorAll('input').forEach(i => i.onchange = save);
+    sty.querySelectorAll('input').forEach(i => i.onchange = save);
+  }
+
+  render();
+  renderGenSettings();
+  if(location.hash) setTimeout(() => flash(decodeURIComponent(location.hash.slice(1))), 300);
+
+  if(window.gsap && !reduce){
+    const h = document.getElementById('mTitle');
+    h.innerHTML = [...h.textContent].map(c => `<span class="ch">${c}</span>`).join('');
+    gsap.fromTo('#mTitle .ch', { yPercent: 100, opacity: 0 }, { yPercent: 0, opacity: 1, duration: .9, ease: 'expo.out', stagger: .05 });
+    gsap.fromTo('.muse', { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: .7, ease: 'power3.out', stagger: .08, delay: .2 });
+  }
+})();
+</script>
+</body>
+</html>
