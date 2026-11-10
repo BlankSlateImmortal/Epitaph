@@ -14,6 +14,8 @@
   const W = 240, H = 300;
   const STYLES = ['ink', 'halftone', 'pixel', 'neon', 'dither'];
   const ARCHETYPES = ['hood', 'spike', 'plush', 'wisp', 'capsule'];
+  // Only Spike is on by default (the user disliked the others); the rest stay selectable on the Muses page.
+  const DEFAULT_FIGURES = ['spike'];
   const PAL = {
     ink: '#0b0b0d', void: '#020203', bone: '#ece6d8', dust: '#9c927e', paper: '#e4ddcc',
     ember: '#c4482b', gold: '#d8b25a', verdigris: '#6fb3a3', cyan: '#5ec8ff', violet: '#9b7bff'
@@ -69,7 +71,7 @@
     const key = [o.name || 'unnamed', o.storyline || '', o.mythos || '', o.divineStatus || '', o.faction || '', o.seed || ''].join('|');
     const r = rng(hash(key));
     const traits = traitsOf(o);
-    const figPool = (Array.isArray(o.allowFigures) && o.allowFigures.filter(a => ARCHETYPES.includes(a)).length) ? o.allowFigures.filter(a => ARCHETYPES.includes(a)) : ARCHETYPES;
+    const figPool = (Array.isArray(o.allowFigures) && o.allowFigures.filter(a => ARCHETYPES.includes(a)).length) ? o.allowFigures.filter(a => ARCHETYPES.includes(a)) : DEFAULT_FIGURES;
     const stylePool = (Array.isArray(o.allowStyles) && o.allowStyles.filter(a => STYLES.includes(a)).length) ? o.allowStyles.filter(a => STYLES.includes(a)) : STYLES;
     const archetype = ARCHETYPES.includes(o.archetype) ? o.archetype : figPool[hash(key + '#a') % figPool.length];
     const style = STYLES.includes(o.style) ? o.style : stylePool[hash(key + '#s') % stylePool.length];
@@ -437,8 +439,8 @@
   // Site-wide generator preferences (which figures/styles auto-pick may use).
   const PREF_KEY = 'epitaph-portrait-prefs';
   function getPrefs() {
-    try { const p = JSON.parse(localStorage.getItem(PREF_KEY) || '{}'); return { figures: Array.isArray(p.figures) ? p.figures : ARCHETYPES.slice(), styles: Array.isArray(p.styles) ? p.styles : STYLES.slice() }; }
-    catch (e) { return { figures: ARCHETYPES.slice(), styles: STYLES.slice() }; }
+    try { const p = JSON.parse(localStorage.getItem(PREF_KEY) || '{}'); return { figures: Array.isArray(p.figures) ? p.figures : DEFAULT_FIGURES.slice(), styles: Array.isArray(p.styles) ? p.styles : STYLES.slice() }; }
+    catch (e) { return { figures: DEFAULT_FIGURES.slice(), styles: STYLES.slice() }; }
   }
   function setPrefs(p) { try { localStorage.setItem(PREF_KEY, JSON.stringify(p)); } catch (e) {} cache.clear(); }
   // Options for a Dossier character: its own overrides, else the site prefs.
