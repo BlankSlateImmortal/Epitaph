@@ -334,6 +334,14 @@
     ctx.globalCompositeOperation = 'multiply'; ctx.globalAlpha = 0.18; ctx.fillStyle = accent;
     ctx.fillRect(cv.width - 10 * scale, 0, 10 * scale, cv.height);
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    if (o.background === false) {
+      // cut the printed sheet to the figure's outline (a sticker), so it can stand on dark pages
+      const mask = await loadImage(svgDataUrl(buildSvg(Object.assign({}, o, { background: null }), 'fill')));
+      ctx.globalCompositeOperation = 'destination-in';
+      ctx.shadowColor = '#000'; ctx.shadowBlur = 6 * scale;
+      ctx.drawImage(mask, 0, 0, cv.width, cv.height);
+      ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+    }
     return cv;
   }
 

@@ -1258,10 +1258,10 @@
     .gen-columns{ flex-direction:column; }
   }
 </style>
-<link rel="stylesheet" href="assets/epitaph-theme.css?v=5">
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=7">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-<script src="assets/portrait-gen.js?v=5"></script>
-<script src="assets/epitaph-muses.js?v=5"></script>
+<script src="assets/portrait-gen.js?v=7"></script>
+<script src="assets/epitaph-muses.js?v=7"></script>
 </head>
 <body>
 <svg class="grain" width="0" height="0">
@@ -1292,6 +1292,7 @@
     <!-- populated by JS: either .poster or .empty-state -->
   </div>
 
+  <div class="rail-head"><span>SELECT SUBJECT</span><span class="rail-rule"></span><span id="railCount"></span></div>
   <div class="rail" id="rail"></div>
 
   <div class="system-section" id="systemSection">
@@ -2104,34 +2105,7 @@ function renderSystemSection(){
 
   container.innerHTML = `
     <div class="section-label">SYSTEM — ${escapeHtml(char.name || 'Unnamed')}</div>
-    <div class="terminal-banner compact" style="--accent:${accent}">
-      <div class="tb-head">
-        <span class="tb-record">${isDivine ? 'DIVINE RECORD' : 'CHARACTER RECORD'} // ${recordIndex}</span>
-        <span class="tb-status">● ${escapeHtml(statusLabel)}</span>
-      </div>
-      <div class="tb-body">
-        <div class="avatar-wrap" id="avatarWrap">
-          <div class="avatar-clip">
-            <img src="${portraitSrc}" ${portraitSrc === SILHOUETTE_SVG ? `data-gen-char="${escapeAttr(char.id)}"` : ''} alt="${escapeHtml(char.name)}" style="object-position:${sPos.x}% ${sPos.y}%;">
-            <div class="expand-hint">CLICK TO EXPAND</div>
-          </div>
-          <div class="tb-portrait-label">${isDivine ? 'STATUE' : 'PORTRAIT'}</div>
-          ${renderCornerMarks()}
-          <button class="reposition-btn avatar-edit-btn" id="editAvatarImageBtn" title="Change or reposition this picture">⤡</button>
-        </div>
-        <div class="tb-identity">
-          <div class="tb-name display">${escapeHtml(char.name || 'Unnamed')}</div>
-          ${sortedTitles.length ? `<div class="titles-row">${sortedTitles.map((t, idx) => renderTitleChip(t, char.mythos, idx)).join('')}</div>` : ''}
-          <div class="tb-strip inline">
-            ${isDivine ? `<div class="tb-field"><span class="tb-field-label">AUTHORITY</span><span class="tb-field-value${char.authority ? '' : ' empty'}">${char.authority ? escapeHtml(char.authority) : 'Unrecorded'}</span></div>` : ''}
-            <div class="tb-field"><span class="tb-field-label">EMOTIONAL STATE</span><span class="tb-field-value${snap.emotionalState ? '' : ' empty'}">${snap.emotionalState ? escapeHtml(snap.emotionalState) : 'Unrecorded'}</span></div>
-            <div class="tb-field"><span class="tb-field-label">FACTION</span><span class="tb-field-value${char.faction ? '' : ' empty'}">${char.faction ? escapeHtml(char.faction) : 'Unassigned'}</span></div>
-          </div>
-          ${isDivine ? `<div class="tb-divine-marks">${divineStatuses.map(ds => `<span class="tb-divine-mark${char.divineStatus === ds ? ' active' : ''}">[${char.divineStatus === ds ? '●' : '○'} ${ds.toUpperCase()}]</span>`).join('')}</div>` : ''}
-          <button class="slant-btn" id="mwOpenIdentity" type="button">Edit identity</button>
-        </div>
-      </div>
-    </div>
+    ${renderCharacterRecord(char, snap, portraitSrc, sPos, recordIndex, statusLabel)}
 
     <div class="codex">
       <div class="codex-tabs" role="tablist" aria-label="System sheet pages">
@@ -2144,18 +2118,125 @@ function renderSystemSection(){
     </div>
   `;
 
-  document.getElementById('avatarWrap').addEventListener('click', () => document.getElementById('avatarWrap').classList.toggle('expanded'));
-  document.getElementById('editAvatarImageBtn').addEventListener('click', (e) => { e.stopPropagation(); openAvatarImageModal(char, snap); });
   document.getElementById('editSystemBtn').addEventListener('click', () => openSystemForm(char, snap));
-  document.getElementById('mwOpenIdentity').addEventListener('click', () => openIdentityForm(char, snap));
+  wireCharacterRecord(char, snap, sortedTitles);
   container.querySelectorAll('.codex-tabs [data-tab]').forEach(b => b.addEventListener('click', () => {
     if(sysTab === b.dataset.tab) return;
     sysTab = b.dataset.tab;
     container.querySelectorAll('.codex-tabs [data-tab]').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); });
     renderCodexPage(char, snap, true);
   }));
-  if(sortedTitles.some(t => t.rankTier > 0)) wireTitleChipTooltips(sortedTitles, char.mythos);
   renderCodexPage(char, snap, false);
+}
+
+// ---- Character record: glass panel, figure stepping out of it, Persona-style command menu ----
+const REC_ITEMS = [
+  { k: 'identity', label: 'Identity', jp: '身元', x: 45, y: 13 },
+  { k: 'titles', label: 'Titles', jp: '称号', x: 64, y: 8 },
+  { k: 'status', label: 'Status', jp: '状態', x: 79, y: 26 },
+  { k: 'authority', label: 'Authority', jp: '権能', x: 44, y: 40 },
+  { k: 'faction', label: 'Faction', jp: '勢力', x: 82, y: 49 },
+  { k: 'state', label: 'State', jp: '感情', x: 46, y: 66 },
+  { k: 'portrait', label: 'Portrait', jp: '肖像', x: 77, y: 73 },
+  { k: 'edit', label: 'Edit', jp: '編集', x: 60, y: 90 }
+];
+let recOpen = false, recCmd = 'identity';
+function renderCharacterRecord(char, snap, portraitSrc, sPos, recordIndex, statusLabel){
+  const isGen = portraitSrc === SILHOUETTE_SVG;
+  return `
+    <section class="rec${recOpen ? ' open' : ''}" id="charRecord">
+      <div class="rec-bg" aria-hidden="true"><span lang="ja">${escapeHtml(glyphFor(char))}</span></div>
+      <div class="rec-glass">
+        <div class="rec-top"><span>${char.divineStatus ? 'DIVINE RECORD' : 'CHARACTER RECORD'} // ${recordIndex}</span><span>● ${escapeHtml(statusLabel)}</span></div>
+        <div class="rec-name-block">
+          <span class="rec-kicker">Subject</span>
+          <h2 class="rec-name">${escapeHtml(char.name || 'Unnamed')}</h2>
+          <div class="rec-sub">${escapeHtml([char.storyline, char.authority].filter(Boolean).join(' · ') || 'Unclassified')}</div>
+          <div class="rec-hint">▸ Click the figure to open the record</div>
+        </div>
+        <div class="rec-detail" id="recDetail" aria-live="polite"></div>
+        <span class="rec-vert" lang="ja">${escapeHtml(glyphFor(char))}</span>
+      </div>
+      <button type="button" class="rec-figure" id="recFigure" aria-expanded="${recOpen}" aria-controls="recMenu" aria-label="${recOpen ? 'Close' : 'Open'} the record of ${escapeAttr(char.name || 'this character')}">
+        <img src="${portraitSrc}" ${isGen ? `data-gen-char="${escapeAttr(char.id)}" data-gen-bg="off" class="gen"` : ''} alt="" style="object-position:${sPos.x}% ${sPos.y}%;">
+      </button>
+      <svg class="rec-lines" id="recLines" aria-hidden="true"></svg>
+      <nav class="rec-menu" id="recMenu" aria-label="Record commands">
+        <span class="rec-cmd-title">COMMAND</span>
+        ${REC_ITEMS.map(it => `<button type="button" class="rec-cmd${recCmd === it.k ? ' on' : ''}" data-cmd="${it.k}" style="left:${it.x}%;top:${it.y}%"><span>${it.label}</span><small lang="ja">${it.jp}</small></button>`).join('')}
+      </nav>
+    </section>`;
+}
+function recDetailHtml(cmd, char, snap, sortedTitles){
+  const divineStatuses = ['Fallen', 'Outer', 'Split'];
+  const row = (k, v, empty) => `<div class="rec-row"><span>${k}</span><b class="${v ? '' : 'empty'}">${v ? escapeHtml(v) : (empty || 'Unrecorded')}</b></div>`;
+  const head = (t, jp) => `<div class="rec-detail-head"><span>${t}</span><small lang="ja">${jp}</small></div>`;
+  const it = REC_ITEMS.find(i => i.k === cmd);
+  switch(cmd){
+    case 'identity': return head('IDENTITY', it.jp) + row('Name', char.name) + row('Storyline', char.storyline) + row('Glyph', glyphFor(char)) + row('Chapter', snap.chapterRange, 'No chapter set');
+    case 'titles': return head('TITLES', it.jp) + (sortedTitles.length ? `<div class="titles-row">${sortedTitles.map((t, idx) => renderTitleChip(t, char.mythos, idx)).join('')}</div>` : `<p class="rec-empty">No titles yet.</p>`);
+    case 'status': return head('STATUS', it.jp) + row('Mythos', char.mythos, 'None') + `<div class="rec-marks">${divineStatuses.map(ds => `<span class="${char.divineStatus === ds ? 'on' : ''}">[${char.divineStatus === ds ? '●' : '○'} ${ds.toUpperCase()}]</span>`).join('')}</div>`;
+    case 'authority': return head('AUTHORITY', it.jp) + row('Concept', char.authority) + row('Skills', String((snap.skills || []).length));
+    case 'faction': return head('FACTION', it.jp) + row('Faction', char.faction, 'Unassigned');
+    case 'state': return head('STATE', it.jp) + row('Emotional state', snap.emotionalState);
+    case 'portrait': return head('PORTRAIT', it.jp) + `<p class="rec-empty">${snap.systemPortrait || snap.portrait ? 'Uses your uploaded image.' : 'Uses the generated figure.'}</p><button type="button" class="slant-btn" id="recPortraitBtn">Change or reposition</button>`;
+    case 'edit': return head('EDIT', it.jp) + `<p class="rec-empty">Name, storyline, faction, mythos, divine status, titles and emotional state.</p><button type="button" class="slant-btn primary" id="recEditBtn">Edit identity</button>`;
+  }
+  return '';
+}
+function wireCharacterRecord(char, snap, sortedTitles){
+  const rec = document.getElementById('charRecord'); if(!rec) return;
+  const fig = document.getElementById('recFigure'), detail = document.getElementById('recDetail');
+  const lines = document.getElementById('recLines');
+  const anim = HAS_GSAP && !REDUCED_MOTION;
+  function drawLine(){
+    const r = rec.getBoundingClientRect(), fr = fig.getBoundingClientRect();
+    const btn = rec.querySelector(`.rec-cmd[data-cmd="${recCmd}"]`);
+    lines.setAttribute('viewBox', `0 0 ${r.width} ${r.height}`);
+    if(!recOpen || !btn){ lines.innerHTML = ''; return; }
+    const br = btn.getBoundingClientRect();
+    const fx = fr.left - r.left + fr.width * 0.5, fy = fr.top - r.top + fr.height * 0.34;
+    const bx = br.left - r.left + br.width / 2, by = br.top - r.top + br.height / 2;
+    lines.innerHTML = `<line x1="${fx}" y1="${fy}" x2="${bx}" y2="${by}" class="main"/><line x1="${fx}" y1="${fy}" x2="${fx - (bx - fx) * 0.9}" y2="${fy - (by - fy) * 0.9}" class="ghost"/><circle cx="${fx}" cy="${fy}" r="4"/>`;
+    if(anim){ const L = Math.hypot(bx - fx, by - fy); gsap.fromTo(lines.querySelector('.main'), { strokeDasharray: L, strokeDashoffset: L }, { strokeDashoffset: 0, duration: 0.45, ease: 'power2.out' }); }
+  }
+  function showCmd(k){
+    recCmd = k;
+    rec.querySelectorAll('.rec-cmd').forEach(b => b.classList.toggle('on', b.dataset.cmd === k));
+    detail.innerHTML = recDetailHtml(k, char, snap, sortedTitles);
+    if(k === 'titles' && sortedTitles.some(t => t.rankTier > 0)) wireTitleChipTooltips(sortedTitles, char.mythos);
+    const pb = document.getElementById('recPortraitBtn'); if(pb) pb.addEventListener('click', () => openAvatarImageModal(char, snap));
+    const eb = document.getElementById('recEditBtn'); if(eb) eb.addEventListener('click', () => openIdentityForm(char, snap));
+    if(anim) gsap.fromTo(detail.children, { x: -14, opacity: 0 }, { x: 0, opacity: 1, duration: 0.3, stagger: 0.04 });
+    drawLine();
+  }
+  function setOpen(open){
+    recOpen = open;
+    rec.classList.toggle('open', open);
+    fig.setAttribute('aria-expanded', open);
+    fig.setAttribute('aria-label', `${open ? 'Close' : 'Open'} the record of ${char.name || 'this character'}`);
+    const cmds = rec.querySelectorAll('.rec-cmd, .rec-cmd-title');
+    if(open) showCmd(recCmd); else { lines.innerHTML = ''; }
+    if(anim){
+      gsap.fromTo(fig, { y: 0 }, { y: -14, duration: 0.18, yoyo: true, repeat: 1, ease: 'power2.out' });
+      if(open){
+        gsap.fromTo(cmds, { opacity: 0, scale: 0.6, rotation: () => gsap.utils.random(-8, 8) }, { opacity: 1, scale: 1, rotation: 0, duration: 0.45, ease: 'back.out(2.2)', stagger: { each: 0.04, from: 'random' } });
+        gsap.fromTo('.rec-name-block', { opacity: 1 }, { opacity: 0, x: -20, duration: 0.25 });
+      } else {
+        gsap.to(cmds, { opacity: 0, scale: 0.7, duration: 0.2, stagger: 0.02 });
+        gsap.fromTo('.rec-name-block', { opacity: 0, x: -20 }, { opacity: 1, x: 0, duration: 0.35, delay: 0.1 });
+      }
+    }
+  }
+  fig.addEventListener('click', () => setOpen(!recOpen));
+  rec.querySelectorAll('.rec-cmd').forEach(b => {
+    b.addEventListener('click', () => showCmd(b.dataset.cmd));
+    b.addEventListener('mouseenter', () => { if(anim) gsap.fromTo(b, { x: 0 }, { x: 4, duration: 0.15, yoyo: true, repeat: 1 }); });
+  });
+  rec.addEventListener('keydown', (e) => { if(e.key === 'Escape' && recOpen){ setOpen(false); fig.focus(); } });
+  window.__recDraw = drawLine;
+  if(!window.__recResizeBound){ window.__recResizeBound = true; window.addEventListener('resize', () => window.__recDraw && window.__recDraw()); }
+  if(recOpen) showCmd(recCmd);
 }
 
 function codexLeft(n, eyebrow, big, meta, editId, editLabel){
@@ -3049,21 +3130,29 @@ function renderSideGallery(side, char, list){
 
 function renderRail(){
   rail.innerHTML = '';
+  const rc = document.getElementById('railCount'); if(rc) rc.textContent = String(state.characters.length).padStart(2, '0') + ' ON FILE';
   state.characters.forEach(c => {
     const snap = getActiveSnapshot(c);
     const thumb = document.createElement('div');
     thumb.className = 'thumb' + (c.id === state.activeId ? ' active' : '');
     thumb.title = c.name || 'Unnamed';
-    thumb.innerHTML = (snap && snap.portrait)
-      ? `<img src="${snap.portrait}" alt="${escapeHtml(c.name)}">`
-      : `<img src="${SILHOUETTE_SVG}" data-gen-char="${escapeAttr(c.id)}" alt="${escapeHtml(c.name)}">`;
+    thumb.tabIndex = 0;
+    thumb.setAttribute('role', 'button');
+    thumb.setAttribute('aria-pressed', c.id === state.activeId);
+    const img = (snap && snap.portrait)
+      ? `<img src="${snap.portrait}" alt="">`
+      : `<img src="${SILHOUETTE_SVG}" data-gen-char="${escapeAttr(c.id)}" data-gen-bg="off" alt="">`;
+    thumb.innerHTML = `<span class="thumb-fig">${img}</span><span class="thumb-name">${escapeHtml(c.name || 'Unnamed')}</span><span class="thumb-sub">${escapeHtml(c.storyline || c.authority || '—')}</span>`;
+    thumb.addEventListener('keydown', (e) => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); switchActiveCharacter(c.id); } });
     thumb.addEventListener('click', () => switchActiveCharacter(c.id));
     rail.appendChild(thumb);
   });
   const addTile = document.createElement('div');
   addTile.className = 'thumb-add';
-  addTile.textContent = '+';
+  addTile.innerHTML = '<b>+</b><span>New subject</span>';
   addTile.title = 'New character';
+  addTile.tabIndex = 0;
+  addTile.setAttribute('role', 'button');
   addTile.addEventListener('click', () => openCharacterForm());
   rail.appendChild(addTile);
 }
