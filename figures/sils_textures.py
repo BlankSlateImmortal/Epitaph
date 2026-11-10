@@ -72,3 +72,15 @@ for _ in range(16):
 d.line([(6, 18), (7, 30)], fill=BLOOD, width=2)
 c.save(os.path.join(out, 'sils_collar.png'))
 print('textures ->', out)
+
+# ---- blade 16x64: pale edges, dark gunmetal body, a faint ridge and a thin red line near the guard
+b = Image.new('RGB', (16, 64), (50, 52, 60))
+d = ImageDraw.Draw(b)
+for x in range(16):
+    k = abs(x - 7.5) / 7.5
+    c = (50, 52, 60) if k < .62 else (170, 176, 186) if k > .82 else (110, 114, 124)
+    d.line([(x, 0), (x, 63)], fill=c)
+d.line([(7, 0), (7, 63)], fill=(84, 86, 96)); d.line([(8, 0), (8, 63)], fill=(40, 42, 48))
+d.line([(7, 2), (7, 14)], fill=(120, 24, 30)); d.line([(8, 2), (8, 14)], fill=(90, 16, 22))
+b.save(os.path.join(out, 'sils_blade.png'))
+print('blade texture ->', out)
