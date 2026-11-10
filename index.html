@@ -2293,8 +2293,13 @@ function renderAuthorityTree(char, snap, animate){
     const f = nodes[fk], pos = {};
     pos[fk] = { x: CX, y: CY, r: 34, role: 'focus' };
     if(f.parent){ pos[f.parent] = { x: 96, y: CY, r: 20, role: 'parent' };
-      const sibs = nodes[f.parent].children.filter(k => k !== fk);
-      sibs.slice(0, 4).forEach((k, i) => { pos[k] = { x: 200, y: i % 2 ? CY + 110 + Math.floor(i / 2) * 18 : CY - 110 - Math.floor(i / 2) * 18, r: 13, role: 'sibling' }; });
+      // only the neighbours that the up / down keys go to, so labels never pile up
+      const all = nodes[f.parent].children, at = all.indexOf(fk);
+      if(all.length > 1){
+        const prev = all[(at - 1 + all.length) % all.length], next = all[(at + 1) % all.length];
+        pos[prev] = { x: 210, y: CY - 112, r: 13, role: 'sibling' };
+        if(next !== prev) pos[next] = { x: 210, y: CY + 104, r: 13, role: 'sibling' };
+      }
     }
     const kids = f.children.slice(0, 5);
     kids.forEach((k, i) => { const spread = kids.length === 1 ? 0 : (i / (kids.length - 1) - 0.5) * 220; pos[k] = { x: 520, y: CY + spread, r: 18, role: 'child' }; });
