@@ -4727,6 +4727,10 @@ modalBackdrop.addEventListener('click', (e) => {
   const linkedCharId = params.get('char');
   if(linkedCharId && state.characters.find(c => c.id === linkedCharId)){
     state.activeId = linkedCharId;
+    // index.html?char=<id>&ch=<n> opens the chapter version in effect at chapter n
+    const linked = state.characters.find(c => c.id === linkedCharId), n = parseInt(params.get('ch'), 10);
+    const v = Number.isInteger(n) ? stateAtChapter(linked, n) : null;
+    if(v) linked.activeSnapshotId = v.id;
   } else if(!state.activeId && state.characters.length){
     state.activeId = state.characters[0].id;
   }

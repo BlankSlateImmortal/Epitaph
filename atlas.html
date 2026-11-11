@@ -190,12 +190,35 @@
   .char-layer .loc-anchor{ cursor:pointer; }
   .char-layer .loc-anchor .plus{ stroke:var(--dust); stroke-width:0.6; opacity:0.6; }
   .char-layer .loc-anchor:hover .plus{ stroke:var(--bone); opacity:1; }
-  .track-layer .trail{ fill:none; stroke:var(--amber); stroke-width:1; stroke-dasharray:4 2.5; filter:drop-shadow(0 0 2px rgba(255,178,56,.6)); }
+  .track-layer .trail{ fill:none; stroke:var(--amber); stroke-width:1; filter:drop-shadow(0 0 2px rgba(255,178,56,.6)); }
   .track-layer .stop{ fill:var(--ink); stroke:var(--amber); stroke-width:0.9; }
   .track-layer .stop-label{ font-family:var(--f-crt, monospace); font-size:8px; fill:var(--amber); }
   .track-layer .blip-ring{ fill:none; stroke:var(--amber-hi, #ffd27a); stroke-width:0.8; }
   .track-layer .blip-dot{ fill:var(--amber-hi, #ffd27a); }
 
+  /* chapter slider */
+  .chapter-ctl{ display:flex; align-items:center; gap:10px; width:min(520px, 100%); margin:10px auto 0; position:relative; z-index:3; }
+  .chapter-ctl.empty .ch-step, .chapter-ctl.empty input, .chapter-ctl.empty .ch-ticks{ display:none; }
+  .ch-step{ min-width:44px; min-height:44px; background:transparent; border:1px solid var(--amber-dim, #8a5a14); color:var(--amber, #ffb238); font-size:22px; cursor:pointer; }
+  .ch-step:disabled{ opacity:.35; cursor:default; }
+  .ch-track{ flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+  .ch-label{ font-family:var(--f-crt, monospace); font-size:18px; color:var(--amber, #ffb238); text-align:center; letter-spacing:.08em; text-shadow:var(--phosphor-glow, none); }
+  .ch-track input[type=range]{ width:100%; accent-color:var(--amber, #ffb238); min-height:28px; }
+  .ch-ticks{ position:relative; height:14px; margin:0 8px; }
+  .ch-ticks span{ position:absolute; transform:translateX(-50%); font-size:10px; color:var(--dust); }
+  /* clusters, dead and missing markers, trail stops */
+  .char-layer .cluster{ cursor:pointer; }
+  .char-layer .cluster circle{ fill:var(--ink); stroke:var(--amber, #ffb238); stroke-width:.9; }
+  .char-layer .cluster text{ font-family:'Space Mono', monospace; font-size:6px; fill:var(--amber, #ffb238); }
+  .char-layer .cluster.open circle{ fill:var(--amber, #ffb238); }
+  .char-layer .char-marker[data-presence="dead"]{ opacity:.55; }
+  .char-layer .char-marker .dagger{ font-size:8px; fill:var(--dust); font-family:serif; }
+  .track-layer .trail.later{ stroke:var(--amber-dim, #8a5a14); stroke-dasharray:1.5 2.5; filter:none; opacity:.7; }
+  .track-layer .stop-g.later .stop{ stroke:var(--amber-dim, #8a5a14); }
+  .track-layer .stop-g.later .stop-label{ fill:var(--amber-dim, #8a5a14); }
+  .track-layer .stop-g.current .stop{ fill:var(--amber, #ffb238); }
+  .track-layer .stop-label{ font-size:6px; }
+  .subject-index .idx-row.absent{ opacity:.45; }
   .user-country-dot{ fill:none; stroke:var(--amber, #ffb238); stroke-width:.7; }
   /* Library drawer: right-hand panel on desktop, full-screen sheet on a phone */
   .lib-drawer{ position:fixed; inset:0; z-index:60; pointer-events:none; }
@@ -434,6 +457,15 @@
         <!-- character markers and trails are drawn inside the map's own SVG,
              in the same coordinate space as the places, so they stay aligned. -->
       </div>
+      <div class="chapter-ctl" id="chapterCtl">
+        <button type="button" class="ch-step" id="chPrev" aria-label="Previous chapter">‹</button>
+        <div class="ch-track">
+          <div class="ch-label" id="chLabel">CH —</div>
+          <input type="range" id="chSlider" min="0" max="0" step="1" value="0" aria-label="Chapter">
+          <div class="ch-ticks" id="chTicks" aria-hidden="true"></div>
+        </div>
+        <button type="button" class="ch-step" id="chNext" aria-label="Next chapter">›</button>
+      </div>
       <div class="scale-readout">
         <div class="label">LOCATION</div>
         <div class="value" id="scaleValue"></div>
@@ -452,11 +484,15 @@
         <button class="r-back" id="recordBack">← BACK TO INDEX</button>
         <div class="r-id" id="recId">SUBJECT // 001</div>
         <div class="r-name" id="recName">—</div>
+        <div class="r-row"><span>ARCHETYPE</span><span id="recArchetype">—</span></div>
+        <div class="r-row"><span>CHAPTER</span><span id="recChapter">—</span></div>
         <div class="r-row"><span>PRESENCE</span><span id="recStatus">—</span></div>
         <div class="r-row"><span>LOCATION</span><span id="recLocation">—</span></div>
-        <div class="r-row"><span>CHAPTER / STATE</span><span id="recChapter">—</span></div>
-        <div class="r-block-label">CURRENT OBJECTIVE</div>
+        <div class="r-row"><span>CAME FROM</span><span id="recCameFrom">—</span></div>
+        <div class="r-block-label">OBJECTIVE</div>
         <div class="r-activity" id="recObjective">—</div>
+        <div class="r-block-label">HEADING TOWARD</div>
+        <div class="r-activity" id="recHeading">—</div>
         <button class="r-open-btn" id="recOpenDossier">OPEN DOSSIER</button>
       </div>
 
@@ -981,15 +1017,16 @@ function syncLayerItems(){ document.querySelectorAll('.layer-item').forEach(el =
 function updateHud(){
   const n = mappedPlaces().length;
   document.getElementById('siteCounter').textContent = `${n} place${n === 1 ? '' : 's'} // all eras`;
-  document.getElementById('hTime').textContent = `ALL ERAS // ${SCALE_LABEL[geo.scale]}`;
+  document.getElementById('hTime').textContent = `${selChapter != null ? 'CH ' + selChapter : 'ALL ERAS'} // ${SCALE_LABEL[geo.scale]}`;
 }
 document.querySelectorAll('.scale-icon').forEach(el => el.addEventListener('click', () => goToScale(el.dataset.scale)));
 document.querySelector('.icon-btn[title="Reset view"]').addEventListener('click', goWorld);
 
 // ============================================================
-// CHARACTERS — everything comes from the Dossier's storage. The Atlas
-// keeps no character data of its own (the old epitaph-atlas-data mirror
-// is no longer read or written; it stays in storage untouched).
+// CHARACTERS — everything comes from the Dossier's storage; the Atlas
+// keeps no character data of its own. What the map shows is the state of
+// every character at the selected chapter (the chapter slider): the chapter
+// version with the highest start chapter ≤ the selected one.
 // ============================================================
 const DOSSIER_STORAGE_KEY = 'epitaph-character-profiles';
 let dossierState = { characters: [], activeId: null };
@@ -1004,38 +1041,31 @@ function loadDossierState(){
 const roster = () => dossierState.characters;
 function dossierCharById(id){ return roster().find(c => c.id === id) || null; }
 function dossierCharName(id){ const dc = dossierCharById(id); return dc ? (dc.name || 'Unnamed') : 'Unknown character'; }
-function dossierActiveSnap(id){
-  const dc = dossierCharById(id);
-  if(!dc) return null;
-  return (dc.snapshots || []).find(s => s.id === dc.activeSnapshotId) || (dc.snapshots || [])[0] || null;
-}
-function dossierChapterLabel(id){
-  const snap = dossierActiveSnap(id);
-  return snap ? (snap.chapterRange || '—') : '—';
-}
 const PRESENCE_LABEL = { alive: 'Alive', dead: 'Dead', missing: 'Missing' };
-function presenceOf(id){ const s = dossierActiveSnap(id); return PRESENCE_LABEL[(s && s.presence) || 'alive'] || 'Alive'; }
-function dossierCurrentObjective(id){
-  const dc = dossierCharById(id);
-  const snap = dossierActiveSnap(id);
-  if(!dc || !snap) return 'Unknown';
-  if(snap.objective) return snap.objective;
-  const gs = dossierGens().find(s => s.characterId === dc.id && s.snapshotId === snap.id);
-  if(!gs || !gs.timeline) return 'Unknown';
-  const committed = (gs.timeline.currentObjectives || []).filter(e => e.status === 'committed');
-  if(!committed.length) return 'Unknown';
-  return committed[committed.length - 1].text;
+
+// ---- chapters ----
+// The shared chapter list, plus any start chapter not in it, sorted.
+function chapterNumbers(){
+  const set = new Set((dossierState.chapters || []).map(c => c.number).filter(Number.isInteger));
+  roster().forEach(c => (c.snapshots || []).forEach(s => { if(Number.isInteger(s.startChapter)) set.add(s.startChapter); }));
+  return [...set].sort((a, b) => a - b);
 }
+function chapterTitle(n){ const c = (dossierState.chapters || []).find(x => x.number === n); return c && c.title ? c.title : ''; }
+function latestChapterWithData(){
+  const starts = [];
+  roster().forEach(c => (c.snapshots || []).forEach(s => { if(Number.isInteger(s.startChapter)) starts.push(s.startChapter); }));
+  return starts.length ? Math.max(...starts) : null;
+}
+let selChapter = null; // null = no chapter numbers yet: fall back to each character's active version
 
-loadDossierState();
-
-let selectedCharId = null;
-let selectedLoc = null; // a place id
-
-// ---- where a character is: Dossier → location reference → EpitaphWorld ----
-// The active chapter's own location (snapshot.location, old or new shape).
-// Older data without one falls back to the latest committed Current
-// Location entry of the retired Generation ledger.
+// Versions with a start chapter, in chapter order.
+function orderedVersions(c){ return (c.snapshots || []).filter(s => Number.isInteger(s.startChapter)).sort((a, b) => a.startChapter - b.startChapter); }
+// The version in effect at chapter n.
+function versionAt(c, n){
+  let best = null;
+  orderedVersions(c).forEach(s => { if(s.startChapter <= n) best = s; });
+  return best;
+}
 function dossierGens(){
   return dossierState.generationStates || dossierState.legacyGenerationStatesLatest || dossierState.legacyGenerationStates || [];
 }
@@ -1043,19 +1073,80 @@ function committedGenLocations(dc, snap){
   const gs = dossierGens().find(g => g.characterId === dc.id && g.snapshotId === snap.id);
   return gs && gs.timeline ? (gs.timeline.currentLocation || []).filter(e => e && e.status === 'committed' && e.locationRef) : [];
 }
+// A version's own location; very old data falls back to the retired Generation ledger.
 function snapLocationRef(dc, snap){
   if(snap.location) return snap.location;
   const list = committedGenLocations(dc, snap);
   return list.length ? list[list.length - 1].locationRef : null;
 }
-function placeOf(charId){
-  const dc = dossierCharById(charId), snap = dossierActiveSnap(charId);
-  if(!dc || !snap) return null;
-  const r = World.resolve(snapLocationRef(dc, snap));
-  return r && hasNum(r.lat) ? r : null;
+function resolvedAt(dc, snap){ const r = snap ? World.resolve(snapLocationRef(dc, snap)) : null; return r && hasNum(r.lat) ? r : null; }
+// Last known location at or before this version (for dead / missing markers).
+function lastKnownLocation(dc, snap){
+  const list = orderedVersions(dc);
+  const upTo = list.slice(0, list.indexOf(snap) + 1).reverse();
+  for(const s of upTo){ const r = resolvedAt(dc, s); if(r) return { r, from: s }; }
+  return resolvedAt(dc, snap) ? { r: resolvedAt(dc, snap), from: snap } : null;
 }
-// kept for older callers and tests
+// Everything the map needs about one character at the selected chapter.
+// Once a character dies, the † stays at the death location from that
+// chapter on; later versions don't move it.
+function stateOf(id){
+  const dc = dossierCharById(id);
+  if(!dc) return null;
+  let snap, presence;
+  if(selChapter == null){
+    snap = (dc.snapshots || []).find(s => s.id === dc.activeSnapshotId) || (dc.snapshots || [])[0] || null;
+  } else {
+    const death = orderedVersions(dc).find(s => s.presence === 'dead' && s.startChapter <= selChapter);
+    snap = death || versionAt(dc, selChapter);
+  }
+  if(!snap) return null; // not in the story yet at this chapter
+  presence = snap.presence || 'alive';
+  let place = resolvedAt(dc, snap), placeFrom = snap;
+  if(presence !== 'alive'){ const lk = lastKnownLocation(dc, snap); if(lk){ place = lk.r; placeFrom = lk.from; } }
+  return { dc, snap, presence, place, placeFrom };
+}
+function placeOf(charId){ const s = stateOf(charId); return s ? s.place : null; }
 const resolveLocationRef = ref => World.resolve(ref);
+function dossierCurrentObjective(id){
+  const s = stateOf(id);
+  if(!s) return 'Unknown';
+  if(s.snap.objective) return s.snap.objective;
+  const committed = (dossierGens().find(g => g.characterId === s.dc.id && g.snapshotId === s.snap.id) || { timeline: {} }).timeline.currentObjectives || [];
+  const list = committed.filter(e => e.status === 'committed');
+  return list.length ? list[list.length - 1].text : 'Unknown';
+}
+function presenceOf(id){ const s = stateOf(id); return s ? PRESENCE_LABEL[s.presence] || 'Alive' : '—'; }
+
+// Trail stops: one per run of consecutive chapters at the same place.
+function trailStops(id){
+  const dc = dossierCharById(id);
+  if(!dc) return [];
+  const stops = [];
+  for(const s of orderedVersions(dc)){
+    const r = resolvedAt(dc, s);
+    if(r){
+      const last = stops[stops.length - 1];
+      if(last && last.r.key === r.key) last.lastVersion = s;
+      else stops.push({ r, chapter: s.startChapter, firstVersion: s, lastVersion: s });
+    }
+    if(s.presence === 'dead') break; // nothing moves a dead character
+  }
+  return stops;
+}
+// Index of the stop in effect at the selected chapter (-1 if none yet).
+function currentStopIndex(stops){
+  if(selChapter == null) return stops.length - 1;
+  let idx = -1;
+  stops.forEach((st, i) => { if(st.chapter <= selChapter) idx = i; });
+  return idx;
+}
+
+loadDossierState();
+
+let selectedCharId = null;
+let selectedLoc = null; // a place id
+let expandedCluster = null; // place key whose cluster is fanned out
 function charactersModeOn(){ return document.querySelector('.stage').classList.contains('characters-mode'); }
 
 function setCharactersMode(on){
@@ -1069,16 +1160,32 @@ function setCharactersMode(on){
 }
 
 const NS = 'http://www.w3.org/2000/svg';
-// cluster offsets in map (viewBox) units; the first marker sits exactly on the place
-const CLUSTER_OFFSETS = [[0, 0], [7, -6], [-7, -6], [7, 6], [-7, 6], [0, -10]];
+// fan-out offsets in map (viewBox) units when a cluster is expanded
+const CLUSTER_OFFSETS = [[0, -9], [8, -4], [8, 5], [0, 10], [-8, 5], [-8, -4], [0, -18], [15, 0], [-15, 0]];
+
+function markerEl(x, mx, my, idx){
+  const c = x.dc, idNum = String(roster().indexOf(c) + 1).padStart(2, '0');
+  const m = document.createElementNS(NS, 'g');
+  m.setAttribute('class', 'char-marker' + (c.id === selectedCharId ? ' selected' : ''));
+  m.dataset.charId = c.id;
+  m.dataset.presence = x.presence;
+  const glyph = x.presence === 'dead'
+    ? `<text class="dagger" x="${mx.toFixed(2)}" y="${(my + 2.6).toFixed(2)}" text-anchor="middle">†</text>`
+    : `<rect class="pip" x="${(mx - 2).toFixed(2)}" y="${(my - 2).toFixed(2)}" width="4" height="4"/>`;
+  m.innerHTML = `<circle class="hit" cx="${mx.toFixed(2)}" cy="${my.toFixed(2)}" r="6"/>${glyph}
+    <text class="tag" x="${mx.toFixed(2)}" y="${(my + 9).toFixed(2)}" text-anchor="middle">[${idNum}] ${escapeHud(c.name || 'Unnamed')}</text>`;
+  wireMarkerEvents(m, c);
+  return m;
+}
 
 function renderCharacterLayer(){
-  const placed = roster().map(c => ({ c, place: placeOf(c.id) }));
-  const located = placed.filter(x => x.place);
-  const inView = located.filter(x => inScope(x.place));
-  document.getElementById('statPresent').textContent = String(roster().length).padStart(3, '0');
+  const states = roster().map(c => ({ c, s: stateOf(c.id) }));
+  const inStory = states.filter(x => x.s);
+  const located = inStory.filter(x => x.s.place);
+  const inView = located.filter(x => inScope(x.s.place));
+  document.getElementById('statPresent').textContent = String(inStory.length).padStart(3, '0');
   document.getElementById('statVisible').textContent = String(layers.has('Characters') ? inView.length : 0).padStart(3, '0');
-  document.getElementById('statUnknown').textContent = String(roster().length - located.length).padStart(3, '0');
+  document.getElementById('statUnknown').textContent = String(inStory.length - located.length).padStart(3, '0');
 
   const svg = document.querySelector('#mapGlyph svg');
   if(svg){
@@ -1090,9 +1197,9 @@ function renderCharacterLayer(){
       svg.appendChild(layer);
       drawTrackTrail(layer);
       const groups = {};
-      inView.forEach(x => { (groups[x.place.key] = groups[x.place.key] || []).push(x); });
+      inView.forEach(x => { (groups[x.s.place.key] = groups[x.s.place.key] || []).push(x.s); });
       Object.keys(groups).forEach(key => {
-        const first = groups[key][0].place;
+        const list = groups[key], first = list[0].place;
         const pt = projectResolved(first);
         if(!pt) return;
         const anchor = document.createElementNS(NS, 'g');
@@ -1100,63 +1207,50 @@ function renderCharacterLayer(){
         anchor.innerHTML = `<path class="plus" d="M${(pt.x - 4).toFixed(2)} ${pt.y.toFixed(2)}H${(pt.x + 4).toFixed(2)}M${pt.x.toFixed(2)} ${(pt.y - 4).toFixed(2)}V${(pt.y + 4).toFixed(2)}"/>`;
         if(first.place) anchor.addEventListener('click', (e) => { e.stopPropagation(); selectLocation(first.place.id); });
         layer.appendChild(anchor);
-        groups[key].forEach((x, idx) => {
-          const c = x.c, off = CLUSTER_OFFSETS[idx % CLUSTER_OFFSETS.length];
-          const idNum = String(roster().indexOf(c) + 1).padStart(2, '0');
-          const mx = pt.x + off[0], my = pt.y + off[1];
-          const m = document.createElementNS(NS, 'g');
-          m.setAttribute('class', 'char-marker' + (c.id === selectedCharId ? ' selected' : ''));
-          m.dataset.charId = c.id;
-          m.dataset.presence = (dossierActiveSnap(c.id) || {}).presence || 'alive';
-          m.innerHTML = `<circle class="hit" cx="${mx.toFixed(2)}" cy="${my.toFixed(2)}" r="6"/>
-            <rect class="pip" x="${(mx - 2).toFixed(2)}" y="${(my - 2).toFixed(2)}" width="4" height="4"/>
-            <text class="tag" x="${mx.toFixed(2)}" y="${(my + 9).toFixed(2)}" text-anchor="middle">[${idNum}] ${escapeHud(dossierCharName(c.id))}</text>`;
-          wireMarkerEvents(m, c);
-          layer.appendChild(m);
-        });
+        if(list.length === 1){ layer.appendChild(markerEl(list[0], pt.x, pt.y)); return; }
+        // several characters at one place: a count badge; tap to fan them out
+        const open = expandedCluster === key || list.some(x => x.dc.id === selectedCharId);
+        if(open){
+          list.forEach((x, i) => { const off = CLUSTER_OFFSETS[i % CLUSTER_OFFSETS.length]; layer.appendChild(markerEl(x, pt.x + off[0], pt.y + off[1], i)); });
+        }
+        const badge = document.createElementNS(NS, 'g');
+        badge.setAttribute('class', 'cluster' + (open ? ' open' : ''));
+        badge.dataset.key = key;
+        badge.innerHTML = `<circle cx="${pt.x.toFixed(2)}" cy="${pt.y.toFixed(2)}" r="${open ? 3 : 5}"/><text x="${pt.x.toFixed(2)}" y="${(pt.y + 2).toFixed(2)}" text-anchor="middle">${open ? '' : list.length}</text>`;
+        badge.addEventListener('click', (e) => { e.stopPropagation(); expandedCluster = open ? null : key; renderCharacterLayer(); });
+        hoverable(badge, first.name, list.map(x => [x.dc.name || 'Unnamed', PRESENCE_LABEL[x.presence]]));
+        layer.appendChild(badge);
       });
     }
   }
-  renderSubjectIndex(placed);
-  renderUnplaced(placed);
+  renderSubjectIndex(states);
+  renderUnplaced(inStory);
 }
 
-// ---- tracking trail: one stop per chapter version, in chapter order ----
-function locationHistory(charId){
-  const dc = dossierCharById(charId); if(!dc) return [];
-  const out = [];
-  (dc.snapshots || []).forEach(s => {
-    let list = committedGenLocations(dc, s).map(e => e.locationRef);
-    // a chapter's own location replaces the Generation trail, unless it is
-    // that trail's last stop (migrated data) — then the earlier stops stay
-    if(s.location && !(list.length && World.sameRef(list[list.length - 1], s.location))) list = [s.location];
-    list.forEach(ref => { const r = World.resolve(ref); if(r && hasNum(r.lat)) out.push(Object.assign(r, { chapter: s.chapterRange || '' })); });
-  });
-  return out;
-}
+// ---- trail: numbered stops, solid up to the selected chapter, dim after ----
 let trailTween = null;
 function drawTrackTrail(layer){
   if(trailTween){ trailTween.kill(); trailTween = null; }
   if(!selectedCharId) return;
-  const pts = locationHistory(selectedCharId)
-    .map(r => { const p = projectResolved(r); return p ? Object.assign(p, { name: r.name, chapter: r.chapter }) : null; })
-    .filter(Boolean)
-    .filter((p, i, arr) => i === 0 || Math.hypot(p.x - arr[i - 1].x, p.y - arr[i - 1].y) > 1);
-  if(pts.length < 2) return;
+  const stops = trailStops(selectedCharId);
+  const cur = currentStopIndex(stops);
+  const pts = stops.map((st, i) => { const p = projectResolved(st.r); return p ? Object.assign(p, { i, chapter: st.chapter }) : null; }).filter(Boolean);
+  if(!pts.length) return;
   const g = document.createElementNS(NS, 'g');
   g.setAttribute('class', 'track-layer');
-  const d = pts.map((p, i) => (i ? 'L' : 'M') + p.x.toFixed(2) + ' ' + p.y.toFixed(2)).join(' ');
-  g.innerHTML = `<path class="trail" d="${d}"/>` +
-    pts.map((p, i) => `<circle class="stop" cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="2.2"/><text class="stop-label" x="${(p.x + 4).toFixed(1)}" y="${(p.y - 4).toFixed(1)}">${String(i + 1).padStart(2, '0')}</text>`).join('') +
-    `<g class="blip"><circle class="blip-ring" r="4.5"/><circle class="blip-dot" r="1.5"/></g>`;
+  const seg = list => list.map((p, i) => (i ? 'L' : 'M') + p.x.toFixed(2) + ' ' + p.y.toFixed(2)).join(' ');
+  const past = pts.filter(p => p.i <= cur), future = pts.filter(p => p.i >= Math.max(cur, 0));
+  let html = '';
+  if(past.length > 1) html += `<path class="trail" d="${seg(past)}"/>`;
+  if(future.length > 1) html += `<path class="trail later" d="${seg(cur < 0 ? pts : future)}"/>`;
+  html += pts.map(p => `<g class="stop-g${p.i === cur ? ' current' : ''}${p.i > cur ? ' later' : ''}"><circle class="stop" cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="${p.i === cur ? 3 : 2.2}"/><text class="stop-label" x="${(p.x + 4).toFixed(1)}" y="${(p.y - 4).toFixed(1)}">${p.i + 1}·CH${p.chapter}</text></g>`).join('');
+  g.innerHTML = html;
   layer.appendChild(g);
-  const path = g.querySelector('.trail'), blip = g.querySelector('.blip'), L = path.getTotalLength();
-  const st = { t: 0 };
-  const place = () => { const q = path.getPointAtLength(st.t * L); blip.setAttribute('transform', `translate(${q.x.toFixed(2)} ${q.y.toFixed(2)})`); };
-  place();
-  if(window.gsap && !matchMedia('(prefers-reduced-motion: reduce)').matches){
-    gsap.fromTo(path, { strokeDashoffset: L }, { strokeDashoffset: 0, duration: 1.2, ease: 'power2.out' });
-    trailTween = gsap.to(st, { t: 1, duration: Math.max(3, pts.length * 1.6), ease: 'none', repeat: -1, onUpdate: place });
+  const path = g.querySelector('.trail:not(.later)');
+  if(path && window.gsap && !matchMedia('(prefers-reduced-motion: reduce)').matches){
+    const L = path.getTotalLength();
+    path.style.strokeDasharray = L;
+    gsap.fromTo(path, { strokeDashoffset: L }, { strokeDashoffset: 0, duration: 1, ease: 'power2.out', onComplete: () => { path.style.strokeDasharray = 'none'; } });
   }
 }
 
@@ -1168,14 +1262,13 @@ function wireMarkerEvents(el, c){
 }
 function showCharTooltip(e, c){
   const tip = document.getElementById('charTooltip');
-  const idNum = String(roster().indexOf(c) + 1).padStart(3, '0');
-  const place = placeOf(c.id);
+  const s = stateOf(c.id), idNum = String(roster().indexOf(c) + 1).padStart(3, '0');
   tip.innerHTML = `
     <div class="t-id">SUBJECT // ${idNum}</div>
-    <div class="t-name">${escapeHud(dossierCharName(c.id))}</div>
-    <div class="t-row"><span>PRESENCE</span><span>${escapeHud(presenceOf(c.id))}</span></div>
-    <div class="t-row"><span>LOCATION</span><span>${escapeHud(place ? place.name : 'Unknown')}</span></div>
-    <div class="t-row"><span>LAST OBSERVED</span><span>${escapeHud(dossierChapterLabel(c.id))}</span></div>
+    <div class="t-name">${escapeHud(c.name || 'Unnamed')}</div>
+    <div class="t-row"><span>PRESENCE</span><span>${escapeHud(s ? PRESENCE_LABEL[s.presence] : '—')}</span></div>
+    <div class="t-row"><span>LOCATION</span><span>${escapeHud(s && s.place ? s.place.name : 'Unknown')}</span></div>
+    <div class="t-row"><span>VERSION</span><span>${escapeHud(s ? (s.snap.chapterRange || 'CH ' + s.snap.startChapter) : '—')}</span></div>
   `;
   tip.classList.add('visible');
   moveCharTooltip(e);
@@ -1191,6 +1284,8 @@ function selectCharacter(id){
   document.getElementById('subjectRecord').classList.add('on');
   renderCharacterLayer();
   renderSubjectRecord(dossierCharById(id));
+  // on a phone the record sits below the map: bring it into view
+  if(window.matchMedia('(max-width:900px)').matches) document.getElementById('subjectRecord').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 // Moves the view so the place is on screen.
 function focusPlace(r){
@@ -1200,19 +1295,32 @@ function focusPlace(r){
 }
 function renderSubjectRecord(c){
   if(!c) return;
-  const idNum = String(roster().indexOf(c) + 1).padStart(3, '0');
-  const place = placeOf(c.id);
-  document.getElementById('recId').textContent = 'SUBJECT // ' + idNum;
-  document.getElementById('recName').textContent = dossierCharName(c.id);
-  document.getElementById('recStatus').textContent = presenceOf(c.id);
-  document.getElementById('recChapter').textContent = dossierChapterLabel(c.id);
-  document.getElementById('recObjective').textContent = dossierCurrentObjective(c.id);
+  const s = stateOf(c.id), idNum = String(roster().indexOf(c) + 1).padStart(3, '0');
+  const set = (id, v) => { document.getElementById(id).textContent = v; };
+  set('recId', 'SUBJECT // ' + idNum);
+  set('recName', c.name || 'Unnamed');
+  if(!s){
+    ['recArchetype', 'recStatus', 'recChapter', 'recCameFrom', 'recObjective', 'recHeading'].forEach(id => set(id, '—'));
+    set('recLocation', `Not in the story yet at CH ${selChapter}`);
+  } else {
+    set('recArchetype', s.snap.archetype || 'UNASSIGNED');
+    set('recStatus', PRESENCE_LABEL[s.presence] + (s.presence === 'dead' && s.snap.startChapter < selChapter ? ` (since CH ${s.snap.startChapter})` : ''));
+    set('recChapter', (selChapter != null ? `CH ${selChapter}` : 'Active version') + ` · version ${s.snap.chapterRange || 'CH ' + s.snap.startChapter}`);
+    set('recObjective', dossierCurrentObjective(c.id));
+    set('recHeading', s.snap.headingToward || '—');
+    const stops = trailStops(c.id), cur = currentStopIndex(stops);
+    const prev = cur > 0 ? stops[cur - 1] : null;
+    set('recCameFrom', prev ? `${prev.r.name} · CH ${prev.chapter}` : '— (first known place)');
+  }
+  const place = s && s.place;
   const locEl = document.getElementById('recLocation');
-  locEl.textContent = place ? place.label : 'Unknown — no location this chapter';
+  if(s) locEl.textContent = place ? place.path + (s.placeFrom !== s.snap ? ' (last known)' : '') : 'No location this chapter';
   locEl.style.cursor = place ? 'pointer' : 'default';
   locEl.style.textDecoration = place ? 'underline' : 'none';
   locEl.onclick = place ? () => { focusPlace(place); selectCharacter(c.id); } : null;
-  document.getElementById('recOpenDossier').onclick = () => { window.location.href = 'index.html?char=' + encodeURIComponent(c.id); };
+  document.getElementById('recOpenDossier').onclick = () => {
+    window.location.href = 'index.html?char=' + encodeURIComponent(c.id) + (selChapter != null ? '&ch=' + selChapter : '');
+  };
 }
 
 function selectLocation(id){
@@ -1240,14 +1348,12 @@ function renderLocationRecord(){
   notes.push(`Coordinates ${pl.lat.toFixed(2)}, ${pl.lng.toFixed(2)}.`);
   if(!pl.builtIn) notes.push('Added in your Library.');
   document.getElementById('locDesc').textContent = notes.join(' ');
-  const occupants = roster().filter(c => { const p = placeOf(c.id); return p && p.place && p.place.id === pl.id; });
+  const here = roster().map(c => stateOf(c.id)).filter(s => s && s.place && s.place.place && s.place.place.id === pl.id);
   const listEl = document.getElementById('locCharsPresent');
-  if(occupants.length){
-    listEl.innerHTML = occupants.map(c => `<button type="button" class="idx-row" data-char-id="${escapeHud(c.id)}">${escapeHud(dossierCharName(c.id))} <span class="idx-where">— ${escapeHud(presenceOf(c.id))}</span></button>`).join('');
-    listEl.querySelectorAll('[data-char-id]').forEach(row => row.addEventListener('click', () => selectCharacter(row.dataset.charId)));
-  } else {
-    listEl.innerHTML = 'None currently recorded.';
-  }
+  listEl.innerHTML = here.length
+    ? here.map(s => `<button type="button" class="idx-row" data-char-id="${escapeHud(s.dc.id)}">${escapeHud(s.dc.name || 'Unnamed')} <span class="idx-where">— ${escapeHud(PRESENCE_LABEL[s.presence])}</span></button>`).join('')
+    : (selChapter != null ? `Nobody here at CH ${selChapter}.` : 'None currently recorded.');
+  listEl.querySelectorAll('[data-char-id]').forEach(row => row.addEventListener('click', () => selectCharacter(row.dataset.charId)));
   const items = Lib.get().items.filter(i => i.originPlaceId === pl.id);
   const itemsEl = document.getElementById('locItems');
   itemsEl.innerHTML = items.length
@@ -1267,27 +1373,69 @@ function backToIndex(){
 document.getElementById('recordBack').addEventListener('click', backToIndex);
 document.getElementById('locationBack').addEventListener('click', backToIndex);
 
-function renderSubjectIndex(placed){
+function renderSubjectIndex(states){
   const list = document.getElementById('indexList');
-  list.innerHTML = placed.map((x, i) => {
+  list.innerHTML = states.map((x, i) => {
     const idNum = String(i + 1).padStart(3, '0');
-    return `<button type="button" class="idx-row" data-char-id="${escapeHud(x.c.id)}">
+    const where = !x.s ? 'not in the story yet' : (x.s.place ? x.s.place.name : 'no location');
+    return `<button type="button" class="idx-row${x.s ? '' : ' absent'}" data-char-id="${escapeHud(x.c.id)}">
       <span class="idx-num">${idNum}</span>
-      <span class="idx-name">${escapeHud(dossierCharName(x.c.id))}<span class="idx-where">${escapeHud(x.place ? x.place.name : 'no location')}</span></span>
-      <span class="idx-status">${escapeHud(presenceOf(x.c.id))}</span>
+      <span class="idx-name">${escapeHud(x.c.name || 'Unnamed')}<span class="idx-where">${escapeHud(where)}</span></span>
+      <span class="idx-status">${escapeHud(x.s ? PRESENCE_LABEL[x.s.presence] : '—')}</span>
     </button>`;
   }).join('') || '<p class="idx-empty">No characters in the Dossier yet.</p>';
   list.querySelectorAll('.idx-row').forEach(row => row.addEventListener('click', () => selectCharacter(row.dataset.charId)));
 }
-// Characters with no location at the selected chapter (for now, their active chapter).
-function renderUnplaced(placed){
+// Characters with a state at the selected chapter but no location.
+function renderUnplaced(inStory){
   const box = document.getElementById('unplacedList');
-  const missing = placed.filter(x => !x.place);
+  const missing = inStory.filter(x => !x.s.place);
   box.innerHTML = missing.length
-    ? missing.map(x => `<button type="button" class="f-btn" data-char-id="${escapeHud(x.c.id)}">${escapeHud(dossierCharName(x.c.id))}</button>`).join('')
-    : '<span class="unplaced-none">Everyone has a location.</span>';
+    ? missing.map(x => `<button type="button" class="f-btn" data-char-id="${escapeHud(x.c.id)}">${escapeHud(x.c.name || 'Unnamed')}</button>`).join('')
+    : '<span class="unplaced-none">Everyone in the story has a location.</span>';
   box.querySelectorAll('[data-char-id]').forEach(b => b.addEventListener('click', () => selectCharacter(b.dataset.charId)));
 }
+
+// ---- chapter control ----
+function renderChapterControl(){
+  const nums = chapterNumbers();
+  const box = document.getElementById('chapterCtl');
+  if(!nums.length){ selChapter = null; box.classList.add('empty'); document.getElementById('chLabel').textContent = 'No chapter numbers yet — set start chapters in the Dossier'; return; }
+  box.classList.remove('empty');
+  if(selChapter == null || !nums.includes(selChapter)){
+    const latest = latestChapterWithData();
+    selChapter = latest != null && nums.includes(latest) ? latest : nums[nums.length - 1];
+  }
+  const slider = document.getElementById('chSlider');
+  slider.min = 0; slider.max = nums.length - 1; slider.step = 1;
+  slider.value = nums.indexOf(selChapter);
+  slider.setAttribute('aria-valuetext', 'Chapter ' + selChapter);
+  const t = chapterTitle(selChapter);
+  document.getElementById('chLabel').textContent = `CH ${selChapter}${t ? ' · ' + t : ''}`;
+  document.getElementById('chPrev').disabled = nums.indexOf(selChapter) <= 0;
+  document.getElementById('chNext').disabled = nums.indexOf(selChapter) >= nums.length - 1;
+  const ticks = document.getElementById('chTicks');
+  const every = Math.max(1, Math.ceil(nums.length / 12));
+  ticks.innerHTML = nums.map((n, i) => `<span style="left:${nums.length === 1 ? 50 : (i / (nums.length - 1)) * 100}%">${i % every === 0 || i === nums.length - 1 ? n : ''}</span>`).join('');
+  document.getElementById('hTime').textContent = `CH ${selChapter} // ${SCALE_LABEL[geo.scale]}`;
+}
+function setChapter(n){
+  selChapter = n;
+  expandedCluster = null;
+  renderChapterControl();
+  renderCharacterLayer();
+  if(selectedCharId) renderSubjectRecord(dossierCharById(selectedCharId));
+  if(selectedLoc) renderLocationRecord();
+}
+function stepChapter(d){
+  const nums = chapterNumbers(), i = nums.indexOf(selChapter);
+  if(i < 0) return;
+  const j = Math.max(0, Math.min(nums.length - 1, i + d));
+  if(j !== i) setChapter(nums[j]);
+}
+document.getElementById('chSlider').addEventListener('input', (e) => { const nums = chapterNumbers(); setChapter(nums[+e.target.value]); });
+document.getElementById('chPrev').addEventListener('click', () => stepChapter(-1));
+document.getElementById('chNext').addEventListener('click', () => stepChapter(1));
 
 function escapeHud(str){
   const d = document.createElement('div');
@@ -1300,6 +1448,7 @@ window.addEventListener('storage', (e) => {
   if(e.key !== DOSSIER_STORAGE_KEY && e.key !== null) return;
   loadDossierState();
   if(selectedCharId && !dossierCharById(selectedCharId)) selectedCharId = null;
+  renderChapterControl();
   renderView();
   if(selectedCharId) renderSubjectRecord(dossierCharById(selectedCharId));
   if(selectedLoc) renderLocationRecord();
@@ -1732,12 +1881,14 @@ function syncTerrain(){
 
 syncLayerItems();
 setCharactersMode(layers.has('Characters'));
+renderChapterControl();
 renderView();
 // atlas.html?char=<dossierCharId> opens with that subject selected and the
 // view moved to where they are.
 (function handleDeepLink(){
   const params = new URLSearchParams(window.location.search);
-  const charId = params.get('char');
+  const charId = params.get('char'), ch = parseInt(params.get('ch'), 10);
+  if(Number.isInteger(ch) && chapterNumbers().includes(ch)){ selChapter = ch; renderChapterControl(); }
   if(!charId || !dossierCharById(charId)) return;
   setCharactersMode(true);
   const place = placeOf(charId);
