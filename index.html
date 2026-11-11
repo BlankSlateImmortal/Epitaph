@@ -49,7 +49,28 @@
     font-family:'Bebas Neue', sans-serif;
     font-size:20px; letter-spacing:0.08em; color: var(--dust);
   }
-  .top-nav .actions{ display:flex; gap:10px; }
+  .top-nav .actions{ display:flex; gap:10px; align-items:center; }
+  /* Data ▾ dropdown in the top bar */
+  .nav-menu{ position:relative; }
+  .nav-menu > summary{ list-style:none; }
+  .nav-menu > summary::-webkit-details-marker{ display:none; }
+  .nav-menu[open] > summary{ --sb-bg:var(--amber); }
+  .nav-menu-panel{
+    position:absolute; right:0; top:calc(100% + 10px); z-index:50; min-width:250px;
+    display:flex; flex-direction:column; background:var(--ink, #0e0c09); border:1px solid var(--amber-dim, var(--line));
+    box-shadow:0 12px 30px rgba(0,0,0,.6);
+  }
+  .nav-menu-panel > *{
+    display:flex; flex-direction:column; gap:2px; text-align:left; cursor:pointer; min-height:44px; justify-content:center;
+    padding:10px 14px; background:none; border:0; border-bottom:1px solid var(--line); color:var(--bone);
+    font-family:var(--f-display, 'Bebas Neue', sans-serif); font-size:17px; letter-spacing:.06em; text-transform:uppercase;
+  }
+  .nav-menu-panel > *:last-child{ border-bottom:0; }
+  .nav-menu-panel small{ font-family:var(--f-mono, monospace); font-size:11px; letter-spacing:.02em; text-transform:none; color:var(--dust); }
+  .nav-menu-panel > *:hover, .nav-menu-panel > *:focus-visible{ background:rgba(255,178,56,.12); color:var(--amber); outline:none; }
+  .nav-menu-panel > .warn{ color:var(--ember); }
+  /* character row: Delete sits apart at the end */
+  .sig-menu > .sig-delete{ --sb-bg:var(--ember); --sb-fg:var(--bone); margin-left:auto; }
   .btn{
     font-family:'Source Serif 4', serif;
     font-size:14px; color: var(--bone);
@@ -730,6 +751,7 @@
     .top-nav{ flex-direction:column; align-items:flex-start; gap:10px; }
     .top-nav .brand{ font-size:17px; }
     .top-nav .actions{ width:100%; flex-wrap:wrap; }
+    .nav-menu-panel{ right:auto; left:0; min-width:min(250px, calc(100vw - 32px)); }
   }
 
   /* ============ MODAL (form + confirm) ============ */
@@ -1125,14 +1147,17 @@
     <div class="actions">
       <a class="btn ghost" id="atlasLink" href="atlas.html">Atlas</a>
       <a class="btn ghost" id="musesLink" href="muses.html">Muses</a>
-      <button class="btn ghost" id="editBtn" style="display:none;">Edit</button>
-      <button class="btn ghost danger" id="deleteBtn" style="display:none;">Delete</button>
-      <button class="btn ghost checks-btn" id="checksBtn" type="button">Checks <span class="checks-badge" id="checksBadge" hidden></span></button>
       <button class="btn ghost" id="chaptersBtn" type="button">Chapters</button>
-      <button class="btn ghost" id="exportBtn" type="button">Export data</button>
-      <label class="btn ghost" for="importFileInput" id="importBtn">Import data</label>
+      <button class="btn ghost checks-btn" id="checksBtn" type="button">Checks <span class="checks-badge" id="checksBadge" hidden></span></button>
+      <details class="nav-menu" id="dataMenu">
+        <summary class="btn ghost">Data ▾</summary>
+        <div class="nav-menu-panel">
+          <button type="button" id="exportBtn">Export<small>Save everything to a backup file</small></button>
+          <label for="mergeFileInput" id="mergeBtn">Merge<small>Add from a file; keeps what you have</small></label>
+          <label for="importFileInput" id="importBtn" class="warn">Import<small>Replace everything with a file</small></label>
+        </div>
+      </details>
       <input type="file" id="importFileInput" accept=".json,application/json" class="visually-hidden-input">
-      <label class="btn ghost" for="mergeFileInput" id="mergeBtn" title="Add characters, chapters and Library entries from a file without removing anything">Merge data</label>
       <input type="file" id="mergeFileInput" accept=".json,application/json" class="visually-hidden-input">
       <button class="btn primary" id="newBtn">New profile</button>
     </div>
@@ -1854,8 +1879,6 @@ async function persistState(){
 // ============================================================
 const posterWrap = document.getElementById('posterWrap');
 const rail = document.getElementById('rail');
-const editBtn = document.getElementById('editBtn');
-const deleteBtn = document.getElementById('deleteBtn');
 const newBtn = document.getElementById('newBtn');
 
 function getActiveCharacter(){
@@ -2927,8 +2950,6 @@ function renderPoster(){
   const atlasLink = document.getElementById('atlasLink');
   if(heroSphere){ heroSphere.stop(); heroSphere = null; }
   if(!char){
-    editBtn.style.display = 'none';
-    deleteBtn.style.display = 'none';
     if(atlasLink) atlasLink.href = 'atlas.html';
     posterWrap.innerHTML = `
       <div class="empty-state">
@@ -2938,8 +2959,6 @@ function renderPoster(){
       </div>`;
     return;
   }
-  editBtn.style.display = 'inline-flex';
-  deleteBtn.style.display = 'inline-flex';
   if(atlasLink) atlasLink.href = 'atlas.html?char=' + encodeURIComponent(char.id);
 
   const snap = getActiveSnapshot(char);
@@ -3026,9 +3045,9 @@ function renderPoster(){
     <nav class="menu-slant sig-menu" aria-label="Dossier sections">
       <a href="#systemSection">System sheet</a>
       <a href="#generationSection">Brief</a>
-      <a href="${atlasLink ? atlasLink.getAttribute('href') : 'atlas.html'}">Atlas ↗</a>
-      <a href="muses.html">Muses ↗</a>
       <button type="button" id="sigNewChapter">+ New chapter</button>
+      <button type="button" id="editBtn">Edit profile</button>
+      <button type="button" id="deleteBtn" class="danger sig-delete">Delete</button>
     </nav>
   `;
 
@@ -3044,6 +3063,8 @@ function renderPoster(){
   });
   const nc = document.getElementById('sigNewChapter');
   if(nc) nc.addEventListener('click', () => openSnapshotForm());
+  document.getElementById('editBtn').addEventListener('click', editActiveCharacter);
+  document.getElementById('deleteBtn').addEventListener('click', deleteActiveCharacter);
   const repositionBtn = document.getElementById('repositionPortraitBtn');
   if(repositionBtn){
     repositionBtn.addEventListener('click', (e) => {
@@ -4582,11 +4603,11 @@ newBtn.addEventListener('click', () => {
   if(char) openSnapshotForm();
   else openCharacterForm();
 });
-editBtn.addEventListener('click', () => {
+function editActiveCharacter(){
   const char = getActiveCharacter();
   if(char) openCharacterForm(char);
-});
-deleteBtn.addEventListener('click', () => {
+}
+function deleteActiveCharacter(){
   const char = getActiveCharacter();
   if(!char) return;
   modalContent.innerHTML = `
@@ -4608,7 +4629,18 @@ deleteBtn.addEventListener('click', () => {
     renderAll();
     closeModal();
   });
-});
+}
+
+// ---- Data menu (Export / Merge / Import): closes on pick, outside click, Escape
+(function(){
+  const menu = document.getElementById('dataMenu');
+  if(!menu) return;
+  menu.querySelectorAll('.nav-menu-panel > *').forEach(el => el.addEventListener('click', () => { menu.open = false; }));
+  document.addEventListener('click', (e) => { if(menu.open && !menu.contains(e.target)) menu.open = false; });
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape' && menu.open){ menu.open = false; menu.querySelector('summary').focus(); }
+  });
+})();
 
 // ---- Continuity checks (assets/epitaph-checks.js): report only ----
 function currentChecks(){ return window.EpitaphChecks ? EpitaphChecks.run(state) : []; }
