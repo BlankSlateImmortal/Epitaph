@@ -3,8 +3,12 @@
  * Same name + traits always give the same figure. Nothing is stored:
  * portraits are re-drawn on load and cached in memory only.
  *
- *   EpitaphPortrait.render({ name, storyline, mythos, divineStatus, faction, style, archetype })
+ *   EpitaphPortrait.render({ name, storyline, mythos, divineStatus, faction, style, archetype, traitFlags })
  *     -> Promise<dataURL PNG>
+ *   `archetype` here is the FIGURE (hood/spike/...), not the Dossier's story archetype.
+ *   `storyline` / `mythos` only feed the random seed (kept so old portraits stay
+ *   the same); when `traitFlags` { god, voided, blessed, cursed } is given, the
+ *   look comes from those flags instead of keyword-matching the storyline.
  *   EpitaphPortrait.svg(opts) -> SVG string (vector, no post-processing)
  *   EpitaphPortrait.STYLES / ARCHETYPES
  */
@@ -46,6 +50,12 @@
 
   // ---------- traits ----------
   function traitsOf(o) {
+    if (o.traitFlags) {
+      const f = o.traitFlags;
+      const t = { angel: false, demon: false, god: !!f.god, voided: !!f.voided, story: false, blessed: !!f.blessed, cursed: !!f.cursed, divine: o.divineStatus || '' };
+      t.accent = t.cursed ? PAL.ember : t.blessed ? PAL.gold : t.god ? PAL.verdigris : t.voided ? PAL.violet : null;
+      return t;
+    }
     const s = String(o.storyline || '').toLowerCase();
     const mythos = o.mythos || '';
     const divine = o.divineStatus || '';
@@ -449,6 +459,7 @@
     return Object.assign({
       name: c.name, storyline: c.storyline, mythos: c.mythos, divineStatus: c.divineStatus, faction: c.faction,
       archetype: c.portraitFigure || undefined, style: c.portraitStyle || undefined, seed: c.portraitSeed || '',
+      traitFlags: c.traitFlags || undefined,
       allowFigures: prefs.figures, allowStyles: prefs.styles
     }, extra || {});
   }

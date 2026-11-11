@@ -252,7 +252,7 @@
   // ---- generator settings ----
   function renderGenSettings(){
     const prefs = P.getPrefs();
-    const sample = { name: 'Specimen', storyline: '', mythos: '' };
+    const sample = { name: 'Specimen' };
     const fig = document.getElementById('figOpts'), sty = document.getElementById('styleOpts');
     fig.innerHTML = P.ARCHETYPES.map(a => `<label class="gen-opt"><input type="checkbox" data-fig="${a}" ${prefs.figures.includes(a) ? 'checked' : ''}><img alt="${a} figure" data-prev-fig="${a}"><span>${a.toUpperCase()}<b>${prefs.figures.includes(a) ? 'ON' : 'OFF'}</b></span></label>`).join('');
     sty.innerHTML = P.STYLES.map(s => `<label class="gen-opt"><input type="checkbox" data-sty="${s}" ${prefs.styles.includes(s) ? 'checked' : ''}><img alt="${s} style" data-prev-sty="${s}"><span>${s.toUpperCase()}<b>${prefs.styles.includes(s) ? 'ON' : 'OFF'}</b></span></label>`).join('');
