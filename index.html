@@ -1097,6 +1097,7 @@
 <script src="assets/portrait-gen.js?v=8"></script>
 <script src="assets/epitaph-muses.js?v=7"></script>
 <script src="assets/archetypes.js?v=1"></script>
+<script src="assets/epitaph-world.js?v=1"></script>
 </head>
 <body>
 <svg class="grain" width="0" height="0">
@@ -1206,44 +1207,12 @@
 // }
 // ============================================================
 const STORAGE_KEY = 'epitaph-character-profiles';
-const WORLD_DB_STORAGE_KEY = 'epitaph-world-database';
 let state = { characters: [], chapters: [], activeId: null }; // schemaVersion is stamped on save
 
-// Reads the Atlas's World Database (Era -> Continent -> Country -> City ->
-// Special Site) — the single shared source of geography. Never duplicated
-// here; read live so the Dossier's location field can't drift from the
-// Atlas's actual data. Returns null if the Atlas has never been opened yet
-// in this browser (nothing has seeded the database into storage).
-function getWorldDatabase(){
-  try{
-    const raw = localStorage.getItem(WORLD_DB_STORAGE_KEY);
-    if(!raw) return null;
-    return JSON.parse(raw);
-  }catch(e){
-    return null;
-  }
-}
-function wdbEras(wdb){ return wdb.eras; }
-function wdbContinents(wdb, eraId){ return wdb.continents.filter(c => c.era === eraId); }
-function wdbCountries(wdb, eraId, continentId){ return wdb.countries.filter(c => c.era === eraId && c.continentId === continentId); }
-function wdbCities(wdb, eraId, countryId){ return wdb.cities.filter(c => c.era === eraId && c.countryId === countryId); }
-function wdbSpecialSites(wdb, eraId, countryId, cityId){
-  return wdb.specialSites.filter(s => s.era === eraId && s.countryId === countryId && (s.cityId === cityId || !s.cityId));
-}
-// Builds a readable label like "Temple of the Voided, Aurelia, United States,
-// North America (Era 1)" from a {eraId,continentId,countryId,cityId,
-// specialSiteId} reference — used as the entry's display text, while the
-// reference itself is kept on the entry too so the location stays an
-// addressable ID, not just a string (per the World Database spec).
-function resolveLocationLabel(wdb, ref){
-  const era = wdb.eras.find(e => e.id === ref.eraId);
-  const continent = wdb.continents.find(c => c.id === ref.continentId && c.era === ref.eraId);
-  const country = wdb.countries.find(c => c.id === ref.countryId && c.era === ref.eraId);
-  const city = ref.cityId ? wdb.cities.find(c => c.id === ref.cityId && c.era === ref.eraId) : null;
-  const site = ref.specialSiteId ? wdb.specialSites.find(s => s.id === ref.specialSiteId) : null;
-  const parts = [site, city, country, continent].filter(Boolean).map(x => x.name);
-  return parts.join(', ') + (era ? ` (${era.name})` : '');
-}
+// Geography comes from assets/epitaph-world.js (built-in places, plus the
+// Library once it exists) — never from the Atlas's storage, so the Dossier
+// works without the Atlas having been opened.
+const World = window.EpitaphWorld;
 
 // ---- Lightweight toast notifications — used whenever something fails silently
 // otherwise (image can't be read/decoded, save can't be persisted, etc.) ----
@@ -1554,62 +1523,46 @@ function changesFor(char, snap){
 const CHG_TAG = '<span class="chg-tag" title="Changed since the last chapter">CHANGED</span>';
 const NEW_TAG = '<span class="chg-tag new" title="New since the last chapter">NEW</span>';
 
-// ---- Location picker (Era → Continent → Country → City → Special Site) ----
-// Shared by the chapter editors. Reads the Atlas's World Database live.
+// ---- Location picker (Country → Place) ----
+// Shared by the chapter editors. Countries are grouped by continent; places
+// include cities and the former special sites (and Library places later).
 function locationPickerHtml(prefix){
-  if(!getWorldDatabase()) return `<p class="gen-empty-hint">No world data yet — open the Atlas once to load Era, Continent, Country and City options.</p>`;
   return `<div class="gen-loc-cascade loc-picker">
-    <select id="${prefix}LocEra" aria-label="Era"></select>
-    <select id="${prefix}LocContinent" aria-label="Continent"></select>
     <select id="${prefix}LocCountry" aria-label="Country"></select>
-    <select id="${prefix}LocCity" aria-label="City"></select>
-    <select id="${prefix}LocSite" aria-label="Special site"></select>
+    <select id="${prefix}LocPlace" aria-label="Place"></select>
   </div>`;
 }
-// Fills the selects, pre-selecting `ref`. Country "— not set —" means no location.
 function wireLocationPicker(prefix, ref){
-  const wdb = getWorldDatabase();
-  const eraSel = document.getElementById(prefix + 'LocEra');
-  if(!wdb || !eraSel) return;
-  const contSel = document.getElementById(prefix + 'LocContinent');
   const countrySel = document.getElementById(prefix + 'LocCountry');
-  const citySel = document.getElementById(prefix + 'LocCity');
-  const siteSel = document.getElementById(prefix + 'LocSite');
-  const fill = (sel, options, placeholder, want) => {
-    sel.innerHTML = (placeholder ? `<option value="">${escapeHtml(placeholder)}</option>` : '')
-      + options.map(o => `<option value="${escapeAttr(o.id)}">${escapeHtml(o.name)}</option>`).join('');
-    if(want && options.some(o => o.id === want)) sel.value = want;
+  const placeSel = document.getElementById(prefix + 'LocPlace');
+  if(!countrySel || !World) return;
+  const r = World.resolve(ref);
+  const countries = World.countries();
+  countrySel.innerHTML = `<option value="">— location not set —</option>` + World.continents().map(cont => {
+    const list = countries.filter(c => c.continentId === cont.id);
+    return list.length ? `<optgroup label="${escapeAttr(cont.name)}">${list.map(c => `<option value="${escapeAttr(c.id)}">${escapeHtml(c.name)}</option>`).join('')}</optgroup>` : '';
+  }).join('') + (countries.some(c => !c.continentId) ? `<optgroup label="Other">${countries.filter(c => !c.continentId).map(c => `<option value="${escapeAttr(c.id)}">${escapeHtml(c.name)}</option>`).join('')}</optgroup>` : '');
+  const fillPlaces = (want) => {
+    const list = countrySel.value ? World.placesIn(countrySel.value).slice().sort((a, b) => a.name.localeCompare(b.name)) : [];
+    placeSel.innerHTML = `<option value="">${countrySel.value ? '— whole country —' : '— pick a country first —'}</option>`
+      + list.map(p => `<option value="${escapeAttr(p.id)}">${escapeHtml(p.name)}${p.kind !== 'city' ? ' (' + escapeHtml(World.KIND_LABEL[p.kind] || p.kind) + ')' : ''}</option>`).join('');
+    placeSel.disabled = !countrySel.value;
+    if(want && list.some(p => p.id === want)) placeSel.value = want;
   };
-  ref = ref || {};
-  const refreshSites = (want) => fill(siteSel, wdbSpecialSites(wdb, eraSel.value, countrySel.value, citySel.value || null), '— no special site —', want);
-  const refreshCities = (want) => { fill(citySel, wdbCities(wdb, eraSel.value, countrySel.value), '— no city —', want && want.cityId); refreshSites(want && want.specialSiteId); };
-  const refreshCountries = (want) => { fill(countrySel, wdbCountries(wdb, eraSel.value, contSel.value), '— location not set —', want && want.countryId); refreshCities(want); };
-  const refreshContinents = (want) => { fill(contSel, wdbContinents(wdb, eraSel.value), '', want && want.continentId); refreshCountries(want); };
-  fill(eraSel, wdbEras(wdb), '', ref.eraId);
-  refreshContinents(ref);
-  eraSel.addEventListener('change', () => refreshContinents());
-  contSel.addEventListener('change', () => refreshCountries());
-  countrySel.addEventListener('change', () => refreshCities());
-  citySel.addEventListener('change', () => refreshSites());
+  if(r && r.country) countrySel.value = r.country.id;
+  fillPlaces(r && r.place ? r.place.id : null);
+  countrySel.addEventListener('change', () => fillPlaces());
 }
 // undefined = picker not shown (keep current); null = cleared.
 function readLocationPicker(prefix){
-  const eraSel = document.getElementById(prefix + 'LocEra');
-  if(!eraSel) return undefined;
-  const country = document.getElementById(prefix + 'LocCountry').value;
-  if(!country) return null;
-  return {
-    eraId: eraSel.value,
-    continentId: document.getElementById(prefix + 'LocContinent').value,
-    countryId: country,
-    cityId: document.getElementById(prefix + 'LocCity').value || null,
-    specialSiteId: document.getElementById(prefix + 'LocSite').value || null
-  };
+  const countrySel = document.getElementById(prefix + 'LocCountry');
+  if(!countrySel) return undefined;
+  if(!countrySel.value) return null;
+  return World.makeRef(countrySel.value, document.getElementById(prefix + 'LocPlace').value || null);
 }
 function locationLabelFor(ref){
-  if(!ref || !ref.countryId) return '';
-  const wdb = getWorldDatabase();
-  return wdb ? resolveLocationLabel(wdb, ref) : '(place set — open the Atlas to load names)';
+  const r = World && World.resolve(ref);
+  return r ? r.label : '';
 }
 const linesOf = (text) => String(text || '').split('\n').map(x => x.trim()).filter(Boolean);
 
@@ -2665,15 +2618,8 @@ function blockIfLocked(snap){
   return true;
 }
 function locationPath(ref){
-  if(!ref || !ref.countryId) return '';
-  const wdb = getWorldDatabase();
-  if(!wdb) return '(place set — open the Atlas once to load names)';
-  const era = wdb.eras.find(e => e.id === ref.eraId);
-  const cont = wdb.continents.find(c => c.id === ref.continentId && c.era === ref.eraId);
-  const country = wdb.countries.find(c => c.id === ref.countryId && c.era === ref.eraId);
-  const city = ref.cityId ? wdb.cities.find(c => c.id === ref.cityId && c.era === ref.eraId) : null;
-  const site = ref.specialSiteId ? wdb.specialSites.find(x => x.id === ref.specialSiteId) : null;
-  return [era, cont, country, city, site].filter(Boolean).map(x => x.name).join(' / ');
+  const r = World && World.resolve(ref);
+  return r ? r.path : '';
 }
 // Builds the brief once; both the screen and the clipboard text use it.
 // Each row: { label, text (plain), items?: [{ text, tag? }] }.
@@ -2743,7 +2689,7 @@ function renderGenerationSection(){
 
   const stops = char.snapshots.map((s, i) => ({
     s, i, done: isLocked(s), on: s.id === snap.id,
-    where: s.location && s.location.countryId ? (locationLabelFor(s.location).split(',')[0] || '—') : (isLocked(s) ? '—' : 'draft')
+    where: s.location ? ((World.resolve(s.location) || {}).name || '—') : (isLocked(s) ? '—' : 'draft')
   }));
   const pct = n => stops.length === 1 ? 50 : 6 + (n / (stops.length - 1)) * 88;
   const activeIdx = stops.findIndex(x => x.on);
@@ -2856,20 +2802,16 @@ function lunarAgeToday(){
   const days = (Date.now() - ref) / 86400000;
   return Math.floor(((days % synodic) + synodic) % synodic);
 }
-// Latest committed location for the active chapter, resolved to a name + coordinates.
-// The active chapter's location, resolved to a name + coordinates.
+// The active chapter's location, resolved to a name + coordinates. Eras are
+// merged on the map; the readout shows the era an old reference named, else
+// the era a place belongs to (the latest one when it exists in several).
 function heroLocation(char){
   const snap = getActiveSnapshot(char);
-  const ref = snap.location && snap.location.countryId ? snap.location : null, text = '';
-  if(!ref) return null;
-  const wdb = getWorldDatabase();
-  if(!wdb) return { label: text, era: ref.eraId };
-  const site = ref.specialSiteId ? wdb.specialSites.find(x => x.id === ref.specialSiteId && x.era === ref.eraId) : null;
-  const city = ref.cityId ? wdb.cities.find(x => x.id === ref.cityId && x.era === ref.eraId) : null;
-  const country = wdb.countries.find(x => x.id === ref.countryId && x.era === ref.eraId);
-  const pick = [site, city, country].find(x => x && typeof x.lat === 'number');
-  const era = wdb.eras.find(e => e.id === ref.eraId);
-  return { name: (site || city || country || {}).name || '', lat: pick ? pick.lat : null, lng: pick ? pick.lng : null, era: era ? era.name : ref.eraId };
+  const r = snap && snap.location ? World.resolve(snap.location) : null;
+  if(!r) return null;
+  const eraId = snap.location.eraId || (r.place && r.place.eras ? r.place.eras[r.place.eras.length - 1] : 'ERA_1');
+  const era = World.ERAS.find(e => e.id === eraId);
+  return { name: r.name, lat: r.lat, lng: r.lng, era: era ? era.name : eraId };
 }
 function fmtCoord(v, pos, neg){
   const a = Math.abs(v), d = Math.floor(a), m = Math.round((a - d) * 60);

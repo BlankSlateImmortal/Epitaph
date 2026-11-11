@@ -212,9 +212,9 @@ input, select, textarea{ accent-color:var(--amber); }
 .top-icons .icon-btn:hover{ border-color:var(--amber); color:var(--amber-hi); }
 .top-icons .slant-btn{ height:30px; }
 .panel-label{ font-family:var(--f-crt) !important; font-size:19px !important; letter-spacing:.1em !important; color:var(--amber) !important; text-shadow:var(--phosphor-glow); }
-.scale-icon, .view-cell, .era-btn{ border-color:var(--amber-dim) !important; color:var(--amber) !important; }
-.scale-icon:hover, .view-cell:hover{ border-color:var(--amber) !important; color:var(--amber-hi) !important; }
-.scale-icon.active, .view-cell.active, .era-btn.active{ background:var(--amber) !important; color:var(--ink) !important; border-color:var(--amber) !important; box-shadow:0 0 14px rgba(255,178,56,.3); }
+.scale-icon{ border-color:var(--amber-dim) !important; color:var(--amber) !important; }
+.scale-icon:hover{ border-color:var(--amber) !important; color:var(--amber-hi) !important; }
+.scale-icon.active{ background:var(--amber) !important; color:var(--ink) !important; border-color:var(--amber) !important; box-shadow:0 0 14px rgba(255,178,56,.3); }
 .layer-item{ color:var(--dust) !important; }
 .layer-item:hover{ color:var(--amber-hi) !important; }
 .layer-item.active{ color:var(--amber) !important; border-left-color:var(--amber) !important; background:var(--amber-ghost) !important; text-shadow:var(--phosphor-glow); }
@@ -243,19 +243,13 @@ input, select, textarea{ accent-color:var(--amber); }
 .terrain-canvas{ position:absolute; inset:2px; width:calc(100% - 4px); height:calc(100% - 4px); border-radius:50%; z-index:0; pointer-events:none; transition:opacity .5s; }
 .terrain-canvas{ opacity:.62; }
 .terrain-canvas.world{ opacity:.34; }
-.map-glyph, .char-markers{ z-index:1; }
+.map-glyph{ z-index:1; }
 #dialWrap{ cursor:grab; touch-action:none; }
 #dialWrap.terrain-dragging{ cursor:grabbing; }
 .terrain-readout{ font-family:var(--f-crt); font-size:17px; color:var(--amber); text-shadow:var(--phosphor-glow); letter-spacing:.08em; min-height:22px; text-align:center; margin-top:6px; }
 .terrain-readout .dim{ color:var(--amber-dim); }
 
-/* tracking trail (selected character's movements across chapters) */
-.track-svg{ position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; clip-path:circle(50% at 50% 50%); }
-.track-svg .trail{ fill:none; stroke:var(--amber); stroke-width:1.6; stroke-dasharray:6 4; filter:drop-shadow(0 0 4px rgba(255,178,56,.6)); }
-.track-svg .stop{ fill:var(--ink); stroke:var(--amber); stroke-width:1.4; }
-.track-svg .stop-label{ font-family:var(--f-crt); font-size:14px; fill:var(--amber); }
-.track-svg .blip-ring{ fill:none; stroke:var(--amber-hi); stroke-width:1.2; }
-.track-svg .blip-dot{ fill:var(--amber-hi); }
+/* tracking trail: drawn inside the map SVG — see .track-layer in atlas.html */
 .signal-clock{ font-family:var(--f-crt); font-size:17px; color:var(--amber); border:1px solid var(--amber); padding:0 6px; text-shadow:var(--phosphor-glow); }
 @media (max-width:900px){ .dial-wrap{ width:min(86vw, 520px) !important; height:min(86vw, 520px) !important; } }
 
