@@ -1093,7 +1093,7 @@
   }
   .gen-loc-cascade select:focus{ outline:none; border-color: var(--dust); }
 </style>
-<link rel="stylesheet" href="assets/epitaph-theme.css?v=12">
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=13">
 <link rel="stylesheet" href="assets/epitaph-book.css?v=3">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="assets/portrait-gen.js?v=8"></script>
@@ -2455,7 +2455,7 @@ function renderCodexPage(char, snap, animate){
           ${v.icon ? `<img src="${v.icon}" alt="">` : (v.image ? `<img src="${v.image}" alt="">` : `<b>◈</b>`)}
           <span>${escapeHtml(v.name)}${v.state ? ` <small class="slot-state">· ${escapeHtml(v.state)}</small>` : ''}</span>${(it.marks || []).length || it.boundTo ? `<span class="slot-marks">${(it.marks || []).map(m => `<i class="mk ${escapeAttr(m.kind)}" title="${escapeAttr(MARK_KIND_LABEL[m.kind] || '')}">${MARK_KIND_SHORT[m.kind] || ''}</i>`).join('')}${it.boundTo ? '<i class="mk bound" title="Bound">⛓</i>' : ''}</span>` : ''}${chg.isNew('inventory', it) ? NEW_TAG : ''}</button>`;
       }).join('')}</div>
-      ${sel ? (() => { const v = invView(sel), twice = heldTwice(char, snap, sel.itemId); return `<div class="inv-detail">${v.image ? `<img src="${v.image}" alt="">` : ''}<div><h4>${escapeHtml(v.name)}</h4>${stateTagHtml(v)} ${v.origin ? `<span class="from-tag">FROM ${escapeHtml(v.origin.toUpperCase())}</span> ` : ''}${sel.boundTo ? `<span class="bound-tag">BOUND TO ${escapeHtml(sel.boundTo.toUpperCase())}</span>` : ''}${v.missing ? '<p class="inv-warn">⚠ This item is no longer in the Library.</p>' : ''}${twice.length ? `<p class="inv-warn">⚠ Also held by ${escapeHtml(twice.join(', '))} in the same chapter.</p>` : ''}<p>${v.desc ? escapeHtml(v.desc) : '<span class="dim">No description.</span>'}</p>${v.stateDesc ? `<p><span class="crt">&gt; ${escapeHtml(v.state)}:</span> ${escapeHtml(v.stateDesc)}</p>` : ''}${v.note ? `<p class="dim">${escapeHtml(v.note)}</p>` : ''}${(sel.marks || []).length ? `<div class="mark-lines">${markLinesHtml(sel.marks)}</div>` : ''}</div></div>`; })() : ''}</div>`;
+      ${sel ? itemMonitorHtml(char, snap, sel, items.indexOf(sel)) : ''}</div>`;
   } else if(sysTab === 'ties'){
     const inferred = inferredRelationships(char);
     const rels = snap.relationships || [];
@@ -2509,6 +2509,7 @@ function renderCodexPage(char, snap, animate){
     if(findCharacterById(btn.dataset.charId)){ switchActiveCharacter(btn.dataset.charId); window.scrollTo({ top: 0, behavior: 'smooth' }); }
   }));
   page.querySelectorAll('[data-inv]').forEach(b => b.addEventListener('click', () => { invFocus[char.id] = b.dataset.inv; renderCodexPage(char, snap, false); }));
+  wireItemMonitor(page);
   hydrateGenPortraits(page);
   if(sysTab === 'skills' && snap.skills.length) renderAuthorityTree(char, snap, animate);
 
@@ -3915,6 +3916,76 @@ function invView(entry){
     origin: origin ? origin.name : (li && li.originPlaceId ? 'a deleted place' : ''),
     note: entry.note || '', marks: entry.marks || [], boundTo: entry.boundTo || ''
   };
+}
+// ---- Inventory tab: the selected item on a CRT monitor ("specimen plate") ----
+// A picture with transparent pixels floats inside the turning rings; a solid
+// one sits in a bevelled circle so the rings stay visible around it.
+const ITEM_ALPHA = new Map();   // picture src -> has transparent pixels
+function pictureHasAlpha(src){
+  if(ITEM_ALPHA.has(src)) return Promise.resolve(ITEM_ALPHA.get(src));
+  if(/^data:image\/jpe?g/i.test(src)){ ITEM_ALPHA.set(src, false); return Promise.resolve(false); }
+  return new Promise(res => {
+    const done = a => { ITEM_ALPHA.set(src, a); res(a); };
+    const im = new Image();
+    im.onload = () => {
+      try{
+        const w = Math.max(1, Math.min(64, im.naturalWidth || 64)), h = Math.max(1, Math.min(64, im.naturalHeight || 64));
+        const c = document.createElement('canvas'); c.width = w; c.height = h;
+        const x = c.getContext('2d'); x.drawImage(im, 0, 0, w, h);
+        const d = x.getImageData(0, 0, w, h).data;
+        let clear = 0; for(let i = 3; i < d.length; i += 4) if(d[i] < 200) clear++;
+        done(clear > w * h * 0.04);
+      }catch(e){ done(false); }
+    };
+    im.onerror = () => done(false);
+    im.src = src;
+  });
+}
+function wireItemMonitor(root){
+  const plate = root.querySelector('.item-plate[data-has-pic]');
+  if(!plate) return;
+  const img = plate.querySelector('.item-fig img');
+  pictureHasAlpha(img.getAttribute('src')).then(a => { plate.classList.toggle('float', a); plate.classList.toggle('solid', !a); });
+}
+function itemMonitorHtml(char, snap, sel, idx){
+  const v = invView(sel), twice = heldTwice(char, snap, sel.itemId);
+  const li = sel.itemId && Lib ? Lib.item(sel.itemId) : null;
+  const states = (li && li.states) || [];
+  const si = states.findIndex(s => s.id === sel.stateId);
+  const marks = sel.marks || [];
+  const pic = v.image || v.icon || '';
+  const known = pic && ITEM_ALPHA.has(pic) ? (ITEM_ALPHA.get(pic) ? 'float' : 'solid') : 'solid';
+  const kinds = marks.map(m => m.kind);
+  const arc = kinds.includes('curse') ? 'curse' : kinds.includes('binding') ? 'binding' : 'plain';
+  const count = k => kinds.filter(x => x === k).length;
+  const markSum = !marks.length ? 'NONE' : (new Set(kinds).size === 1 ? `${marks.length} ${(MARK_KIND_LABEL[kinds[0]] || 'MARK').toUpperCase()}${marks.length === 1 ? '' : 'S'}` : [['blessing', 'BLS'], ['curse', 'CRS'], ['binding', 'BND']].filter(([k]) => count(k)).map(([k, l]) => count(k) + ' ' + l).join(' · '));
+  const call = (pos, k, val, cls) => val ? `<div class="item-call ${pos}"><span class="k">${k}</span><span class="v${cls ? ' ' + cls : ''}">${escapeHtml(String(val).toUpperCase())}</span></div>` : '';
+  const sigil = m => m.image ? `<img class="item-sig" src="${escapeAttr(m.image)}" alt="">` : '<span class="item-sig none" aria-hidden="true"></span>';
+  const row = (k, val, cls) => val ? `<dt>${k}</dt><dd${cls ? ` class="${cls}"` : ''}>${escapeHtml(val)}</dd>` : '';
+  return `<div class="item-crt"><div class="item-screen">
+    <div class="item-scr-top"><span>ITEM ${String(idx + 1).padStart(2, '0')} / ${escapeHtml((char.name || 'Unnamed').toUpperCase())}${snap.chapterRange ? ' / ' + escapeHtml(snap.chapterRange.toUpperCase()) : ''}</span><span class="on">● ${states.length ? `STATE ${si >= 0 ? String(si + 1).padStart(2, '0') : '--'}/${String(states.length).padStart(2, '0')}` : `${marks.length} MARK${marks.length === 1 ? '' : 'S'}`}</span></div>
+    <div class="item-scr-body">
+      <div class="item-plate ${known} arc-${arc}"${pic ? ' data-has-pic' : ''}>
+        <svg class="item-rings" viewBox="0 0 400 400" aria-hidden="true">
+          <g class="r-outer"><circle cx="200" cy="200" r="190" class="ring-dash"/><path d="M200 6v14M394 200h-14M200 394v-14M6 200h14" class="ring-tick"/><path d="M62.8 62.8l8 8M337.2 62.8l-8 8M337.2 337.2l-8-8M62.8 337.2l8-8" class="ring-tick soft"/></g>
+          <g class="r-mid"><circle cx="200" cy="200" r="160" class="ring-thin"/><circle cx="200" cy="200" r="160" class="ring-arc"/><circle cx="200" cy="40" r="4" class="ring-dot"/></g>
+          <g class="r-inner"><circle cx="200" cy="200" r="132" class="ring-comb"/></g>
+        </svg>
+        <div class="item-fig">${pic ? `<span class="item-pic"><img src="${escapeAttr(pic)}" alt="${escapeAttr(v.name)}"></span>` : `<span class="item-pic empty"><b>${escapeHtml(((v.name || '?').trim().charAt(0) || '◈').toUpperCase())}</b></span>`}<span class="item-shadow"></span></div>
+        ${call('tl', 'STATE', v.stateMissing ? 'removed' : v.state)}${call('tr', 'BOUND', sel.boundTo, 'g')}${call('bl', 'FROM', v.linked ? (v.origin || 'unknown') : '')}${call('br', 'MARKS', markSum)}
+      </div>
+      <div class="item-text">
+        <span class="item-meta">&gt;&gt;&gt;&gt;&gt;&gt;&gt; ${v.linked ? 'LIBRARY ITEM' : (v.missing ? 'MISSING FROM LIBRARY' : 'TYPED-IN ITEM')}</span>
+        <h4 class="item-name">${escapeHtml(v.name)}</h4>
+        ${states.length ? `<ol class="item-track">${states.map((s, i) => `${i ? '<li class="arrow" aria-hidden="true">▸</li>' : ''}<li class="${i === si ? 'on' : ''}">${String(i + 1).padStart(2, '0')} ${escapeHtml(s.name.toUpperCase())}</li>`).join('')}</ol>` : ''}
+        ${v.missing ? '<p class="inv-warn">⚠ This item is no longer in the Library.</p>' : ''}${v.stateMissing ? '<p class="inv-warn">⚠ Its state was removed from the Library item.</p>' : ''}${twice.length ? `<p class="inv-warn">⚠ Also held by ${escapeHtml(twice.join(', '))} in the same chapter.</p>` : ''}
+        <p class="item-prose">${v.desc ? escapeHtml(v.desc) : '<span class="dim">No description.</span>'}</p>
+        ${v.stateDesc ? `<p class="item-prose"><em>${escapeHtml(v.state)} ·</em> ${escapeHtml(v.stateDesc)}</p>` : ''}
+        ${v.note ? `<p class="item-prose dim">${escapeHtml(v.note)}</p>` : ''}
+        ${marks.length ? `<div class="item-marks">${marks.map(m => `<div class="item-mk kind-${escapeAttr(m.kind)}"><div><span class="item-kind">${escapeHtml((MARK_KIND_LABEL[m.kind] || m.kind).toUpperCase())}</span><h5>${escapeHtml(m.name || 'Unnamed mark')}</h5>${m.effect ? `<p>${escapeHtml(m.effect)}</p>` : ''}<dl>${row('SOURCE', m.source)}${row('COST', m.cost, 'cost')}${row('ENDS', m.ends)}</dl></div>${sigil(m)}</div>`).join('')}</div>` : ''}
+      </div>
+    </div>
+  </div><span class="item-led" aria-hidden="true"></span></div>`;
 }
 function stateTagHtml(v){
   if(v.stateMissing) return ' <span class="state-tag missing" title="This state was removed from the Library item">STATE REMOVED</span>';

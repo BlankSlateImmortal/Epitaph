@@ -181,3 +181,8 @@ One item can have ordered states, e.g. **Seal: Locked ▸ Weakened**. It stays o
 - Checks: `item-state` (an entry points at a removed state) and `state-back` (a later chapter goes back to an earlier state; a warning only).
 - **Fold into…** (book, `opl`, on an item): makes that item a state of another item. Its description, note, marks and picture become the new state; every chapter holding it is relinked to the other item in that state; typed-in entries with the same name can be relinked too (their description moves to the chapter note unless the state already says it); if the other item had no states, its current form becomes state 01 and its holders get it; the combined item can be renamed ("Seal (locked)" → "Seal"); the folded item is removed. Shows the full plan first and needs a second click.
 - Code: `assets/epitaph-states.js` (editor and track), helpers `stateOf`, `uses`, `marksFor` in `assets/epitaph-library.js`.
+
+## Inventory tab: item monitor
+
+The selected item shows on a bevelled CRT monitor (`itemMonitorHtml` in index.html, `.item-*` styles in epitaph-theme.css). Left: the picture on a "specimen plate" with three turning rings (the bright arc is red if the item has a curse, teal for a binding, amber otherwise) and corner labels for state, bound to, origin and marks. A picture with transparent pixels floats up and down; a solid picture sits in a smaller bevelled circle so the rings stay visible (checked once per picture in the browser, nothing to set). Right: name, state track, description, state text, note, and each mark as a row with its image on the right. Motion stops when the device asks for reduced motion. Stacks on narrow screens.
+
