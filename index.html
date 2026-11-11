@@ -1262,6 +1262,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="assets/portrait-gen.js?v=7"></script>
 <script src="assets/epitaph-muses.js?v=7"></script>
+<script src="assets/archetypes.js?v=1"></script>
 </head>
 <body>
 <svg class="grain" width="0" height="0">
@@ -1518,7 +1519,9 @@ function migrateCharacter(c){
       }
       return {
         id: it.id || ('inv_' + Math.random().toString(36).slice(2)),
-        name: it.name || '', desc: it.desc || '', icon: it.icon || '', image: it.image || ''
+        name: it.name || '', desc: it.desc || '', icon: it.icon || '', image: it.image || '',
+        marks: Array.isArray(it.marks) ? it.marks.map(normalizeMark) : [],
+        boundTo: typeof it.boundTo === 'string' ? it.boundTo : ''
       };
     }),
     skills: (s.skills || []).map(sk => ({ name: sk.name, desc: sk.desc || '', level: sk.level != null ? sk.level : 0, corrupted: !!sk.corrupted, parent: sk.parent || '' })),
@@ -1529,9 +1532,130 @@ function migrateCharacter(c){
     emotionalState: s.emotionalState || '',
     portraitPosition: s.portraitPosition || { x: 50, y: 50 },
     systemPortrait: s.systemPortrait || '',
-    systemPortraitPosition: s.systemPortraitPosition || { x: 50, y: 50 }
+    systemPortraitPosition: s.systemPortraitPosition || { x: 50, y: 50 },
+    // per-chapter state (schema v2) — see migrateStateV2
+    archetype: typeof s.archetype === 'string' ? s.archetype : '',
+    location: s.location && typeof s.location === 'object' && s.location.countryId ? s.location : null,
+    objective: typeof s.objective === 'string' ? s.objective : '',
+    relationships: Array.isArray(s.relationships) ? s.relationships.map(normalizeRelationship) : [],
+    knowledge: Array.isArray(s.knowledge) ? s.knowledge.filter(k => typeof k === 'string') : [],
+    secrets: Array.isArray(s.secrets) ? s.secrets.map(normalizeSecret) : [],
+    condition: Array.isArray(s.condition) ? s.condition.filter(k => typeof k === 'string') : [],
+    marks: Array.isArray(s.marks) ? s.marks.map(normalizeMark) : [],
+    notes: typeof s.notes === 'string' ? s.notes : '',
+    headingToward: typeof s.headingToward === 'string' ? s.headingToward : '',
+    // generated-portrait settings live on the chapter so re-rolling one chapter
+    // never changes another
+    portraitFigure: typeof s.portraitFigure === 'string' ? s.portraitFigure : '',
+    portraitStyle: typeof s.portraitStyle === 'string' ? s.portraitStyle : '',
+    portraitSeed: typeof s.portraitSeed === 'string' ? s.portraitSeed : ''
   }));
   return result;
+}
+
+// ---- Shape helpers for per-chapter lists ----
+function newId(prefix){ return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8); }
+function normalizeRelationship(r){
+  return { name: (r && r.name) || '', relation: (r && r.relation) || '', note: (r && r.note) || '', charId: (r && r.charId) || null };
+}
+function normalizeSecret(sc){
+  if(typeof sc === 'string') return { text: sc, characterKnows: false, knownBy: '' };
+  return { text: (sc && sc.text) || '', characterKnows: !!(sc && sc.characterKnows), knownBy: (sc && sc.knownBy) || '' };
+}
+const MARK_KINDS = ['blessing', 'curse', 'binding'];
+function normalizeMark(m){
+  m = m || {};
+  return {
+    id: m.id || newId('mark'),
+    kind: MARK_KINDS.includes(m.kind) ? m.kind : 'blessing',
+    name: m.name || '', source: m.source || '', effect: m.effect || '', cost: m.cost || '', ends: m.ends || ''
+  };
+}
+
+// ---- One-time state migration to per-chapter state (schema v2) ----
+// Additive only: every replaced value is copied to a legacy* property and the
+// original fields stay in place until the UI stops reading them.
+const STATE_SCHEMA_VERSION = 2;
+const BACKUP_STORAGE_KEY = 'epitaph-character-profiles-backup-v1';
+function objsLastId(gs){
+  const list = (gs.timeline && Array.isArray(gs.timeline.currentObjectives) ? gs.timeline.currentObjectives : []).filter(e => e && e.status === 'committed');
+  return list.length ? list[list.length - 1].id : null;
+}
+// Transitional (until the Generation ledger is replaced): a location or
+// objective newly committed in Generation is copied onto its chapter. Only
+// entries not seen before are applied, so migrated values are never undone.
+function syncChaptersFromGeneration(){
+  (state.generationStates || []).forEach(gs => {
+    const c = state.characters.find(x => x.id === gs.characterId);
+    const snap = c && c.snapshots.find(x => x.id === gs.snapshotId);
+    if(!snap || !gs.timeline) return;
+    const seen = snap.genSyncIds || (snap.genSyncIds = { loc: null, obj: null });
+    const locs = (gs.timeline.currentLocation || []).filter(e => e && e.status === 'committed' && e.locationRef && e.locationRef.countryId);
+    const lastLoc = locs[locs.length - 1];
+    if(lastLoc && lastLoc.id !== seen.loc){ snap.location = { ...lastLoc.locationRef }; seen.loc = lastLoc.id; }
+    const objs = (gs.timeline.currentObjectives || []).filter(e => e && e.status === 'committed');
+    const lastObj = objs[objs.length - 1];
+    if(lastObj && lastObj.id !== seen.obj){ snap.objective = lastObj.text || ''; seen.obj = lastObj.id; }
+  });
+}
+const GEN_NOTE_FIELDS = ['currentAffiliations', 'recentEvents', 'characterDevelopment', 'politicalSocialStatus', 'possessions', 'currentRelationships', 'currentKnowledge', 'knownSecrets'];
+function migrateStateV2(st){
+  if((st.schemaVersion || 1) >= 2) return st;
+  const gens = Array.isArray(st.generationStates) ? st.generationStates : [];
+  st.characters.forEach(c => {
+    const snaps = c.snapshots;
+    const last = snaps[snaps.length - 1];
+    // relationships / knowledge / secrets: whole-character -> every chapter
+    snaps.forEach(s => {
+      s.relationships = (c.relationships || []).map(normalizeRelationship);
+      s.knowledge = (c.knowledge || []).slice();
+      s.secrets = (c.secrets || []).map(normalizeSecret);
+    });
+    // story arc
+    if(c.legacyStoryArc === undefined) c.legacyStoryArc = JSON.parse(JSON.stringify(c.storyArc || {}));
+    if(last && c.storyArc && c.storyArc.currentObjective) last.objective = c.storyArc.currentObjective;
+    // mythos -> a mark on every chapter
+    if(c.legacyMythos === undefined) c.legacyMythos = c.mythos || '';
+    if(c.mythos === 'Blessed' || c.mythos === 'Cursed'){
+      snaps.forEach(s => s.marks.push(normalizeMark({
+        kind: c.mythos === 'Blessed' ? 'blessing' : 'curse',
+        name: c.mythos + ' (migrated)'
+      })));
+    }
+    // storyline -> archetype only on an exact list match
+    if(c.legacyStoryline === undefined) c.legacyStoryline = c.storyline || '';
+    const arch = window.EpitaphArchetypes ? EpitaphArchetypes.match(c.storyline) : '';
+    if(arch) snaps.forEach(s => { if(!s.archetype) s.archetype = arch; });
+    // generated-portrait settings -> every chapter
+    ['portraitFigure', 'portraitStyle', 'portraitSeed'].forEach(k => {
+      const legacyKey = 'legacy' + k[0].toUpperCase() + k.slice(1);
+      if(c[legacyKey] === undefined) c[legacyKey] = c[k] || '';
+      snaps.forEach(s => { if(!s[k]) s[k] = c[k] || ''; });
+    });
+    // committed Generation entries -> chapter state
+    snaps.forEach(s => {
+      const gs = gens.find(g => g.characterId === c.id && g.snapshotId === s.id);
+      if(!gs || !gs.timeline) return;
+      const committed = key => (Array.isArray(gs.timeline[key]) ? gs.timeline[key] : []).filter(e => e && e.status === 'committed');
+      const locs = committed('currentLocation').filter(e => e.locationRef && e.locationRef.countryId);
+      if(locs.length && !s.location) s.location = { ...locs[locs.length - 1].locationRef };
+      const earlierLocs = locs.slice(0, -1);
+      s.genSyncIds = { loc: locs.length ? locs[locs.length - 1].id : null, obj: objsLastId(gs) };
+      const objs = committed('currentObjectives');
+      if(objs.length && !s.objective) s.objective = objs[objs.length - 1].text || '';
+      committed('injuries').forEach(e => { if(e.text) s.condition.push(e.text); });
+      const lines = [];
+      // location entries without a map reference would otherwise be dropped
+      // earlier stops in the chapter and location entries without a map reference
+      earlierLocs.concat(committed('currentLocation').filter(e => !(e.locationRef && e.locationRef.countryId)))
+        .forEach(e => { if(e.text) lines.push(`[from Generation: currentLocation] ${e.text}`); });
+      GEN_NOTE_FIELDS.forEach(key => committed(key).forEach(e => { if(e.text) lines.push(`[from Generation: ${key}] ${e.text}`); }));
+      if(lines.length) s.notes = [s.notes, lines.join('\n')].filter(Boolean).join('\n');
+    });
+  });
+  if(st.legacyGenerationStates === undefined) st.legacyGenerationStates = JSON.parse(JSON.stringify(gens));
+  st.schemaVersion = STATE_SCHEMA_VERSION;
+  return st;
 }
 
 // ---- Relationships ----
@@ -1596,16 +1720,46 @@ async function loadState(){
     const raw = localStorage.getItem(STORAGE_KEY);
     if(raw){
       const parsed = JSON.parse(raw);
+      const needsV2 = (parsed.schemaVersion || 1) < STATE_SCHEMA_VERSION;
+      if(needsV2) backupBeforeMigration(raw);
       parsed.characters = (parsed.characters || []).map(migrateCharacter);
       parsed.generationStates = parsed.generationStates || [];
-      state = parsed;
+      state = migrateStateV2(parsed);
+      if(needsV2){
+        try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){ console.error('Could not save migrated profiles', e); }
+      }
     }
   }catch(e){
     state = { characters: [], activeId: null, generationStates: [] };
   }
 }
 
+// Saves the untouched pre-migration data under its own key, once. If the
+// browser has no room for a second copy, the migration still runs (it only
+// adds fields) and the user is told to Export a file backup.
+function backupBeforeMigration(raw){
+  try{
+    if(localStorage.getItem(BACKUP_STORAGE_KEY)) return;
+    localStorage.setItem(BACKUP_STORAGE_KEY, raw);
+  }catch(e){
+    console.error('Could not store the pre-migration backup', e);
+    setTimeout(() => showToast('Your data was upgraded, but there was no room to keep a backup copy in the browser. Use Export to save a backup file.', { duration: 9000 }), 800);
+  }
+}
+
+// Old whole-character edits also land on the active chapter until those
+// forms become per-chapter, so the new chapter state never goes stale.
+function mirrorToActiveSnapshot(char){
+  const snap = getActiveSnapshot(char);
+  if(!snap) return;
+  snap.relationships = (char.relationships || []).map(normalizeRelationship);
+  snap.knowledge = (char.knowledge || []).slice();
+  snap.secrets = (char.secrets || []).map(normalizeSecret);
+  if(char.storyArc && char.storyArc.currentObjective) snap.objective = char.storyArc.currentObjective;
+}
+
 async function persistState(){
+  try{ syncChaptersFromGeneration(); }catch(e){ console.error('Generation sync failed', e); }
   try{
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }catch(e){
@@ -1787,7 +1941,10 @@ function defaultSnapExtras(){
   STAT_LABELS.forEach(l => { stats[l] = 0; });
   return {
     stats, inventory: [], skills: [], titles: [], emotionalState: '',
-    portraitPosition: { x: 50, y: 50 }, systemPortrait: '', systemPortraitPosition: { x: 50, y: 50 }
+    portraitPosition: { x: 50, y: 50 }, systemPortrait: '', systemPortraitPosition: { x: 50, y: 50 },
+    archetype: '', location: null, objective: '', relationships: [], knowledge: [], secrets: [],
+    condition: [], marks: [], notes: '', headingToward: '',
+    portraitFigure: '', portraitStyle: '', portraitSeed: ''
   };
 }
 
@@ -2829,8 +2986,13 @@ function renderAll(){
 const REDUCED_MOTION = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const HAS_GSAP = !!window.gsap;
 function loadMuseList(){ return window.EpitaphMuses ? EpitaphMuses.load() : []; }
+// Generated-portrait settings come from the active chapter, not the character.
+function genSourceFor(char, snap){
+  snap = snap || getActiveSnapshot(char) || {};
+  return { ...char, portraitFigure: snap.portraitFigure || '', portraitStyle: snap.portraitStyle || '', portraitSeed: snap.portraitSeed || '' };
+}
 function genOptsFor(char, extra){
-  return window.EpitaphPortrait ? EpitaphPortrait.forCharacter(char, extra) : null;
+  return window.EpitaphPortrait ? EpitaphPortrait.forCharacter(genSourceFor(char), extra) : null;
 }
 // Fills every <img data-gen-char="id"> with that character's generated portrait.
 function hydrateGenPortraits(root){
@@ -2860,13 +3022,18 @@ function lunarAgeToday(){
   return Math.floor(((days % synodic) + synodic) % synodic);
 }
 // Latest committed location for the active chapter, resolved to a name + coordinates.
+// The chapter's own location wins; older data falls back to the Generation entries.
 function heroLocation(char){
   const snap = getActiveSnapshot(char);
-  const gs = (state.generationStates || []).find(g => g.characterId === char.id && g.snapshotId === snap.id);
-  const list = gs && gs.timeline ? (gs.timeline.currentLocation || []).filter(e => e && e.status === 'committed' && e.locationRef) : [];
-  if(!list.length) return null;
-  const ref = list[list.length - 1].locationRef, wdb = getWorldDatabase();
-  if(!wdb) return { label: list[list.length - 1].text, era: ref.eraId };
+  let ref = snap.location && snap.location.countryId ? snap.location : null, text = '';
+  if(!ref){
+    const gs = (state.generationStates || []).find(g => g.characterId === char.id && g.snapshotId === snap.id);
+    const list = gs && gs.timeline ? (gs.timeline.currentLocation || []).filter(e => e && e.status === 'committed' && e.locationRef) : [];
+    if(!list.length) return null;
+    ref = list[list.length - 1].locationRef; text = list[list.length - 1].text;
+  }
+  const wdb = getWorldDatabase();
+  if(!wdb) return { label: text, era: ref.eraId };
   const site = ref.specialSiteId ? wdb.specialSites.find(x => x.id === ref.specialSiteId && x.era === ref.eraId) : null;
   const city = ref.cityId ? wdb.cities.find(x => x.id === ref.cityId && x.era === ref.eraId) : null;
   const country = wdb.countries.find(x => x.id === ref.countryId && x.era === ref.eraId);
@@ -3230,11 +3397,11 @@ function openCharacterForm(existingChar){
         <div class="gen-row">
           <select id="fFigure" aria-label="Figure">
             <option value="">Figure: auto</option>
-            ${(window.EpitaphPortrait ? EpitaphPortrait.ARCHETYPES : []).map(a => `<option value="${a}" ${existingChar && existingChar.portraitFigure === a ? 'selected' : ''}>${a}</option>`).join('')}
+            ${(window.EpitaphPortrait ? EpitaphPortrait.ARCHETYPES : []).map(a => `<option value="${a}" ${existingSnapFor(existingChar).portraitFigure === a ? 'selected' : ''}>${a}</option>`).join('')}
           </select>
           <select id="fStyle" aria-label="Style">
             <option value="">Style: auto</option>
-            ${(window.EpitaphPortrait ? EpitaphPortrait.STYLES : []).map(a => `<option value="${a}" ${existingChar && existingChar.portraitStyle === a ? 'selected' : ''}>${a}</option>`).join('')}
+            ${(window.EpitaphPortrait ? EpitaphPortrait.STYLES : []).map(a => `<option value="${a}" ${existingSnapFor(existingChar).portraitStyle === a ? 'selected' : ''}>${a}</option>`).join('')}
           </select>
           <button type="button" class="btn ghost" id="genReroll">↻ Reroll</button>
         </div>
@@ -3301,8 +3468,9 @@ function openCharacterForm(existingChar){
 
 // Generated-portrait preview + muse guide inside the character form.
 let pendingPortraitSeed = '';
+function existingSnapFor(char){ return (char && getActiveSnapshot(char)) || {}; }
 function wireCharacterExtras(existingChar){
-  pendingPortraitSeed = existingChar ? (existingChar.portraitSeed || '') : '';
+  pendingPortraitSeed = existingSnapFor(existingChar).portraitSeed || '';
   const prev = document.getElementById('genPrev');
   const refresh = () => {
     if(!window.EpitaphPortrait || !prev) return;
@@ -3363,14 +3531,15 @@ function reviewCharacterSave(){
     ...(existingChar || {}),
     id: charId,
     name: fields.name, storyline: fields.storyline, faction: fields.faction,
-    museIds: fields.museIds, portraitFigure: fields.portraitFigure, portraitStyle: fields.portraitStyle,
-    portraitSeed: pendingPortraitSeed, glyph: fields.glyph,
+    museIds: fields.museIds, glyph: fields.glyph,
     activeSnapshotId: snapId,
     snapshots: existingChar
       ? existingChar.snapshots.map(s => s.id === snapId
-          ? { ...s, chapterRange: fields.chapterRange, blurb: fields.blurb, backstory: fields.backstory, portrait: fields.portrait }
+          ? { ...s, chapterRange: fields.chapterRange, blurb: fields.blurb, backstory: fields.backstory, portrait: fields.portrait,
+              portraitFigure: fields.portraitFigure, portraitStyle: fields.portraitStyle, portraitSeed: pendingPortraitSeed }
           : s)
-      : [{ id: snapId, chapterRange: fields.chapterRange, blurb: fields.blurb, backstory: fields.backstory, portrait: fields.portrait, ...defaultSnapExtras() }]
+      : [{ id: snapId, chapterRange: fields.chapterRange, blurb: fields.blurb, backstory: fields.backstory, portrait: fields.portrait, ...defaultSnapExtras(),
+           portraitFigure: fields.portraitFigure, portraitStyle: fields.portraitStyle, portraitSeed: pendingPortraitSeed }]
   });
 
   modalContent.innerHTML = `
@@ -3452,7 +3621,10 @@ function reviewSnapshotSave(){
       inventory: (prevSnap.inventory || []).map(i => ({ ...i })),
       skills: (prevSnap.skills || []).map(s => ({ ...s })),
       titles: (prevSnap.titles || []).map(t => ({ ...t })),
-      emotionalState: prevSnap.emotionalState || ''
+      emotionalState: prevSnap.emotionalState || '',
+      portraitFigure: prevSnap.portraitFigure || '',
+      portraitStyle: prevSnap.portraitStyle || '',
+      portraitSeed: prevSnap.portraitSeed || ''
     } : {})
   };
 
@@ -3818,9 +3990,11 @@ function reviewSystemSave(charId, snapId){
     snap.emotionalState = emotionalState;
     char.mythos = mythos;
     char.relationships = relationships;
+    mirrorToActiveSnapshot(char);
     char.storyArc = storyArc;
     char.knowledge = knowledgeAndSecrets.knowledge;
     char.secrets = knowledgeAndSecrets.secrets;
+    mirrorToActiveSnapshot(char);
     char.divineStatus = divineStatus;
     char.authority = authority;
     await persistState();
@@ -3992,6 +4166,7 @@ function openRelationshipsOnlyForm(char){
   document.getElementById('mwRelSave').addEventListener('click', async () => {
     const relationships = parseRelationshipLines(document.getElementById('mwRelationships').value, char.id);
     char.relationships = relationships;
+    mirrorToActiveSnapshot(char);
     await persistState();
     renderAll();
     closeModal();
@@ -4011,6 +4186,7 @@ function openArcOnlyForm(char){
   `;
   document.getElementById('mwArcSave').addEventListener('click', async () => {
     char.storyArc = readArcFields('mwArc');
+    mirrorToActiveSnapshot(char);
     await persistState();
     renderAll();
     closeModal();
@@ -4032,6 +4208,7 @@ function openKnowledgeOnlyForm(char){
     const result = readKnowledgeFields('mwK');
     char.knowledge = result.knowledge;
     char.secrets = result.secrets;
+    mirrorToActiveSnapshot(char);
     await persistState();
     renderAll();
     closeModal();
@@ -4265,7 +4442,8 @@ deleteBtn.addEventListener('click', () => {
 
 // ---- Backup: export / import the whole Dossier state ----
 // Export writes everything under the 'epitaph-character-profiles' key as-is.
-// Import replaces it after a warning; the state shape is never changed.
+// Import replaces it after a warning; older backups are migrated to the
+// current shape on the way in (the file itself is never modified).
 document.getElementById('exportBtn').addEventListener('click', () => {
   try{
     const d = new Date();
@@ -4325,7 +4503,7 @@ document.getElementById('importFileInput').addEventListener('change', (e) => {
         const characters = incoming.characters.filter(c => c && typeof c === 'object').map(migrateCharacter);
         const generationStates = Array.isArray(incoming.generationStates) ? incoming.generationStates : [];
         const activeId = characters.some(c => c.id === incoming.activeId) ? incoming.activeId : (characters[0] ? characters[0].id : null);
-        state = { ...incoming, characters, generationStates, activeId };
+        state = migrateStateV2({ ...incoming, characters, generationStates, activeId });
         await persistState();
         renderAll();
         closeModal();

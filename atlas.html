@@ -1444,8 +1444,9 @@ function dossierCurrentObjective(id){
   const dc = dossierCharById(id);
   const snap = dossierActiveSnap(id);
   if(!dc || !snap) return 'Unknown';
+  if(snap.objective) return snap.objective;
   const gs = (dossierState.generationStates || []).find(s => s.characterId === dc.id && s.snapshotId === snap.id);
-  if(!gs) return 'Unknown';
+  if(!gs || !gs.timeline) return 'Unknown';
   const committed = (gs.timeline.currentObjectives || []).filter(e => e.status === 'committed');
   if(!committed.length) return 'Unknown';
   return committed[committed.length - 1].text;
@@ -1460,12 +1461,20 @@ let selectedCharId = null;
 let selectedLoc = null; // { kind: 'city'|'site', id }
 
 // ---- where a character is: Dossier → locationRef → World Database ----
-// The latest committed Current Location entry of the character's active
-// chapter (the Generation section). Pending or rejected entries never place
-// a marker; only committed canon does.
+// The active chapter's own location (snapshot.location). Older data without
+// one falls back to the latest committed Current Location entry of the
+// Generation section; pending or rejected entries never place a marker.
+function committedGenLocations(dc, snap){
+  const gs = (dossierState.generationStates || []).find(g => g.characterId === dc.id && g.snapshotId === snap.id);
+  return gs && gs.timeline ? (gs.timeline.currentLocation || []).filter(e => e && e.status === 'committed' && e.locationRef) : [];
+}
+function sameRef(a, b){
+  return !!a && !!b && ['eraId', 'continentId', 'countryId', 'cityId', 'specialSiteId'].every(k => (a[k] || null) === (b[k] || null));
+}
 function latestCommittedLocation(charId){
   const dc = dossierCharById(charId), snap = dossierActiveSnap(charId);
   if(!dc || !snap) return null;
+  if(snap.location && snap.location.countryId) return { locationRef: snap.location };
   const gs = (dossierState.generationStates || []).find(s => s.characterId === dc.id && s.snapshotId === snap.id);
   if(!gs || !gs.timeline) return null;
   const list = (gs.timeline.currentLocation || []).filter(e => e && e.status === 'committed' && e.locationRef);
@@ -1569,8 +1578,10 @@ function locationHistory(charId){
   const dc = dossierCharById(charId); if(!dc) return [];
   const out = [];
   (dc.snapshots || []).forEach(s => {
-    const gs = (dossierState.generationStates || []).find(g => g.characterId === dc.id && g.snapshotId === s.id);
-    const list = gs && gs.timeline ? (gs.timeline.currentLocation || []).filter(e => e && e.status === 'committed' && e.locationRef) : [];
+    let list = committedGenLocations(dc, s);
+    // a chapter's own location replaces the Generation trail, unless it is
+    // that trail's last stop (migrated data) — then the earlier stops stay
+    if(s.location && s.location.countryId && !(list.length && sameRef(list[list.length - 1].locationRef, s.location))) list = [{ locationRef: s.location }];
     list.forEach(e => { const p = resolveLocationRef(e.locationRef); if(p && p.kind && typeof p.lat === 'number') out.push(Object.assign(p, { chapter: s.chapterRange || '' })); });
   });
   return out;
