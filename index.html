@@ -1052,6 +1052,15 @@
     .brief-row{ grid-template-columns:1fr; gap:2px; }
     .brief .gen2-foot{ flex-direction:column; align-items:flex-start; gap:10px; }
   }
+  .checks-btn{ position:relative; }
+  .checks-badge{ display:inline-block; min-width:18px; padding:0 5px; margin-left:4px; background:var(--ember); color:var(--bone); font-size:11px; line-height:18px; border-radius:9px; text-align:center; }
+  .checks-list{ list-style:none; margin:0 0 12px; padding:0; display:flex; flex-direction:column; gap:6px; }
+  .check-row{ display:flex; gap:10px; align-items:flex-start; width:100%; text-align:left; background:var(--ink); border:1px solid var(--line); border-left:3px solid var(--ember); color:var(--bone); padding:10px; min-height:44px; font:inherit; font-size:14px; cursor:pointer; }
+  .check-info .check-row{ border-left-color:var(--dust); }
+  .check-row:hover{ border-color:var(--amber); }
+  .check-tag{ color:var(--ember); flex:0 0 auto; }
+  .check-info .check-tag{ color:var(--dust); }
+  .checks-sub{ font-family:var(--f-crt, monospace); color:var(--amber-dim); letter-spacing:.14em; margin:10px 0 6px; }
   .chapters-editor{ display:flex; flex-direction:column; gap:8px; margin-bottom:10px; }
   .chapter-row{ display:grid; grid-template-columns:84px minmax(0,1fr) 44px; gap:6px; align-items:center; }
   .chapter-row input{ min-height:44px; background:var(--ink); border:1px solid var(--line); color:var(--bone); padding:8px 10px; font:inherit; min-width:0; }
@@ -1092,6 +1101,7 @@
 <script src="assets/archetypes.js?v=1"></script>
 <script src="assets/epitaph-world.js?v=2"></script>
 <script src="assets/epitaph-library.js?v=1"></script>
+<script src="assets/epitaph-checks.js?v=1"></script>
 </head>
 <body>
 <svg class="grain" width="0" height="0">
@@ -1111,6 +1121,7 @@
       <a class="btn ghost" id="musesLink" href="muses.html">Muses</a>
       <button class="btn ghost" id="editBtn" style="display:none;">Edit</button>
       <button class="btn ghost danger" id="deleteBtn" style="display:none;">Delete</button>
+      <button class="btn ghost checks-btn" id="checksBtn" type="button">Checks <span class="checks-badge" id="checksBadge" hidden></span></button>
       <button class="btn ghost" id="chaptersBtn" type="button">Chapters</button>
       <button class="btn ghost" id="exportBtn" type="button">Export data</button>
       <label class="btn ghost" for="importFileInput" id="importBtn">Import data</label>
@@ -2744,6 +2755,7 @@ function renderGenerationSection(){
 }
 
 function renderAll(){
+  updateChecksBadge();
   renderPoster();
   renderRail();
   hydrateGenPortraits(document.getElementById('rail'));
@@ -4562,6 +4574,53 @@ deleteBtn.addEventListener('click', () => {
   });
 });
 
+// ---- Continuity checks (assets/epitaph-checks.js): report only ----
+function currentChecks(){ return window.EpitaphChecks ? EpitaphChecks.run(state) : []; }
+function updateChecksBadge(){
+  const badge = document.getElementById('checksBadge');
+  if(!badge) return;
+  const warn = currentChecks().filter(i => i.level === 'warn').length;
+  badge.hidden = !warn;
+  badge.textContent = warn;
+  document.getElementById('checksBtn').setAttribute('aria-label', `Checks: ${warn} warning${warn === 1 ? '' : 's'}`);
+}
+function checksListHtml(list){
+  const row = (i, idx) => `<li class="check-${i.level}"><button type="button" class="check-row" data-check="${idx}">
+    <span class="check-tag">${i.level === 'warn' ? '⚠' : 'i'}</span><span>${escapeHtml(i.text)}</span></button></li>`;
+  const warn = list.filter(i => i.level === 'warn'), info = list.filter(i => i.level === 'info');
+  return (warn.length ? `<ul class="checks-list">${warn.map(i => row(i, list.indexOf(i))).join('')}</ul>` : '<p class="gen-empty-hint">No warnings.</p>')
+    + (info.length ? `<p class="checks-sub">Notes</p><ul class="checks-list">${info.map(i => row(i, list.indexOf(i))).join('')}</ul>` : '');
+}
+function openChecks(){
+  const list = currentChecks();
+  modalContent.innerHTML = `
+    <h2>Checks</h2>
+    <p class="sub">Continuity problems across characters and chapters. Nothing is fixed automatically — tap a line to go to it.</p>
+    ${checksListHtml(list)}
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Close</button></div>`;
+  modalContent.querySelectorAll('[data-check]').forEach(b => b.addEventListener('click', async () => {
+    const i = list[+b.dataset.check];
+    if(i.charId){
+      const c = state.characters.find(x => x.id === i.charId);
+      if(c){
+        state.activeId = c.id;
+        if(i.snapId && c.snapshots.some(x => x.id === i.snapId)) c.activeSnapshotId = i.snapId;
+        await persistState(); renderAll(); closeModal();
+        if(i.rule === 'held-twice') sysTab = 'inventory';
+        else if(i.rule === 'one-sided') sysTab = 'ties';
+        else if(i.rule === 'divine') sysTab = 'arc';
+        else sysTab = 'chapter';
+        renderSystemSection();
+        document.getElementById('systemSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+    }
+    if(i.itemId) window.location.href = 'atlas.html?item=' + encodeURIComponent(i.itemId);
+  }));
+  openModal();
+}
+document.getElementById('checksBtn').addEventListener('click', openChecks);
+
 // ---- Shared chapter list editor ----
 // One list for the whole story; chapter versions point at it by number.
 let pendingChapters = [];
@@ -4731,6 +4790,8 @@ modalBackdrop.addEventListener('click', (e) => {
     const linked = state.characters.find(c => c.id === linkedCharId), n = parseInt(params.get('ch'), 10);
     const v = Number.isInteger(n) ? stateAtChapter(linked, n) : null;
     if(v) linked.activeSnapshotId = v.id;
+    const bySnap = params.get('snap');
+    if(bySnap && linked.snapshots.some(x => x.id === bySnap)) linked.activeSnapshotId = bySnap;
   } else if(!state.activeId && state.characters.length){
     state.activeId = state.characters[0].id;
   }

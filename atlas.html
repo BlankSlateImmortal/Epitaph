@@ -219,6 +219,14 @@
   .track-layer .stop-g.current .stop{ fill:var(--amber, #ffb238); }
   .track-layer .stop-label{ font-size:6px; }
   .subject-index .idx-row.absent{ opacity:.45; }
+  .checks-btn{ position:relative; }
+  .checks-badge{ display:inline-block; min-width:16px; padding:0 4px; margin-left:4px; background:var(--ember); color:var(--bone); font-size:10px; line-height:16px; border-radius:8px; text-align:center; }
+  .checks-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
+  .checks-list li{ border:1px solid var(--line); border-left:3px solid var(--ember); padding:8px 10px; display:flex; flex-direction:column; gap:6px; font-size:13px; }
+  .checks-list li.check-info{ border-left-color:var(--dust); }
+  .check-text{ display:flex; gap:8px; }
+  .check-tag{ color:var(--ember); }
+  .check-info .check-tag{ color:var(--dust); }
   .user-country-dot{ fill:none; stroke:var(--amber, #ffb238); stroke-width:.7; }
   /* Library drawer: right-hand panel on desktop, full-screen sheet on a phone */
   .lib-drawer{ position:fixed; inset:0; z-index:60; pointer-events:none; }
@@ -372,6 +380,7 @@
 <script src="assets/epitaph-world.js?v=2"></script>
 <script src="assets/epitaph-library.js?v=1"></script>
 <script src="assets/epitaph-marks.js?v=1"></script>
+<script src="assets/epitaph-checks.js?v=1"></script>
 </head>
 <body>
 
@@ -380,6 +389,7 @@
     <div class="brand">EPITAPH // ATLAS — <span id="crumbLabel">WORLD</span></div>
     <div class="top-icons">
       <span class="signal-clock" id="signalClock" aria-label="Session clock">00:00:00</span>
+      <button class="slant-btn checks-btn" type="button" id="checksBtn" title="Continuity checks">Checks <span class="checks-badge" id="checksBadge" hidden></span></button>
       <button class="slant-btn" type="button" id="libraryBtn" title="Your places and items">Library</button>
       <a class="slant-btn" href="index.html" title="Character Dossier">Dossier</a>
       <a class="slant-btn" href="muses.html" title="Muses">Muses</a>
@@ -519,6 +529,16 @@
 </div>
 
 <div class="char-tooltip" id="charTooltip"></div>
+
+<div class="lib-drawer" id="checksDrawer" aria-hidden="true">
+  <div class="lib-sheet" role="dialog" aria-label="Continuity checks">
+    <div class="lib-head">
+      <span class="lib-title">CHECKS</span><span class="lib-tabs"></span>
+      <button type="button" class="lib-close" id="checksClose" aria-label="Close the checks">×</button>
+    </div>
+    <div class="lib-body" id="checksBody"></div>
+  </div>
+</div>
 
 <div class="lib-drawer" id="libDrawer" aria-hidden="true">
   <div class="lib-sheet" role="dialog" aria-label="Library">
@@ -953,6 +973,7 @@ function renderView(){
   updateBreadcrumb();
   updateHud();
   renderCharacterLayer();
+  if(typeof updateChecksBadge === 'function' && document.getElementById('checksDrawer')) updateChecksBadge();
 }
 function buildOverlay(){
   const world = geo.scale === 'World';
@@ -1855,6 +1876,46 @@ Lib.onChange(() => {
   if(document.getElementById('libDrawer').classList.contains('open')) renderLibrary();
 });
 
+// ============================================================
+// CHECKS — continuity problems (assets/epitaph-checks.js), report only.
+// Recomputed whenever the data changes; each line links to where it is.
+// ============================================================
+function currentChecks(){ return window.EpitaphChecks ? EpitaphChecks.run(dossierState) : []; }
+function updateChecksBadge(){
+  const warn = currentChecks().filter(i => i.level === 'warn').length, badge = document.getElementById('checksBadge');
+  badge.hidden = !warn; badge.textContent = warn;
+  document.getElementById('checksBtn').setAttribute('aria-label', `Checks: ${warn} warning${warn === 1 ? '' : 's'}`);
+  if(document.getElementById('checksDrawer').classList.contains('open')) renderChecks();
+}
+function renderChecks(){
+  const list = currentChecks();
+  const row = (i, idx) => `<li class="check-${i.level}"><div class="check-text"><span class="check-tag">${i.level === 'warn' ? '⚠' : 'i'}</span>${escapeHud(i.text)}</div>
+    <div class="lib-row-btns">${i.charId ? `<button type="button" class="lib-btn" data-check-map="${idx}">Show on map</button><button type="button" class="lib-btn" data-check-dossier="${idx}">Open Dossier</button>` : ''}${i.itemId && !i.charId ? `<button type="button" class="lib-btn" data-check-item="${idx}">Open item</button>` : ''}</div></li>`;
+  const warn = list.filter(i => i.level === 'warn'), info = list.filter(i => i.level === 'info');
+  document.getElementById('checksBody').innerHTML = `<p class="lib-empty">Continuity problems across characters and chapters. Nothing is fixed automatically.</p>
+    <div class="lib-sec">WARNINGS · ${warn.length}</div>${warn.length ? `<ul class="checks-list">${warn.map(i => row(i, list.indexOf(i))).join('')}</ul>` : '<p class="lib-empty">No warnings.</p>'}
+    ${info.length ? `<div class="lib-sec">NOTES · ${info.length}</div><ul class="checks-list">${info.map(i => row(i, list.indexOf(i))).join('')}</ul>` : ''}`;
+  const body = document.getElementById('checksBody');
+  body.querySelectorAll('[data-check-dossier]').forEach(b => b.addEventListener('click', () => {
+    const i = list[+b.dataset.checkDossier];
+    window.location.href = 'index.html?char=' + encodeURIComponent(i.charId) + (i.chapter != null ? '&ch=' + i.chapter : '') + (i.snapId ? '&snap=' + encodeURIComponent(i.snapId) : '');
+  }));
+  body.querySelectorAll('[data-check-map]').forEach(b => b.addEventListener('click', () => {
+    const i = list[+b.dataset.checkMap];
+    closeChecks();
+    if(i.chapter != null && chapterNumbers().includes(i.chapter)) setChapter(i.chapter);
+    setCharactersMode(true);
+    const s = stateOf(i.charId);
+    if(s && s.place) focusPlace(s.place);
+    selectCharacter(i.charId);
+  }));
+  body.querySelectorAll('[data-check-item]').forEach(b => b.addEventListener('click', () => { closeChecks(); openLibrary('items', { mode: 'itemDetail', id: list[+b.dataset.checkItem].itemId }); }));
+}
+function openChecks(){ const d = document.getElementById('checksDrawer'); d.classList.add('open'); d.setAttribute('aria-hidden', 'false'); renderChecks(); }
+function closeChecks(){ const d = document.getElementById('checksDrawer'); d.classList.remove('open'); d.setAttribute('aria-hidden', 'true'); }
+document.getElementById('checksBtn').addEventListener('click', openChecks);
+document.getElementById('checksClose').addEventListener('click', closeChecks);
+
 // ---- living terrain under the map (always on; drag to pan, hover to raise) ----
 const terrainReadout = document.getElementById('terrainReadout');
 const terrain = window.EpitaphTerrain ? new EpitaphTerrain(document.getElementById('terrainCanvas'), {
@@ -1887,6 +1948,8 @@ renderView();
 // view moved to where they are.
 (function handleDeepLink(){
   const params = new URLSearchParams(window.location.search);
+  const itemId = params.get('item');
+  if(itemId && Lib.item(itemId)) openLibrary('items', { mode: 'itemDetail', id: itemId });
   const charId = params.get('char'), ch = parseInt(params.get('ch'), 10);
   if(Number.isInteger(ch) && chapterNumbers().includes(ch)){ selChapter = ch; renderChapterControl(); }
   if(!charId || !dossierCharById(charId)) return;
