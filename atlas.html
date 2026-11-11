@@ -1383,7 +1383,7 @@ loadWorldDatabase();
 const DOSSIER_STORAGE_KEY = 'epitaph-character-profiles';
 const ATLAS_STORAGE_KEY = 'epitaph-atlas-data';
 
-let dossierState = { characters: [], activeId: null, generationStates: [] };
+let dossierState = { characters: [], activeId: null };
 let CHARACTERS = [];
 
 function loadDossierState(){
@@ -1445,7 +1445,7 @@ function dossierCurrentObjective(id){
   const snap = dossierActiveSnap(id);
   if(!dc || !snap) return 'Unknown';
   if(snap.objective) return snap.objective;
-  const gs = (dossierState.generationStates || []).find(s => s.characterId === dc.id && s.snapshotId === snap.id);
+  const gs = dossierGens().find(s => s.characterId === dc.id && s.snapshotId === snap.id);
   if(!gs || !gs.timeline) return 'Unknown';
   const committed = (gs.timeline.currentObjectives || []).filter(e => e.status === 'committed');
   if(!committed.length) return 'Unknown';
@@ -1464,8 +1464,13 @@ let selectedLoc = null; // { kind: 'city'|'site', id }
 // The active chapter's own location (snapshot.location). Older data without
 // one falls back to the latest committed Current Location entry of the
 // Generation section; pending or rejected entries never place a marker.
+// The retired Generation ledger, only for chapters saved before chapter
+// locations existed (the Dossier keeps it as legacy data).
+function dossierGens(){
+  return dossierState.generationStates || dossierState.legacyGenerationStatesLatest || dossierState.legacyGenerationStates || [];
+}
 function committedGenLocations(dc, snap){
-  const gs = (dossierState.generationStates || []).find(g => g.characterId === dc.id && g.snapshotId === snap.id);
+  const gs = dossierGens().find(g => g.characterId === dc.id && g.snapshotId === snap.id);
   return gs && gs.timeline ? (gs.timeline.currentLocation || []).filter(e => e && e.status === 'committed' && e.locationRef) : [];
 }
 function sameRef(a, b){
@@ -1475,7 +1480,7 @@ function latestCommittedLocation(charId){
   const dc = dossierCharById(charId), snap = dossierActiveSnap(charId);
   if(!dc || !snap) return null;
   if(snap.location && snap.location.countryId) return { locationRef: snap.location };
-  const gs = (dossierState.generationStates || []).find(s => s.characterId === dc.id && s.snapshotId === snap.id);
+  const gs = dossierGens().find(s => s.characterId === dc.id && s.snapshotId === snap.id);
   if(!gs || !gs.timeline) return null;
   const list = (gs.timeline.currentLocation || []).filter(e => e && e.status === 'committed' && e.locationRef);
   return list.length ? list[list.length - 1] : null;
