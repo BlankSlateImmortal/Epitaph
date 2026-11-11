@@ -1014,29 +1014,22 @@
   .inv-marks{ flex:1 1 100%; border-top:1px dashed var(--line); padding-top:8px; }
   .inv-marks summary{ cursor:pointer; min-height:44px; display:flex; align-items:center; color:var(--amber); font-size:13px; letter-spacing:.08em; text-transform:uppercase; }
   .inv-bound-label{ display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--dust); margin:6px 0 10px; }
-  .marks-editor{ display:flex; flex-direction:column; gap:10px; }
-  .mark-edit{ display:flex; flex-direction:column; gap:6px; border:1px solid var(--line); border-left:3px solid var(--gold); padding:10px; }
-  .mark-edit.kind-curse{ border-left-color:var(--ember); }
-  .mark-edit.kind-binding{ border-left-color:var(--verdigris); }
-  .mark-edit-top{ display:flex; gap:6px; flex-wrap:wrap; }
-  .mark-edit-top select{ flex:0 0 auto; }
-  .mark-edit-top input{ flex:1 1 140px; min-width:0; }
-  .mark-edit input, .mark-edit select, .mark-edit textarea, .inv-bound-label input{ width:100%; background:var(--ink); border:1px solid var(--line); color:var(--bone); padding:8px 10px; font:inherit; font-size:14px; min-height:40px; }
-  .mark-edit-top select, .mark-edit-top input{ width:auto; }
-  .mark-edit textarea{ min-height:56px; resize:vertical; }
-  .mark-remove, .mark-add{ align-self:flex-start; min-height:40px; }
-  .mark-tag{ display:inline-block; font-family:var(--f-crt, monospace); font-size:12px; letter-spacing:.14em; padding:0 5px; border:1px solid var(--gold); color:var(--gold); vertical-align:middle; }
-  .mark-tag.curse{ border-color:var(--ember); color:var(--ember); }
-  .mark-tag.binding{ border-color:var(--verdigris); color:var(--verdigris); }
-  .mark-lines{ display:flex; flex-direction:column; gap:12px; }
-  .mark-line{ border-left:2px solid var(--gold); padding:2px 0 2px 12px; }
-  .mark-line.kind-curse{ border-left-color:var(--ember); }
-  .mark-line.kind-binding{ border-left-color:var(--verdigris); }
-  .mark-line b{ font-weight:400; color:var(--bone); font-size:17px; }
-  .mark-line p{ margin:4px 0; font-size:15px; }
-  .mark-line small{ display:block; font-size:13px; color:var(--dust); }
-  .mark-line small.cost{ color:var(--amber); }
   .mark-sep{ font-family:var(--f-crt, monospace); color:var(--amber-dim); letter-spacing:.2em; margin:18px 0 8px; }
+  .from-tag{ display:inline-block; font-family:var(--f-crt, monospace); font-size:12px; letter-spacing:.12em; color:var(--amber); border:1px dashed var(--amber-dim); padding:0 5px; margin:2px 0 6px; }
+  .inv-warn{ color:var(--ember); font-size:12px; }
+  .inv-slot.twice{ border-color:var(--ember) !important; }
+  .inv-edit-row.linked .inv-img-drop.static{ cursor:default; }
+  .inv-lib-name{ font-weight:400; color:var(--bone); font-size:15px; }
+  .inv-lib-meta{ color:var(--dust); font-size:12px; }
+  .inv-note-input{ width:100%; background:var(--ink); border:1px solid var(--line); color:var(--bone); padding:8px 10px; font:inherit; font-size:13.5px; min-height:40px; }
+  .inv-to-lib{ align-self:flex-start; min-height:36px; font-size:12px; }
+  .inv-add-bar{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:4px; }
+  .inv-add-bar select{ flex:1 1 180px; min-width:0; min-height:44px; background:var(--ink); border:1px solid var(--line); color:var(--bone); padding:8px; font:inherit; }
+  .inv-add-bar .btn{ min-height:44px; }
+  .inv-quick{ display:flex; flex-direction:column; gap:8px; border:1px dashed var(--amber-dim); padding:12px; margin-top:8px; }
+  .inv-quick input, .inv-quick textarea, .inv-quick select{ width:100%; background:var(--ink); border:1px solid var(--line); color:var(--bone); padding:8px 10px; font:inherit; font-size:14px; min-height:44px; }
+  .inv-quick label{ display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--dust); }
+  .inv-quick-btns{ display:flex; gap:8px; flex-wrap:wrap; }
   .mark-item{ margin-bottom:14px; }
   .mark-item > b{ font-weight:400; color:var(--bone); font-size:18px; }
   .mark-item .mark-lines{ margin-top:6px; }
@@ -1092,12 +1085,13 @@
   }
   .gen-loc-cascade select:focus{ outline:none; border-color: var(--dust); }
 </style>
-<link rel="stylesheet" href="assets/epitaph-theme.css?v=8">
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=9">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="assets/portrait-gen.js?v=8"></script>
 <script src="assets/epitaph-muses.js?v=7"></script>
 <script src="assets/archetypes.js?v=1"></script>
-<script src="assets/epitaph-world.js?v=1"></script>
+<script src="assets/epitaph-world.js?v=2"></script>
+<script src="assets/epitaph-library.js?v=1"></script>
 </head>
 <body>
 <svg class="grain" width="0" height="0">
@@ -1290,12 +1284,15 @@ function migrateCharacter(c){
       if(typeof it === 'string'){
         return { id: 'inv_' + Math.random().toString(36).slice(2), name: it, desc: '', icon: '', image: '' };
       }
-      return {
+      const base = {
         id: it.id || ('inv_' + Math.random().toString(36).slice(2)),
-        name: it.name || '', desc: it.desc || '', icon: it.icon || '', image: it.image || '',
         marks: Array.isArray(it.marks) ? it.marks.map(normalizeMark) : [],
         boundTo: typeof it.boundTo === 'string' ? it.boundTo : ''
       };
+      // a Library item: name, description and pictures come from the Library
+      // (`name` is kept only as a fallback label if that item is ever deleted)
+      if(it.itemId) return { ...base, itemId: it.itemId, note: typeof it.note === 'string' ? it.note : '', name: it.name || '' };
+      return { ...base, name: it.name || '', desc: it.desc || '', icon: it.icon || '', image: it.image || '' };
     }),
     skills: (s.skills || []).map(sk => ({ name: sk.name, desc: sk.desc || '', level: sk.level != null ? sk.level : 0, corrupted: !!sk.corrupted, parent: sk.parent || '' })),
     titles: (s.titles || []).map(t => {
@@ -2381,7 +2378,7 @@ function renderCodexPage(char, snap, animate){
       `<div class="codex-right">
         <div class="mark-lines">${snap.marks.length ? markLinesHtml(snap.marks, m => chg.isNew('marks', m)) : `<p class="sys-empty">No marks this chapter.</p>`}</div>
         ${items.length ? `<p class="mark-sep">— CARRIED —</p>${items.map(it => `<div class="mark-item">
-          <b>${escapeHtml(it.name || 'Untitled item')}</b>${it.boundTo ? ` <span class="bound-tag">BOUND TO ${escapeHtml(it.boundTo.toUpperCase())}</span>` : ''}
+          <b>${escapeHtml(invView(it).name)}</b>${invView(it).origin ? ` <span class="from-tag">FROM ${escapeHtml(invView(it).origin.toUpperCase())}</span>` : ''}${it.boundTo ? ` <span class="bound-tag">BOUND TO ${escapeHtml(it.boundTo.toUpperCase())}</span>` : ''}
           ${markLinesHtml(it.marks)}</div>`).join('')}` : ''}
       </div>`;
   } else if(sysTab === 'stats'){
@@ -2413,11 +2410,12 @@ function renderCodexPage(char, snap, animate){
       `<div class="codex-right"><div class="inv-grid">${Array.from({ length: slots }, (_, i) => {
         const it = items[i];
         if(!it) return `<div class="inv-slot empty" aria-hidden="true"></div>`;
-        return `<button type="button" class="inv-slot${sel && sel.id === it.id ? ' on' : ''}" data-inv="${escapeAttr(it.id)}">
-          ${it.icon ? `<img src="${it.icon}" alt="">` : (it.image ? `<img src="${it.image}" alt="">` : `<b>◈</b>`)}
-          <span>${escapeHtml(it.name || 'Untitled')}</span>${(it.marks || []).length || it.boundTo ? `<span class="slot-marks">${(it.marks || []).map(m => `<i class="mk ${escapeAttr(m.kind)}" title="${escapeAttr(MARK_KIND_LABEL[m.kind] || '')}">${MARK_KIND_SHORT[m.kind] || ''}</i>`).join('')}${it.boundTo ? '<i class="mk bound" title="Bound">⛓</i>' : ''}</span>` : ''}${chg.isNew('inventory', it) ? NEW_TAG : ''}</button>`;
+        const v = invView(it);
+        return `<button type="button" class="inv-slot${sel && sel.id === it.id ? ' on' : ''}${heldTwice(char, snap, it.itemId).length ? ' twice' : ''}" data-inv="${escapeAttr(it.id)}">
+          ${v.icon ? `<img src="${v.icon}" alt="">` : (v.image ? `<img src="${v.image}" alt="">` : `<b>◈</b>`)}
+          <span>${escapeHtml(v.name)}</span>${(it.marks || []).length || it.boundTo ? `<span class="slot-marks">${(it.marks || []).map(m => `<i class="mk ${escapeAttr(m.kind)}" title="${escapeAttr(MARK_KIND_LABEL[m.kind] || '')}">${MARK_KIND_SHORT[m.kind] || ''}</i>`).join('')}${it.boundTo ? '<i class="mk bound" title="Bound">⛓</i>' : ''}</span>` : ''}${chg.isNew('inventory', it) ? NEW_TAG : ''}</button>`;
       }).join('')}</div>
-      ${sel ? `<div class="inv-detail">${sel.image ? `<img src="${sel.image}" alt="">` : ''}<div><h4>${escapeHtml(sel.name || 'Untitled item')}</h4>${sel.boundTo ? `<span class="bound-tag">BOUND TO ${escapeHtml(sel.boundTo.toUpperCase())}</span>` : ''}<p>${sel.desc ? escapeHtml(sel.desc) : '<span class="dim">No description.</span>'}</p>${(sel.marks || []).length ? `<div class="mark-lines">${markLinesHtml(sel.marks)}</div>` : ''}</div></div>` : ''}</div>`;
+      ${sel ? (() => { const v = invView(sel), twice = heldTwice(char, snap, sel.itemId); return `<div class="inv-detail">${v.image ? `<img src="${v.image}" alt="">` : ''}<div><h4>${escapeHtml(v.name)}</h4>${v.origin ? `<span class="from-tag">FROM ${escapeHtml(v.origin.toUpperCase())}</span> ` : ''}${sel.boundTo ? `<span class="bound-tag">BOUND TO ${escapeHtml(sel.boundTo.toUpperCase())}</span>` : ''}${v.missing ? '<p class="inv-warn">⚠ This item is no longer in the Library.</p>' : ''}${twice.length ? `<p class="inv-warn">⚠ Also held by ${escapeHtml(twice.join(', '))} in the same chapter.</p>` : ''}<p>${v.desc ? escapeHtml(v.desc) : '<span class="dim">No description.</span>'}</p>${v.note ? `<p class="dim">${escapeHtml(v.note)}</p>` : ''}${(sel.marks || []).length ? `<div class="mark-lines">${markLinesHtml(sel.marks)}</div>` : ''}</div></div>`; })() : ''}</div>`;
   } else if(sysTab === 'ties'){
     const inferred = inferredRelationships(char);
     const rels = snap.relationships || [];
@@ -2635,7 +2633,7 @@ function buildBrief(char, snap){
       .forEach(r => rels.push({ text: relText(r), tag: 'ended' }));
   }
   const carrying = (snap.inventory || []).map(it => ({
-    text: `${it.name || 'Untitled item'}${it.boundTo ? ' [bound to ' + it.boundTo + ']' : ''}${(it.marks || []).map(m => ' [' + markText(m) + ']').join('')}`,
+    text: `${invView(it).name}${invView(it).origin ? ' (from ' + invView(it).origin + ')' : ''}${it.boundTo ? ' [bound to ' + it.boundTo + ']' : ''}${(it.marks || []).map(m => ' [' + markText(m) + ']').join('')}`,
     tag: chg.isNew('inventory', it) ? 'new' : ''
   }));
   const arch = archetypeLabel(snap), prevArch = prev ? archetypeLabel(prev) : '';
@@ -3652,7 +3650,8 @@ function openChapterStateForm(char, snap){
 function openSystemForm(char, snap){
   if(blockIfLocked(snap)) return;
   const statsVals = STAT_LABELS.map(l => (snap.stats && snap.stats[l] != null) ? snap.stats[l] : 0);
-  pendingInventoryItems = (snap.inventory || []).map(it => ({ ...it, name: it.name || '', desc: it.desc || '', icon: it.icon || '', image: it.image || '' }));
+  pendingInventoryItems = (snap.inventory || []).map(it => JSON.parse(JSON.stringify(it)));
+  pendingInventoryChar = { char, snap };
 
   modalContent.innerHTML = `
     <h2>Edit system sheet — ${escapeHtml(char.name || 'Unnamed')}</h2>
@@ -3835,12 +3834,60 @@ function markLinesHtml(list, isNew){
     ${m.ends ? `<small>Ends: ${escapeHtml(m.ends)}</small>` : ''}
   </div>`).join('');
 }
+// ---- Inventory entries: Library items or old free-text items ----
+const Lib = window.EpitaphLibrary;
+function invView(entry){
+  const li = entry.itemId && Lib ? Lib.item(entry.itemId) : null;
+  const origin = li && li.originPlaceId ? World.place(li.originPlaceId) : null;
+  return {
+    linked: !!li, missing: !!entry.itemId && !li,
+    name: li ? li.name : (entry.name || (entry.itemId ? 'Missing Library item' : 'Untitled')),
+    desc: li ? li.desc : (entry.desc || ''), icon: li ? li.icon : (entry.icon || ''), image: li ? li.image : (entry.image || ''),
+    origin: origin ? origin.name : (li && li.originPlaceId ? 'a deleted place' : ''),
+    note: entry.note || '', marks: entry.marks || [], boundTo: entry.boundTo || ''
+  };
+}
+// Chapters a version covers: from its start chapter to just before the
+// character's next version starts.
+function versionSpan(char, snap){
+  if(!Number.isInteger(snap.startChapter)) return null;
+  const later = char.snapshots.map(s => s.startChapter).filter(n => Number.isInteger(n) && n > snap.startChapter);
+  return [snap.startChapter, later.length ? Math.min(...later) - 1 : Infinity];
+}
+// Other characters holding the same Library item in an overlapping chapter.
+function heldTwice(char, snap, itemId){
+  const span = itemId && versionSpan(char, snap);
+  if(!span) return [];
+  const names = [];
+  state.characters.forEach(c => {
+    if(c.id === char.id) return;
+    const hit = c.snapshots.some(s => {
+      if(!(s.inventory || []).some(e => e.itemId === itemId)) return false;
+      const o = versionSpan(c, s);
+      return o && o[0] <= span[1] && span[0] <= o[1];
+    });
+    if(hit) names.push(c.name || 'Unnamed');
+  });
+  return names;
+}
+// What a save keeps: Library entries keep the link; free-text entries keep their text.
+function finalizeInventory(list){
+  return list
+    .filter(it => it.itemId || (it.name || '').trim() || (it.desc || '').trim() || it.icon || it.image || cleanMarks(it.marks).length || (it.boundTo || '').trim())
+    .map(it => it.itemId
+      ? { id: it.id, itemId: it.itemId, note: (it.note || '').trim(), boundTo: (it.boundTo || '').trim(), marks: cleanMarks(it.marks), name: it.name || '' }
+      : { ...it, name: (it.name || '').trim(), desc: (it.desc || '').trim(), icon: it.icon || '', image: it.image || '', marks: cleanMarks(it.marks), boundTo: (it.boundTo || '').trim() });
+}
+
 function markedItems(snap){ return (snap.inventory || []).filter(it => (it.marks || []).length || it.boundTo); }
 const invMarksOpen = new Set();
 
+let pendingInventoryChar = null; // { char, snap } being edited, for the held-twice check
 function syncInventoryFromDOM(){
   document.querySelectorAll('.inv-edit-row').forEach((row, idx) => {
     if(!pendingInventoryItems[idx]) return;
+    const noteInput = row.querySelector('.inv-note-input');
+    if(noteInput) pendingInventoryItems[idx].note = noteInput.value;
     const nameInput = row.querySelector('.inv-name-input');
     const descInput = row.querySelector('.inv-desc-input');
     pendingInventoryItems[idx].name = nameInput ? nameInput.value : pendingInventoryItems[idx].name;
@@ -3854,40 +3901,111 @@ function syncInventoryFromDOM(){
 function renderInventoryEditor(){
   const wrap = document.getElementById('inventoryEditorWrap');
   if(!wrap) return;
-  wrap.innerHTML = `
-    ${pendingInventoryItems.map((item, idx) => `
-      <div class="inv-edit-row" data-idx="${idx}">
-        <div class="inv-img-drop" onclick="triggerInvImageInput(${idx}, 'icon')" title="Icon image">
-          ${item.icon ? `<img src="${item.icon}">` : `<span>Icon</span>`}
-        </div>
-        <div class="inv-edit-fields">
-          <input type="text" class="inv-name-input" placeholder="Item name" value="${escapeAttr(item.name)}">
-          <textarea class="inv-desc-input" placeholder="Description">${escapeHtml(item.desc || '')}</textarea>
-        </div>
-        <div class="inv-img-drop large" onclick="triggerInvImageInput(${idx}, 'image')" title="Photo">
-          ${item.image ? `<img src="${item.image}">` : `<span>Photo</span>`}
-        </div>
-        <button type="button" class="inv-remove-btn" onclick="removeInventoryItem(${idx})" aria-label="Remove item">×</button>
+  const libItems = Lib ? Lib.get().items.slice().sort((a, b) => a.name.localeCompare(b.name)) : [];
+  const marksBlock = (item, idx) => `
         <details class="inv-marks" data-item-id="${escapeAttr(item.id)}" ${invMarksOpen.has(item.id) || (item.marks || []).length || item.boundTo ? 'open' : ''}>
           <summary>Marks &amp; binding${(item.marks || []).length ? ` (${item.marks.length})` : ''}${item.boundTo ? ' · bound' : ''}</summary>
           <label class="inv-bound-label">Bound to — person or thing it can't leave (blank if not bound)
             <input type="text" class="inv-bound-input" list="boundToNames" value="${escapeAttr(item.boundTo || '')}" placeholder="e.g. Orin">
           </label>
           <div class="marks-editor">${markRowsHtml('item:' + idx, item.marks || [])}</div>
-        </details>
-      </div>
-    `).join('')}
+        </details>`;
+  wrap.innerHTML = `
+    ${pendingInventoryItems.map((item, idx) => {
+      if(item.itemId){
+        const v = invView(item);
+        const twice = pendingInventoryChar ? heldTwice(pendingInventoryChar.char, pendingInventoryChar.snap, item.itemId) : [];
+        return `<div class="inv-edit-row linked" data-idx="${idx}">
+          <div class="inv-img-drop static">${v.icon ? `<img src="${v.icon}" alt="">` : (v.image ? `<img src="${v.image}" alt="">` : '<span>◈</span>')}</div>
+          <div class="inv-edit-fields">
+            <b class="inv-lib-name">${escapeHtml(v.name)}</b>
+            <small class="inv-lib-meta">${v.missing ? '⚠ No longer in the Library' : 'Library item' + (v.origin ? ' · from ' + escapeHtml(v.origin) : '')}</small>
+            ${twice.length ? `<small class="inv-warn">⚠ Also held by ${escapeHtml(twice.join(', '))} in the same chapter</small>` : ''}
+            <input type="text" class="inv-note-input" placeholder="Note for this chapter (optional)" value="${escapeAttr(item.note || '')}">
+          </div>
+          <button type="button" class="inv-remove-btn" onclick="removeInventoryItem(${idx})" aria-label="Remove item">×</button>
+          ${marksBlock(item, idx)}
+        </div>`;
+      }
+      return `<div class="inv-edit-row" data-idx="${idx}">
+        <div class="inv-img-drop" onclick="triggerInvImageInput(${idx}, 'icon')" title="Icon image">
+          ${item.icon ? `<img src="${item.icon}">` : `<span>Icon</span>`}
+        </div>
+        <div class="inv-edit-fields">
+          <input type="text" class="inv-name-input" placeholder="Item name" value="${escapeAttr(item.name)}">
+          <textarea class="inv-desc-input" placeholder="Description">${escapeHtml(item.desc || '')}</textarea>
+          ${Lib ? `<button type="button" class="btn ghost inv-to-lib" data-to-lib="${idx}">Add to Library</button>` : ''}
+        </div>
+        <div class="inv-img-drop large" onclick="triggerInvImageInput(${idx}, 'image')" title="Photo">
+          ${item.image ? `<img src="${item.image}">` : `<span>Photo</span>`}
+        </div>
+        <button type="button" class="inv-remove-btn" onclick="removeInventoryItem(${idx})" aria-label="Remove item">×</button>
+        ${marksBlock(item, idx)}
+      </div>`;
+    }).join('')}
     <datalist id="boundToNames">${state.characters.map(c => `<option value="${escapeAttr(c.name || '')}">`).join('')}</datalist>
-    <button type="button" class="btn ghost inv-add-btn" id="addInvItemBtn">+ Add item</button>
+    <div class="inv-add-bar">
+      <select id="invLibPick" aria-label="Library item"><option value="">${libItems.length ? '— add a Library item —' : '— no Library items yet —'}</option>${libItems.map(i => `<option value="${escapeAttr(i.id)}">${escapeHtml(i.name)}</option>`).join('')}</select>
+      <button type="button" class="btn ghost" id="invLibAdd">Add</button>
+      <button type="button" class="btn ghost" id="invNewItem">New item…</button>
+    </div>
+    <div id="invQuickForm"></div>
   `;
-  document.getElementById('addInvItemBtn').addEventListener('click', addInventoryItem);
+  document.getElementById('invLibAdd').addEventListener('click', () => {
+    const id = document.getElementById('invLibPick').value;
+    if(id) addLibraryEntry(id);
+  });
+  document.getElementById('invNewItem').addEventListener('click', openQuickItemForm);
+  wrap.querySelectorAll('[data-to-lib]').forEach(b => b.addEventListener('click', () => moveEntryToLibrary(+b.dataset.toLib)));
   wrap.querySelectorAll('details.inv-marks').forEach(d => d.addEventListener('toggle', () => { if(d.open) invMarksOpen.add(d.dataset.itemId); else invMarksOpen.delete(d.dataset.itemId); }));
 }
-
-function addInventoryItem(){
+// A chapter's copy of a Library item: marks start as the item's own marks.
+function addLibraryEntry(itemId){
   syncInventoryFromDOM();
-  pendingInventoryItems.push({ id: 'inv_' + Math.random().toString(36).slice(2), name: '', desc: '', icon: '', image: '', marks: [], boundTo: '' });
+  const li = Lib.item(itemId);
+  if(!li) return;
+  pendingInventoryItems.push({ id: newId('inv'), itemId, note: '', boundTo: '', marks: (li.marks || []).map(m => ({ ...normalizeMark(m), id: newId('mark') })), name: li.name });
   renderInventoryEditor();
+}
+// "New item…": the quick form saves to the Library, then adds it here.
+function openQuickItemForm(){
+  syncInventoryFromDOM();
+  const box = document.getElementById('invQuickForm');
+  const places = World.countries().map(co => {
+    const list = World.placesIn(co.id).slice().sort((a, b) => a.name.localeCompare(b.name));
+    return list.length ? `<optgroup label="${escapeAttr(co.name)}">${list.map(p => `<option value="${escapeAttr(p.id)}">${escapeHtml(p.name)}</option>`).join('')}</optgroup>` : '';
+  }).join('');
+  box.innerHTML = `<div class="inv-quick">
+    <b>New Library item</b>
+    <input type="text" id="qiName" placeholder="Item name">
+    <textarea id="qiDesc" placeholder="Description"></textarea>
+    <label>Where it came from<select id="qiOrigin"><option value="">— unknown —</option>${places}</select></label>
+    <p class="gen-empty-hint" id="qiMsg" role="alert"></p>
+    <div class="inv-quick-btns"><button type="button" class="btn ghost" id="qiCancel">Cancel</button><button type="button" class="btn primary" id="qiSave">Save to Library and add</button></div>
+  </div>`;
+  document.getElementById('qiName').focus();
+  document.getElementById('qiCancel').addEventListener('click', () => { box.innerHTML = ''; });
+  document.getElementById('qiSave').addEventListener('click', () => {
+    const name = document.getElementById('qiName').value.trim();
+    if(!name){ document.getElementById('qiMsg').textContent = 'Give the item a name.'; return; }
+    const id = Lib.newId('li');
+    const saved = Lib.update(lib => lib.items.push({ id, name, desc: document.getElementById('qiDesc').value.trim(), originPlaceId: document.getElementById('qiOrigin').value, marks: [], note: '', icon: '', image: '' }));
+    if(!saved){ document.getElementById('qiMsg').textContent = 'Could not save — browser storage may be full.'; return; }
+    addLibraryEntry(id);
+  });
+}
+// One tap: an old free-text item becomes a Library item (its pictures and
+// text move to the Library; this chapter keeps marks and binding).
+function moveEntryToLibrary(idx){
+  syncInventoryFromDOM();
+  const e = pendingInventoryItems[idx];
+  if(!e || !(e.name || '').trim()){ showToast('Give the item a name first.'); return; }
+  const id = Lib.newId('li');
+  const saved = Lib.update(lib => lib.items.push({ id, name: e.name.trim(), desc: (e.desc || '').trim(), originPlaceId: '', marks: cleanMarks(e.marks), note: '', icon: e.icon || '', image: e.image || '' }));
+  if(!saved){ showToast('Could not save to the Library — browser storage may be full.'); return; }
+  pendingInventoryItems[idx] = { id: e.id, itemId: id, note: '', boundTo: e.boundTo || '', marks: e.marks || [], name: e.name.trim() };
+  renderInventoryEditor();
+  showToast('Added to the Library. Save to keep the change in this chapter.');
 }
 
 function removeInventoryItem(idx){
@@ -3948,9 +4066,7 @@ function reviewSystemSave(charId, snapId){
     stats[inp.dataset.label] = isNaN(v) ? 0 : Math.max(0, Math.min(100, v));
   });
   syncInventoryFromDOM();
-  const inventory = pendingInventoryItems
-    .filter(it => it.name.trim() || it.desc.trim() || it.icon || it.image || cleanMarks(it.marks).length || (it.boundTo || '').trim())
-    .map(it => ({ ...it, name: it.name.trim(), desc: it.desc.trim(), icon: it.icon || '', image: it.image || '', marks: cleanMarks(it.marks), boundTo: (it.boundTo || '').trim() }));
+  const inventory = finalizeInventory(pendingInventoryItems);
   const skills = document.getElementById('sysSkills').value.split('\n').map(s => s.trim()).filter(Boolean).map(line => {
     const parts = line.split('|').map(p => p.trim());
     const lvl = parseFloat(parts[1]);
@@ -4122,10 +4238,11 @@ function openSkillsOnlyForm(char, snap){
 
 function openInventoryOnlyForm(char, snap){
   if(blockIfLocked(snap)) return;
-  pendingInventoryItems = (snap.inventory || []).map(it => ({ ...it, name: it.name || '', desc: it.desc || '', icon: it.icon || '', image: it.image || '' }));
+  pendingInventoryItems = (snap.inventory || []).map(it => JSON.parse(JSON.stringify(it)));
+  pendingInventoryChar = { char, snap };
   modalContent.innerHTML = `
     <h2>Inventory — ${escapeHtml(char.name || 'Unnamed')}</h2>
-    <p class="sub">Icon, name, description, photo, marks and binding per item. This chapter version only.</p>
+    <p class="sub">Add items from the Library (or make a new one). Marks, binding and a note are per chapter; name, picture and origin come from the Library. Old free-text items still work.</p>
     <div class="field">
       <div id="inventoryEditorWrap" class="inv-editor-wrap"></div>
       <input type="file" id="invFileInput" accept="image/*" class="visually-hidden-input">
@@ -4139,9 +4256,7 @@ function openInventoryOnlyForm(char, snap){
   renderInventoryEditor();
   document.getElementById('mwInvSave').addEventListener('click', async () => {
     syncInventoryFromDOM();
-    snap.inventory = pendingInventoryItems
-      .filter(it => it.name.trim() || it.desc.trim() || it.icon || it.image || cleanMarks(it.marks).length || (it.boundTo || '').trim())
-      .map(it => ({ ...it, name: it.name.trim(), desc: it.desc.trim(), icon: it.icon || '', image: it.image || '', marks: cleanMarks(it.marks), boundTo: (it.boundTo || '').trim() }));
+    snap.inventory = finalizeInventory(pendingInventoryItems);
     await persistState();
     renderAll();
     closeModal();
@@ -4502,6 +4617,23 @@ function openChaptersForm(){
 }
 document.getElementById('chaptersBtn').addEventListener('click', openChaptersForm);
 
+// ---- Another tab (the Atlas) changed shared data ----
+// The Dossier re-reads its own data so a later save can't overwrite what the
+// other tab wrote. An open form is closed first (it holds the old copy).
+window.addEventListener('storage', async (e) => {
+  if(e.key !== STORAGE_KEY) return;
+  const wasOpen = modalBackdrop.classList.contains('visible');
+  if(wasOpen) closeModal();
+  await loadState();
+  if(!state.characters.some(c => c.id === state.activeId)) state.activeId = state.characters[0] ? state.characters[0].id : null;
+  renderAll();
+  if(wasOpen) showToast('Your data was changed in another tab, so the open form was closed. Open it again to continue.', { duration: 6500 });
+});
+if(Lib) Lib.onChange(() => {
+  if(document.getElementById('inventoryEditorWrap')){ syncInventoryFromDOM(); renderInventoryEditor(); }
+  renderAll();
+});
+
 // ---- Backup: export / import the whole Dossier state ----
 // Export writes everything under the 'epitaph-character-profiles' key as-is.
 // Import replaces it after a warning; older backups are migrated to the
@@ -4510,7 +4642,8 @@ document.getElementById('exportBtn').addEventListener('click', () => {
   try{
     const d = new Date();
     const stamp = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    // the Library (places and items) lives under its own key; the backup carries it too
+    const blob = new Blob([JSON.stringify(Lib ? { ...state, library: Lib.get() } : state, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -4564,7 +4697,9 @@ document.getElementById('importFileInput').addEventListener('change', (e) => {
       try{
         const characters = incoming.characters.filter(c => c && typeof c === 'object').map(migrateCharacter);
         const activeId = characters.some(c => c.id === incoming.activeId) ? incoming.activeId : (characters[0] ? characters[0].id : null);
-        state = migrateState({ ...incoming, characters, activeId });
+        const { library, ...rest } = incoming;
+        state = migrateState({ ...rest, characters, activeId });
+        if(library && Lib && !Lib.replace(library)) showToast('The Library in this backup could not be saved — browser storage may be full.', { duration: 6500 });
         await persistState();
         renderAll();
         closeModal();

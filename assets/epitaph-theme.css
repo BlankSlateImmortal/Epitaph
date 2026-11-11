@@ -487,3 +487,31 @@ input, select, textarea{ accent-color:var(--amber); }
 .thumb-add b{ font-weight:400; font-size:44px; line-height:1; }
 .thumb-add span{ font-size:16px; letter-spacing:.08em; text-transform:uppercase; }
 .thumb-add:hover, .thumb-add:focus-visible{ border-color:var(--amber) !important; color:var(--amber-hi) !important; outline:none; }
+
+/* ---------------------------------------------------------------------
+   Marks (blessing / curse / binding): editor + display, shared by the
+   Dossier and the Atlas Library. Costs are text only.
+   --------------------------------------------------------------------- */
+.marks-editor{ display:flex; flex-direction:column; gap:10px; }
+.mark-edit{ display:flex; flex-direction:column; gap:6px; border:1px solid var(--line); border-left:3px solid var(--gold); padding:10px; }
+.mark-edit.kind-curse{ border-left-color:var(--ember); }
+.mark-edit.kind-binding{ border-left-color:var(--verdigris); }
+.mark-edit-top{ display:flex; gap:6px; flex-wrap:wrap; }
+.mark-edit-top select{ flex:0 0 auto; }
+.mark-edit-top input{ flex:1 1 140px; min-width:0; }
+.mark-edit input, .mark-edit select, .mark-edit textarea, .inv-bound-label input{ width:100%; background:var(--ink); border:1px solid var(--line); color:var(--bone); padding:8px 10px; font:inherit; font-size:14px; min-height:40px; }
+.mark-edit-top select, .mark-edit-top input{ width:auto; }
+.mark-edit textarea{ min-height:56px; resize:vertical; }
+.mark-remove, .mark-add{ align-self:flex-start; min-height:40px; }
+.mark-tag{ display:inline-block; font-family:var(--f-crt, monospace); font-size:12px; letter-spacing:.14em; padding:0 5px; border:1px solid var(--gold); color:var(--gold); vertical-align:middle; }
+.mark-tag.curse{ border-color:var(--ember); color:var(--ember); }
+.mark-tag.binding{ border-color:var(--verdigris); color:var(--verdigris); }
+.mark-lines{ display:flex; flex-direction:column; gap:12px; }
+.mark-line{ border-left:2px solid var(--gold); padding:2px 0 2px 12px; }
+.mark-line.kind-curse{ border-left-color:var(--ember); }
+.mark-line.kind-binding{ border-left-color:var(--verdigris); }
+.mark-line b{ font-weight:400; color:var(--bone); font-size:17px; }
+.mark-line p{ margin:4px 0; font-size:15px; }
+.mark-line small{ display:block; font-size:13px; color:var(--dust); }
+.mark-line small.cost{ color:var(--amber); }
+.mark-edit button{ font:inherit; }

@@ -180,14 +180,38 @@ const ERA_1_SPECIAL_SITES = [
     group: s.type, status: s.status, builtIn: true
   })));
 
+  // Rough continent boxes (lat/lng), used only to put user-added countries
+  // and places on the right drawn continent of the world globe.
+  const CONTINENT_BOXES = [
+    ['europe', 35, 72, -25, 45], ['africa', -36, 37, -18, 52], ['asia', -11, 78, 45, 180],
+    ['north-america', 7, 84, -170, -50], ['south-america', -56, 13, -82, -34],
+    ['oceania', -50, 0, 110, 180], ['antarctica', -90, -60, -180, 180]
+  ];
+  function continentAt(lat, lng) {
+    if (!num(lat) || !num(lng)) return null;
+    const hit = CONTINENT_BOXES.find(([, a, b, c, d]) => lat >= a && lat <= b && lng >= c && lng <= d);
+    if (hit) return hit[0];
+    // nearest box centre
+    let best = null, bd = Infinity;
+    CONTINENT_BOXES.forEach(([id, a, b, c, d]) => { const dd = Math.hypot(lat - (a + b) / 2, lng - (c + d) / 2); if (dd < bd) { bd = dd; best = id; } });
+    return best;
+  }
   let extrasFn = () => ({ countries: [], places: [] });
   const num = v => typeof v === 'number' && isFinite(v);
   function extras() {
     let x;
     try { x = extrasFn() || {}; } catch (e) { x = {}; }
+    const cs = (x.countries || []).map(c => {
+      const lng = num(c.lng) ? c.lng : c.lon;
+      return { ...c, lng, continentId: c.continentId || continentAt(c.lat, lng), builtIn: false };
+    });
+    const contOf = id => continentOf(id) || (cs.find(c => c.id === id) || {}).continentId || null;
     return {
-      countries: (x.countries || []).map(c => ({ ...c, continentId: c.continentId || null, lng: num(c.lng) ? c.lng : c.lon, builtIn: false })),
-      places: (x.places || []).map(p => ({ ...p, lng: num(p.lng) ? p.lng : p.lon, continentId: p.continentId || continentOf(p.countryId), builtIn: false }))
+      countries: cs,
+      places: (x.places || []).map(p => {
+        const lng = num(p.lng) ? p.lng : p.lon;
+        return { ...p, lng, continentId: p.continentId || contOf(p.countryId) || continentAt(p.lat, lng), eras: p.era ? [p.era] : ['ERA_0', 'ERA_1'], builtIn: false };
+      })
     };
   }
   const continents = () => BUILTIN_CONTINENTS;
@@ -237,7 +261,7 @@ const ERA_1_SPECIAL_SITES = [
   global.EpitaphWorld = {
     ERAS: WORLD_DB_ERAS, KINDS, KIND_LABEL, SITE_GROUPS: SPECIAL_SITE_TYPES,
     continents, countries, places, continent, country, place, placesIn, childPlaces,
-    countryCentroid, resolve, sameRef, makeRef,
+    countryCentroid, resolve, sameRef, makeRef, continentAt,
     setExtras(fn) { extrasFn = typeof fn === 'function' ? fn : extrasFn; }
   };
 })(typeof window !== 'undefined' ? window : globalThis);
