@@ -1132,6 +1132,8 @@
       <button class="btn ghost" id="exportBtn" type="button">Export data</button>
       <label class="btn ghost" for="importFileInput" id="importBtn">Import data</label>
       <input type="file" id="importFileInput" accept=".json,application/json" class="visually-hidden-input">
+      <label class="btn ghost" for="mergeFileInput" id="mergeBtn" title="Add characters, chapters and Library entries from a file without removing anything">Merge data</label>
+      <input type="file" id="mergeFileInput" accept=".json,application/json" class="visually-hidden-input">
       <button class="btn primary" id="newBtn">New profile</button>
     </div>
   </div>
@@ -4801,6 +4803,102 @@ document.getElementById('importFileInput').addEventListener('change', (e) => {
         console.error('Import failed', err);
         closeModal();
         showToast('Import failed. Your existing data was not changed.', { duration: 5500 });
+      }
+    });
+  };
+  reader.readAsText(file);
+});
+
+// Merge: adds what the file has that this browser doesn't. Nothing here is
+// removed or overwritten — characters, chapters and Library entries whose id
+// already exists are skipped.
+document.getElementById('mergeFileInput').addEventListener('change', (e) => {
+  const input = e.target;
+  const file = input.files && input.files[0];
+  input.value = '';
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onerror = () => showToast('Could not read that file. Pick an Epitaph backup (.json).', { duration: 5500 });
+  reader.onload = (ev) => {
+    let incoming;
+    try{ incoming = JSON.parse(ev.target.result); }
+    catch(err){ showToast('That file is not valid JSON. Pick an Epitaph backup (.json).', { duration: 5500 }); return; }
+    if(!incoming || typeof incoming !== 'object' || !Array.isArray(incoming.characters)){
+      showToast('That file is not an Epitaph backup: it has no characters list.', { duration: 5500 });
+      return;
+    }
+    let plan;
+    try{
+      // bring the file up to the current schema on its own before comparing
+      const { library, ...rest } = JSON.parse(JSON.stringify(incoming));
+      const src = migrateState({ ...rest, characters: rest.characters.filter(c => c && typeof c === 'object').map(migrateCharacter), chapters: Array.isArray(rest.chapters) ? rest.chapters : [] });
+      const haveIds = new Set(state.characters.map(c => c.id));
+      const haveNames = new Set(state.characters.map(c => (c.name || '').trim().toLowerCase()));
+      const add = src.characters.filter(c => !haveIds.has(c.id));
+      const skipped = src.characters.filter(c => haveIds.has(c.id));
+      const sameName = add.filter(c => haveNames.has((c.name || '').trim().toLowerCase()));
+      const haveCh = new Set((state.chapters || []).map(c => c.number));
+      const chapters = (src.chapters || []).filter(c => Number.isInteger(c.number) && !haveCh.has(c.number));
+      const titled = (src.chapters || []).filter(c => c.title && haveCh.has(c.number) && !(chapterByNumber(c.number) || {}).title);
+      const lib = Lib ? Lib.get() : null, inLib = library && typeof library === 'object' ? library : {};
+      const newOf = (k) => lib ? (Array.isArray(inLib[k]) ? inLib[k] : []).filter(x => x && x.id && !lib[k].some(y => y.id === x.id)) : [];
+      plan = { add, skipped, sameName, chapters, titled, libAdd: { countries: newOf('countries'), places: newOf('places'), items: newOf('items') } };
+    }catch(err){
+      console.error('Merge read failed', err);
+      showToast('Could not read the characters in that file.', { duration: 5500 });
+      return;
+    }
+    const { add, skipped, sameName, chapters, titled, libAdd } = plan;
+    const libCount = libAdd.countries.length + libAdd.places.length + libAdd.items.length;
+    if(!add.length && !chapters.length && !titled.length && !libCount){
+      showToast('Nothing to merge: everything in that file is already here.', { duration: 5500 });
+      return;
+    }
+    const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+    const li = [];
+    if(add.length) li.push(`<li>${plural(add.length, 'character')}: ${add.map(c => escapeHtml(c.name || 'Unnamed')).join(', ')}</li>`);
+    if(chapters.length) li.push(`<li>${plural(chapters.length, 'chapter')}: ${chapters.map(c => 'CH ' + c.number + (c.title ? ' ' + escapeHtml(c.title) : '')).join(', ')}</li>`);
+    if(titled.length) li.push(`<li>Titles for ${plural(titled.length, 'existing chapter')} that had none</li>`);
+    if(libAdd.items.length) li.push(`<li>${plural(libAdd.items.length, 'Library item')}: ${libAdd.items.map(i => escapeHtml(i.name || 'Unnamed')).join(', ')}</li>`);
+    if(libAdd.places.length + libAdd.countries.length) li.push(`<li>${plural(libAdd.places.length, 'place')}, ${libAdd.countries.length} ${libAdd.countries.length === 1 ? 'country' : 'countries'}</li>`);
+    modalContent.innerHTML = `
+      <div class="confirm-box">
+        <div class="display">Merge this file?</div>
+        <p>${escapeHtml(file.name)} will add:</p>
+        <ul>${li.join('')}</ul>
+        ${skipped.length ? `<p class="dim">Already here, left as they are: ${skipped.map(c => escapeHtml(c.name || 'Unnamed')).join(', ')}.</p>` : ''}
+        ${sameName.length ? `<p class="inv-warn">⚠ You already have a character named ${sameName.map(c => escapeHtml(c.name)).join(', ')}. Merging adds a second one.</p>` : ''}
+        <p>Nothing you have now is removed or changed.</p>
+        <div class="confirm-actions">
+          <button class="btn ghost" id="cancelMerge">Cancel</button>
+          <button class="btn primary" id="confirmMerge">Merge</button>
+        </div>
+      </div>`;
+    openModal();
+    document.getElementById('cancelMerge').addEventListener('click', closeModal);
+    document.getElementById('confirmMerge').addEventListener('click', async () => {
+      const before = JSON.stringify(state);
+      try{
+        state.characters.push(...add);
+        if(!Array.isArray(state.chapters)) state.chapters = [];
+        chapters.forEach(c => state.chapters.push({ id: c.id || newId('ch'), number: c.number, title: c.title || '' }));
+        titled.forEach(c => { const mine = chapterByNumber(c.number); if(mine) mine.title = c.title; });
+        state.chapters.sort((a, b) => a.number - b.number);
+        if(add.length) state.activeId = add[0].id;
+        await persistState();
+        if(libCount && Lib && !Lib.update(l => ['countries', 'places', 'items'].forEach(k => libAdd[k].forEach(x => { if(!l[k].some(y => y.id === x.id)) l[k].push(x); })))){
+          showToast('Characters merged, but the Library entries could not be saved — browser storage may be full.', { duration: 6500 });
+        }
+        renderAll();
+        closeModal();
+        showToast(`Merged ${plural(add.length, 'character')}.`);
+      }catch(err){
+        console.error('Merge failed', err);
+        state = JSON.parse(before);
+        await persistState();
+        renderAll();
+        closeModal();
+        showToast('Merge failed. Your existing data was not changed.', { duration: 5500 });
       }
     });
   };

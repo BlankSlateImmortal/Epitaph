@@ -109,6 +109,7 @@ old storyline text are gone.
 - System sheet tabs: **Chapter** (new, first), **Marks** (new), Stats, Skills, Inventory, Ties, Arc (rebuilt), Knowledge.
 - Mark shape: `{ id, kind: 'blessing'|'curse'|'binding', name, source, effect, cost, ends }`. Costs are text only; the site never applies them.
 - Inventory items: `marks: [Mark]`, `boundTo: string`.
+- **Merge data** (top bar, next to Import): adds the characters, chapters and Library entries a backup file has that this browser doesn't. Anything whose id already exists is skipped. A chapter title fills in only if yours is empty. Import data still replaces everything.
 - State: `schemaVersion` (5 after this redesign; 6 after the Atlas tracker, which added chapters, start chapters, presence and archetype reasons). Upgrades run once, in order: v2 per-chapter state, v3 chapter-only lists, v4 archetype/marks, v5 brief + locks.
 
 ## Legacy fields (kept, not shown)
