@@ -630,7 +630,8 @@ input, select, textarea{ accent-color:var(--amber); }
 .item-plate.solid .item-pic::after, .item-plate:not([data-has-pic]) .item-pic::after{ content:""; position:absolute; inset:0; border-radius:50%; pointer-events:none;
   box-shadow:inset 0 6px 10px rgba(255,213,138,.20), inset 0 -12px 18px rgba(0,0,0,.7), inset 0 0 0 1px rgba(255,213,138,.12);
   background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.14), transparent 42%); }
-.item-call{ position:absolute; z-index:2; display:flex; flex-direction:column; gap:1px; }
+.item-call{ position:absolute; z-index:2; display:flex; flex-direction:column; gap:1px; max-width:47%; }
+.item-call .v{ overflow-wrap:anywhere; }
 .item-call .k{ font-family:var(--f-mono); font-size:10px; letter-spacing:.2em; color:var(--amber-dim); }
 .item-call .v{ font-family:var(--f-crt); font-size:20px; line-height:1; letter-spacing:.08em; color:var(--amber); text-shadow:var(--phosphor-glow); }
 .item-call .v.g{ color:var(--verdigris); text-shadow:0 0 6px rgba(111,179,163,.4); }
