@@ -11,7 +11,10 @@
  * Shape (version 1):
  *   countries: [{ id, name, lat, lon, note }]
  *   places:    [{ id, name, countryId, kind, lat, lon, note, era? }]
- *   items:     [{ id, name, desc, originPlaceId, marks: [Mark], note, icon, image }]
+ *   items:     [{ id, name, desc, originPlaceId, marks: [Mark], note, icon, image, states: [State] }]
+ *   State = { id, name, desc, marks: [Mark], image }   (ordered: first → last)
+ *   An inventory entry picks one with `stateId`; marks on the item apply in
+ *   every state, a state's marks are added on top.
  *   Mark = { id, kind: 'blessing'|'curse'|'binding', name, source, effect, cost, ends, image? }
  *
  * Built-in geography stays read-only in assets/epitaph-world.js; this file
@@ -30,6 +33,11 @@
     return { id: m.id || newId('mark'), kind: MARK_KINDS.includes(m.kind) ? m.kind : 'blessing',
       name: str(m.name), source: str(m.source), effect: str(m.effect), cost: str(m.cost), ends: str(m.ends), image: str(m.image) };
   }
+  function normalizeState(st) {
+    st = st || {};
+    return { id: st.id || newId('state'), name: str(st.name), desc: str(st.desc),
+      marks: (Array.isArray(st.marks) ? st.marks : []).map(normalizeMark), image: str(st.image) };
+  }
   function normalize(raw) {
     const d = raw && typeof raw === 'object' ? raw : {};
     return {
@@ -42,7 +50,8 @@
       items: (Array.isArray(d.items) ? d.items : []).filter(i => i && i.id).map(i => ({
         id: i.id, name: str(i.name), desc: str(i.desc), originPlaceId: str(i.originPlaceId),
         marks: (Array.isArray(i.marks) ? i.marks : []).map(normalizeMark), note: str(i.note),
-        icon: str(i.icon), image: str(i.image) }))
+        icon: str(i.icon), image: str(i.image),
+        states: (Array.isArray(i.states) ? i.states : []).map(normalizeState) }))
     };
   }
   let cache = null, cacheRaw = null;
@@ -80,8 +89,26 @@
   const item = id => (id && get().items.find(i => i.id === id)) || null;
   const placeById = id => (id && get().places.find(p => p.id === id)) || null;
 
+  const stateOf = (it, stateId) => (it && stateId && (it.states || []).find(s => s.id === stateId)) || null;
+  // Every chapter version that carries the item, in chapter order:
+  // [{ charId, who, snapId, ch, label, stateId }]
+  function uses(itemId, characters) {
+    const rows = [];
+    (characters || []).forEach(c => (c.snapshots || []).forEach(s => (s.inventory || []).forEach(e => {
+      if (e.itemId === itemId) rows.push({ charId: c.id, who: c.name || 'Unnamed', snapId: s.id,
+        ch: Number.isInteger(s.startChapter) ? s.startChapter : null, label: s.chapterRange || '', stateId: e.stateId || '' });
+    })));
+    rows.sort((a, b) => (a.ch == null) - (b.ch == null) || (a.ch || 0) - (b.ch || 0) || a.who.localeCompare(b.who));
+    return rows;
+  }
+  // A chapter's marks when it is in a state: the item's own marks plus the state's, as fresh copies.
+  function marksFor(it, stateId) {
+    const st = stateOf(it, stateId);
+    return ((it && it.marks) || []).concat(st ? st.marks : []).map(m => ({ ...normalizeMark(m), id: newId('mark') }));
+  }
+
   global.EpitaphLibrary = {
-    KEY, newId, normalizeMark, get, update, item, place: placeById,
+    KEY, newId, normalizeMark, normalizeState, get, update, item, place: placeById, stateOf, uses, marksFor,
     replace(data) { return save(data); },
     onChange(fn) { listeners.push(fn); }
   };

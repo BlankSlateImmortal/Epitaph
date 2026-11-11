@@ -273,7 +273,7 @@
   .lib-desc.dim{ color:var(--dust); }
   .lib-history{ list-style:none; margin:0; padding:0; font-size:13px; }
   .lib-history li{ display:flex; gap:10px; border-bottom:1px solid var(--line); padding:6px 0; }
-  .lib-history li span{ color:var(--amber, #ffb238); min-width:60px; }
+  .lib-history li > span:first-child{ color:var(--amber, #ffb238); min-width:60px; }
   .mini-map{ width:100%; height:auto; display:block; border:1px solid var(--amber-dim, #8a5a14); cursor:crosshair; touch-action:manipulation; }
   .mini-map .mm-bg{ fill:#070502; }
   .mini-map .mm-grid line{ stroke:var(--line); stroke-width:.5; }
@@ -371,13 +371,14 @@
   }
   .subject-record .r-open-btn:hover{ border-color:var(--dust); }
 </style>
-<link rel="stylesheet" href="assets/epitaph-theme.css?v=10">
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=11">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="assets/terrain.js?v=7"></script>
 <script src="assets/epitaph-world.js?v=2"></script>
-<script src="assets/epitaph-library.js?v=2"></script>
+<script src="assets/epitaph-library.js?v=3"></script>
 <script src="assets/epitaph-marks.js?v=3"></script>
-<script src="assets/epitaph-checks.js?v=1"></script>
+<script src="assets/epitaph-states.js?v=1"></script>
+<script src="assets/epitaph-checks.js?v=2"></script>
 </head>
 <body>
 
@@ -1570,14 +1571,8 @@ function deleteNow(kind, id){
   });
 }
 // History: who held an item in each chapter, in chapter order.
-function itemHistory(itemId){
-  const st = freshDossier(), rows = [];
-  st.characters.forEach(c => (c.snapshots || []).forEach(s => {
-    if((s.inventory || []).some(e => e.itemId === itemId)) rows.push({ who: c.name || 'Unnamed', ch: Number.isInteger(s.startChapter) ? s.startChapter : null, label: s.chapterRange || '' });
-  }));
-  rows.sort((a, b) => (a.ch == null) - (b.ch == null) || (a.ch || 0) - (b.ch || 0) || a.who.localeCompare(b.who));
-  return rows;
-}
+// Each row also carries the item's state in that chapter (stateId).
+function itemHistory(itemId){ return Lib.uses(itemId, freshDossier().characters); }
 
 // ---- small map: tap to drop a pin ----
 // Equirectangular, fitted to the chosen country (or the whole world).
@@ -1794,11 +1789,13 @@ function renderItemForm(v){
         <label class="lib-pic large">${d.image ? `<img src="${d.image}" alt="">` : '<span>Photo</span>'}<input type="file" accept="image/*" id="liImage" class="visually-hidden"></label>
         ${d.icon || d.image ? '<button type="button" class="lib-btn" id="liClearPics">Remove pictures</button>' : ''}
       </div></div>
-    <div class="lib-field">Marks (each character's copy can differ)<div id="liMarks"></div></div>
+    <div class="lib-field">Marks (in every state; each character's copy can differ)<div id="liMarks"></div></div>
+    <div class="lib-field">States (e.g. Locked, then Weakened; each chapter picks one in the Dossier)<div id="liStates"></div></div>
     <label class="lib-field">Note<textarea id="liNote">${escapeHud(d.note || '')}</textarea></label>
     ${formButtons(v.id ? 'Save item' : 'Add item')}`;
   const marks = EpitaphMarks.editor(document.getElementById('liMarks'), d.marks || []);
-  const keep = () => Object.assign(d, { name: document.getElementById('liName').value, desc: document.getElementById('liDesc').value, originPlaceId: document.getElementById('liOrigin').value, note: document.getElementById('liNote').value, marks: marks.read() });
+  const states = EpitaphStates.editor(document.getElementById('liStates'), d.states || [], v.id ? itemHistory(v.id) : []);
+  const keep = () => Object.assign(d, { name: document.getElementById('liName').value, desc: document.getElementById('liDesc').value, originPlaceId: document.getElementById('liOrigin').value, note: document.getElementById('liNote').value, marks: marks.read(), states: states.read() });
   [['liIcon', 'icon', 200], ['liImage', 'image', 700]].forEach(([id, field, max]) => document.getElementById(id).addEventListener('change', async (e) => {
     const f = e.target.files[0]; if(!f) return;
     keep();
@@ -1812,7 +1809,7 @@ function renderItemForm(v){
     if(!d.name.trim()) return libMessage('Give the item a name.');
     const id = v.id || Lib.newId('li');
     const saved = Lib.update(lib => {
-      const rec = { id, name: d.name.trim(), desc: d.desc.trim(), originPlaceId: d.originPlaceId || '', marks: d.marks, note: d.note.trim(), icon: d.icon || '', image: d.image || '' };
+      const rec = { id, name: d.name.trim(), desc: d.desc.trim(), originPlaceId: d.originPlaceId || '', marks: d.marks, note: d.note.trim(), icon: d.icon || '', image: d.image || '', states: d.states || [] };
       const i = lib.items.findIndex(x => x.id === id);
       if(i >= 0) lib.items[i] = rec; else lib.items.push(rec);
     });
@@ -1830,8 +1827,9 @@ function renderItemDetail(v){
     ${it.desc ? `<p class="lib-desc">${escapeHud(it.desc)}</p>` : ''}
     ${it.marks.length ? `<div class="mark-lines">${EpitaphMarks.linesHtml(it.marks)}</div>` : ''}
     ${it.note ? `<p class="lib-desc dim">${escapeHud(it.note)}</p>` : ''}
+    ${it.states.length ? `<div class="lib-sec">STATES</div>${EpitaphStates.trackHtml(it, hist)}` : ''}
     <div class="lib-sec">HISTORY</div>
-    ${hist.length ? `<ol class="lib-history">${hist.map(h => `<li><span>${h.ch != null ? 'CH ' + h.ch : escapeHud(h.label || 'CH ?')}</span>${escapeHud(h.who)}</li>`).join('')}</ol>` : '<p class="lib-empty">Nobody has carried it yet. Add it to an inventory in the Dossier.</p>'}
+    ${hist.length ? `<ol class="lib-history">${hist.map(h => { const st = Lib.stateOf(it, h.stateId); return `<li><span>${h.ch != null ? 'CH ' + h.ch : escapeHud(h.label || 'CH ?')}</span>${escapeHud(h.who)}${st ? ` <span class="state-tag">${escapeHud(st.name.toUpperCase())}</span>` : ''}</li>`; }).join('')}</ol>` : '<p class="lib-empty">Nobody has carried it yet. Add it to an inventory in the Dossier.</p>'}
     <div class="lib-actions"><button type="button" class="lib-btn" data-edit-item="${escapeHud(it.id)}">Edit</button><button type="button" class="lib-btn danger" data-del="item:${escapeHud(it.id)}">Delete</button></div>`;
   document.getElementById('libBack').addEventListener('click', () => { libView = { mode: 'list' }; renderLibrary(); });
   const go = document.getElementById('liGoOrigin'); if(go) go.addEventListener('click', () => selectPlace(it.originPlaceId));

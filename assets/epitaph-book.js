@@ -187,7 +187,12 @@
   function heldBy(itemId) {
     const out = [];
     state.characters.forEach(c => {
-      const chs = (c.snapshots || []).filter(s => (s.inventory || []).some(e => e.itemId === itemId)).map(s => s.chapterRange || ('CH ' + (s.startChapter || '?')));
+      const it = Lib.item(itemId);
+      const chs = [];
+      (c.snapshots || []).forEach(s => (s.inventory || []).filter(e => e.itemId === itemId).forEach(e => {
+        const st = Lib.stateOf(it, e.stateId);
+        chs.push((s.chapterRange || ('CH ' + (s.startChapter || '?'))) + (st ? ' (' + st.name + ')' : ''));
+      }));
       if (chs.length) out.push({ name: c.name || 'Unnamed', chapters: chs });
     });
     return out;
@@ -293,6 +298,7 @@
     if (!isImg(draft.icon)) draft.icon = '';   // older text-symbol icons are dropped on save
     if (!isImg(draft.image)) draft.image = '';
     const held = heldBy(it.id);
+    const uses = Lib.uses(it.id, state.characters);
     panel.innerHTML = `
       <div class="bk-panel-head">
         <span class="bk-big">${pad2(no || 0)}</span>
@@ -307,7 +313,8 @@
         <label class="bk-field"><span>Name</span><input type="text" id="biName" value="${attr(draft.name)}"></label>
         <label class="bk-field"><span>Description</span><textarea id="biDesc" rows="3">${esc(draft.desc)}</textarea></label>
         <label class="bk-field"><span>Where it came from</span><select id="biOrigin"><option value="">— unknown —</option>${placeOptionsHtml(draft.originPlaceId)}</select></label>
-        <div class="bk-field"><span>Marks <em>— new holders get a copy; existing holders keep theirs</em></span><div id="biMarks"></div></div>
+        <div class="bk-field"><span>Marks <em>— in every state; new holders get a copy, existing holders keep theirs</em></span><div id="biMarks"></div></div>
+        <div class="bk-field"><span>States <em>— e.g. Locked, then Weakened; each chapter picks one in its Inventory</em></span>${(draft.states || []).length ? EpitaphStates.trackHtml(draft, uses) : ''}<div id="biStates"></div></div>
         <label class="bk-field"><span>Note</span><textarea id="biNote" rows="2">${esc(draft.note)}</textarea></label>
         <div class="bk-field"><span>Held by</span>${held.length ? `<ul class="bk-held">${held.map(h => `<li><b>${esc(h.name)}</b> <small>${esc(h.chapters.join(' · '))}</small></li>`).join('')}</ul>` : '<p class="bk-dim">Nobody carries it yet. Add it from a character’s Inventory tab.</p>'}</div>
         <div class="bk-actions">
@@ -317,14 +324,16 @@
           ${held.length ? `<span class="bk-dim">Held items can be deleted from the Atlas Library, which can reassign them.</span>` : `<button type="button" class="slant-btn danger" id="biDelete">Delete</button>`}
         </div>
       </div>`;
-    itemEditor = { id: it.id, draft, base: JSON.stringify(normItem(it)), marks: EpitaphMarks.editor($('#biMarks'), draft.marks || []) };
+    itemEditor = { id: it.id, draft, base: JSON.stringify(normItem(it)), marks: EpitaphMarks.editor($('#biMarks'), draft.marks || []),
+      states: EpitaphStates.editor($('#biStates'), draft.states || [], uses) };
     panel.querySelectorAll('input[type=file][data-pic]').forEach(inp => inp.addEventListener('change', async () => {
       const f = inp.files && inp.files[0]; if (!f) return;
       try { readForm(); itemEditor.draft[inp.dataset.pic] = await EpitaphMarks.readImage(f, inp.dataset.pic === 'icon' ? 200 : 700); flushItem(true); renderItemPanel(); drawLibrary(false); }
       catch (err) { showToast('That image could not be opened — try a JPEG or PNG instead.'); }
     }));
     const clr = $('#biClearPics'); if (clr) clr.addEventListener('click', () => { readForm(); itemEditor.draft.icon = ''; itemEditor.draft.image = ''; flushItem(true); renderItemPanel(); drawLibrary(false); });
-    $('#biSave').addEventListener('click', () => { flushItem(true); });
+    // after a save, redraw so the state track and holders reflect it
+    $('#biSave').addEventListener('click', () => { if (flushItem(true)) { renderItemPanel(); flash('Saved'); } });
     const del = $('#biDelete');
     if (del) del.addEventListener('click', () => {
       if (del.dataset.armed) {
@@ -344,13 +353,15 @@
 
   function normItem(d) {
     return { name: (d.name || '').trim(), desc: (d.desc || '').trim(), originPlaceId: d.originPlaceId || '', note: (d.note || '').trim(),
-      icon: d.icon || '', image: d.image || '', marks: EpitaphMarks.clean(d.marks || []) };
+      icon: d.icon || '', image: d.image || '', marks: EpitaphMarks.clean(d.marks || []),
+      states: (d.states || []).map(st => ({ id: st.id, name: (st.name || '').trim(), desc: (st.desc || '').trim(), image: st.image || '', marks: EpitaphMarks.clean(st.marks || []) })) };
   }
   function readForm() {
     if (!itemEditor || !$('#biName')) return;
     const d = itemEditor.draft;
     d.name = $('#biName').value; d.desc = $('#biDesc').value; d.originPlaceId = $('#biOrigin').value; d.note = $('#biNote').value;
     d.marks = itemEditor.marks.read();
+    d.states = itemEditor.states.read();
   }
   // Saves the open item if anything changed. Called on Save, on switching
   // item, on leaving the view and when the book closes.
@@ -368,6 +379,7 @@
     if (typeof renderAll === 'function') renderAll();
     if (mode === 'library') { const sel = selItem; drawLibrary(false); selItem = sel; }
     if (announce) flash('Saved');
+    return true;
   }
   function flash(text) { const s = $('#biSaved') || $('#bsSaved'); if (!s) return; s.textContent = text; clearTimeout(flash.t); flash.t = setTimeout(() => { if (s.isConnected) s.textContent = ''; }, 1600); }
 

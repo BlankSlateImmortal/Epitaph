@@ -12,6 +12,9 @@
  *   missing-place   a location or an item's origin points at a place that no longer exists
  *   one-sided       a relationship is set from one side only (information)
  *   divine          a divine (locked) character's archetype differs between chapters
+ *   item-state      an inventory entry points at a state the Library item no longer has
+ *   state-back      an item goes back to an earlier state in a character's later chapter
+ *                   (a warning only: going back can be deliberate)
  * Needs assets/epitaph-world.js; uses assets/epitaph-library.js when loaded.
  */
 (function (global) {
@@ -91,6 +94,22 @@
         done.add(key);
         out.push({ level: 'warn', rule: 'held-twice', ...at(a.c, a.s), itemId,
           text: `${itemName} is held by ${name(a.c)} and ${name(b.c)} in ${spanText(lo, hi)}.` });
+      }));
+    });
+
+    // item states: removed states, and going back to an earlier state
+    if (Lib) chars.forEach(c => {
+      const seen = {};   // itemId -> last { idx, name, s }
+      ordered(c).forEach(s => (s.inventory || []).forEach(e => {
+        const it = e.itemId && Lib.item(e.itemId);
+        if (!it || !e.stateId || !(it.states || []).length) return;
+        const idx = it.states.findIndex(x => x.id === e.stateId);
+        if (idx < 0) { out.push({ level: 'warn', rule: 'item-state', ...at(c, s), itemId: it.id,
+          text: `${name(c)}'s ${it.name} in ${label(s)} is in a state that was removed from the Library item.` }); return; }
+        const prev = seen[it.id];
+        if (prev && idx < prev.idx) out.push({ level: 'warn', rule: 'state-back', ...at(c, s), itemId: it.id,
+          text: `${it.name} goes back from ${prev.name} (${label(prev.s)}) to ${it.states[idx].name} in ${name(c)}'s ${label(s)}.` });
+        seen[it.id] = { idx, name: it.states[idx].name, s };
       }));
     });
 

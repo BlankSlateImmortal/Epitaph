@@ -1093,16 +1093,17 @@
   }
   .gen-loc-cascade select:focus{ outline:none; border-color: var(--dust); }
 </style>
-<link rel="stylesheet" href="assets/epitaph-theme.css?v=10">
-<link rel="stylesheet" href="assets/epitaph-book.css?v=1">
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=11">
+<link rel="stylesheet" href="assets/epitaph-book.css?v=2">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="assets/portrait-gen.js?v=8"></script>
 <script src="assets/epitaph-muses.js?v=7"></script>
 <script src="assets/archetypes.js?v=1"></script>
 <script src="assets/epitaph-world.js?v=2"></script>
-<script src="assets/epitaph-library.js?v=2"></script>
+<script src="assets/epitaph-library.js?v=3"></script>
 <script src="assets/epitaph-marks.js?v=3"></script>
-<script src="assets/epitaph-checks.js?v=1"></script>
+<script src="assets/epitaph-states.js?v=1"></script>
+<script src="assets/epitaph-checks.js?v=2"></script>
 </head>
 <body>
 <svg class="grain" width="0" height="0">
@@ -1309,7 +1310,7 @@ function migrateCharacter(c){
       };
       // a Library item: name, description and pictures come from the Library
       // (`name` is kept only as a fallback label if that item is ever deleted)
-      if(it.itemId) return { ...base, itemId: it.itemId, note: typeof it.note === 'string' ? it.note : '', name: it.name || '' };
+      if(it.itemId) return { ...base, itemId: it.itemId, stateId: typeof it.stateId === 'string' ? it.stateId : '', note: typeof it.note === 'string' ? it.note : '', name: it.name || '' };
       return { ...base, name: it.name || '', desc: it.desc || '', icon: it.icon || '', image: it.image || '' };
     }),
     skills: (s.skills || []).map(sk => ({ name: sk.name, desc: sk.desc || '', level: sk.level != null ? sk.level : 0, corrupted: !!sk.corrupted, parent: sk.parent || '' })),
@@ -2417,7 +2418,7 @@ function renderCodexPage(char, snap, animate){
       `<div class="codex-right">
         <div class="mark-lines">${snap.marks.length ? markLinesHtml(snap.marks, m => chg.isNew('marks', m)) : `<p class="sys-empty">No marks this chapter.</p>`}</div>
         ${items.length ? `<p class="mark-sep">— CARRIED —</p>${items.map(it => `<div class="mark-item">
-          <b>${escapeHtml(invView(it).name)}</b>${invView(it).origin ? ` <span class="from-tag">FROM ${escapeHtml(invView(it).origin.toUpperCase())}</span>` : ''}${it.boundTo ? ` <span class="bound-tag">BOUND TO ${escapeHtml(it.boundTo.toUpperCase())}</span>` : ''}
+          <b>${escapeHtml(invView(it).name)}</b>${stateTagHtml(invView(it))}${invView(it).origin ? ` <span class="from-tag">FROM ${escapeHtml(invView(it).origin.toUpperCase())}</span>` : ''}${it.boundTo ? ` <span class="bound-tag">BOUND TO ${escapeHtml(it.boundTo.toUpperCase())}</span>` : ''}
           ${markLinesHtml(it.marks)}</div>`).join('')}` : ''}
       </div>`;
   } else if(sysTab === 'stats'){
@@ -2452,9 +2453,9 @@ function renderCodexPage(char, snap, animate){
         const v = invView(it);
         return `<button type="button" class="inv-slot${sel && sel.id === it.id ? ' on' : ''}${heldTwice(char, snap, it.itemId).length ? ' twice' : ''}" data-inv="${escapeAttr(it.id)}">
           ${v.icon ? `<img src="${v.icon}" alt="">` : (v.image ? `<img src="${v.image}" alt="">` : `<b>◈</b>`)}
-          <span>${escapeHtml(v.name)}</span>${(it.marks || []).length || it.boundTo ? `<span class="slot-marks">${(it.marks || []).map(m => `<i class="mk ${escapeAttr(m.kind)}" title="${escapeAttr(MARK_KIND_LABEL[m.kind] || '')}">${MARK_KIND_SHORT[m.kind] || ''}</i>`).join('')}${it.boundTo ? '<i class="mk bound" title="Bound">⛓</i>' : ''}</span>` : ''}${chg.isNew('inventory', it) ? NEW_TAG : ''}</button>`;
+          <span>${escapeHtml(v.name)}${v.state ? ` <small class="slot-state">· ${escapeHtml(v.state)}</small>` : ''}</span>${(it.marks || []).length || it.boundTo ? `<span class="slot-marks">${(it.marks || []).map(m => `<i class="mk ${escapeAttr(m.kind)}" title="${escapeAttr(MARK_KIND_LABEL[m.kind] || '')}">${MARK_KIND_SHORT[m.kind] || ''}</i>`).join('')}${it.boundTo ? '<i class="mk bound" title="Bound">⛓</i>' : ''}</span>` : ''}${chg.isNew('inventory', it) ? NEW_TAG : ''}</button>`;
       }).join('')}</div>
-      ${sel ? (() => { const v = invView(sel), twice = heldTwice(char, snap, sel.itemId); return `<div class="inv-detail">${v.image ? `<img src="${v.image}" alt="">` : ''}<div><h4>${escapeHtml(v.name)}</h4>${v.origin ? `<span class="from-tag">FROM ${escapeHtml(v.origin.toUpperCase())}</span> ` : ''}${sel.boundTo ? `<span class="bound-tag">BOUND TO ${escapeHtml(sel.boundTo.toUpperCase())}</span>` : ''}${v.missing ? '<p class="inv-warn">⚠ This item is no longer in the Library.</p>' : ''}${twice.length ? `<p class="inv-warn">⚠ Also held by ${escapeHtml(twice.join(', '))} in the same chapter.</p>` : ''}<p>${v.desc ? escapeHtml(v.desc) : '<span class="dim">No description.</span>'}</p>${v.note ? `<p class="dim">${escapeHtml(v.note)}</p>` : ''}${(sel.marks || []).length ? `<div class="mark-lines">${markLinesHtml(sel.marks)}</div>` : ''}</div></div>`; })() : ''}</div>`;
+      ${sel ? (() => { const v = invView(sel), twice = heldTwice(char, snap, sel.itemId); return `<div class="inv-detail">${v.image ? `<img src="${v.image}" alt="">` : ''}<div><h4>${escapeHtml(v.name)}</h4>${stateTagHtml(v)} ${v.origin ? `<span class="from-tag">FROM ${escapeHtml(v.origin.toUpperCase())}</span> ` : ''}${sel.boundTo ? `<span class="bound-tag">BOUND TO ${escapeHtml(sel.boundTo.toUpperCase())}</span>` : ''}${v.missing ? '<p class="inv-warn">⚠ This item is no longer in the Library.</p>' : ''}${twice.length ? `<p class="inv-warn">⚠ Also held by ${escapeHtml(twice.join(', '))} in the same chapter.</p>` : ''}<p>${v.desc ? escapeHtml(v.desc) : '<span class="dim">No description.</span>'}</p>${v.stateDesc ? `<p><span class="crt">&gt; ${escapeHtml(v.state)}:</span> ${escapeHtml(v.stateDesc)}</p>` : ''}${v.note ? `<p class="dim">${escapeHtml(v.note)}</p>` : ''}${(sel.marks || []).length ? `<div class="mark-lines">${markLinesHtml(sel.marks)}</div>` : ''}</div></div>`; })() : ''}</div>`;
   } else if(sysTab === 'ties'){
     const inferred = inferredRelationships(char);
     const rels = snap.relationships || [];
@@ -2678,7 +2679,7 @@ function buildBrief(char, snap){
       .forEach(r => rels.push({ text: relText(r), tag: 'ended' }));
   }
   const carrying = (snap.inventory || []).map(it => ({
-    text: `${invView(it).name}${invView(it).origin ? ' (from ' + invView(it).origin + ')' : ''}${it.boundTo ? ' [bound to ' + it.boundTo + ']' : ''}${(it.marks || []).map(m => ' [' + markText(m) + ']').join('')}`,
+    text: `${invView(it).name}${invView(it).state ? ' · ' + invView(it).state : ''}${invView(it).origin ? ' (from ' + invView(it).origin + ')' : ''}${it.boundTo ? ' [bound to ' + it.boundTo + ']' : ''}${(it.marks || []).map(m => ' [' + markText(m) + ']').join('')}`,
     tag: chg.isNew('inventory', it) ? 'new' : ''
   }));
   const arch = archetypeLabel(snap), prevArch = prev ? archetypeLabel(prev) : '';
@@ -3904,13 +3905,20 @@ const Lib = window.EpitaphLibrary;
 function invView(entry){
   const li = entry.itemId && Lib ? Lib.item(entry.itemId) : null;
   const origin = li && li.originPlaceId ? World.place(li.originPlaceId) : null;
+  const st = li && entry.stateId ? Lib.stateOf(li, entry.stateId) : null;
   return {
     linked: !!li, missing: !!entry.itemId && !li,
     name: li ? li.name : (entry.name || (entry.itemId ? 'Missing Library item' : 'Untitled')),
-    desc: li ? li.desc : (entry.desc || ''), icon: li ? li.icon : (entry.icon || ''), image: li ? li.image : (entry.image || ''),
+    // the item's state in this chapter (Seal · Locked); a state's picture replaces the photo
+    state: st ? st.name : '', stateDesc: st ? st.desc : '', stateMissing: !!(li && entry.stateId && !st),
+    desc: li ? li.desc : (entry.desc || ''), icon: li ? li.icon : (entry.icon || ''), image: st && st.image ? st.image : (li ? li.image : (entry.image || '')),
     origin: origin ? origin.name : (li && li.originPlaceId ? 'a deleted place' : ''),
     note: entry.note || '', marks: entry.marks || [], boundTo: entry.boundTo || ''
   };
+}
+function stateTagHtml(v){
+  if(v.stateMissing) return ' <span class="state-tag missing" title="This state was removed from the Library item">STATE REMOVED</span>';
+  return v.state ? ` <span class="state-tag">${escapeHtml(v.state.toUpperCase())}</span>` : '';
 }
 // Chapters a version covers: from its start chapter to just before the
 // character's next version starts.
@@ -3940,10 +3948,29 @@ function finalizeInventory(list){
   return list
     .filter(it => it.itemId || (it.name || '').trim() || (it.desc || '').trim() || it.icon || it.image || cleanMarks(it.marks).length || (it.boundTo || '').trim())
     .map(it => it.itemId
-      ? { id: it.id, itemId: it.itemId, note: (it.note || '').trim(), boundTo: (it.boundTo || '').trim(), marks: cleanMarks(it.marks), name: it.name || '' }
+      ? { id: it.id, itemId: it.itemId, stateId: it.stateId || '', note: (it.note || '').trim(), boundTo: (it.boundTo || '').trim(), marks: cleanMarks(it.marks), name: it.name || '' }
       : { ...it, name: (it.name || '').trim(), desc: (it.desc || '').trim(), icon: it.icon || '', image: it.image || '', marks: cleanMarks(it.marks), boundTo: (it.boundTo || '').trim() });
 }
 
+// State picker for a Library item that has states. Changing it asks whether
+// this chapter's marks should become the new state's marks.
+const invStateAsk = new Set();
+function invStateHtml(item, idx){
+  const li = Lib && Lib.item(item.itemId);
+  const states = (li && li.states) || [];
+  if(!states.length) return '';
+  const missing = item.stateId && !states.some(s => s.id === item.stateId);
+  const st = Lib.stateOf(li, item.stateId);
+  return `<label class="inv-state-row">State
+      <select data-inv-state="${idx}" aria-label="State in this chapter">
+        <option value=""${item.stateId ? '' : ' selected'}>— not set —</option>
+        ${missing ? '<option value="' + escapeAttr(item.stateId) + '" selected>⚠ removed state</option>' : ''}
+        ${states.map(s => `<option value="${escapeAttr(s.id)}"${s.id === item.stateId ? ' selected' : ''}>${escapeHtml(s.name)}</option>`).join('')}
+      </select></label>
+    ${invStateAsk.has(item.id) ? `<div class="inv-state-ask">Use ${st ? `the <b>${escapeHtml(st.name)}</b>` : 'the item’s base'} marks in this chapter?
+      <button type="button" class="btn ghost" data-state-marks="${idx}:replace">Replace marks</button>
+      <button type="button" class="btn ghost" data-state-marks="${idx}:keep">Keep current marks</button></div>` : ''}`;
+}
 function markedItems(snap){ return (snap.inventory || []).filter(it => (it.marks || []).length || it.boundTo); }
 const invMarksOpen = new Set();
 
@@ -3986,6 +4013,7 @@ function renderInventoryEditor(){
             <b class="inv-lib-name">${escapeHtml(v.name)}</b>
             <small class="inv-lib-meta">${v.missing ? '⚠ No longer in the Library' : 'Library item' + (v.origin ? ' · from ' + escapeHtml(v.origin) : '')}</small>
             ${twice.length ? `<small class="inv-warn">⚠ Also held by ${escapeHtml(twice.join(', '))} in the same chapter</small>` : ''}
+            ${invStateHtml(item, idx)}
             <input type="text" class="inv-note-input" placeholder="Note for this chapter (optional)" value="${escapeAttr(item.note || '')}">
           </div>
           <button type="button" class="inv-remove-btn" onclick="removeInventoryItem(${idx})" aria-label="Remove item">×</button>
@@ -4022,6 +4050,24 @@ function renderInventoryEditor(){
   });
   document.getElementById('invNewItem').addEventListener('click', openQuickItemForm);
   wrap.querySelectorAll('[data-to-lib]').forEach(b => b.addEventListener('click', () => moveEntryToLibrary(+b.dataset.toLib)));
+  wrap.querySelectorAll('select[data-inv-state]').forEach(sel => sel.addEventListener('change', () => {
+    syncInventoryFromDOM();
+    const e = pendingInventoryItems[+sel.dataset.invState];
+    if(!e) return;
+    const from = e.stateId || '';
+    e.stateId = sel.value;
+    if(sel.value !== from) invStateAsk.add(e.id); else invStateAsk.delete(e.id);
+    renderInventoryEditor();
+  }));
+  wrap.querySelectorAll('[data-state-marks]').forEach(b => b.addEventListener('click', () => {
+    syncInventoryFromDOM();
+    const [idx, how] = b.dataset.stateMarks.split(':');
+    const e = pendingInventoryItems[+idx];
+    if(!e) return;
+    if(how === 'replace'){ e.marks = Lib.marksFor(Lib.item(e.itemId), e.stateId); invMarksOpen.add(e.id); }
+    invStateAsk.delete(e.id);
+    renderInventoryEditor();
+  }));
   wrap.querySelectorAll('details.inv-marks').forEach(d => d.addEventListener('toggle', () => { if(d.open) invMarksOpen.add(d.dataset.itemId); else invMarksOpen.delete(d.dataset.itemId); }));
 }
 // A chapter's copy of a Library item: marks start as the item's own marks.
@@ -4029,7 +4075,9 @@ function addLibraryEntry(itemId){
   syncInventoryFromDOM();
   const li = Lib.item(itemId);
   if(!li) return;
-  pendingInventoryItems.push({ id: newId('inv'), itemId, note: '', boundTo: '', marks: (li.marks || []).map(m => ({ ...normalizeMark(m), id: newId('mark') })), name: li.name });
+  // an item with states starts in its first state, with that state's marks
+  const stateId = (li.states || [])[0] ? li.states[0].id : '';
+  pendingInventoryItems.push({ id: newId('inv'), itemId, stateId, note: '', boundTo: '', marks: Lib.marksFor(li, stateId), name: li.name });
   renderInventoryEditor();
 }
 // "New item…": the quick form saves to the Library, then adds it here.
@@ -5093,7 +5141,7 @@ function restoreLeftPage(){
 
 
 </script>
-<script src="assets/epitaph-book.js?v=2"></script>
+<script src="assets/epitaph-book.js?v=3"></script>
 
 </body>
 </html>

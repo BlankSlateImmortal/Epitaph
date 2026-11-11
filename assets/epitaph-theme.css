@@ -528,3 +528,43 @@ input, select, textarea{ accent-color:var(--amber); }
 .mark-sigil-clear:hover{ border-color:var(--ember); color:var(--ember); }
 .mark-line small.cost{ color:var(--amber); }
 .mark-edit button{ font:inherit; }
+
+/* ---------------------------------------------------------------------
+   Item states (Seal: Locked ▸ Weakened) — editor, track and tag, shared
+   by the Dossier, the book and the Atlas Library.
+   --------------------------------------------------------------------- */
+.state-tag{ display:inline-block; font-family:var(--f-crt, monospace); font-size:12px; letter-spacing:.12em; color:var(--bone); background:rgba(255,178,56,.12); border:1px solid var(--amber); padding:0 5px; margin:2px 0 6px; }
+.state-tag.missing{ border-color:var(--ember); color:var(--ember); background:none; }
+.states-editor{ display:flex; flex-direction:column; gap:12px; }
+.state-edit{ display:flex; flex-direction:column; gap:8px; border:1px solid var(--line); border-top:2px solid var(--amber); padding:10px; position:relative; }
+.state-edit-top{ display:flex; gap:6px; align-items:center; }
+.state-edit-top input{ flex:1 1 auto; min-width:0; }
+.state-edit input, .state-edit textarea{ background:var(--ink); border:1px solid var(--line); color:var(--bone); padding:8px 10px; font:inherit; font-size:14px; min-height:40px; }
+.state-edit textarea{ flex:1 1 auto; min-height:64px; resize:vertical; width:100%; }
+.state-edit button{ font:inherit; }
+.state-move{ min-width:40px; min-height:40px; padding:0; }
+.state-move[disabled]{ opacity:.3; cursor:default; }
+.state-no{ font-family:var(--f-display, sans-serif); font-size:26px; line-height:1; color:transparent; -webkit-text-stroke:1px var(--amber); flex:0 0 auto; }
+.state-use{ font-size:12px; color:var(--dust); }
+.state-edit-body{ display:flex; gap:8px; align-items:stretch; }
+.state-pic{ position:relative; flex:0 0 72px; height:72px; border:1px dashed var(--line); display:flex; align-items:center; justify-content:center; overflow:hidden; cursor:pointer; color:var(--dust); font-size:10px; font-family:var(--f-mono, monospace); }
+.state-pic:hover, .state-pic:focus-within{ border-color:var(--amber); color:var(--amber); }
+.state-pic img{ width:100%; height:100%; object-fit:cover; }
+.state-pic input{ position:absolute; width:1px; height:1px; opacity:0; overflow:hidden; }
+.state-pic-clear, .state-add{ align-self:flex-start; min-height:40px; }
+.state-marks-label{ font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--dust); }
+.state-marks-label em{ text-transform:none; letter-spacing:0; font-style:normal; opacity:.8; }
+.state-track{ list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:6px; align-items:stretch; }
+.state-step{ border:1px dashed var(--line); padding:6px 10px; display:flex; flex-direction:column; gap:2px; min-width:110px; opacity:.55; }
+.state-step.reached{ border:1px solid var(--amber); opacity:1; }
+.state-step .state-no{ font-size:20px; }
+.state-step b{ font-family:var(--f-crt, monospace); font-weight:400; font-size:18px; letter-spacing:.1em; color:var(--bone); }
+.state-step small{ font-size:12px; color:var(--dust); }
+.state-step:not(.reached) small{ font-style:italic; }
+.state-arrow{ align-self:center; color:var(--amber); font-size:14px; }
+.state-unset{ font-size:12px; color:var(--dust); margin:6px 0 0; }
+.inv-state-row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; font-size:12px; color:var(--dust); }
+.inv-state-row select{ background:var(--ink); border:1px solid var(--line); color:var(--bone); padding:6px 8px; font:inherit; font-size:14px; min-height:40px; }
+.inv-state-ask{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; border:1px dashed var(--amber-dim); padding:6px 8px; font-size:13px; color:var(--bone); }
+.inv-state-ask button{ min-height:36px; }
+.slot-state{ color:var(--amber); font-size:.85em; }

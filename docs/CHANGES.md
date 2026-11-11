@@ -168,3 +168,15 @@ Type `open` anywhere on the Dossier to open the book, then in its terminal:
 - `back` — the storybook page. `help`, `clear` as before.
 
 Code: `assets/epitaph-book.js`, `assets/epitaph-book.css`.
+
+## Item states
+
+One item can have ordered states, e.g. **Seal: Locked ▸ Weakened**. It stays one item with one history.
+
+- Library item: `states: [{ id, name, desc, marks, image }]`, edited in the book (`opl`) and the Atlas Library (add, rename, reorder, picture, marks). The item's own marks apply in every state; a state's marks are added on top.
+- Inventory entry: `stateId`. Each chapter picks its state in Edit inventory. Changing it asks **Replace marks** (item marks + the new state's marks) or **Keep current marks**. A newly added item starts in its first state.
+- Shown as **Seal · Locked** in the Inventory tab, a state tag in the item detail and Marks tab, and in the brief. A state's picture replaces the item's photo in that chapter.
+- A state no chapter uses is shown as **not reached** on the state track (book and Atlas). The Atlas history and the book's “Held by” show the state per chapter.
+- A state in use can't be removed until its chapters are moved to another state.
+- Checks: `item-state` (an entry points at a removed state) and `state-back` (a later chapter goes back to an earlier state; a warning only).
+- Code: `assets/epitaph-states.js` (editor and track), helpers `stateOf`, `uses`, `marksFor` in `assets/epitaph-library.js`.
