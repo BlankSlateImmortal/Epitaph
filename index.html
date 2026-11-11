@@ -1059,6 +1059,15 @@
     .brief-row{ grid-template-columns:1fr; gap:2px; }
     .brief .gen2-foot{ flex-direction:column; align-items:flex-start; gap:10px; }
   }
+  .chapters-editor{ display:flex; flex-direction:column; gap:8px; margin-bottom:10px; }
+  .chapter-row{ display:grid; grid-template-columns:84px minmax(0,1fr) 44px; gap:6px; align-items:center; }
+  .chapter-row input{ min-height:44px; background:var(--ink); border:1px solid var(--line); color:var(--bone); padding:8px 10px; font:inherit; min-width:0; }
+  .chapter-row button{ min-height:44px; padding:0; }
+  .chapter-row small{ grid-column:1 / -1; color:var(--dust); font-size:12px; }
+  .flag{ color:var(--ember); }
+  .presence-dead{ color:var(--dust); }
+  .presence-missing{ color:var(--ember); }
+  .arc-reason{ display:block; font-style:normal; font-size:13px; color:var(--bone); opacity:.8; margin-top:4px; max-width:28ch; }
   .check-label{ display:flex; align-items:center; gap:8px; cursor:pointer; min-height:44px; }
   .check-label input{ width:20px; height:20px; accent-color:var(--amber); }
   .arc-steps{ list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
@@ -1107,6 +1116,7 @@
       <a class="btn ghost" id="musesLink" href="muses.html">Muses</a>
       <button class="btn ghost" id="editBtn" style="display:none;">Edit</button>
       <button class="btn ghost danger" id="deleteBtn" style="display:none;">Delete</button>
+      <button class="btn ghost" id="chaptersBtn" type="button">Chapters</button>
       <button class="btn ghost" id="exportBtn" type="button">Export data</button>
       <label class="btn ghost" for="importFileInput" id="importBtn">Import data</label>
       <input type="file" id="importFileInput" accept=".json,application/json" class="visually-hidden-input">
@@ -1197,7 +1207,7 @@
 // ============================================================
 const STORAGE_KEY = 'epitaph-character-profiles';
 const WORLD_DB_STORAGE_KEY = 'epitaph-world-database';
-let state = { characters: [], activeId: null }; // schemaVersion is stamped on save
+let state = { characters: [], chapters: [], activeId: null }; // schemaVersion is stamped on save
 
 // Reads the Atlas's World Database (Era -> Continent -> Country -> City ->
 // Special Site) — the single shared source of geography. Never duplicated
@@ -1345,7 +1355,11 @@ function migrateCharacter(c){
     portraitSeed: typeof s.portraitSeed === 'string' ? s.portraitSeed : '',
     copiedFrom: typeof s.copiedFrom === 'string' ? s.copiedFrom : '',
     // canon chapters are read-only until reopened
-    locked: !!s.locked
+    locked: !!s.locked,
+    // schema v6: the state applies from this chapter number until the next version starts
+    startChapter: Number.isInteger(s.startChapter) && s.startChapter > 0 ? s.startChapter : null,
+    presence: PRESENCE.includes(s.presence) ? s.presence : 'alive',
+    archetypeReason: typeof s.archetypeReason === 'string' ? s.archetypeReason : ''
   }));
   return result;
 }
@@ -1464,6 +1478,32 @@ function markSummary(snap){
 }
 function tierLabel(tier){ return tier ? 'TIER ' + tier : ''; }
 
+// ---- Shared chapter list, start chapters, presence ----
+const PRESENCE = ['alive', 'dead', 'missing'];
+const PRESENCE_LABEL = { alive: 'Alive', dead: 'Dead', missing: 'Missing' };
+// "CH 6–10" → 6, "Chapter 12" → 12, "3–5" → 3. A number after CH/Chapter wins
+// ("Book 2, CH 3" → 3); otherwise only a leading number counts. Else null.
+function parseStartChapter(text){
+  const t = String(text || '');
+  const m = t.match(/\b(?:ch|chap|chapter)\.?\s*(\d+)/i) || t.match(/^\s*(\d+)/);
+  return m ? parseInt(m[1], 10) : null;
+}
+function chapterList(){ return (state.chapters || []).slice().sort((a, b) => a.number - b.number); }
+function chapterByNumber(n){ return (state.chapters || []).find(c => c.number === n) || null; }
+function chapterLabel(n){
+  if(!Number.isInteger(n)) return '';
+  const c = chapterByNumber(n);
+  return 'CH ' + n + (c && c.title ? ' · ' + c.title : '');
+}
+// The chapter version in effect at chapter n: highest startChapter ≤ n.
+function stateAtChapter(character, n){
+  let best = null;
+  (character.snapshots || []).forEach(s => {
+    if(Number.isInteger(s.startChapter) && s.startChapter <= n && (!best || s.startChapter > best.startChapter)) best = s;
+  });
+  return best;
+}
+
 // ---- Changed since last chapter ----
 // The previous chapter is the one this chapter was copied from, else the one
 // before it in the list. Lists are compared by content (ids are fresh per
@@ -1491,7 +1531,7 @@ function comparable(snap, f){
 }
 const sameContent = (a, b) => JSON.stringify(stripIds(a)) === JSON.stringify(stripIds(b));
 const CHANGE_SECTIONS = {
-  chapter: ['objective', 'location', 'condition', 'notes'], marks: ['marks'],
+  chapter: ['objective', 'location', 'condition', 'notes', 'presence'], marks: ['marks'],
   stats: ['stats'], skills: ['skills'], inventory: ['inventory'],
   ties: ['relationships'], knowledge: ['knowledge', 'secrets'], arc: ['archetype', 'headingToward']
 };
@@ -1576,8 +1616,9 @@ const linesOf = (text) => String(text || '').split('\n').map(x => x.trim()).filt
 // ---- One-time state migration to per-chapter state (schema v2) ----
 // Additive only: every replaced value is copied to a legacy* property and the
 // original fields stay in place until the UI stops reading them.
-const STATE_SCHEMA_VERSION = 5;
-const BACKUP_STORAGE_KEY = 'epitaph-character-profiles-backup-v1';
+const STATE_SCHEMA_VERSION = 6;
+const BACKUP_STORAGE_KEY = 'epitaph-character-profiles-backup-v1';    // before the chapter-state upgrade
+const BACKUP_STORAGE_KEY_V2 = 'epitaph-character-profiles-backup-v2'; // before the atlas-tracker upgrade
 const GEN_NOTE_FIELDS = ['currentAffiliations', 'recentEvents', 'characterDevelopment', 'politicalSocialStatus', 'possessions', 'currentRelationships', 'currentKnowledge', 'knownSecrets'];
 function migrateStateV2(st){
   if((st.schemaVersion || 1) >= 2) return st;
@@ -1696,7 +1737,22 @@ function migrateStateV5(st){
   st.schemaVersion = 5;
   return st;
 }
-function migrateState(st){ return migrateStateV5(migrateStateV4(migrateStateV3(migrateStateV2(st)))); }
+// v6: one shared chapter list, and a start chapter on every chapter version
+// (parsed from its chapter range; unreadable ranges stay empty and are flagged).
+function migrateStateV6(st){
+  if((st.schemaVersion || 1) >= 6) return st;
+  const numbers = new Set();
+  st.characters.forEach(c => c.snapshots.forEach(s => {
+    if(!Number.isInteger(s.startChapter)) s.startChapter = parseStartChapter(s.chapterRange);
+    if(Number.isInteger(s.startChapter)) numbers.add(s.startChapter);
+  }));
+  if(!Array.isArray(st.chapters)) st.chapters = [];
+  numbers.forEach(n => { if(!st.chapters.some(c => c.number === n)) st.chapters.push({ id: newId('ch'), number: n, title: '' }); });
+  st.chapters.sort((a, b) => a.number - b.number);
+  st.schemaVersion = 6;
+  return st;
+}
+function migrateState(st){ return migrateStateV6(migrateStateV5(migrateStateV4(migrateStateV3(migrateStateV2(st))))); }
 
 // ---- Relationships ----
 // Stored as {name, relation, note, charId}. charId links to another Dossier
@@ -1762,7 +1818,7 @@ async function loadState(){
     if(raw){
       const parsed = JSON.parse(raw);
       const needsMigration = (parsed.schemaVersion || 1) < STATE_SCHEMA_VERSION;
-      if(needsMigration) backupBeforeMigration(raw);
+      if(needsMigration) backupBeforeMigration(raw, parsed.schemaVersion || 1);
       parsed.characters = (parsed.characters || []).map(migrateCharacter);
       state = migrateState(parsed);
       if(needsMigration){
@@ -1770,17 +1826,18 @@ async function loadState(){
       }
     }
   }catch(e){
-    state = { characters: [], activeId: null, schemaVersion: STATE_SCHEMA_VERSION };
+    state = { characters: [], chapters: [], activeId: null, schemaVersion: STATE_SCHEMA_VERSION };
   }
 }
 
 // Saves the untouched pre-migration data under its own key, once. If the
 // browser has no room for a second copy, the migration still runs (it only
 // adds fields) and the user is told to Export a file backup.
-function backupBeforeMigration(raw){
+function backupBeforeMigration(raw, fromVersion){
+  const key = fromVersion < 2 ? BACKUP_STORAGE_KEY : BACKUP_STORAGE_KEY_V2;
   try{
-    if(localStorage.getItem(BACKUP_STORAGE_KEY)) return;
-    localStorage.setItem(BACKUP_STORAGE_KEY, raw);
+    if(localStorage.getItem(key)) return;
+    localStorage.setItem(key, raw);
   }catch(e){
     console.error('Could not store the pre-migration backup', e);
     setTimeout(() => showToast('Your data was upgraded, but there was no room to keep a backup copy in the browser. Use Export to save a backup file.', { duration: 9000 }), 800);
@@ -1951,7 +2008,8 @@ function defaultSnapExtras(){
     portraitPosition: { x: 50, y: 50 }, systemPortrait: '', systemPortraitPosition: { x: 50, y: 50 },
     archetype: '', location: null, objective: '', relationships: [], knowledge: [], secrets: [],
     condition: [], marks: [], notes: '', headingToward: '',
-    portraitFigure: '', portraitStyle: '', portraitSeed: ''
+    portraitFigure: '', portraitStyle: '', portraitSeed: '',
+    startChapter: null, presence: 'alive', archetypeReason: ''
   };
 }
 
@@ -2235,7 +2293,7 @@ function renderCharacterRecord(char, snap, portraitSrc, sPos, recordIndex, statu
     <section class="rec${recOpen ? ' open' : ''}" id="charRecord">
       <div class="rec-bg" aria-hidden="true"><span lang="ja">${escapeHtml(glyphFor(char))}</span></div>
       <div class="rec-glass">
-        <div class="rec-top"><span>${char.divineStatus ? 'DIVINE RECORD' : 'CHARACTER RECORD'} // ${recordIndex}</span><span>● ${escapeHtml(statusLabel)}</span></div>
+        <div class="rec-top"><span>${char.divineStatus ? 'DIVINE RECORD' : 'CHARACTER RECORD'} // ${recordIndex}</span><span>● ${escapeHtml(statusLabel)}${snap.presence !== 'alive' ? ` · <b class="presence-${snap.presence}">${snap.presence === 'dead' ? '† DEAD' : '? MISSING'}</b>` : ''}</span></div>
         <div class="rec-name-block">
           <span class="rec-kicker">Subject</span>
           <h2 class="rec-name">${escapeHtml(char.name || 'Unnamed')}</h2>
@@ -2261,7 +2319,7 @@ function recDetailHtml(cmd, char, snap, sortedTitles){
   const head = (t, jp) => `<div class="rec-detail-head"><span>${t}</span><small lang="ja">${jp}</small></div>`;
   const it = REC_ITEMS.find(i => i.k === cmd);
   switch(cmd){
-    case 'identity': return head('IDENTITY', it.jp) + row('Name', char.name) + row('Archetype', archetypeLabel(snap)) + row('Glyph', glyphFor(char)) + row('Chapter', snap.chapterRange, 'No chapter set');
+    case 'identity': return head('IDENTITY', it.jp) + row('Name', char.name) + row('Archetype', archetypeLabel(snap)) + row('Glyph', glyphFor(char)) + row('Chapter', snap.chapterRange, 'No chapter set') + row('Starts at', chapterLabel(snap.startChapter), '⚠ Not set') + row('Presence', PRESENCE_LABEL[snap.presence]);
     case 'titles': return head('TITLES', it.jp) + (sortedTitles.length ? `<div class="titles-row">${sortedTitles.map((t, idx) => renderTitleChip(t, idx)).join('')}</div>` : `<p class="rec-empty">No titles yet.</p>`);
     case 'status': return head('STATUS', it.jp) + row('Marks', markSummary(snap).text, 'None') + row('Marked / bound items', String(markedItems(snap).length)) + row('God / primordial', char.primordial ? 'Yes' : '', 'No') + `<div class="rec-marks">${divineStatuses.map(ds => `<span class="${char.divineStatus === ds ? 'on' : ''}">[${char.divineStatus === ds ? '●' : '○'} ${ds.toUpperCase()}]</span>`).join('')}</div>`;
     case 'authority': return head('AUTHORITY', it.jp) + row('Concept', char.authority) + row('Skills', String((snap.skills || []).length));
@@ -2353,6 +2411,8 @@ function renderCodexPage(char, snap, animate){
       chg.prev ? `Copied from ${escapeHtml(prevLabel)}. Edit only what changed.` : 'Where they are, what they want, and how they are.',
       'chapterEditBtn', 'Edit chapter', ch) +
       `<div class="codex-right crt-log">
+        <p>&gt; FROM: ${Number.isInteger(snap.startChapter) ? escapeHtml(chapterLabel(snap.startChapter)) : '<span class="flag">⚠ start chapter not set — Edit chapter</span>'}</p>
+        <p>&gt; PRESENCE: ${snap.presence === 'alive' ? 'Alive' : `<span class="presence-${snap.presence}">${escapeHtml(PRESENCE_LABEL[snap.presence].toUpperCase())}</span>`}</p>
         <p>&gt; WHERE: ${where ? escapeHtml(where) : '<span class="dim">not set</span>'}</p>
         <p>&gt; WANTS: ${snap.objective ? escapeHtml(snap.objective) : '<span class="dim">not set</span>'}</p>
         <p class="sep">— CONDITION —</p>
@@ -2425,7 +2485,7 @@ function renderCodexPage(char, snap, animate){
       `${isDivineChar(char) ? 'Divine: one archetype for every chapter.' : 'Each chapter has its own archetype.'}<br><span class="crt">&gt; ${escapeHtml(steps.map(st => st.name).join(' → '))}</span>`,
       'mwOpenArc', 'Edit arc', ch) +
       `<div class="codex-right">
-        <ol class="arc-steps" aria-label="Archetype timeline">${steps.map((st, i) => `${i ? '<li class="arc-arrow" aria-hidden="true">→</li>' : ''}<li class="arc-step${st.ids.includes(snap.id) ? ' on' : ''}${st.name === 'UNASSIGNED' ? ' unset' : ''}"><b>${escapeHtml(st.name)}</b><small>${escapeHtml(st.range)}</small></li>`).join('')}</ol>
+        <ol class="arc-steps" aria-label="Archetype timeline">${steps.map((st, i) => `${i ? '<li class="arc-arrow" aria-hidden="true">→</li>' : ''}<li class="arc-step${st.ids.includes(snap.id) ? ' on' : ''}${st.name === 'UNASSIGNED' ? ' unset' : ''}"><b>${escapeHtml(st.name)}</b><small>${escapeHtml(st.range)}</small>${i && st.from.archetypeReason ? `<em class="arc-reason">${escapeHtml(st.from.archetypeReason)}</em>` : ''}</li>`).join('')}</ol>
         <div class="crt-log" style="margin-top:16px;"><p>&gt; HEADING TOWARD: ${snap.headingToward ? escapeHtml(snap.headingToward) : '<span class="dim">not set</span>'}</p></div>
       </div>`;
   } else if(sysTab === 'knowledge'){
@@ -2637,6 +2697,7 @@ function buildBrief(char, snap){
     title: `CHARACTER BRIEF — ${char.name || 'Unnamed'}${snap.chapterRange ? ' · ' + snap.chapterRange : ''}`,
     rows: [
       { label: 'Archetype', text: arch + (prev && prevArch !== arch ? ` (was: ${prevArch})` : '') },
+      { label: 'Presence', text: PRESENCE_LABEL[snap.presence] || 'Alive' },
       { label: 'Where', text: locationPath(snap.location) || 'not set' },
       { label: 'Wants', text: snap.objective || 'not set' },
       { label: 'Heading toward', text: snap.headingToward || '—' },
@@ -3114,7 +3175,7 @@ function escapeHtml(str){
   return div.innerHTML;
 }
 function escapeAttr(str){
-  return (str || '').replace(/"/g, '&quot;');
+  return String(str || '').replace(/"/g, '&quot;');
 }
 
 // ============================================================
@@ -3125,11 +3186,15 @@ const modalContent = document.getElementById('modalContent');
 let pendingPortrait = null;
 let editingCharId = null;
 
-function openModal(){ modalBackdrop.classList.add('visible'); }
+// The clear after closing waits for the fade-out; opening another modal in
+// the meantime cancels it so the new content isn't wiped.
+let modalClearTimer = null;
+function openModal(){ clearTimeout(modalClearTimer); modalBackdrop.classList.add('visible'); }
 function closeModal(){
   modalBackdrop.classList.remove('visible');
   pendingPortrait = null; editingCharId = null; pendingInventoryItems = []; invUploadTarget = null;
-  setTimeout(() => { modalContent.innerHTML=''; }, 220);
+  clearTimeout(modalClearTimer);
+  modalClearTimer = setTimeout(() => { modalContent.innerHTML=''; }, 220);
 }
 
 function portraitFieldHtml(){
@@ -3308,10 +3373,11 @@ function reviewCharacterSave(){
     snapshots: existingChar
       ? existingChar.snapshots.map(s => s.id === snapId && !isLocked(s)
           ? { ...s, chapterRange: fields.chapterRange, blurb: fields.blurb, backstory: fields.backstory, portrait: fields.portrait, archetype: fields.archetype,
+              startChapter: Number.isInteger(s.startChapter) ? s.startChapter : parseStartChapter(fields.chapterRange),
               portraitFigure: fields.portraitFigure, portraitStyle: fields.portraitStyle, portraitSeed: pendingPortraitSeed }
           : s)
       : [{ id: snapId, chapterRange: fields.chapterRange, blurb: fields.blurb, backstory: fields.backstory, portrait: fields.portrait, ...defaultSnapExtras(),
-           archetype: fields.archetype, portraitFigure: fields.portraitFigure, portraitStyle: fields.portraitStyle, portraitSeed: pendingPortraitSeed }]
+           archetype: fields.archetype, startChapter: parseStartChapter(fields.chapterRange), portraitFigure: fields.portraitFigure, portraitStyle: fields.portraitStyle, portraitSeed: pendingPortraitSeed }]
   });
 
   if(isDivineChar(draftChar)) applyDivineLock(draftChar);
@@ -3342,6 +3408,14 @@ function reviewCharacterSave(){
 }
 
 // ---- Snapshot form: a new chapter-version of the CURRENT character (no identity fields) ----
+// Next chapter number after this character's latest start, from the shared list.
+function suggestNextStart(char){
+  const starts = char.snapshots.map(s => s.startChapter).filter(Number.isInteger);
+  if(!starts.length) return null;
+  const last = Math.max(...starts);
+  const next = chapterList().find(c => c.number > last);
+  return next ? next.number : last + 1;
+}
 function openSnapshotForm(){
   const char = getActiveCharacter();
   if(!char) return openCharacterForm();
@@ -3358,6 +3432,7 @@ function openSnapshotForm(){
       <label>Chapter range</label>
       <input type="text" id="fChapterRange" value="" placeholder="e.g. CH 6 – CH 10">
     </div>
+    ${startPresenceFieldsHtml('fSnap', suggestNextStart(char), (getActiveSnapshot(char) || {}).presence || 'alive')}
 
     <div class="field">
       <label>Blurb — one line for this point in the story</label>
@@ -3375,6 +3450,15 @@ function openSnapshotForm(){
     </div>
   `;
   wireDropzone();
+  wireStartHint('fSnap');
+  // typing a range like "CH 11–15" fills the start chapter until it is edited by hand
+  const startInp = document.getElementById('fSnapStart');
+  let startTouched = false;
+  startInp.addEventListener('input', () => { startTouched = true; });
+  document.getElementById('fChapterRange').addEventListener('input', e => {
+    const n = parseStartChapter(e.target.value);
+    if(!startTouched && n){ startInp.value = n; startInp.dispatchEvent(new Event('input')); startTouched = false; }
+  });
   openModal();
 }
 
@@ -3386,6 +3470,8 @@ function carryForwardState(prev){
   return {
     copiedFrom: prev.id,
     locked: false,
+    presence: prev.presence || 'alive',
+    archetypeReason: '', // a reason belongs to the chapter where the archetype changed
     stats: { ...(prev.stats || {}) },
     inventory: (prev.inventory || []).map(i => ({ ...copy(i), id: newId('inv'), marks: freshMarks(i.marks) })),
     skills: copy(prev.skills || []),
@@ -3419,7 +3505,9 @@ function reviewSnapshotSave(){
     backstory: document.getElementById('fBackstory').value.trim(),
     portrait: pendingPortrait,
     ...defaultSnapExtras(),
-    ...(prevSnap ? carryForwardState(prevSnap) : {})
+    ...(prevSnap ? carryForwardState(prevSnap) : {}),
+    startChapter: readStartChapter('fSnap'),
+    presence: document.getElementById('fSnapPresence').value
   };
 
   modalContent.innerHTML = `
@@ -3445,6 +3533,9 @@ function reviewSnapshotSave(){
     // re-populate the fields they'd already entered
     setTimeout(() => {
       document.getElementById('fChapterRange').value = draftSnap.chapterRange;
+      document.getElementById('fSnapStart').value = Number.isInteger(draftSnap.startChapter) ? draftSnap.startChapter : '';
+      document.getElementById('fSnapStart').dispatchEvent(new Event('input'));
+      document.getElementById('fSnapPresence').value = draftSnap.presence;
       document.getElementById('fBlurb').value = draftSnap.blurb;
       document.getElementById('fBackstory').value = draftSnap.backstory;
       pendingPortrait = draftSnap.portrait;
@@ -3558,12 +3649,44 @@ function readChapterStateFields(prefix){
   return out;
 }
 
+// Start chapter + presence fields (chapter form and new-chapter form).
+function startPresenceFieldsHtml(prefix, startChapter, presence){
+  return `<div class="field-row">
+      <div class="field">
+        <label>Starts at chapter</label>
+        <input type="number" inputmode="numeric" min="1" step="1" id="${prefix}Start" list="chapterNumbers" value="${Number.isInteger(startChapter) ? startChapter : ''}" placeholder="e.g. 6">
+        <datalist id="chapterNumbers">${chapterList().map(c => `<option value="${c.number}">${escapeHtml(c.title || '')}</option>`).join('')}</datalist>
+        <p class="gen-empty-hint" id="${prefix}StartHint"></p>
+      </div>
+      <div class="field">
+        <label>Presence</label>
+        <select id="${prefix}Presence">${PRESENCE.map(p => `<option value="${p}"${presence === p ? ' selected' : ''}>${PRESENCE_LABEL[p]}</option>`).join('')}</select>
+      </div>
+    </div>`;
+}
+function wireStartHint(prefix){
+  const inp = document.getElementById(prefix + 'Start'), hint = document.getElementById(prefix + 'StartHint');
+  if(!inp || !hint) return;
+  const sync = () => {
+    const n = parseInt(inp.value, 10);
+    hint.textContent = !inp.value ? 'Not set — the Atlas can only place this version once it has a start chapter.'
+      : (!Number.isInteger(n) || n < 1) ? 'Use a whole number from 1 up.'
+      : chapterByNumber(n) ? chapterLabel(n) : 'Not in the chapter list yet — add it under Chapters.';
+  };
+  inp.addEventListener('input', sync); sync();
+}
+function readStartChapter(prefix){
+  const n = parseInt((document.getElementById(prefix + 'Start') || {}).value, 10);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
 // Quick editor for the Chapter page: objective, location, condition, notes.
 function openChapterStateForm(char, snap){
   if(blockIfLocked(snap)) return;
   modalContent.innerHTML = `
     <h2>Chapter — ${escapeHtml(char.name || 'Unnamed')}${snap.chapterRange ? ' · ' + escapeHtml(snap.chapterRange) : ''}</h2>
     <p class="sub">Changes only this chapter. Other chapters keep their own state.</p>
+    ${startPresenceFieldsHtml('cs', snap.startChapter, snap.presence)}
     ${chapterStateFieldsHtml('cs', char, snap, { archetype: true, objective: true })}
     <div class="modal-actions">
       <button class="btn ghost" onclick="closeModal()">Cancel</button>
@@ -3572,8 +3695,11 @@ function openChapterStateForm(char, snap){
   `;
   wireLocationPicker('cs', snap.location);
   wireArchetypeField('cs');
+  wireStartHint('cs');
   document.getElementById('csSave').addEventListener('click', async () => {
     applyChapterStateFields(char, snap, 'cs');
+    snap.startChapter = readStartChapter('cs');
+    snap.presence = document.getElementById('csPresence').value;
     await persistState();
     renderAll();
     closeModal();
@@ -4109,6 +4235,10 @@ function openArcOnlyForm(char, snap){
     <h2>Arc — ${escapeHtml(char.name || 'Unnamed')}${snap.chapterRange ? ' · ' + escapeHtml(snap.chapterRange) : ''}</h2>
     <p class="sub">${isDivineChar(char) ? 'A god keeps one archetype: changing it here changes every chapter.' : 'Archetype and heading belong to this chapter. The timeline is built from every chapter’s archetype.'}</p>
     ${archetypeFieldHtml('mwArc', char, snap.archetype)}
+    <div class="field">
+      <label>Why the archetype changed here (optional, one line)</label>
+      <input type="text" id="mwArcReason" value="${escapeAttr(snap.archetypeReason || '')}" placeholder="e.g. Yona's betrayal broke him">
+    </div>
     ${headingFieldHtml('mwArc', snap)}
     <div class="modal-actions">
       <button class="btn ghost" onclick="closeModal()">Cancel</button>
@@ -4119,6 +4249,7 @@ function openArcOnlyForm(char, snap){
   document.getElementById('mwArcSave').addEventListener('click', async () => {
     setArchetype(char, snap, readArchetypeField('mwArc'));
     snap.headingToward = document.getElementById('mwArcHeading').value.trim();
+    snap.archetypeReason = document.getElementById('mwArcReason').value.trim();
     await persistState();
     renderAll();
     closeModal();
@@ -4373,6 +4504,61 @@ deleteBtn.addEventListener('click', () => {
     closeModal();
   });
 });
+
+// ---- Shared chapter list editor ----
+// One list for the whole story; chapter versions point at it by number.
+let pendingChapters = [];
+function chapterUseCount(n){
+  return state.characters.reduce((sum, c) => sum + c.snapshots.filter(s => s.startChapter === n).length, 0);
+}
+function renderChaptersEditor(){
+  const wrap = document.getElementById('chaptersEditor');
+  if(!wrap) return;
+  wrap.innerHTML = pendingChapters.map((c, i) => {
+    const used = Number.isInteger(parseInt(c.number, 10)) ? chapterUseCount(parseInt(c.number, 10)) : 0;
+    return `<div class="chapter-row">
+      <input type="number" inputmode="numeric" min="1" step="1" data-ch="${i}" data-f="number" value="${escapeAttr(c.number)}" aria-label="Chapter number">
+      <input type="text" data-ch="${i}" data-f="title" value="${escapeAttr(c.title || '')}" placeholder="Title (optional)" aria-label="Chapter title">
+      <button type="button" class="btn ghost" data-ch-remove="${i}" aria-label="Remove chapter">×</button>
+      ${used ? `<small>${used} chapter version${used === 1 ? '' : 's'} start here</small>` : ''}
+    </div>`;
+  }).join('') || '<p class="gen-empty-hint">No chapters yet.</p>';
+  wrap.querySelectorAll('[data-ch]').forEach(el => el.addEventListener('input', () => { pendingChapters[+el.dataset.ch][el.dataset.f] = el.value; }));
+  wrap.querySelectorAll('[data-ch-remove]').forEach(b => b.addEventListener('click', () => { pendingChapters.splice(+b.dataset.chRemove, 1); renderChaptersEditor(); }));
+}
+function openChaptersForm(){
+  pendingChapters = chapterList().map(c => ({ ...c }));
+  modalContent.innerHTML = `
+    <h2>Chapters</h2>
+    <p class="sub">One list for the whole story. Each chapter version says which chapter it starts at; its state lasts until that character's next version starts.</p>
+    <div id="chaptersEditor" class="chapters-editor"></div>
+    <button type="button" class="btn ghost" id="chapterAddBtn">+ Add chapter</button>
+    <p class="gen-empty-hint" id="chaptersError" role="alert"></p>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" id="chaptersSave">Save chapters</button>
+    </div>`;
+  renderChaptersEditor();
+  document.getElementById('chapterAddBtn').addEventListener('click', () => {
+    const max = pendingChapters.reduce((m, c) => Math.max(m, parseInt(c.number, 10) || 0), 0);
+    pendingChapters.push({ id: newId('ch'), number: String(max + 1), title: '' });
+    renderChaptersEditor();
+    const inputs = document.querySelectorAll('#chaptersEditor [data-f="title"]');
+    if(inputs.length) inputs[inputs.length - 1].focus();
+  });
+  document.getElementById('chaptersSave').addEventListener('click', async () => {
+    const err = document.getElementById('chaptersError');
+    const list = pendingChapters.map(c => ({ id: c.id || newId('ch'), number: parseInt(c.number, 10), title: String(c.title || '').trim() }));
+    if(list.some(c => !Number.isInteger(c.number) || c.number < 1)){ err.textContent = 'Every chapter needs a whole number from 1 up.'; return; }
+    if(new Set(list.map(c => c.number)).size !== list.length){ err.textContent = 'Two chapters have the same number.'; return; }
+    state.chapters = list.sort((a, b) => a.number - b.number);
+    await persistState();
+    renderAll();
+    closeModal();
+  });
+  openModal();
+}
+document.getElementById('chaptersBtn').addEventListener('click', openChaptersForm);
 
 // ---- Backup: export / import the whole Dossier state ----
 // Export writes everything under the 'epitaph-character-profiles' key as-is.
