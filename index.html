@@ -1052,6 +1052,12 @@
     .brief-row{ grid-template-columns:1fr; gap:2px; }
     .brief .gen2-foot{ flex-direction:column; align-items:flex-start; gap:10px; }
   }
+  .tie-arc{ margin-top:6px; font-family:var(--f-crt, monospace); font-size:16px; color:var(--amber); }
+  .tie-arc summary{ cursor:pointer; min-height:36px; display:flex; align-items:center; color:var(--amber-dim); }
+  .tie-arc ol{ list-style:none; margin:4px 0 0; padding:0; display:flex; flex-wrap:wrap; gap:6px; }
+  .tie-arc li{ border:1px solid var(--amber-dim); padding:4px 8px; }
+  .tie-arc li b{ font-weight:400; display:block; }
+  .tie-arc li small{ font-size:12px; color:var(--amber-dim); }
   .checks-btn{ position:relative; }
   .checks-badge{ display:inline-block; min-width:18px; padding:0 5px; margin-left:4px; background:var(--ember); color:var(--bone); font-size:11px; line-height:18px; border-radius:9px; text-align:center; }
   .checks-list{ list-style:none; margin:0 0 12px; padding:0; display:flex; flex-direction:column; gap:6px; }
@@ -1428,6 +1434,28 @@ function readArchetypeField(prefix){
   const sel = document.getElementById(prefix + 'Arch');
   if(!sel) return undefined;
   return sel.value === '__custom' ? document.getElementById(prefix + 'ArchCustom').value.trim() : sel.value;
+}
+// Relationship arc: how one relationship's label changes across this
+// character's chapter versions (Siblings → Estranged → Enemies). Matched by
+// linked character, else by name. Consecutive chapters with the same label
+// merge; "not listed" marks versions where the relationship is absent.
+function relationshipArc(char, rel){
+  const key = rel.charId ? 'id:' + rel.charId : 'name:' + (relationshipDisplayName(rel) || '').toLowerCase();
+  const keyOf = r => r.charId ? 'id:' + r.charId : 'name:' + (relationshipDisplayName(r) || '').toLowerCase();
+  const versions = char.snapshots.map((s, i) => ({ s, i }))
+    .sort((a, b) => (Number.isInteger(a.s.startChapter) ? a.s.startChapter : Infinity) - (Number.isInteger(b.s.startChapter) ? b.s.startChapter : Infinity) || a.i - b.i)
+    .map(x => x.s);
+  const steps = [];
+  versions.forEach(s => {
+    const r = (s.relationships || []).find(x => keyOf(x) === key);
+    const labelText = r ? (r.relation || '(no label)') : null;
+    const ch = Number.isInteger(s.startChapter) ? 'CH ' + s.startChapter : (s.chapterRange || '?');
+    const last = steps[steps.length - 1];
+    if(last && last.label === labelText) last.to = ch;
+    else steps.push({ label: labelText, from: ch, to: ch });
+  });
+  while(steps.length && steps[0].label === null) steps.shift();
+  return steps.map(st => ({ ...st, label: st.label === null ? 'not listed' : st.label, range: st.from === st.to ? st.from : st.from + '–' + st.to }));
 }
 // Archetype timeline: consecutive chapters with the same archetype form one step.
 function archetypeTimeline(char){
@@ -2430,15 +2458,21 @@ function renderCodexPage(char, snap, animate){
   } else if(sysTab === 'ties'){
     const inferred = inferredRelationships(char);
     const rels = snap.relationships || [];
-    const row = (target, name, rel, note, tag) => {
+    const arcHtml = r => {
+      const steps = relationshipArc(char, r);
+      if(steps.length < 2) return '';
+      return `<details class="tie-arc"><summary>Arc: ${steps.map(st => escapeHtml(st.label)).join(' → ')}</summary>
+        <ol>${steps.map(st => `<li><b>${escapeHtml(st.label)}</b><small>${escapeHtml(st.range)}</small></li>`).join('')}</ol></details>`;
+    };
+    const row = (target, name, rel, note, tag, arc) => {
       const img = target
         ? (target.snapshots && getActiveSnapshot(target).portrait ? `<img src="${getActiveSnapshot(target).portrait}" alt="">` : `<img src="${SILHOUETTE_SVG}" data-gen-char="${escapeAttr(target.id)}" alt="">`)
         : `<img src="${SILHOUETTE_SVG}" alt="" class="unknown">`;
-      return `<div class="tie">${img}<div><div class="tie-name">${target ? `<button type="button" class="rel-link" data-char-id="${escapeAttr(target.id)}">${escapeHtml(name)}</button>` : escapeHtml(name)}${tag === 'new' ? NEW_TAG : (tag ? `<span class="rel-inferred-mark">${tag}</span>` : '')}</div><div class="tie-rel">${escapeHtml(rel || '')}${note ? ' · ' + escapeHtml(note) : ''}</div></div></div>`;
+      return `<div class="tie">${img}<div><div class="tie-name">${target ? `<button type="button" class="rel-link" data-char-id="${escapeAttr(target.id)}">${escapeHtml(name)}</button>` : escapeHtml(name)}${tag === 'new' ? NEW_TAG : (tag ? `<span class="rel-inferred-mark">${tag}</span>` : '')}</div><div class="tie-rel">${escapeHtml(rel || '')}${note ? ' · ' + escapeHtml(note) : ''}</div>${arc || ''}</div></div>`;
     };
     html = codexLeft(n, 'Ties', 'Bonds', `${rels.length} recorded this chapter${inferred.length ? ` · ${inferred.length} inferred from other files` : ''}`, 'mwOpenRelationships', 'Edit ties', ch) +
       `<div class="codex-right">${rels.length || inferred.length
-        ? rels.map(r => row(findCharacterById(r.charId), relationshipDisplayName(r), r.relation, r.note, chg.isNew('relationships', r) ? 'new' : '')).join('') +
+        ? rels.map(r => row(findCharacterById(r.charId), relationshipDisplayName(r), r.relation, r.note, chg.isNew('relationships', r) ? 'new' : '', arcHtml(r))).join('') +
           inferred.map(r => row(findCharacterById(r.charId), r.name, r.relation ? 'Lists you as: ' + r.relation : 'Lists you as a relationship', r.note, 'inferred')).join('')
         : `<div class="sys-empty">No relationships recorded yet.</div>`}</div>`;
   } else if(sysTab === 'arc'){
@@ -2651,7 +2685,7 @@ function buildBrief(char, snap){
   return {
     title: `CHARACTER BRIEF — ${char.name || 'Unnamed'}${snap.chapterRange ? ' · ' + snap.chapterRange : ''}`,
     rows: [
-      { label: 'Archetype', text: arch + (prev && prevArch !== arch ? ` (was: ${prevArch})` : '') },
+      { label: 'Archetype', text: arch + (prev && prevArch !== arch ? ` (was: ${prevArch})` : '') + (prev && prevArch !== arch && snap.archetypeReason ? ` — ${snap.archetypeReason}` : '') },
       { label: 'Presence', text: PRESENCE_LABEL[snap.presence] || 'Alive' },
       { label: 'Where', text: locationPath(snap.location) || 'not set' },
       { label: 'Wants', text: snap.objective || 'not set' },
