@@ -105,13 +105,6 @@
     line-height:0.95;
     max-width:55%;
   }
-  .chapter-overlay .storyline{
-    font-size: clamp(32px, 5vw, 54px);
-    color: var(--dust);
-    text-align:right;
-    max-width:42%;
-    line-height:1.1;
-  }
 
   .side-gallery{
     position:absolute;
@@ -619,112 +612,6 @@
     0%{ opacity:0; transform: translateY(-10px) scale(0.9) rotate(0.5deg); }
     100%{ opacity:1; transform: translateY(0) scale(1) rotate(0.5deg); }
   }
-  .mini-window{
-    position:absolute;
-    bottom:14px; right:14px;
-    width:210px;
-    max-width: calc(100% - 28px);
-    box-sizing:border-box;
-    z-index:6;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    box-shadow: 0 10px 26px rgba(0,0,0,0.5);
-    transform: rotate(-0.6deg);
-    transition: border-color 0.2s ease, box-shadow 0.3s ease;
-    animation: mwPopIn 0.38s cubic-bezier(.16,1,.3,1) both;
-  }
-  .terminal-banner .mini-window{
-    bottom:auto; top:40px; right:10px; left:auto;
-    transform: rotate(0.5deg);
-    animation: mwPopInHeader 0.38s cubic-bezier(.16,1,.3,1) both;
-  }
-  .mini-window:hover{ border-color: var(--dust); }
-  .mini-window.collapsed{
-    box-shadow: 0 6px 16px rgba(0,0,0,0.4);
-  }
-  .mini-window.collapsed .mw-titlebar{ border-bottom-color: transparent; transition: border-bottom-color 0.15s ease 0.15s; }
-  /* Deflated form for the panel mini-windows (stats/skills/inventory/relationships/arc — not identity):
-     collapse down to just the toggle mark, nothing else. */
-  .mini-window.collapsed:not([data-mw-key="identity"]){
-    width:24px;
-    background:none;
-    border-color:transparent;
-    box-shadow:none;
-    bottom:0; right:0;
-  }
-  .mini-window.collapsed:not([data-mw-key="identity"]) .mw-titlebar{
-    display:inline-flex;
-    padding:4px;
-    width:auto;
-  }
-  .mini-window.collapsed:not([data-mw-key="identity"]) .mw-titlebar-left span,
-  .mini-window.collapsed:not([data-mw-key="identity"]) .mw-x{
-    display:none;
-  }
-  .mw-titlebar{
-    display:flex; align-items:center; justify-content:space-between;
-    gap:10px;
-    padding:7px 10px;
-    border-bottom:1px solid var(--line);
-    font-family:'Space Mono', monospace;
-    font-size:10.5px; letter-spacing:0.03em;
-    color: var(--bone);
-    white-space:nowrap;
-  }
-  .mw-titlebar-left{ display:flex; align-items:center; gap:7px; min-width:0; }
-  .mw-titlebar .mw-x{ color: var(--dust); font-size:12px; flex:0 0 auto; }
-  .mw-toggle{
-    width:13px; height:13px; flex:0 0 auto;
-    border:1.3px solid var(--bone);
-    display:flex; align-items:center; justify-content:center;
-    font-size:10px; line-height:1;
-    color: var(--bone);
-    cursor:pointer;
-    background:none;
-    padding:0;
-    transition: border-color 0.2s ease, color 0.2s ease, transform 0.25s cubic-bezier(.4,0,.2,1);
-  }
-  .mw-toggle:hover{ border-color: var(--ember); color: var(--ember); }
-  .mini-window.collapsed .mw-toggle{ transform: rotate(180deg); }
-  .mw-body{
-    padding:12px 12px 14px;
-    overflow:hidden;
-    max-height:320px;
-    opacity:1;
-    transform-origin: top;
-    transition: max-height 0.32s cubic-bezier(.4,0,.2,1), opacity 0.2s ease 0.06s, padding-top 0.32s ease, padding-bottom 0.32s ease;
-  }
-  .mini-window.collapsed .mw-body{
-    max-height:0;
-    opacity:0;
-    padding-top:0; padding-bottom:0;
-    pointer-events:none;
-    transition: max-height 0.32s cubic-bezier(.4,0,.2,1), opacity 0.15s ease, padding-top 0.32s ease, padding-bottom 0.32s ease;
-  }
-  .mw-label{
-    font-family:'Space Mono', monospace;
-    font-size:9.5px; letter-spacing:0.05em;
-    color: var(--dust); text-transform:uppercase;
-    margin-bottom:7px;
-  }
-  .mw-desc{ font-size:12.5px; line-height:1.5; margin-bottom:12px; min-height:44px; }
-  .mw-desc.ember{ color: var(--ember); }
-  .mw-desc.verdigris{ color: var(--verdigris); }
-  .mw-desc.bone{ color: var(--bone); }
-  .mw-stat-table{ font-family:'Space Mono', monospace; font-size:10.5px; margin-bottom:12px; }
-  .mw-stat-table .mw-stat-row{
-    display:flex; justify-content:space-between;
-    padding:3px 0; border-bottom:1px solid var(--line); color: var(--dust);
-  }
-  .mw-stat-table .mw-stat-row:last-child{ border-bottom:none; }
-  .mw-stat-table .mw-stat-row span:last-child{ color: var(--bone); }
-  .mw-open{
-    background:none; border:none; padding:0;
-    font-family:'Space Mono', monospace; font-size:11px;
-    color: var(--ember); letter-spacing:0.03em;
-    cursor:pointer; display:inline-flex; align-items:center; gap:4px;
-  }
-  .mw-open:hover{ text-decoration: underline; }
 
   .skill-tree-wrap{ display:flex; justify-content:center; }
   .skill-tree-svg text{
@@ -804,28 +691,9 @@
     margin-bottom:5px;
   }
   .skill-tooltip.visible{ opacity:1; }
-
-  .arc-text{
-    font-size:14px; line-height:1.75; color: var(--dust);
-    white-space:pre-wrap;
-    max-height:280px; overflow-y:auto;
-  }
   .sys-empty{ color: var(--dust); font-size:13px; font-style:italic; }
 
   /* ---- Story Arc: structured fields ---- */
-  .arc-field{ margin-bottom:18px; }
-  .arc-field:last-child{ margin-bottom:0; }
-  .arc-field-label{
-    display:block; font-family:'Space Mono', monospace; font-size:10px; letter-spacing:0.1em;
-    color: var(--dust); text-transform:uppercase; margin-bottom:6px;
-  }
-  .arc-field-value{ font-size:14px; line-height:1.7; color: var(--bone); white-space:pre-wrap; }
-  .arc-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
-  .arc-list li{
-    font-size:13.5px; line-height:1.6; color: var(--bone);
-    padding-left:14px; position:relative;
-  }
-  .arc-list li::before{ content:'—'; position:absolute; left:0; color: var(--dust); }
 
   /* ---- Knowledge & Secrets ---- */
   .know-sec-block{ margin-bottom:20px; }
@@ -1121,7 +989,6 @@
     padding:3px 0; border-bottom:1px dotted var(--line);
   }
   .lib-entry:last-child{ border-bottom:none; }
-  .lib-entry-meta{ color: var(--dust); font-size:10.5px; margin-left:6px; }
   .lib-entry button{
     flex:0 0 auto; background:none; border:none; color: var(--dust);
     cursor:pointer; font-size:13px; padding:0 2px; line-height:1.5;
@@ -1134,111 +1001,15 @@
   }
   .lib-back:hover{ color: var(--bone); }
 
-
   /* ============ GENERATION SECTION ============ */
   .generation-section{ margin-top:44px; padding-bottom:60px; }
   .generation-section .section-label{ margin-bottom:14px; }
-  .gen-banner{
-    border:1px solid var(--line);
-    background: rgba(20,18,16,0.55);
-  }
-  .gen-head{
-    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;
-    padding:12px 16px;
-    border-bottom:1px solid var(--line);
-  }
-  .gen-head-title{
-    font-family:'Space Mono', monospace; font-size:10.5px; letter-spacing:0.12em;
-    color: var(--dust); text-transform:uppercase;
-  }
-  .gen-chapter-controls{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-  .gen-chapter-controls select{
-    background: var(--ink); border:1px solid var(--line); color: var(--bone);
-    font-family:'Space Mono', monospace; font-size:12px; padding:7px 10px; border-radius:2px;
-  }
   .gen-status-pill{
     font-family:'Space Mono', monospace; font-size:10px; letter-spacing:0.08em;
     padding:3px 9px; border:1px solid var(--line); text-transform:uppercase;
   }
   .gen-status-pill.draft{ color: var(--gold); border-color: var(--gold); }
   .gen-status-pill.committed{ color: var(--verdigris); border-color: var(--verdigris); }
-
-  .gen-body{ padding:18px 16px 20px; }
-  .gen-empty{ color: var(--dust); font-size:14px; font-style:italic; padding:20px 4px; }
-
-  .gen-columns{ display:flex; gap:22px; align-items:flex-start; flex-wrap:wrap; }
-  .gen-static-col{ flex:1 1 280px; min-width:260px; }
-  .gen-timeline-col{ flex:2 1 480px; min-width:300px; }
-
-  .gen-col-label{
-    font-family:'Space Mono', monospace; font-size:10px; letter-spacing:0.12em;
-    color: var(--dust); text-transform:uppercase; margin-bottom:10px;
-    display:flex; align-items:center; justify-content:space-between;
-  }
-  .gen-static-row{
-    padding:9px 0; border-bottom:1px solid var(--line);
-  }
-  .gen-static-row:last-child{ border-bottom:none; }
-  .gen-static-row-label{ font-size:10px; letter-spacing:0.08em; color: var(--dust); text-transform:uppercase; margin-bottom:3px; }
-  .gen-static-row-value{ font-size:13.5px; color: var(--bone); line-height:1.55; }
-  .gen-static-row-value.empty{ color: var(--dust); font-style:italic; }
-  .gen-static-note{ font-size:11px; color: var(--dust); font-style:italic; margin-top:12px; }
-
-  .gen-field-block{ border:1px solid var(--line); margin-bottom:14px; }
-  .gen-field-head{
-    display:flex; align-items:center; justify-content:space-between; gap:10px;
-    padding:9px 12px; border-bottom:1px solid var(--line); background: rgba(255,255,255,0.015);
-  }
-  .gen-field-title{ font-size:13px; color: var(--bone); letter-spacing:0.02em; }
-  .gen-field-external{ font-size:10.5px; color: var(--dust); font-style:italic; margin-top:2px; }
-  .gen-field-actions{ display:flex; gap:6px; flex:0 0 auto; }
-  .gen-mini-btn{
-    font-family:'Space Mono', monospace; font-size:10px; letter-spacing:0.04em;
-    background:transparent; border:1px solid var(--line); color: var(--dust);
-    padding:4px 9px; cursor:pointer; border-radius:2px; white-space:nowrap;
-  }
-  .gen-mini-btn:hover{ color: var(--bone); border-color: var(--dust); }
-  .gen-mini-btn.accent{ color: var(--ember); border-color: var(--ember); }
-  .gen-mini-btn.accent:hover{ background: var(--ember); color: var(--bone); }
-
-  .gen-entry-list{ padding:4px 12px 8px; }
-  .gen-entry{
-    display:flex; align-items:flex-start; gap:10px;
-    padding:8px 0; border-bottom:1px dotted var(--line);
-  }
-  .gen-entry:last-child{ border-bottom:none; }
-  .gen-entry.rejected{ opacity:0.4; }
-  .gen-tag{
-    flex:0 0 auto; font-family:'Space Mono', monospace; font-size:9px; letter-spacing:0.06em;
-    padding:2px 7px; border:1px solid var(--line); text-transform:uppercase; margin-top:2px;
-    white-space:nowrap;
-  }
-  .gen-tag.author{ color: var(--bone); border-color: var(--bone); }
-  .gen-tag.ai-generated{ color: var(--ember); border-color: var(--ember); }
-  .gen-tag.ai-suggested{ color: var(--dust); border-color: var(--dust); border-style:dashed; }
-  .gen-entry-text{ flex:1; font-size:13.5px; line-height:1.6; color: var(--bone); }
-  .gen-entry.pending .gen-entry-text{ color: var(--dust); }
-  .gen-entry-actions{ flex:0 0 auto; display:flex; gap:5px; }
-  .gen-entry-actions button{
-    background:transparent; border:1px solid var(--line); cursor:pointer;
-    width:22px; height:22px; font-size:11px; color: var(--dust); border-radius:2px; line-height:1;
-  }
-  .gen-entry-actions button:hover{ color: var(--bone); border-color: var(--dust); }
-  .gen-entry-actions button.confirm:hover{ color: var(--verdigris); border-color: var(--verdigris); }
-  .gen-entry-actions button.reject:hover{ color: var(--ember); border-color: var(--ember); }
-  .gen-no-entries{ padding:10px 0; color: var(--dust); font-size:12.5px; font-style:italic; }
-
-  .gen-add-row{ display:flex; gap:8px; padding:8px 12px 12px; border-top:1px solid var(--line); }
-  .gen-add-row input{
-    flex:1; background: var(--ink); border:1px solid var(--line); color: var(--bone);
-    font-family:'Source Serif 4', serif; font-size:13px; padding:7px 10px; border-radius:2px;
-  }
-  .gen-add-row input:focus{ outline:none; border-color: var(--dust); }
-  .gen-add-row select{
-    flex:1; background: var(--ink); border:1px solid var(--line); color: var(--bone);
-    font-family:'Source Serif 4', serif; font-size:13px; padding:7px 10px; border-radius:2px;
-  }
-  .gen-add-row select:focus{ outline:none; border-color: var(--dust); }
   .inv-edit-row{ flex-wrap:wrap; }
   .inv-marks{ flex:1 1 100%; border-top:1px dashed var(--line); padding-top:8px; }
   .inv-marks summary{ cursor:pointer; min-height:44px; display:flex; align-items:center; color:var(--amber); font-size:13px; letter-spacing:.08em; text-transform:uppercase; }
@@ -1311,20 +1082,10 @@
     font-family:'Source Serif 4', serif; font-size:12.5px; padding:6px 8px; border-radius:2px;
   }
   .gen-loc-cascade select:focus{ outline:none; border-color: var(--dust); }
-
-  .gen-commit-bar{
-    display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
-    margin-top:18px; padding-top:16px; border-top:1px solid var(--line);
-  }
-  .gen-commit-note{ font-size:12px; color: var(--dust); }
-
-  @media (max-width: 780px){
-    .gen-columns{ flex-direction:column; }
-  }
 </style>
-<link rel="stylesheet" href="assets/epitaph-theme.css?v=7">
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=8">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-<script src="assets/portrait-gen.js?v=7"></script>
+<script src="assets/portrait-gen.js?v=8"></script>
 <script src="assets/epitaph-muses.js?v=7"></script>
 <script src="assets/archetypes.js?v=1"></script>
 </head>
@@ -2403,50 +2164,10 @@ async function setCorruptionColor(charId, colorValue){
   renderSystemSection();
 }
 
-// ---- Mini system windows: fast, single-purpose edit shortcuts, stacked on their originals ----
-let mwCollapsedState = {};
-function isMwCollapsed(char, key){ return !!mwCollapsedState[char.id + ':' + key]; }
-function toggleMwCollapsed(charId, key, btn){
-  const k = charId + ':' + key;
-  const collapsed = !mwCollapsedState[k];
-  mwCollapsedState[k] = collapsed;
-  const win = btn ? btn.closest('.mini-window') : document.querySelector(`.mini-window[data-mw-key="${key}"]`);
-  if(win){
-    win.classList.toggle('collapsed', collapsed);
-    const toggleBtn = win.querySelector('.mw-toggle');
-    if(toggleBtn){
-      toggleBtn.textContent = collapsed ? '+' : '–';
-      toggleBtn.title = collapsed ? 'Expand' : 'Hide';
-    }
-  } else {
-    renderSystemSection();
-  }
-}
-
-function miniWindow(char, key, filename, label, bodyHtml, openBtnId){
-  const collapsed = isMwCollapsed(char, key);
-  return `
-    <div class="mini-window ${collapsed ? 'collapsed' : ''}" data-mw-key="${key}">
-      <div class="mw-titlebar">
-        <span class="mw-titlebar-left">
-          <button type="button" class="mw-toggle" onclick="toggleMwCollapsed('${char.id}','${key}', this)" title="${collapsed ? 'Expand' : 'Hide'}">${collapsed ? '+' : '–'}</button>
-          <span>${filename}</span>
-        </span>
-        <span class="mw-x">×</span>
-      </div>
-      <div class="mw-body">
-        <div class="mw-label">${label}</div>
-        ${bodyHtml}
-        <button type="button" class="mw-open" id="${openBtnId}">OPEN →</button>
-      </div>
-    </div>
-  `;
-}
-
-// ---- System section (stats / inventory / skills / titles / relationships / arc) ----
 // ============================================================
-// SYSTEM SHEET — codex tabs (stats rings, authority tree, inventory,
-// ties, arc, knowledge). One page at a time, slanted tabs to switch.
+// SYSTEM SHEET — codex tabs (chapter, marks, stats rings, authority tree,
+// inventory, ties, arc, knowledge) for the active chapter. One page at a
+// time, slanted tabs to switch.
 // ============================================================
 let sysTab = 'chapter';
 const skillFocus = {};   // charId -> focused node key ('root' or skill index)
@@ -3525,7 +3246,7 @@ function wireCharacterExtras(existingChar){
   pendingPortraitSeed = existingSnapFor(existingChar).portraitSeed || '';
   const prev = document.getElementById('genPrev');
   const refresh = () => {
-    if(!window.EpitaphPortrait || !prev) return;
+    if(!window.EpitaphPortrait || !prev || !prev.isConnected) return; // form closed before the debounce fired
     const draft = genSourceFor({
       ...(existingChar || {}),
       name: document.getElementById('fName').value.trim() || 'Unnamed',
@@ -3763,8 +3484,8 @@ function confirmDeleteSnapshot(charId, snapId){
   });
 }
 
-// ---- System sheet form (stats/inventory/skills/titles are per chapter-version;
-//      mythos/relationships/story arc belong to the character as a whole) ----
+// ---- System sheet forms: everything is per chapter version, except divine
+//      status, God / primordial, authority, name, faction, muses and glyph ----
 // ---- Knowledge & Secrets structured-field helpers ----
 function knowledgeFieldsHtml(prefix, snap){
   return `
