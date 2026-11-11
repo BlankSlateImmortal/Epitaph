@@ -1,3 +1,56 @@
+# Epitaph — what changed
+
+Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
+
+## Atlas tracker
+
+The Atlas has one job now: show where each character is, chapter by chapter.
+
+### New files and storage
+
+| | |
+|---|---|
+| `assets/epitaph-world.js` | Built-in geography (countries, cities, the former special sites), shared by both pages. The Dossier no longer needs the Atlas to have been opened. |
+| `assets/epitaph-library.js` | The **Library** store. The only code that reads or writes it. |
+| `assets/epitaph-marks.js` | The mark form (blessing / curse / binding) used by the Atlas Library. |
+| `assets/epitaph-checks.js` | The continuity checks, shared by both pages. |
+| `epitaph-library` (browser storage) | Your countries, places and items: `{ version, countries, places, items }`. Included in Export / Import. |
+| `epitaph-character-profiles-backup-v2` (browser storage) | Untouched copy of your Dossier data from before this upgrade. |
+
+### Dossier
+
+- **Chapters** button: one shared chapter list (`state.chapters = [{ id, number, title }]`).
+- Each chapter version has a **start chapter** (its state lasts until the character's next version starts), parsed from the chapter range on upgrade ("CH 6–10" → 6). Ranges with no number are left empty and flagged.
+- Each chapter version has **presence** (alive / dead / missing) and an optional **archetype reason**, shown under the archetype timeline and in the brief.
+- The location picker is **Country → Place** (built-in and Library places). New locations are saved as `{ countryId, placeId }`; old `{ eraId, continentId, countryId, cityId, specialSiteId }` locations still work.
+- Inventory: add items from the **Library** or with **New item…**. A chapter's entry is `{ itemId, note, boundTo, marks }`; marks start as the Library item's marks and can differ per chapter. Entries show **from <place>** and warn if the same item is held by two characters in the same chapter. Old free-text items still work and have **Add to Library**.
+- **Relationship arcs** in the Ties tab (Siblings → Estranged → Enemies).
+- **Checks** button with a warning count.
+- Links: `index.html?char=<id>&ch=<n>` opens the version in effect at chapter n (`&snap=<id>` opens a specific version).
+- If the Atlas changes data while the Dossier is open, the Dossier re-reads it (an open form is closed first) so nothing is overwritten.
+
+### Atlas
+
+- **Kept:** globe, terrain (always on), orbit rings, clock, World → Country → City, layers Countries / Cities / Characters, Reset, breadcrumb, character and location records.
+- **Chapter slider** with ‹ › buttons; markers show each character's state at that chapter. Clusters show a count (tap to fan out). Dead = dimmed † at the death place from then on; missing = dashed marker at the last known place. **Unplaced** lists characters with no location.
+- **Trail** for the selected character: numbered stops with chapter numbers, solid up to the selected chapter, dim after. The record shows archetype, chapter, presence, location path, **came from**, objective, heading toward, and Open Dossier.
+- **Library** drawer: add / edit / delete your countries, places (tap a small map to drop the pin) and items (origin, pictures, marks, note, **history** of who carried it). Deleting something in use is blocked until you reassign it or confirm. Places show on the map; a place's record lists items from there.
+- **Checks** drawer (same rules as the Dossier).
+- Markers and trails are drawn inside the map itself, so they sit exactly on their place at every scale.
+- `atlas.html?item=<id>` opens an item; `?char=<id>&ch=<n>` opens a character at a chapter.
+
+### Removed
+
+Continent and Special Site scales; the View grid (Physical / Political / Corruption / Characters); the Detail slider; the Terrain, Special Sites, Routes and Corruption layers; the Fullscreen button; the Era buttons (places keep their era); the special-site type filter; the character status filter (Active / Moving / Unknown / Off-map); the projections and movement-history mirror. The Atlas keeps no character data of its own.
+
+Old browser-storage keys the Atlas used to write, now unused and left untouched: `epitaph-atlas-data`, `epitaph-world-database`. Safe to remove.
+
+### Viewing on a phone
+
+Your data lives in each browser. To read your story on the phone: **Export data** on the laptop, send the file to the phone, open the Dossier there and **Import data**. Import replaces everything on the phone, so treat the phone as a viewer. (Publishing the data to the public repo was skipped on purpose.)
+
+---
+
 # Chapter-state redesign — what changed
 
 Five commits (phases A–E) plus this cleanup. Your data is upgraded automatically
@@ -56,7 +109,7 @@ old storyline text are gone.
 - System sheet tabs: **Chapter** (new, first), **Marks** (new), Stats, Skills, Inventory, Ties, Arc (rebuilt), Knowledge.
 - Mark shape: `{ id, kind: 'blessing'|'curse'|'binding', name, source, effect, cost, ends }`. Costs are text only; the site never applies them.
 - Inventory items: `marks: [Mark]`, `boundTo: string`.
-- State: `schemaVersion` (now 5). Upgrades run once, in order: v2 per-chapter state, v3 chapter-only lists, v4 archetype/marks, v5 brief + locks.
+- State: `schemaVersion` (5 after this redesign; 6 after the Atlas tracker, which added chapters, start chapters, presence and archetype reasons). Upgrades run once, in order: v2 per-chapter state, v3 chapter-only lists, v4 archetype/marks, v5 brief + locks.
 
 ## Legacy fields (kept, not shown)
 
@@ -95,6 +148,7 @@ portraits are not affected.
 | Key | Holds |
 |---|---|
 | `epitaph-character-profiles-backup-v1` | An untouched copy of all your data from before the first upgrade. It doubles storage use; if the site ever says storage is full, Export a backup file, then this key is the first thing to remove. |
+| `epitaph-character-profiles-backup-v2` | An untouched copy from before the Atlas-tracker upgrade (see above). Remove after the v1 one if space runs short. |
 
 ## Removed code
 
