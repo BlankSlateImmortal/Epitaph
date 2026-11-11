@@ -1239,6 +1239,12 @@
     font-family:'Source Serif 4', serif; font-size:13px; padding:7px 10px; border-radius:2px;
   }
   .gen-add-row select:focus{ outline:none; border-color: var(--dust); }
+  .chg-tag{ display:inline-block; font-family:var(--f-crt, monospace); font-size:12px; line-height:1.4; letter-spacing:.14em; color:var(--amber); border:1px solid var(--amber-dim); padding:0 5px; margin-left:6px; vertical-align:middle; text-shadow:none; white-space:nowrap; }
+  .chg-tag.new{ color:var(--verdigris); border-color:var(--verdigris); }
+  .inv-slot .chg-tag{ margin:2px 0 0; font-size:10px; }
+  .codex-tabs [data-tab].chg::after{ content:''; width:6px; height:6px; border-radius:50%; background:var(--amber); box-shadow:0 0 6px var(--amber); margin-left:2px; }
+  .crt-log .pre{ white-space:pre-wrap; }
+  .loc-picker select{ min-width:0; flex:1 1 140px; }
   .gen-empty-hint{ font-size:12px; color: var(--dust); font-style:italic; padding:6px 0; }
   .gen-loc-cascade{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; width:100%; }
   .gen-loc-cascade select{
@@ -1478,11 +1484,6 @@ function migrateCharacter(c){
   }
   // character-level system-sheet fields
   if(result.mythos === undefined) result.mythos = '';
-  if(!Array.isArray(result.relationships)) result.relationships = [];
-  result.relationships = result.relationships.map(r => ({
-    name: (r && r.name) || '', relation: (r && r.relation) || '', note: (r && r.note) || '',
-    charId: (r && r.charId) || null
-  }));
   if(typeof result.storyArc !== 'object' || result.storyArc === null || Array.isArray(result.storyArc)){
     const oldArcText = typeof result.storyArc === 'string' ? result.storyArc : '';
     result.storyArc = {
@@ -1498,8 +1499,6 @@ function migrateCharacter(c){
     if(!Array.isArray(sa.completedDevelopments)) sa.completedDevelopments = [];
     if(sa.direction === undefined) sa.direction = '';
   }
-  if(!Array.isArray(result.knowledge)) result.knowledge = [];
-  if(!Array.isArray(result.secrets)) result.secrets = [];
   if(result.corruptionColor === undefined) result.corruptionColor = '';
   if(result.authority === undefined) result.authority = '';
   if(result.divineStatus === undefined) result.divineStatus = '';
@@ -1548,7 +1547,8 @@ function migrateCharacter(c){
     // never changes another
     portraitFigure: typeof s.portraitFigure === 'string' ? s.portraitFigure : '',
     portraitStyle: typeof s.portraitStyle === 'string' ? s.portraitStyle : '',
-    portraitSeed: typeof s.portraitSeed === 'string' ? s.portraitSeed : ''
+    portraitSeed: typeof s.portraitSeed === 'string' ? s.portraitSeed : '',
+    copiedFrom: typeof s.copiedFrom === 'string' ? s.copiedFrom : ''
   }));
   return result;
 }
@@ -1572,10 +1572,119 @@ function normalizeMark(m){
   };
 }
 
+// ---- Changed since last chapter ----
+// The previous chapter is the one this chapter was copied from, else the one
+// before it in the list. Lists are compared by content (ids are fresh per
+// chapter), so an entry is "new" when nothing equal existed before.
+function previousSnapshot(char, snap){
+  if(!char || !snap) return null;
+  const from = snap.copiedFrom && char.snapshots.find(s => s.id === snap.copiedFrom);
+  if(from) return from;
+  const i = char.snapshots.findIndex(s => s.id === snap.id);
+  return i > 0 ? char.snapshots[i - 1] : null;
+}
+function stripIds(v){
+  if(Array.isArray(v)) return v.map(stripIds);
+  if(v && typeof v === 'object'){
+    const o = {};
+    Object.keys(v).sort().forEach(k => { if(k !== 'id') o[k] = stripIds(v[k]); });
+    return o;
+  }
+  return v;
+}
+// stats: a missing stat and 0 are the same value
+function comparable(snap, f){
+  if(f === 'stats'){ const st = snap.stats || {}; return STAT_LABELS.map(l => Number(st[l]) || 0); }
+  return snap[f] ?? null;
+}
+const sameContent = (a, b) => JSON.stringify(stripIds(a)) === JSON.stringify(stripIds(b));
+const CHANGE_SECTIONS = {
+  chapter: ['objective', 'location', 'condition', 'notes', 'marks', 'archetype', 'headingToward'],
+  stats: ['stats'], skills: ['skills'], inventory: ['inventory'],
+  ties: ['relationships'], knowledge: ['knowledge', 'secrets'], arc: ['objective']
+};
+function changesFor(char, snap){
+  const prev = previousSnapshot(char, snap);
+  const section = {};
+  Object.keys(CHANGE_SECTIONS).forEach(k => {
+    section[k] = !!prev && CHANGE_SECTIONS[k].some(f => !sameContent(comparable(snap, f), comparable(prev, f)));
+  });
+  return {
+    prev, section,
+    // true when this list entry has no equal in the previous chapter
+    isNew(field, item){
+      if(!prev) return false;
+      const before = (prev[field] || []).map(x => JSON.stringify(stripIds(x)));
+      return !before.includes(JSON.stringify(stripIds(item)));
+    }
+  };
+}
+const CHG_TAG = '<span class="chg-tag" title="Changed since the last chapter">CHANGED</span>';
+const NEW_TAG = '<span class="chg-tag new" title="New since the last chapter">NEW</span>';
+
+// ---- Location picker (Era → Continent → Country → City → Special Site) ----
+// Shared by the chapter editors. Reads the Atlas's World Database live.
+function locationPickerHtml(prefix){
+  if(!getWorldDatabase()) return `<p class="gen-empty-hint">No world data yet — open the Atlas once to load Era, Continent, Country and City options.</p>`;
+  return `<div class="gen-loc-cascade loc-picker">
+    <select id="${prefix}LocEra" aria-label="Era"></select>
+    <select id="${prefix}LocContinent" aria-label="Continent"></select>
+    <select id="${prefix}LocCountry" aria-label="Country"></select>
+    <select id="${prefix}LocCity" aria-label="City"></select>
+    <select id="${prefix}LocSite" aria-label="Special site"></select>
+  </div>`;
+}
+// Fills the selects, pre-selecting `ref`. Country "— not set —" means no location.
+function wireLocationPicker(prefix, ref){
+  const wdb = getWorldDatabase();
+  const eraSel = document.getElementById(prefix + 'LocEra');
+  if(!wdb || !eraSel) return;
+  const contSel = document.getElementById(prefix + 'LocContinent');
+  const countrySel = document.getElementById(prefix + 'LocCountry');
+  const citySel = document.getElementById(prefix + 'LocCity');
+  const siteSel = document.getElementById(prefix + 'LocSite');
+  const fill = (sel, options, placeholder, want) => {
+    sel.innerHTML = (placeholder ? `<option value="">${escapeHtml(placeholder)}</option>` : '')
+      + options.map(o => `<option value="${escapeAttr(o.id)}">${escapeHtml(o.name)}</option>`).join('');
+    if(want && options.some(o => o.id === want)) sel.value = want;
+  };
+  ref = ref || {};
+  const refreshSites = (want) => fill(siteSel, wdbSpecialSites(wdb, eraSel.value, countrySel.value, citySel.value || null), '— no special site —', want);
+  const refreshCities = (want) => { fill(citySel, wdbCities(wdb, eraSel.value, countrySel.value), '— no city —', want && want.cityId); refreshSites(want && want.specialSiteId); };
+  const refreshCountries = (want) => { fill(countrySel, wdbCountries(wdb, eraSel.value, contSel.value), '— location not set —', want && want.countryId); refreshCities(want); };
+  const refreshContinents = (want) => { fill(contSel, wdbContinents(wdb, eraSel.value), '', want && want.continentId); refreshCountries(want); };
+  fill(eraSel, wdbEras(wdb), '', ref.eraId);
+  refreshContinents(ref);
+  eraSel.addEventListener('change', () => refreshContinents());
+  contSel.addEventListener('change', () => refreshCountries());
+  countrySel.addEventListener('change', () => refreshCities());
+  citySel.addEventListener('change', () => refreshSites());
+}
+// undefined = picker not shown (keep current); null = cleared.
+function readLocationPicker(prefix){
+  const eraSel = document.getElementById(prefix + 'LocEra');
+  if(!eraSel) return undefined;
+  const country = document.getElementById(prefix + 'LocCountry').value;
+  if(!country) return null;
+  return {
+    eraId: eraSel.value,
+    continentId: document.getElementById(prefix + 'LocContinent').value,
+    countryId: country,
+    cityId: document.getElementById(prefix + 'LocCity').value || null,
+    specialSiteId: document.getElementById(prefix + 'LocSite').value || null
+  };
+}
+function locationLabelFor(ref){
+  if(!ref || !ref.countryId) return '';
+  const wdb = getWorldDatabase();
+  return wdb ? resolveLocationLabel(wdb, ref) : '(place set — open the Atlas to load names)';
+}
+const linesOf = (text) => String(text || '').split('\n').map(x => x.trim()).filter(Boolean);
+
 // ---- One-time state migration to per-chapter state (schema v2) ----
 // Additive only: every replaced value is copied to a legacy* property and the
 // original fields stay in place until the UI stops reading them.
-const STATE_SCHEMA_VERSION = 2;
+const STATE_SCHEMA_VERSION = 3;
 const BACKUP_STORAGE_KEY = 'epitaph-character-profiles-backup-v1';
 function objsLastId(gs){
   const list = (gs.timeline && Array.isArray(gs.timeline.currentObjectives) ? gs.timeline.currentObjectives : []).filter(e => e && e.status === 'committed');
@@ -1590,10 +1699,11 @@ function syncChaptersFromGeneration(){
     const snap = c && c.snapshots.find(x => x.id === gs.snapshotId);
     if(!snap || !gs.timeline) return;
     const seen = snap.genSyncIds || (snap.genSyncIds = { loc: null, obj: null });
-    const locs = (gs.timeline.currentLocation || []).filter(e => e && e.status === 'committed' && e.locationRef && e.locationRef.countryId);
+    // entries copied in from the previous chapter are not new edits
+    const locs = (gs.timeline.currentLocation || []).filter(e => e && !e.carried && e.status === 'committed' && e.locationRef && e.locationRef.countryId);
     const lastLoc = locs[locs.length - 1];
     if(lastLoc && lastLoc.id !== seen.loc){ snap.location = { ...lastLoc.locationRef }; seen.loc = lastLoc.id; }
-    const objs = (gs.timeline.currentObjectives || []).filter(e => e && e.status === 'committed');
+    const objs = (gs.timeline.currentObjectives || []).filter(e => e && !e.carried && e.status === 'committed');
     const lastObj = objs[objs.length - 1];
     if(lastObj && lastObj.id !== seen.obj){ snap.objective = lastObj.text || ''; seen.obj = lastObj.id; }
   });
@@ -1607,9 +1717,9 @@ function migrateStateV2(st){
     const last = snaps[snaps.length - 1];
     // relationships / knowledge / secrets: whole-character -> every chapter
     snaps.forEach(s => {
-      s.relationships = (c.relationships || []).map(normalizeRelationship);
-      s.knowledge = (c.knowledge || []).slice();
-      s.secrets = (c.secrets || []).map(normalizeSecret);
+      s.relationships = (Array.isArray(c.relationships) ? c.relationships : []).map(normalizeRelationship);
+      s.knowledge = (Array.isArray(c.knowledge) ? c.knowledge : []).filter(k => typeof k === 'string');
+      s.secrets = (Array.isArray(c.secrets) ? c.secrets : []).map(normalizeSecret);
     });
     // story arc
     if(c.legacyStoryArc === undefined) c.legacyStoryArc = JSON.parse(JSON.stringify(c.storyArc || {}));
@@ -1654,9 +1764,25 @@ function migrateStateV2(st){
     });
   });
   if(st.legacyGenerationStates === undefined) st.legacyGenerationStates = JSON.parse(JSON.stringify(gens));
-  st.schemaVersion = STATE_SCHEMA_VERSION;
+  st.schemaVersion = 2;
   return st;
 }
+// v3: relationships / knowledge / secrets are edited per chapter only, so the
+// whole-character copies move to legacy* (kept, not shown).
+function migrateStateV3(st){
+  if((st.schemaVersion || 1) >= 3) return st;
+  st.characters.forEach(c => {
+    ['relationships', 'knowledge', 'secrets'].forEach(k => {
+      if(c[k] === undefined) return;
+      const legacyKey = 'legacy' + k[0].toUpperCase() + k.slice(1);
+      if(c[legacyKey] === undefined) c[legacyKey] = c[k];
+      delete c[k];
+    });
+  });
+  st.schemaVersion = 3;
+  return st;
+}
+function migrateState(st){ return migrateStateV3(migrateStateV2(st)); }
 
 // ---- Relationships ----
 // Stored as {name, relation, note, charId}. charId links to another Dossier
@@ -1682,18 +1808,19 @@ function parseRelationshipLines(text, selfId){
 }
 // Pre-fills the textarea with live names, so a renamed character
 // doesn't silently unlink on the next save.
-function relationshipLines(char){
-  return (char.relationships || []).map(r => `${relationshipDisplayName(r)} | ${r.relation || ''} | ${r.note || ''}`).join('\n');
+function relationshipLines(list){
+  return (list || []).map(r => `${relationshipDisplayName(r)} | ${r.relation || ''} | ${r.note || ''}`).join('\n');
 }
 // Characters who list `char` but whom `char` hasn't linked back.
 // A's `relation` describes `char` from A's side, so it's shown as
 // "lists you as: X" rather than as if it were char's own view.
 function inferredRelationships(char){
-  const linked = new Set((char.relationships || []).map(r => r.charId).filter(Boolean));
+  const own = (getActiveSnapshot(char) || {}).relationships || [];
+  const linked = new Set(own.map(r => r.charId).filter(Boolean));
   const out = [];
   state.characters.forEach(other => {
     if(other.id === char.id || linked.has(other.id)) return;
-    const back = (other.relationships || []).find(r => r.charId === char.id);
+    const back = ((getActiveSnapshot(other) || {}).relationships || []).find(r => r.charId === char.id);
     if(back) out.push({ charId: other.id, name: other.name || 'Unnamed', relation: back.relation || '', note: back.note || '' });
   });
   return out;
@@ -1720,12 +1847,12 @@ async function loadState(){
     const raw = localStorage.getItem(STORAGE_KEY);
     if(raw){
       const parsed = JSON.parse(raw);
-      const needsV2 = (parsed.schemaVersion || 1) < STATE_SCHEMA_VERSION;
-      if(needsV2) backupBeforeMigration(raw);
+      const needsMigration = (parsed.schemaVersion || 1) < STATE_SCHEMA_VERSION;
+      if(needsMigration) backupBeforeMigration(raw);
       parsed.characters = (parsed.characters || []).map(migrateCharacter);
       parsed.generationStates = parsed.generationStates || [];
-      state = migrateStateV2(parsed);
-      if(needsV2){
+      state = migrateState(parsed);
+      if(needsMigration){
         try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){ console.error('Could not save migrated profiles', e); }
       }
     }
@@ -1745,17 +1872,6 @@ function backupBeforeMigration(raw){
     console.error('Could not store the pre-migration backup', e);
     setTimeout(() => showToast('Your data was upgraded, but there was no room to keep a backup copy in the browser. Use Export to save a backup file.', { duration: 9000 }), 800);
   }
-}
-
-// Old whole-character edits also land on the active chapter until those
-// forms become per-chapter, so the new chapter state never goes stale.
-function mirrorToActiveSnapshot(char){
-  const snap = getActiveSnapshot(char);
-  if(!snap) return;
-  snap.relationships = (char.relationships || []).map(normalizeRelationship);
-  snap.knowledge = (char.knowledge || []).slice();
-  snap.secrets = (char.secrets || []).map(normalizeSecret);
-  if(char.storyArc && char.storyArc.currentObjective) snap.objective = char.storyArc.currentObjective;
 }
 
 async function persistState(){
@@ -2197,52 +2313,16 @@ function miniWindow(char, key, filename, label, bodyHtml, openBtnId){
   `;
 }
 
-function renderMiniWindows(char, snap){
-  const statRows = STAT_LABELS.map(label => {
-    const val = (snap.stats && snap.stats[label] != null) ? snap.stats[label] : 0;
-    const { lvl } = levelInfo(val);
-    return `<div class="mw-stat-row"><span>${label}</span><span>LV${lvl}</span></div>`;
-  }).join('');
-
-  const identityDesc = [char.mythos || null, snap.emotionalState || null].filter(Boolean).join(' · ') || 'Not yet defined.';
-  const skillsDesc = snap.skills.length
-    ? `${snap.skills.length} skill${snap.skills.length === 1 ? '' : 's'} tracked. Levels, corruption states, descriptions.`
-    : 'No skills recorded yet.';
-  const inventoryDesc = snap.inventory.length
-    ? `${snap.inventory.length} item${snap.inventory.length === 1 ? '' : 's'} archived. Icons, photos, descriptions.`
-    : 'Nothing carried yet.';
-  const relDesc = char.relationships.length
-    ? `${char.relationships.length} relationship${char.relationships.length === 1 ? '' : 's'} logged.`
-    : 'No relationships recorded yet.';
-  const arcPreviewSrc = char.storyArc.currentObjective || char.storyArc.currentArc || '';
-  const arcPreview = arcPreviewSrc
-    ? (arcPreviewSrc.length > 70 ? arcPreviewSrc.slice(0, 70).trim() + '…' : arcPreviewSrc)
-    : 'Nothing drafted yet.';
-  const knowledgeDesc = (char.knowledge.length || char.secrets.length)
-    ? `${char.knowledge.length} known · ${char.secrets.length} secret${char.secrets.length === 1 ? '' : 's'}.`
-    : 'Nothing recorded yet.';
-
-  return {
-    identity: miniWindow(char, 'identity', 'IDENTITY.EXE', 'Mythos · state · titles', `<div class="mw-desc bone">${escapeHtml(identityDesc)}</div>`, 'mwOpenIdentity'),
-    stats: miniWindow(char, 'stats', 'STATS.EXE', 'Character stats', `<div class="mw-stat-table">${statRows}</div>`, 'mwOpenStats'),
-    skills: miniWindow(char, 'skills', 'SKILLS.EXE', 'Abilities', `<div class="mw-desc ember">${escapeHtml(skillsDesc)}</div>`, 'mwOpenSkills'),
-    arc: miniWindow(char, 'arc', 'ARC.EXE', 'Story arc draft', `<div class="mw-desc ember">${escapeHtml(arcPreview)}</div>`, 'mwOpenArc'),
-    knowledge: miniWindow(char, 'knowledge', 'KNOWLEDGE.EXE', 'Knowledge · secrets', `<div class="mw-desc verdigris">${escapeHtml(knowledgeDesc)}</div>`, 'mwOpenKnowledge'),
-    inventory: miniWindow(char, 'inventory', 'INVENTORY.EXE', 'Archive', `<div class="mw-desc verdigris">${escapeHtml(inventoryDesc)}</div>`, 'mwOpenInventory'),
-    relationships: miniWindow(char, 'relationships', 'RELATIONSHIPS.EXE', 'Ties', `<div class="mw-desc bone">${escapeHtml(relDesc)}</div>`, 'mwOpenRelationships')
-  };
-}
-
 // ---- System section (stats / inventory / skills / titles / relationships / arc) ----
 // ============================================================
 // SYSTEM SHEET — codex tabs (stats rings, authority tree, inventory,
 // ties, arc, knowledge). One page at a time, slanted tabs to switch.
 // ============================================================
-let sysTab = 'stats';
+let sysTab = 'chapter';
 const skillFocus = {};   // charId -> focused node key ('root' or skill index)
 let invFocus = {};       // charId -> selected inventory item id
 const CODEX_TABS = [
-  ['stats', 'Stats'], ['skills', 'Skills'], ['inventory', 'Inventory'],
+  ['chapter', 'Chapter'], ['stats', 'Stats'], ['skills', 'Skills'], ['inventory', 'Inventory'],
   ['ties', 'Ties'], ['arc', 'Arc'], ['knowledge', 'Knowledge']
 ];
 
@@ -2259,6 +2339,7 @@ function renderSystemSection(){
   const accent = char.mythos === 'Blessed' ? 'var(--gold)' : (char.mythos === 'Cursed' ? 'var(--ember)' : 'var(--dust)');
   const statusLabel = char.mythos ? char.mythos.toUpperCase() : 'UNCLASSIFIED';
   const divineStatuses = ['Fallen', 'Outer', 'Split'];
+  const chg = changesFor(char, snap);
 
   container.innerHTML = `
     <div class="section-label">SYSTEM — ${escapeHtml(char.name || 'Unnamed')}</div>
@@ -2267,7 +2348,7 @@ function renderSystemSection(){
     <div class="codex">
       <div class="codex-tabs" role="tablist" aria-label="System sheet pages">
         <div class="menu-slant">
-          ${CODEX_TABS.map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${sysTab === k}" class="${sysTab === k ? 'on' : ''}">${l}</button>`).join('')}
+          ${CODEX_TABS.map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${sysTab === k}" class="${sysTab === k ? 'on' : ''}${chg.section[k] ? ' chg' : ''}"${chg.section[k] ? ' title="Changed since the last chapter"' : ''}>${l}</button>`).join('')}
         </div>
         <button class="slant-btn primary" id="editSystemBtn" type="button">Edit whole sheet</button>
       </div>
@@ -2396,9 +2477,9 @@ function wireCharacterRecord(char, snap, sortedTitles){
   if(recOpen) showCmd(recCmd);
 }
 
-function codexLeft(n, eyebrow, big, meta, editId, editLabel){
+function codexLeft(n, eyebrow, big, meta, editId, editLabel, changed){
   return `<div class="codex-left">
-    <span class="codex-eyebrow">Page ${String(n).padStart(2, '0')} · ${escapeHtml(eyebrow)}</span>
+    <span class="codex-eyebrow">Page ${String(n).padStart(2, '0')} · ${escapeHtml(eyebrow)}${changed ? ' ' + CHG_TAG : ''}</span>
     <p class="codex-big">${escapeHtml(big)}</p>
     ${meta ? `<p class="codex-meta">${meta}</p>` : ''}
     ${editId ? `<button class="slant-btn" type="button" id="${editId}">${escapeHtml(editLabel || 'Edit')}</button>` : ''}
@@ -2409,13 +2490,30 @@ function renderCodexPage(char, snap, animate){
   const page = document.getElementById('codexPage');
   if(!page) return;
   const n = CODEX_TABS.findIndex(t => t[0] === sysTab) + 1;
+  const chg = changesFor(char, snap);
+  const ch = chg.section[sysTab];
+  const prevLabel = chg.prev ? (chg.prev.chapterRange || 'the previous chapter') : '';
   let html = '';
-  if(sysTab === 'stats'){
+  if(sysTab === 'chapter'){
+    const where = locationLabelFor(snap.location);
+    const isNew = (f, x) => chg.isNew(f, x) ? ' ' + NEW_TAG : '';
+    html = codexLeft(n, 'Chapter', snap.chapterRange || 'This chapter',
+      chg.prev ? `Copied from ${escapeHtml(prevLabel)}. Edit only what changed.` : 'Where they are, what they want, and how they are.',
+      'chapterEditBtn', 'Edit chapter', ch) +
+      `<div class="codex-right crt-log">
+        <p>&gt; WHERE: ${where ? escapeHtml(where) : '<span class="dim">not set</span>'}</p>
+        <p>&gt; WANTS: ${snap.objective ? escapeHtml(snap.objective) : '<span class="dim">not set</span>'}</p>
+        <p class="sep">— CONDITION —</p>
+        ${snap.condition.length ? snap.condition.map(x => `<p>&gt; ${escapeHtml(x)}${isNew('condition', x)}</p>`).join('') : `<p class="dim">&gt; nothing noted</p>`}
+        <p class="sep">— NOTES —</p>
+        ${snap.notes ? `<p class="pre">${escapeHtml(snap.notes)}</p>` : `<p class="dim">&gt; no notes for this chapter</p>`}
+      </div>`;
+  } else if(sysTab === 'stats'){
     const r = 44, c = 2 * Math.PI * r;
     const ranked = (snap.titles || []).slice().sort((a, b) => (b.rankTier || 0) - (a.rankTier || 0))[0];
     html = codexLeft(n, 'Stats', char.name || 'Unnamed',
       `${escapeHtml([char.storyline, char.mythos, char.authority ? 'Concept: ' + char.authority : ''].filter(Boolean).join(' · ') || 'No identity recorded')}${ranked ? `<br><span class="crt">&gt; Rank: ${escapeHtml(ranked.name)}${ranked.rankTier ? ' (' + escapeHtml(rankLabel(char.mythos, ranked.rankTier)) + ')' : ''}</span>` : ''}`,
-      'mwOpenStats', 'Edit stats') +
+      'mwOpenStats', 'Edit stats', ch) +
       `<div class="codex-right"><div class="gauges">${STAT_LABELS.map(label => {
         const v = Math.max(0, Math.min(100, Number((snap.stats || {})[label]) || 0));
         const hot = label === 'Corruption';
@@ -2429,51 +2527,53 @@ function renderCodexPage(char, snap, animate){
   } else if(sysTab === 'skills'){
     html = codexLeft(n, 'Skills', char.authority || 'Authorities',
       snap.skills.length ? `${snap.skills.length} skill${snap.skills.length === 1 ? '' : 's'} · use ← → to move along a branch, ↑ ↓ for siblings` : 'No skills recorded yet.',
-      'mwOpenSkills', 'Edit skills') +
+      'mwOpenSkills', 'Edit skills', ch) +
       `<div class="codex-right">${snap.skills.length ? `<div class="atree" id="atree" tabindex="0" aria-label="Authority tree. Arrow keys move between skills."></div><div class="atree-detail" id="atreeDetail" aria-live="polite"></div>` : `<div class="sys-empty">Add skills with “Edit skills”. Give a skill a fifth column naming the skill it branches from to grow the tree.</div>`}</div>`;
   } else if(sysTab === 'inventory'){
     const items = snap.inventory || [];
     const slots = Math.max(8, Math.ceil((items.length + 1) / 4) * 4);
     const sel = items.find(i => i.id === invFocus[char.id]) || items[0];
-    html = codexLeft(n, 'Inventory', 'Carried', `${items.length} item${items.length === 1 ? '' : 's'} · this chapter version`, 'mwOpenInventory', 'Edit inventory') +
+    html = codexLeft(n, 'Inventory', 'Carried', `${items.length} item${items.length === 1 ? '' : 's'} · this chapter version`, 'mwOpenInventory', 'Edit inventory', ch) +
       `<div class="codex-right"><div class="inv-grid">${Array.from({ length: slots }, (_, i) => {
         const it = items[i];
         if(!it) return `<div class="inv-slot empty" aria-hidden="true"></div>`;
         return `<button type="button" class="inv-slot${sel && sel.id === it.id ? ' on' : ''}" data-inv="${escapeAttr(it.id)}">
           ${it.icon ? `<img src="${it.icon}" alt="">` : (it.image ? `<img src="${it.image}" alt="">` : `<b>◈</b>`)}
-          <span>${escapeHtml(it.name || 'Untitled')}</span></button>`;
+          <span>${escapeHtml(it.name || 'Untitled')}</span>${chg.isNew('inventory', it) ? NEW_TAG : ''}</button>`;
       }).join('')}</div>
       ${sel ? `<div class="inv-detail">${sel.image ? `<img src="${sel.image}" alt="">` : ''}<div><h4>${escapeHtml(sel.name || 'Untitled item')}</h4><p>${sel.desc ? escapeHtml(sel.desc) : '<span class="dim">No description.</span>'}</p></div></div>` : ''}</div>`;
   } else if(sysTab === 'ties'){
     const inferred = inferredRelationships(char);
+    const rels = snap.relationships || [];
     const row = (target, name, rel, note, tag) => {
       const img = target
         ? (target.snapshots && getActiveSnapshot(target).portrait ? `<img src="${getActiveSnapshot(target).portrait}" alt="">` : `<img src="${SILHOUETTE_SVG}" data-gen-char="${escapeAttr(target.id)}" alt="">`)
         : `<img src="${SILHOUETTE_SVG}" alt="" class="unknown">`;
-      return `<div class="tie">${img}<div><div class="tie-name">${target ? `<button type="button" class="rel-link" data-char-id="${escapeAttr(target.id)}">${escapeHtml(name)}</button>` : escapeHtml(name)}${tag ? `<span class="rel-inferred-mark">${tag}</span>` : ''}</div><div class="tie-rel">${escapeHtml(rel || '')}${note ? ' · ' + escapeHtml(note) : ''}</div></div></div>`;
+      return `<div class="tie">${img}<div><div class="tie-name">${target ? `<button type="button" class="rel-link" data-char-id="${escapeAttr(target.id)}">${escapeHtml(name)}</button>` : escapeHtml(name)}${tag === 'new' ? NEW_TAG : (tag ? `<span class="rel-inferred-mark">${tag}</span>` : '')}</div><div class="tie-rel">${escapeHtml(rel || '')}${note ? ' · ' + escapeHtml(note) : ''}</div></div></div>`;
     };
-    html = codexLeft(n, 'Ties', 'Bonds', `${char.relationships.length} recorded${inferred.length ? ` · ${inferred.length} inferred from other files` : ''}`, 'mwOpenRelationships', 'Edit ties') +
-      `<div class="codex-right">${char.relationships.length || inferred.length
-        ? char.relationships.map(r => row(findCharacterById(r.charId), relationshipDisplayName(r), r.relation, r.note)).join('') +
+    html = codexLeft(n, 'Ties', 'Bonds', `${rels.length} recorded this chapter${inferred.length ? ` · ${inferred.length} inferred from other files` : ''}`, 'mwOpenRelationships', 'Edit ties', ch) +
+      `<div class="codex-right">${rels.length || inferred.length
+        ? rels.map(r => row(findCharacterById(r.charId), relationshipDisplayName(r), r.relation, r.note, chg.isNew('relationships', r) ? 'new' : '')).join('') +
           inferred.map(r => row(findCharacterById(r.charId), r.name, r.relation ? 'Lists you as: ' + r.relation : 'Lists you as a relationship', r.note, 'inferred')).join('')
         : `<div class="sys-empty">No relationships recorded yet.</div>`}</div>`;
   } else if(sysTab === 'arc'){
     const sa = char.storyArc;
     const lines = [];
-    if(sa.currentObjective) lines.push(['OBJECTIVE', sa.currentObjective]);
+    if(snap.objective) lines.push(['OBJECTIVE', snap.objective]);
     if(sa.currentArc) lines.push(['ARC', sa.currentArc, 'dim']);
     if(sa.currentDevelopment) lines.push(['DEVELOPMENT', sa.currentDevelopment]);
     sa.majorTurningPoints.forEach((t, i) => lines.push(['TURNING POINT ' + String(i + 1).padStart(2, '0'), t, 'dim']));
     sa.completedDevelopments.forEach(t => lines.push(['DONE', t, 'done']));
     if(sa.direction) lines.push(['DIRECTION', sa.direction]);
-    html = codexLeft(n, 'Arc', snap.chapterRange || 'Story arc', 'Where this character is heading.', 'mwOpenArc', 'Edit arc') +
+    html = codexLeft(n, 'Arc', snap.chapterRange || 'Story arc', 'Where this character is heading.', 'mwOpenArc', 'Edit arc', ch) +
       `<div class="codex-right crt-log">${lines.length ? lines.map(([k, v, c]) => `<p class="${c || ''}">&gt; ${k}: ${escapeHtml(v)}</p>`).join('') : `<p class="dim">&gt; nothing drafted yet</p>`}</div>`;
   } else if(sysTab === 'knowledge'){
-    html = codexLeft(n, 'Knowledge', 'Known', `${char.knowledge.length} known · ${char.secrets.length} secret${char.secrets.length === 1 ? '' : 's'}`, 'mwOpenKnowledge', 'Edit knowledge') +
+    const kn = snap.knowledge || [], se = snap.secrets || [];
+    html = codexLeft(n, 'Knowledge', 'Known', `${kn.length} known · ${se.length} secret${se.length === 1 ? '' : 's'}`, 'mwOpenKnowledge', 'Edit knowledge', ch) +
       `<div class="codex-right crt-log">
-        ${char.knowledge.length ? char.knowledge.map(k => `<p>&gt; ${escapeHtml(k)}</p>`).join('') : `<p class="dim">&gt; nothing known yet</p>`}
+        ${kn.length ? kn.map(k => `<p>&gt; ${escapeHtml(k)}${chg.isNew('knowledge', k) ? ' ' + NEW_TAG : ''}</p>`).join('') : `<p class="dim">&gt; nothing known yet</p>`}
         <p class="sep">— SECRETS —</p>
-        ${char.secrets.length ? char.secrets.map(sc => `<p class="${sc.characterKnows ? '' : 'dim'}">&gt; ${escapeHtml(sc.text)}<br><small>character knows: ${sc.characterKnows ? 'yes' : 'no'} · known by: ${escapeHtml(sc.knownBy || '—')}</small></p>`).join('') : `<p class="dim">&gt; no secrets recorded</p>`}
+        ${se.length ? se.map(sc => `<p class="${sc.characterKnows ? '' : 'dim'}">&gt; ${escapeHtml(sc.text)}${chg.isNew('secrets', sc) ? ' ' + NEW_TAG : ''}<br><small>character knows: ${sc.characterKnows ? 'yes' : 'no'} · known by: ${escapeHtml(sc.knownBy || '—')}</small></p>`).join('') : `<p class="dim">&gt; no secrets recorded</p>`}
       </div>`;
   }
   page.innerHTML = html;
@@ -2482,9 +2582,10 @@ function renderCodexPage(char, snap, animate){
   on('mwOpenStats', () => openStatsOnlyForm(char, snap));
   on('mwOpenSkills', () => openSkillsOnlyForm(char, snap));
   on('mwOpenInventory', () => openInventoryOnlyForm(char, snap));
-  on('mwOpenRelationships', () => openRelationshipsOnlyForm(char));
-  on('mwOpenArc', () => openArcOnlyForm(char));
-  on('mwOpenKnowledge', () => openKnowledgeOnlyForm(char));
+  on('mwOpenRelationships', () => openRelationshipsOnlyForm(char, snap));
+  on('mwOpenArc', () => openArcOnlyForm(char, snap));
+  on('mwOpenKnowledge', () => openKnowledgeOnlyForm(char, snap));
+  on('chapterEditBtn', () => openChapterStateForm(char, snap));
   page.querySelectorAll('.rel-link').forEach(btn => btn.addEventListener('click', () => {
     if(findCharacterById(btn.dataset.charId)){ switchActiveCharacter(btn.dataset.charId); window.scrollTo({ top: 0, behavior: 'smooth' }); }
   }));
@@ -2682,7 +2783,7 @@ function ensureGenState(char, snap){
     TIMELINE_FIELDS.forEach(f => {
       timeline[f.key] = priorCommitted.timeline[f.key]
         .filter(e => e.status === 'committed')
-        .map(e => ({ ...e, id: 'ge_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7) }));
+        .map(e => ({ ...e, id: 'ge_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7), carried: true }));
     });
   }
   gs = { id: 'gs_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7), characterId: char.id, snapshotId: snap.id, status: 'draft', timeline, createdAt: Date.now(), committedAt: null };
@@ -2711,7 +2812,7 @@ function renderGenerationSection(){
     ['Titles', (snap.titles || []).map(t => t.name).join(', ')],
     ['Skills', (snap.skills || []).map(s => s.name).join(', ')],
     ['Background', [snap.blurb, snap.backstory].filter(Boolean).join(' — ')],
-    ['Core ties', (char.relationships || []).map(r => relationshipDisplayName(r) + (r.relation ? ` (${r.relation})` : '')).join(', ')]
+    ['Core ties', (snap.relationships || []).map(r => relationshipDisplayName(r) + (r.relation ? ` (${r.relation})` : '')).join(', ')]
   ];
   const isStatic = genField === '__static';
   const field = TIMELINE_FIELDS.find(f => f.key === genField) || null;
@@ -2725,7 +2826,8 @@ function renderGenerationSection(){
     const sgs = findGenState(char.id, s.id);
     const done = sgs && sgs.status === 'committed';
     const locEntries = sgs ? (sgs.timeline.currentLocation || []).filter(e => e.status === 'committed') : [];
-    const where = locEntries.length ? locEntries[locEntries.length - 1].text.split(',')[0] : (done ? '—' : 'draft');
+    const where = s.location && s.location.countryId ? (locationLabelFor(s.location).split(',')[0] || '—')
+      : locEntries.length ? locEntries[locEntries.length - 1].text.split(',')[0] : (done ? '—' : 'draft');
     return { s, i, done, where, on: s.id === snap.id };
   });
   const pct = n => stops.length === 1 ? 50 : 6 + (n / (stops.length - 1)) * 88;
@@ -2734,13 +2836,8 @@ function renderGenerationSection(){
   let addRow = '';
   if(!locked && !isStatic){
     if(genField === 'currentLocation'){
-      addRow = getWorldDatabase()
-        ? `<div class="gen-loc-cascade term-cascade">
-             <select id="genLocEra" aria-label="Era"></select><select id="genLocContinent" aria-label="Continent"></select>
-             <select id="genLocCountry" aria-label="Country"></select><select id="genLocCity" aria-label="City"></select>
-             <select id="genLocSite" aria-label="Special site"></select><button class="term-btn" id="genLocAdd" type="button">+ ADD</button>
-           </div>`
-        : `<p class="dim">&gt; no world data yet — open the Atlas once to load places</p>`;
+      addRow = `<p class="dim">&gt; location now lives on the chapter: ${escapeHtml(locationLabelFor(snap.location) || 'not set')}</p>
+        <button class="term-btn" id="genLocEdit" type="button">SET CHAPTER LOCATION</button>`;
     } else if(genField === 'currentRelationships'){
       const others = state.characters.filter(c => c.id !== char.id);
       addRow = others.length
@@ -2834,7 +2931,8 @@ function renderGenerationSection(){
         await persistState(); renderGenerationSection();
         const again = document.getElementById('genInput'); if(again) again.focus({ preventScroll: true });
       });
-      if(genField === 'currentLocation') wireLocationCascade(gs);
+      const locEdit = document.getElementById('genLocEdit');
+      if(locEdit) locEdit.addEventListener('click', () => openChapterStateForm(char, snap));
     }
   }
 
@@ -2846,55 +2944,6 @@ function renderGenerationSection(){
     }
   }
   renderGenerationSection._lastSnap = snap.id;
-}
-
-// Wires the Era -> Continent -> Country -> City -> Special Site dependent
-// dropdowns for the Current Location field. Each change repopulates only
-// the selects below it, so picking a Continent immediately narrows Country
-// to real matches, same for Country -> City -> Special Site. No-ops if the
-// Atlas has never been opened yet in this browser (no World Database to read).
-function wireLocationCascade(gs){
-  const wdb = getWorldDatabase();
-  const eraSel = document.getElementById('genLocEra');
-  if(!wdb || !eraSel) return;
-  const contSel = document.getElementById('genLocContinent');
-  const countrySel = document.getElementById('genLocCountry');
-  const citySel = document.getElementById('genLocCity');
-  const siteSel = document.getElementById('genLocSite');
-  const addBtn = document.getElementById('genLocAdd');
-
-  function fillSelect(sel, options, placeholder){
-    sel.innerHTML = (placeholder ? `<option value="">${escapeHtml(placeholder)}</option>` : '')
-      + options.map(o => `<option value="${escapeAttr(o.id)}">${escapeHtml(o.name)}</option>`).join('');
-  }
-  function refreshContinents(){ fillSelect(contSel, wdbContinents(wdb, eraSel.value)); refreshCountries(); }
-  function refreshCountries(){ fillSelect(countrySel, wdbCountries(wdb, eraSel.value, contSel.value)); refreshCities(); }
-  function refreshCities(){ fillSelect(citySel, wdbCities(wdb, eraSel.value, countrySel.value), '— None / not city-specific —'); refreshSites(); }
-  function refreshSites(){ fillSelect(siteSel, wdbSpecialSites(wdb, eraSel.value, countrySel.value, citySel.value || null), '— None —'); }
-
-  fillSelect(eraSel, wdbEras(wdb));
-  refreshContinents();
-
-  eraSel.addEventListener('change', refreshContinents);
-  contSel.addEventListener('change', refreshCountries);
-  countrySel.addEventListener('change', refreshCities);
-  citySel.addEventListener('change', refreshSites);
-
-  addBtn.addEventListener('click', async () => {
-    if(!countrySel.value) return;
-    const ref = {
-      eraId: eraSel.value,
-      continentId: contSel.value,
-      countryId: countrySel.value,
-      cityId: citySel.value || null,
-      specialSiteId: siteSel.value || null
-    };
-    const entry = makeEntry(resolveLocationLabel(wdb, ref), 'author');
-    entry.locationRef = ref;
-    gs.timeline.currentLocation.push(entry);
-    await persistState();
-    renderGenerationSection();
-  });
 }
 
 function renderGenField(fieldConfig, entries, locked, char){
@@ -3576,7 +3625,7 @@ function openSnapshotForm(){
 
   modalContent.innerHTML = `
     <h2>New chapter version — ${escapeHtml(char.name || 'Unnamed')}</h2>
-    <p class="sub">A different point in the story for this same character — its own portrait, chapter range, and notes. Stats, inventory, skills, titles, and emotional state start out carried over from the current chapter, and can be edited from here once saved.</p>
+    <p class="sub">A different point in the story for this same character, with its own portrait, chapter range and blurb. Everything else (location, objective, relationships, knowledge, secrets, condition, marks, inventory, skills, titles, stats, emotional state, notes) starts as a copy of the current chapter. Edit only what changed; changed sections get a CHANGED marker.</p>
 
     ${portraitFieldHtml()}
 
@@ -3604,6 +3653,34 @@ function openSnapshotForm(){
   openModal();
 }
 
+// Deep copy of a chapter's state for the next chapter, with fresh ids on list
+// items (marks and inventory) so the two chapters never share an object.
+function carryForwardState(prev){
+  const copy = v => JSON.parse(JSON.stringify(v === undefined ? null : v));
+  const freshMarks = list => (list || []).map(m => ({ ...normalizeMark(m), id: newId('mark') }));
+  return {
+    copiedFrom: prev.id,
+    stats: { ...(prev.stats || {}) },
+    inventory: (prev.inventory || []).map(i => ({ ...copy(i), id: newId('inv'), marks: freshMarks(i.marks) })),
+    skills: copy(prev.skills || []),
+    titles: copy(prev.titles || []),
+    emotionalState: prev.emotionalState || '',
+    archetype: prev.archetype || '',
+    location: prev.location ? { ...prev.location } : null,
+    objective: prev.objective || '',
+    relationships: (prev.relationships || []).map(normalizeRelationship),
+    knowledge: (prev.knowledge || []).slice(),
+    secrets: (prev.secrets || []).map(normalizeSecret),
+    condition: (prev.condition || []).slice(),
+    marks: freshMarks(prev.marks),
+    notes: prev.notes || '',
+    headingToward: prev.headingToward || '',
+    portraitFigure: prev.portraitFigure || '',
+    portraitStyle: prev.portraitStyle || '',
+    portraitSeed: prev.portraitSeed || ''
+  };
+}
+
 function reviewSnapshotSave(){
   const char = getActiveCharacter();
   if(!char) return;
@@ -3616,16 +3693,7 @@ function reviewSnapshotSave(){
     backstory: document.getElementById('fBackstory').value.trim(),
     portrait: pendingPortrait,
     ...defaultSnapExtras(),
-    ...(prevSnap ? {
-      stats: { ...prevSnap.stats },
-      inventory: (prevSnap.inventory || []).map(i => ({ ...i })),
-      skills: (prevSnap.skills || []).map(s => ({ ...s })),
-      titles: (prevSnap.titles || []).map(t => ({ ...t })),
-      emotionalState: prevSnap.emotionalState || '',
-      portraitFigure: prevSnap.portraitFigure || '',
-      portraitStyle: prevSnap.portraitStyle || '',
-      portraitSeed: prevSnap.portraitSeed || ''
-    } : {})
+    ...(prevSnap ? carryForwardState(prevSnap) : {})
   };
 
   modalContent.innerHTML = `
@@ -3692,11 +3760,11 @@ function confirmDeleteSnapshot(charId, snapId){
 // ---- System sheet form (stats/inventory/skills/titles are per chapter-version;
 //      mythos/relationships/story arc belong to the character as a whole) ----
 // ---- Story Arc structured-field helpers (shared by the full system form and the ARC.EXE quick-edit) ----
-function arcFieldsHtml(prefix, sa){
+function arcFieldsHtml(prefix, sa, objective){
   return `
     <div class="field">
-      <label>Current objective — what they're currently trying to accomplish</label>
-      <input type="text" id="${prefix}CurrentObjective" value="${escapeAttr(sa.currentObjective || '')}" placeholder="e.g. Find the missing relic">
+      <label>Objective (this chapter) — what they're trying to accomplish right now</label>
+      <input type="text" id="${prefix}CurrentObjective" value="${escapeAttr(objective || '')}" placeholder="e.g. Find the missing relic">
     </div>
     <div class="field">
       <label>Current arc — what stage of their narrative they're currently in</label>
@@ -3720,27 +3788,29 @@ function arcFieldsHtml(prefix, sa){
     </div>
   `;
 }
-function readArcFields(prefix){
-  return {
-    currentObjective: document.getElementById(`${prefix}CurrentObjective`).value.trim(),
+// Returns { objective, arc } — objective goes on the chapter; the rest of the
+// arc is still whole-character until the Story Arc panel is replaced.
+function readArcFields(prefix, char){
+  return { objective: document.getElementById(`${prefix}CurrentObjective`).value.trim(), arc: {
+    currentObjective: (char.storyArc || {}).currentObjective || '',
     currentArc: document.getElementById(`${prefix}CurrentArc`).value.trim(),
     currentDevelopment: document.getElementById(`${prefix}CurrentDevelopment`).value.trim(),
     majorTurningPoints: document.getElementById(`${prefix}TurningPoints`).value.split('\n').map(s => s.trim()).filter(Boolean),
     completedDevelopments: document.getElementById(`${prefix}CompletedDevelopments`).value.split('\n').map(s => s.trim()).filter(Boolean),
     direction: document.getElementById(`${prefix}Direction`).value.trim()
-  };
+  } };
 }
 
 // ---- Knowledge & Secrets structured-field helpers ----
-function knowledgeFieldsHtml(prefix, char){
+function knowledgeFieldsHtml(prefix, snap){
   return `
     <div class="field">
       <label>Knowledge — one per line</label>
-      <textarea id="${prefix}Knowledge" placeholder="Knows the war has begun">${(char.knowledge || []).map(escapeHtml).join('\n')}</textarea>
+      <textarea id="${prefix}Knowledge" placeholder="Knows the war has begun">${(snap.knowledge || []).map(escapeHtml).join('\n')}</textarea>
     </div>
     <div class="field">
       <label>Secrets — one per line, as Secret | Character knows? (yes/no) | Known by</label>
-      <textarea id="${prefix}Secrets" placeholder="Caused the destruction of a village | yes | Character only">${(char.secrets || []).map(s => `${s.text} | ${s.characterKnows ? 'yes' : 'no'} | ${s.knownBy || ''}`).join('\n')}</textarea>
+      <textarea id="${prefix}Secrets" placeholder="Caused the destruction of a village | yes | Character only">${(snap.secrets || []).map(s => `${s.text} | ${s.characterKnows ? 'yes' : 'no'} | ${s.knownBy || ''}`).join('\n')}</textarea>
     </div>
   `;
 }
@@ -3753,13 +3823,65 @@ function readKnowledgeFields(prefix){
   return { knowledge, secrets };
 }
 
+function chapterStateFieldsHtml(prefix, snap, withObjective){
+  return `
+    ${withObjective ? `<div class="field">
+      <label>Objective — what they want right now</label>
+      <input type="text" id="${prefix}Objective" value="${escapeAttr(snap.objective || '')}" placeholder="e.g. Find the missing relic">
+    </div>` : ''}
+    <div class="field">
+      <label>Location — where they are this chapter</label>
+      ${locationPickerHtml(prefix)}
+    </div>
+    <div class="field">
+      <label>Condition — injuries and physical / mental state, one per line</label>
+      <textarea id="${prefix}Condition" placeholder="Broken arm&#10;Sleepless">${escapeHtml((snap.condition || []).join('\n'))}</textarea>
+    </div>
+    <div class="field">
+      <label>Notes — what happened this chapter, development, affiliations and standing</label>
+      <textarea id="${prefix}Notes" style="min-height:120px;" placeholder="Joined the Iron Guild. Lost Yona's trust.">${escapeHtml(snap.notes || '')}</textarea>
+    </div>`;
+}
+function readChapterStateFields(prefix){
+  const out = {
+    condition: linesOf(document.getElementById(prefix + 'Condition').value),
+    notes: document.getElementById(prefix + 'Notes').value.trim()
+  };
+  const obj = document.getElementById(prefix + 'Objective');
+  if(obj) out.objective = obj.value.trim();
+  const loc = readLocationPicker(prefix);
+  if(loc !== undefined) out.location = loc;
+  return out;
+}
+
+// Quick editor for the Chapter page: objective, location, condition, notes.
+function openChapterStateForm(char, snap){
+  modalContent.innerHTML = `
+    <h2>Chapter — ${escapeHtml(char.name || 'Unnamed')}${snap.chapterRange ? ' · ' + escapeHtml(snap.chapterRange) : ''}</h2>
+    <p class="sub">Changes only this chapter. Other chapters keep their own state.</p>
+    ${chapterStateFieldsHtml('cs', snap, true)}
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" id="csSave">Save chapter</button>
+    </div>
+  `;
+  wireLocationPicker('cs', snap.location);
+  document.getElementById('csSave').addEventListener('click', async () => {
+    Object.assign(snap, readChapterStateFields('cs'));
+    await persistState();
+    renderAll();
+    closeModal();
+  });
+  openModal();
+}
+
 function openSystemForm(char, snap){
   const statsVals = STAT_LABELS.map(l => (snap.stats && snap.stats[l] != null) ? snap.stats[l] : 0);
-  pendingInventoryItems = (snap.inventory || []).map(it => ({ id: it.id, name: it.name || '', desc: it.desc || '', icon: it.icon || '', image: it.image || '' }));
+  pendingInventoryItems = (snap.inventory || []).map(it => ({ ...it, name: it.name || '', desc: it.desc || '', icon: it.icon || '', image: it.image || '' }));
 
   modalContent.innerHTML = `
     <h2>Edit system sheet — ${escapeHtml(char.name || 'Unnamed')}</h2>
-    <p class="sub">Stats, inventory, skills, and titles belong to this chapter version. Mythos, relationships, and the story arc belong to the character as a whole.</p>
+    <p class="sub">Everything here belongs to this chapter version, except mythos, divine status, authority and the story arc text, which belong to the character as a whole.</p>
 
     <div class="field-row">
       <div class="field">
@@ -3821,19 +3943,24 @@ function openSystemForm(char, snap){
     </div>
 
     <div class="field">
-      <label>Relationships (whole character) — one per line, as Name | Relation | Note</label>
-      <textarea id="sysRelationships" placeholder="Maki | Girlfriend | Met at Hourai restaurant">${escapeHtml(relationshipLines(char))}</textarea>
+      <label>Relationships (this chapter) — one per line, as Name | Relation | Note</label>
+      <textarea id="sysRelationships" placeholder="Maki | Girlfriend | Met at Hourai restaurant">${escapeHtml(relationshipLines(snap.relationships))}</textarea>
     </div>
 
     <div class="field">
-      <label class="display" style="font-size:20px; margin-bottom:2px;">Story arc (whole character)</label>
+      <label class="display" style="font-size:20px; margin-bottom:2px;">Chapter state</label>
     </div>
-    ${arcFieldsHtml('sys', char.storyArc)}
+    ${chapterStateFieldsHtml('sys', snap, false)}
 
     <div class="field">
-      <label class="display" style="font-size:20px; margin-bottom:2px;">Knowledge &amp; secrets (whole character)</label>
+      <label class="display" style="font-size:20px; margin-bottom:2px;">Objective and story arc</label>
     </div>
-    ${knowledgeFieldsHtml('sys', char)}
+    ${arcFieldsHtml('sys', char.storyArc, snap.objective)}
+
+    <div class="field">
+      <label class="display" style="font-size:20px; margin-bottom:2px;">Knowledge &amp; secrets (this chapter)</label>
+    </div>
+    ${knowledgeFieldsHtml('sys', snap)}
 
     <div class="modal-actions">
       <button class="btn ghost" onclick="closeModal()">Cancel</button>
@@ -3841,6 +3968,7 @@ function openSystemForm(char, snap){
     </div>
   `;
 
+  wireLocationPicker('sys', snap.location);
   document.getElementById('sysSaveBtn').addEventListener('click', () => reviewSystemSave(char.id, snap.id));
   document.getElementById('invFileInput').addEventListener('change', handleInventoryFileInput);
   renderInventoryEditor();
@@ -3951,7 +4079,7 @@ function reviewSystemSave(charId, snapId){
   syncInventoryFromDOM();
   const inventory = pendingInventoryItems
     .filter(it => it.name.trim() || it.desc.trim() || it.icon || it.image)
-    .map(it => ({ id: it.id, name: it.name.trim(), desc: it.desc.trim(), icon: it.icon || '', image: it.image || '' }));
+    .map(it => ({ ...it, name: it.name.trim(), desc: it.desc.trim(), icon: it.icon || '', image: it.image || '', marks: it.marks || [], boundTo: it.boundTo || '' }));
   const skills = document.getElementById('sysSkills').value.split('\n').map(s => s.trim()).filter(Boolean).map(line => {
     const parts = line.split('|').map(p => p.trim());
     const lvl = parseFloat(parts[1]);
@@ -3966,7 +4094,8 @@ function reviewSystemSave(charId, snapId){
   const relationships = parseRelationshipLines(document.getElementById('sysRelationships').value, char.id);
   const mythos = document.getElementById('sysMythos').value;
   const emotionalState = document.getElementById('sysEmotional').value.trim();
-  const storyArc = readArcFields('sys');
+  const arcRead = readArcFields('sys', char);
+  const chapterState = readChapterStateFields('sys');
   const knowledgeAndSecrets = readKnowledgeFields('sys');
   const divineStatus = document.getElementById('sysDivineStatus').value;
   const authority = document.getElementById('sysAuthority').value.trim();
@@ -3974,7 +4103,7 @@ function reviewSystemSave(charId, snapId){
   modalContent.innerHTML = `
     <div class="confirm-box">
       <div class="display">Save this system sheet?</div>
-      <p>Updates stats, inventory, skills, and titles for this chapter version, plus mythos, relationships, story arc, and knowledge &amp; secrets for ${escapeHtml(char.name || 'this character')} overall.</p>
+      <p>Updates this chapter version of ${escapeHtml(char.name || 'this character')}. Other chapters are not changed. Mythos, divine status, authority and story arc text apply to the whole character.</p>
       <div class="confirm-actions">
         <button class="btn ghost" id="backToSysEdit">Keep editing</button>
         <button class="btn primary" id="confirmSysSave">Save</button>
@@ -3988,13 +4117,13 @@ function reviewSystemSave(charId, snapId){
     snap.skills = skills;
     snap.titles = titles;
     snap.emotionalState = emotionalState;
+    snap.relationships = relationships;
+    snap.knowledge = knowledgeAndSecrets.knowledge;
+    snap.secrets = knowledgeAndSecrets.secrets;
+    snap.objective = arcRead.objective;
+    Object.assign(snap, chapterState);
     char.mythos = mythos;
-    char.relationships = relationships;
-    mirrorToActiveSnapshot(char);
-    char.storyArc = storyArc;
-    char.knowledge = knowledgeAndSecrets.knowledge;
-    char.secrets = knowledgeAndSecrets.secrets;
-    mirrorToActiveSnapshot(char);
+    char.storyArc = arcRead.arc;
     char.divineStatus = divineStatus;
     char.authority = authority;
     await persistState();
@@ -4124,7 +4253,7 @@ function openSkillsOnlyForm(char, snap){
 }
 
 function openInventoryOnlyForm(char, snap){
-  pendingInventoryItems = (snap.inventory || []).map(it => ({ id: it.id, name: it.name || '', desc: it.desc || '', icon: it.icon || '', image: it.image || '' }));
+  pendingInventoryItems = (snap.inventory || []).map(it => ({ ...it, name: it.name || '', desc: it.desc || '', icon: it.icon || '', image: it.image || '' }));
   modalContent.innerHTML = `
     <h2>Inventory — ${escapeHtml(char.name || 'Unnamed')}</h2>
     <p class="sub">Icon, name, description, and a photo per item. This chapter version.</p>
@@ -4143,7 +4272,7 @@ function openInventoryOnlyForm(char, snap){
     syncInventoryFromDOM();
     snap.inventory = pendingInventoryItems
       .filter(it => it.name.trim() || it.desc.trim() || it.icon || it.image)
-      .map(it => ({ id: it.id, name: it.name.trim(), desc: it.desc.trim(), icon: it.icon || '', image: it.image || '' }));
+      .map(it => ({ ...it, name: it.name.trim(), desc: it.desc.trim(), icon: it.icon || '', image: it.image || '', marks: it.marks || [], boundTo: it.boundTo || '' }));
     await persistState();
     renderAll();
     closeModal();
@@ -4151,12 +4280,12 @@ function openInventoryOnlyForm(char, snap){
   openModal();
 }
 
-function openRelationshipsOnlyForm(char){
+function openRelationshipsOnlyForm(char, snap){
   modalContent.innerHTML = `
     <h2>Relationships — ${escapeHtml(char.name || 'Unnamed')}</h2>
-    <p class="sub">One per line, as Name | Relation | Note. Belongs to the character as a whole.</p>
+    <p class="sub">One per line, as Name | Relation | Note. Changes only this chapter${snap.chapterRange ? ' (' + escapeHtml(snap.chapterRange) + ')' : ''}.</p>
     <div class="field">
-      <textarea id="mwRelationships" style="min-height:160px;" placeholder="Maki | Girlfriend | Met at Hourai restaurant">${escapeHtml(relationshipLines(char))}</textarea>
+      <textarea id="mwRelationships" style="min-height:160px;" placeholder="Maki | Girlfriend | Met at Hourai restaurant">${escapeHtml(relationshipLines(snap.relationships))}</textarea>
     </div>
     <div class="modal-actions">
       <button class="btn ghost" onclick="closeModal()">Cancel</button>
@@ -4164,9 +4293,7 @@ function openRelationshipsOnlyForm(char){
     </div>
   `;
   document.getElementById('mwRelSave').addEventListener('click', async () => {
-    const relationships = parseRelationshipLines(document.getElementById('mwRelationships').value, char.id);
-    char.relationships = relationships;
-    mirrorToActiveSnapshot(char);
+    snap.relationships = parseRelationshipLines(document.getElementById('mwRelationships').value, char.id);
     await persistState();
     renderAll();
     closeModal();
@@ -4174,19 +4301,20 @@ function openRelationshipsOnlyForm(char){
   openModal();
 }
 
-function openArcOnlyForm(char){
+function openArcOnlyForm(char, snap){
   modalContent.innerHTML = `
     <h2>Story arc — ${escapeHtml(char.name || 'Unnamed')}</h2>
-    <p class="sub">Belongs to the character as a whole.</p>
-    ${arcFieldsHtml('mwArc', char.storyArc)}
+    <p class="sub">The objective belongs to this chapter. The rest of the arc text is still whole-character.</p>
+    ${arcFieldsHtml('mwArc', char.storyArc, snap.objective)}
     <div class="modal-actions">
       <button class="btn ghost" onclick="closeModal()">Cancel</button>
       <button class="btn primary" id="mwArcSave">Save</button>
     </div>
   `;
   document.getElementById('mwArcSave').addEventListener('click', async () => {
-    char.storyArc = readArcFields('mwArc');
-    mirrorToActiveSnapshot(char);
+    const arcRead = readArcFields('mwArc', char);
+    snap.objective = arcRead.objective;
+    char.storyArc = arcRead.arc;
     await persistState();
     renderAll();
     closeModal();
@@ -4194,11 +4322,11 @@ function openArcOnlyForm(char){
   openModal();
 }
 
-function openKnowledgeOnlyForm(char){
+function openKnowledgeOnlyForm(char, snap){
   modalContent.innerHTML = `
     <h2>Knowledge &amp; secrets — ${escapeHtml(char.name || 'Unnamed')}</h2>
-    <p class="sub">Belongs to the character as a whole. Each entry is stored independently.</p>
-    ${knowledgeFieldsHtml('mwK', char)}
+    <p class="sub">Changes only this chapter${snap.chapterRange ? ' (' + escapeHtml(snap.chapterRange) + ')' : ''}.</p>
+    ${knowledgeFieldsHtml('mwK', snap)}
     <div class="modal-actions">
       <button class="btn ghost" onclick="closeModal()">Cancel</button>
       <button class="btn primary" id="mwKnowledgeSave">Save</button>
@@ -4206,9 +4334,8 @@ function openKnowledgeOnlyForm(char){
   `;
   document.getElementById('mwKnowledgeSave').addEventListener('click', async () => {
     const result = readKnowledgeFields('mwK');
-    char.knowledge = result.knowledge;
-    char.secrets = result.secrets;
-    mirrorToActiveSnapshot(char);
+    snap.knowledge = result.knowledge;
+    snap.secrets = result.secrets;
     await persistState();
     renderAll();
     closeModal();
@@ -4503,7 +4630,7 @@ document.getElementById('importFileInput').addEventListener('change', (e) => {
         const characters = incoming.characters.filter(c => c && typeof c === 'object').map(migrateCharacter);
         const generationStates = Array.isArray(incoming.generationStates) ? incoming.generationStates : [];
         const activeId = characters.some(c => c.id === incoming.activeId) ? incoming.activeId : (characters[0] ? characters[0].id : null);
-        state = migrateStateV2({ ...incoming, characters, generationStates, activeId });
+        state = migrateState({ ...incoming, characters, generationStates, activeId });
         await persistState();
         renderAll();
         closeModal();
