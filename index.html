@@ -993,35 +993,6 @@
     color: var(--bone); font-family:'Space Mono', monospace; font-size:12px;
   }
 
-  /* ---- Library page (rendered on the book's left page via "open lib" / "opl") ---- */
-  .lib-page-header{
-    font-family:'Space Mono', monospace; font-size:11px; letter-spacing:0.08em;
-    color: var(--dust); text-transform:uppercase;
-    padding-bottom:10px; margin-bottom:14px; border-bottom:1px solid var(--line);
-  }
-  .lib-page-header strong{ color: var(--bone); font-style:normal; }
-  .lib-field{ margin-bottom:14px; }
-  .lib-field-label{
-    font-family:'Space Mono', monospace; font-size:10px; letter-spacing:0.1em;
-    color: var(--dust); text-transform:uppercase; margin-bottom:5px;
-  }
-  .lib-entry{
-    display:flex; align-items:flex-start; justify-content:space-between; gap:8px;
-    font-size:13px; color: var(--bone); line-height:1.5;
-    padding:3px 0; border-bottom:1px dotted var(--line);
-  }
-  .lib-entry:last-child{ border-bottom:none; }
-  .lib-entry button{
-    flex:0 0 auto; background:none; border:none; color: var(--dust);
-    cursor:pointer; font-size:13px; padding:0 2px; line-height:1.5;
-  }
-  .lib-entry button:hover{ color: var(--ember); }
-  .lib-empty{ color: var(--dust); font-size:12px; font-style:italic; }
-  .lib-back{
-    display:inline-block; margin-top:6px; font-size:11px; color: var(--dust);
-    cursor:pointer; border-bottom:1px dotted var(--line);
-  }
-  .lib-back:hover{ color: var(--bone); }
 
   /* ============ GENERATION SECTION ============ */
   .generation-section{ margin-top:44px; padding-bottom:60px; }
@@ -1123,13 +1094,14 @@
   .gen-loc-cascade select:focus{ outline:none; border-color: var(--dust); }
 </style>
 <link rel="stylesheet" href="assets/epitaph-theme.css?v=10">
+<link rel="stylesheet" href="assets/epitaph-book.css?v=1">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="assets/portrait-gen.js?v=8"></script>
 <script src="assets/epitaph-muses.js?v=7"></script>
 <script src="assets/archetypes.js?v=1"></script>
 <script src="assets/epitaph-world.js?v=2"></script>
 <script src="assets/epitaph-library.js?v=2"></script>
-<script src="assets/epitaph-marks.js?v=2"></script>
+<script src="assets/epitaph-marks.js?v=3"></script>
 <script src="assets/epitaph-checks.js?v=1"></script>
 </head>
 <body>
@@ -1207,13 +1179,14 @@
       <div class="book-page left-page">
         <h3>Storybook</h3>
         <ul class="book-links">
-          <li><a href="epitaph-character-dossier.html">Character Dossier</a></li>
+          <li><a href="index.html">Character Dossier</a></li>
           <li><a href="atlas.html">World Map</a></li>
-          <li><a href="epitaph-hub.html">Hub</a></li>
+          <li><a href="muses.html">Muses</a></li>
         </ul>
-        <p class="book-hint">Placeholder links for now — tell Claude where these should actually point.</p>
+        <p class="book-hint">Type <b>opl</b> for the Library, <b>ops</b> for the skill tree, <b>help</b> for everything.</p>
       </div>
       <div class="book-page right-page">
+        <div class="book-panel" id="bookPanel" hidden></div>
         <div class="terminal" id="bookTerminal">
           <div class="terminal-log" id="terminalLog"></div>
           <div class="terminal-input-row">
@@ -5045,6 +5018,7 @@ function openTheBook(){
 }
 
 function closeTheBook(){
+  if(window.EpitaphBook && EpitaphBook.mode){ EpitaphBook.close(); restoreLeftPage(); }
   const book = document.getElementById('theBook');
   book.classList.remove('open');
   setTimeout(() => {
@@ -5085,57 +5059,41 @@ function initTerminal(){
 
 function runStorybookCommand(cmd){
   const lower = cmd.toLowerCase();
-  if(lower === 'help') return 'Available commands: help, clear, open lib (opl). More can be added on request.';
+  if(lower === 'help') return 'Commands: <b>opl</b> / open library — every Library item, editable · <b>ops</b> / open skills — the skill tree · <b>back</b> — the storybook page · <b>clear</b> — empty this log.';
   if(lower === 'clear'){
     setTimeout(() => { document.getElementById('terminalLog').innerHTML = ''; }, 0);
     return '';
   }
-  if(lower === 'open lib' || lower === 'opl'){
-    renderLibraryPage();
-    return 'Opening the library...';
+  if(lower === 'opl' || lower === 'open library' || lower === 'open lib'){
+    return window.EpitaphBook ? EpitaphBook.openLibrary() : 'The Library view did not load.';
   }
-  return `Unrecognized command: "${escapeHtml(cmd)}" — tell Claude what this should do.`;
+  if(lower === 'ops' || lower === 'open skills' || lower === 'open skill'){
+    return window.EpitaphBook ? EpitaphBook.openSkills() : 'The skill view did not load.';
+  }
+  if(lower === 'back' || lower === 'home'){
+    return window.EpitaphBook ? EpitaphBook.back() : '';
+  }
+  return `Unknown command: "${escapeHtml(cmd)}". Type <b>help</b> for the list.`;
 }
 
-// ---- Library page: shows the active chapter's brief as text on the book's left page.
+// ---- The book's default left page (the Library and skill views live in assets/epitaph-book.js)
 const LEFT_PAGE_DEFAULT_HTML = `
         <h3>Storybook</h3>
         <ul class="book-links">
-          <li><a href="epitaph-character-dossier.html">Character Dossier</a></li>
+          <li><a href="index.html">Character Dossier</a></li>
           <li><a href="atlas.html">World Map</a></li>
-          <li><a href="epitaph-hub.html">Hub</a></li>
+          <li><a href="muses.html">Muses</a></li>
         </ul>
-        <p class="book-hint">Placeholder links for now — tell Claude where these should actually point.</p>
+        <p class="book-hint">Type <b>opl</b> for the Library, <b>ops</b> for the skill tree, <b>help</b> for everything.</p>
       `;
 
 function restoreLeftPage(){
   document.querySelector('.book-page.left-page').innerHTML = LEFT_PAGE_DEFAULT_HTML;
 }
 
-function renderLibraryPage(){
-  const leftPage = document.querySelector('.book-page.left-page');
-  const char = getActiveCharacter();
-  if(!char){
-    leftPage.innerHTML = `<div class="lib-page-header">No active character.</div><span class="lib-back" id="libBackBtn">← back</span>`;
-    document.getElementById('libBackBtn').addEventListener('click', restoreLeftPage);
-    return;
-  }
-  const snap = getActiveSnapshot(char);
-  const b = buildBrief(char, snap);
-  leftPage.innerHTML = `
-    <div class="lib-page-header"><strong>${escapeHtml(char.name || 'Unnamed')}</strong> | ${escapeHtml(snap.chapterRange || 'Untitled chapter')}</div>
-    ${b.rows.map(r => `
-      <div class="lib-field">
-        <div class="lib-field-label">${escapeHtml(r.label)}</div>
-        ${r.items ? (r.items.length ? r.items.map(x => `<div class="lib-entry"><span>${escapeHtml(x.text)}</span></div>`).join('') : `<div class="lib-empty">Nothing recorded.</div>`) : `<div class="lib-entry"><span>${escapeHtml(r.text)}</span></div>`}
-      </div>
-    `).join('')}
-    <span class="lib-back" id="libBackBtn">← back to storybook</span>
-  `;
-  document.getElementById('libBackBtn').addEventListener('click', restoreLeftPage);
-}
 
 </script>
+<script src="assets/epitaph-book.js?v=1"></script>
 
 </body>
 </html>

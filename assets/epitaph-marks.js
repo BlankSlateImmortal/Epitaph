@@ -5,7 +5,7 @@
  *   const ed = EpitaphMarks.editor(containerEl, marks)   // renders, handles add/remove
  *   ed.read()                                            // -> cleaned copy of the marks
  *   EpitaphMarks.linesHtml(marks)                        // read-only display
- *   EpitaphMarks.readImage(file) -> Promise<dataURL>     // resized sigil image
+ *   EpitaphMarks.readImage(file, maxDim?) -> Promise<dataURL>  // resized image (default 256px)
  *
  * A mark may carry an optional `image` (a small data-URL sigil, max 256px).
  */
@@ -30,7 +30,8 @@
   }
   // Sigils are small: 256px max, JPEG unless the image has transparency.
   const SIGIL_MAX = 256;
-  function readImage(file) {
+  function readImage(file, maxDim) {
+    const MAX = maxDim || SIGIL_MAX;
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onerror = () => reject(new Error('read'));
@@ -39,7 +40,7 @@
         img.onerror = () => reject(new Error('decode'));
         img.onload = () => {
           let { width, height } = img;
-          if (width > SIGIL_MAX || height > SIGIL_MAX) { const sc = SIGIL_MAX / Math.max(width, height); width = Math.round(width * sc); height = Math.round(height * sc); }
+          if (width > MAX || height > MAX) { const sc = MAX / Math.max(width, height); width = Math.round(width * sc); height = Math.round(height * sc); }
           const cv = document.createElement('canvas'); cv.width = width; cv.height = height;
           cv.getContext('2d').drawImage(img, 0, 0, width, height);
           let opaque = true;

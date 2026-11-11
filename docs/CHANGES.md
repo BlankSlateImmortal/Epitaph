@@ -158,3 +158,13 @@ Generation ledger UI and its pending/confirm/reject logic, the ✦ Generate stub
 Generation→chapter sync, the old location cascade, story-arc form helpers, rank
 tracks, mythos selects, the unused mini-window summaries, and their CSS. Cache
 keys bumped: `epitaph-theme.css?v=8`, `portrait-gen.js?v=8`, `archetypes.js?v=1`.
+
+## The Book (storybook) views
+
+Type `open` anywhere on the Dossier to open the book, then in its terminal:
+
+- `opl` / `open library` — every Library item as tiles in a pan/zoom sandbox (left page) with a full editor for the selected item (right page): pictures, name, description, origin, marks (with images), note, who holds it. Saves on Save, on switching item, and when leaving the view. Items nobody holds can be deleted here; held items are deleted from the Atlas Library (which can reassign them). This replaces the old `opl`, which showed the chapter brief (the brief is still in the Dossier's Brief section).
+- `ops` / `open skills` — one radial skill tree from every character's current chapter. Root skills branch from the centre; a skill's `parent` makes it grow from that skill. Same name under the same parent = one shared node (number inside). Select a node to edit it per holder, add a branch, or delete (branches move up to its parent). Locked (canon) chapters are read-only.
+- `back` — the storybook page. `help`, `clear` as before.
+
+Code: `assets/epitaph-book.js`, `assets/epitaph-book.css`.
