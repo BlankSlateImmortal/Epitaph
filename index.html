@@ -1239,6 +1239,41 @@
     font-family:'Source Serif 4', serif; font-size:13px; padding:7px 10px; border-radius:2px;
   }
   .gen-add-row select:focus{ outline:none; border-color: var(--dust); }
+  .inv-edit-row{ flex-wrap:wrap; }
+  .inv-marks{ flex:1 1 100%; border-top:1px dashed var(--line); padding-top:8px; }
+  .inv-marks summary{ cursor:pointer; min-height:44px; display:flex; align-items:center; color:var(--amber); font-size:13px; letter-spacing:.08em; text-transform:uppercase; }
+  .inv-bound-label{ display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--dust); margin:6px 0 10px; }
+  .marks-editor{ display:flex; flex-direction:column; gap:10px; }
+  .mark-edit{ display:flex; flex-direction:column; gap:6px; border:1px solid var(--line); border-left:3px solid var(--gold); padding:10px; }
+  .mark-edit.kind-curse{ border-left-color:var(--ember); }
+  .mark-edit.kind-binding{ border-left-color:var(--verdigris); }
+  .mark-edit-top{ display:flex; gap:6px; flex-wrap:wrap; }
+  .mark-edit-top select{ flex:0 0 auto; }
+  .mark-edit-top input{ flex:1 1 140px; min-width:0; }
+  .mark-edit input, .mark-edit select, .mark-edit textarea, .inv-bound-label input{ width:100%; background:var(--ink); border:1px solid var(--line); color:var(--bone); padding:8px 10px; font:inherit; font-size:14px; min-height:40px; }
+  .mark-edit-top select, .mark-edit-top input{ width:auto; }
+  .mark-edit textarea{ min-height:56px; resize:vertical; }
+  .mark-remove, .mark-add{ align-self:flex-start; min-height:40px; }
+  .mark-tag{ display:inline-block; font-family:var(--f-crt, monospace); font-size:12px; letter-spacing:.14em; padding:0 5px; border:1px solid var(--gold); color:var(--gold); vertical-align:middle; }
+  .mark-tag.curse{ border-color:var(--ember); color:var(--ember); }
+  .mark-tag.binding{ border-color:var(--verdigris); color:var(--verdigris); }
+  .mark-lines{ display:flex; flex-direction:column; gap:12px; }
+  .mark-line{ border-left:2px solid var(--gold); padding:2px 0 2px 12px; }
+  .mark-line.kind-curse{ border-left-color:var(--ember); }
+  .mark-line.kind-binding{ border-left-color:var(--verdigris); }
+  .mark-line b{ font-weight:400; color:var(--bone); font-size:17px; }
+  .mark-line p{ margin:4px 0; font-size:15px; }
+  .mark-line small{ display:block; font-size:13px; color:var(--dust); }
+  .mark-line small.cost{ color:var(--amber); }
+  .mark-sep{ font-family:var(--f-crt, monospace); color:var(--amber-dim); letter-spacing:.2em; margin:18px 0 8px; }
+  .mark-item{ margin-bottom:14px; }
+  .mark-item > b{ font-weight:400; color:var(--bone); font-size:18px; }
+  .mark-item .mark-lines{ margin-top:6px; }
+  .bound-tag{ display:inline-block; font-family:var(--f-crt, monospace); font-size:12px; letter-spacing:.12em; color:var(--verdigris); border:1px dashed var(--verdigris); padding:0 5px; margin:2px 0 6px; }
+  .slot-marks{ display:flex; gap:3px; flex-wrap:wrap; justify-content:center; }
+  .slot-marks .mk{ font-style:normal; font-size:10px; line-height:1.3; padding:0 3px; border:1px solid var(--gold); color:var(--gold); text-shadow:none; }
+  .slot-marks .mk.curse{ border-color:var(--ember); color:var(--ember); }
+  .slot-marks .mk.binding, .slot-marks .mk.bound{ border-color:var(--verdigris); color:var(--verdigris); }
   .check-label{ display:flex; align-items:center; gap:8px; cursor:pointer; min-height:44px; }
   .check-label input{ width:20px; height:20px; accent-color:var(--amber); }
   .arc-steps{ list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
@@ -1678,7 +1713,7 @@ function comparable(snap, f){
 }
 const sameContent = (a, b) => JSON.stringify(stripIds(a)) === JSON.stringify(stripIds(b));
 const CHANGE_SECTIONS = {
-  chapter: ['objective', 'location', 'condition', 'notes', 'marks', 'archetype', 'headingToward'],
+  chapter: ['objective', 'location', 'condition', 'notes'], marks: ['marks'],
   stats: ['stats'], skills: ['skills'], inventory: ['inventory'],
   ties: ['relationships'], knowledge: ['knowledge', 'secrets'], arc: ['archetype', 'headingToward']
 };
@@ -2407,7 +2442,7 @@ let sysTab = 'chapter';
 const skillFocus = {};   // charId -> focused node key ('root' or skill index)
 let invFocus = {};       // charId -> selected inventory item id
 const CODEX_TABS = [
-  ['chapter', 'Chapter'], ['stats', 'Stats'], ['skills', 'Skills'], ['inventory', 'Inventory'],
+  ['chapter', 'Chapter'], ['marks', 'Marks'], ['stats', 'Stats'], ['skills', 'Skills'], ['inventory', 'Inventory'],
   ['ties', 'Ties'], ['arc', 'Arc'], ['knowledge', 'Knowledge']
 ];
 
@@ -2496,7 +2531,7 @@ function recDetailHtml(cmd, char, snap, sortedTitles){
   switch(cmd){
     case 'identity': return head('IDENTITY', it.jp) + row('Name', char.name) + row('Archetype', archetypeLabel(snap)) + row('Glyph', glyphFor(char)) + row('Chapter', snap.chapterRange, 'No chapter set');
     case 'titles': return head('TITLES', it.jp) + (sortedTitles.length ? `<div class="titles-row">${sortedTitles.map((t, idx) => renderTitleChip(t, idx)).join('')}</div>` : `<p class="rec-empty">No titles yet.</p>`);
-    case 'status': return head('STATUS', it.jp) + row('Marks', markSummary(snap).text, 'None') + row('God / primordial', char.primordial ? 'Yes' : '', 'No') + `<div class="rec-marks">${divineStatuses.map(ds => `<span class="${char.divineStatus === ds ? 'on' : ''}">[${char.divineStatus === ds ? '●' : '○'} ${ds.toUpperCase()}]</span>`).join('')}</div>`;
+    case 'status': return head('STATUS', it.jp) + row('Marks', markSummary(snap).text, 'None') + row('Marked / bound items', String(markedItems(snap).length)) + row('God / primordial', char.primordial ? 'Yes' : '', 'No') + `<div class="rec-marks">${divineStatuses.map(ds => `<span class="${char.divineStatus === ds ? 'on' : ''}">[${char.divineStatus === ds ? '●' : '○'} ${ds.toUpperCase()}]</span>`).join('')}</div>`;
     case 'authority': return head('AUTHORITY', it.jp) + row('Concept', char.authority) + row('Skills', String((snap.skills || []).length));
     case 'faction': return head('FACTION', it.jp) + row('Faction', char.faction, 'Unassigned');
     case 'state': return head('STATE', it.jp) + row('Emotional state', snap.emotionalState);
@@ -2591,6 +2626,17 @@ function renderCodexPage(char, snap, animate){
         <p class="sep">— NOTES —</p>
         ${snap.notes ? `<p class="pre">${escapeHtml(snap.notes)}</p>` : `<p class="dim">&gt; no notes for this chapter</p>`}
       </div>`;
+  } else if(sysTab === 'marks'){
+    const ms = markSummary(snap), items = markedItems(snap);
+    html = codexLeft(n, 'Marks', ms.text || 'Unmarked',
+      `${items.length} marked or bound item${items.length === 1 ? '' : 's'} carried · costs are text only`,
+      'marksEditBtn', 'Edit marks', ch) +
+      `<div class="codex-right">
+        <div class="mark-lines">${snap.marks.length ? markLinesHtml(snap.marks, m => chg.isNew('marks', m)) : `<p class="sys-empty">No marks this chapter.</p>`}</div>
+        ${items.length ? `<p class="mark-sep">— CARRIED —</p>${items.map(it => `<div class="mark-item">
+          <b>${escapeHtml(it.name || 'Untitled item')}</b>${it.boundTo ? ` <span class="bound-tag">BOUND TO ${escapeHtml(it.boundTo.toUpperCase())}</span>` : ''}
+          ${markLinesHtml(it.marks)}</div>`).join('')}` : ''}
+      </div>`;
   } else if(sysTab === 'stats'){
     const r = 44, c = 2 * Math.PI * r;
     const ranked = (snap.titles || []).slice().sort((a, b) => (b.rankTier || 0) - (a.rankTier || 0))[0];
@@ -2622,9 +2668,9 @@ function renderCodexPage(char, snap, animate){
         if(!it) return `<div class="inv-slot empty" aria-hidden="true"></div>`;
         return `<button type="button" class="inv-slot${sel && sel.id === it.id ? ' on' : ''}" data-inv="${escapeAttr(it.id)}">
           ${it.icon ? `<img src="${it.icon}" alt="">` : (it.image ? `<img src="${it.image}" alt="">` : `<b>◈</b>`)}
-          <span>${escapeHtml(it.name || 'Untitled')}</span>${chg.isNew('inventory', it) ? NEW_TAG : ''}</button>`;
+          <span>${escapeHtml(it.name || 'Untitled')}</span>${(it.marks || []).length || it.boundTo ? `<span class="slot-marks">${(it.marks || []).map(m => `<i class="mk ${escapeAttr(m.kind)}" title="${escapeAttr(MARK_KIND_LABEL[m.kind] || '')}">${MARK_KIND_SHORT[m.kind] || ''}</i>`).join('')}${it.boundTo ? '<i class="mk bound" title="Bound">⛓</i>' : ''}</span>` : ''}${chg.isNew('inventory', it) ? NEW_TAG : ''}</button>`;
       }).join('')}</div>
-      ${sel ? `<div class="inv-detail">${sel.image ? `<img src="${sel.image}" alt="">` : ''}<div><h4>${escapeHtml(sel.name || 'Untitled item')}</h4><p>${sel.desc ? escapeHtml(sel.desc) : '<span class="dim">No description.</span>'}</p></div></div>` : ''}</div>`;
+      ${sel ? `<div class="inv-detail">${sel.image ? `<img src="${sel.image}" alt="">` : ''}<div><h4>${escapeHtml(sel.name || 'Untitled item')}</h4>${sel.boundTo ? `<span class="bound-tag">BOUND TO ${escapeHtml(sel.boundTo.toUpperCase())}</span>` : ''}<p>${sel.desc ? escapeHtml(sel.desc) : '<span class="dim">No description.</span>'}</p>${(sel.marks || []).length ? `<div class="mark-lines">${markLinesHtml(sel.marks)}</div>` : ''}</div></div>` : ''}</div>`;
   } else if(sysTab === 'ties'){
     const inferred = inferredRelationships(char);
     const rels = snap.relationships || [];
@@ -2667,6 +2713,7 @@ function renderCodexPage(char, snap, animate){
   on('mwOpenArc', () => openArcOnlyForm(char, snap));
   on('mwOpenKnowledge', () => openKnowledgeOnlyForm(char, snap));
   on('chapterEditBtn', () => openChapterStateForm(char, snap));
+  on('marksEditBtn', () => openMarksForm(char, snap));
   page.querySelectorAll('.rel-link').forEach(btn => btn.addEventListener('click', () => {
     if(findCharacterById(btn.dataset.charId)){ switchActiveCharacter(btn.dataset.charId); window.scrollTo({ top: 0, behavior: 'smooth' }); }
   }));
@@ -4042,6 +4089,97 @@ function openSystemForm(char, snap){
 let pendingInventoryItems = [];
 let invUploadTarget = null; // { idx, field: 'icon' | 'image' }
 
+// ---- Marks editor (shared by character marks and item marks) ----
+// A path names the list being edited: 'char' (pendingMarks) or 'item:<idx>'
+// (pendingInventoryItems[idx].marks). Inputs carry the path, so one sync
+// reads every list on screen before any re-render.
+const MARK_KIND_LABEL = { blessing: 'Blessing', curse: 'Curse', binding: 'Binding' };
+const MARK_KIND_SHORT = { blessing: 'BLS', curse: 'CRS', binding: 'BND' };
+let pendingMarks = [];
+function markList(path){
+  if(path === 'char') return pendingMarks;
+  const it = pendingInventoryItems[parseInt(path.split(':')[1])];
+  if(!it) return [];
+  if(!Array.isArray(it.marks)) it.marks = [];
+  return it.marks;
+}
+function syncMarksFromDOM(){
+  document.querySelectorAll('[data-mark-path]').forEach(el => {
+    const m = markList(el.dataset.markPath)[parseInt(el.dataset.markIdx)];
+    if(m) m[el.dataset.f] = el.value;
+  });
+}
+function rerenderMarks(path){ if(path === 'char') renderMarksEditor(); else renderInventoryEditor(); }
+function addMark(path){
+  syncInventoryFromDOM();
+  markList(path).push(normalizeMark({ kind: path === 'char' ? 'blessing' : 'curse' }));
+  if(path !== 'char'){ const it = pendingInventoryItems[parseInt(path.split(':')[1])]; if(it) invMarksOpen.add(it.id); }
+  rerenderMarks(path);
+}
+function removeMark(path, idx){
+  syncInventoryFromDOM();
+  markList(path).splice(idx, 1);
+  rerenderMarks(path);
+}
+function markRowsHtml(path, list){
+  const a = (i, f) => `data-mark-path="${path}" data-mark-idx="${i}" data-f="${f}"`;
+  return list.map((m, i) => `
+    <div class="mark-edit kind-${escapeAttr(m.kind)}">
+      <div class="mark-edit-top">
+        <select ${a(i, 'kind')} aria-label="Kind">${MARK_KINDS.map(k => `<option value="${k}"${m.kind === k ? ' selected' : ''}>${MARK_KIND_LABEL[k]}</option>`).join('')}</select>
+        <input type="text" ${a(i, 'name')} value="${escapeAttr(m.name)}" placeholder="Name" aria-label="Name">
+      </div>
+      <input type="text" ${a(i, 'source')} value="${escapeAttr(m.source)}" placeholder="Source — who or what placed it" aria-label="Source">
+      <textarea ${a(i, 'effect')} placeholder="Effect — what it does" aria-label="Effect">${escapeHtml(m.effect)}</textarea>
+      <input type="text" ${a(i, 'cost')} value="${escapeAttr(m.cost)}" placeholder="Cost — what it takes (text only)" aria-label="Cost">
+      <input type="text" ${a(i, 'ends')} value="${escapeAttr(m.ends)}" placeholder="Ends — how it ends" aria-label="Ends">
+      <button type="button" class="btn ghost mark-remove" onclick="removeMark('${path}', ${i})">Remove mark</button>
+    </div>`).join('') + `<button type="button" class="btn ghost mark-add" onclick="addMark('${path}')">+ Add mark</button>`;
+}
+// keeps marks that have any text
+function cleanMarks(list){
+  return (list || []).map(normalizeMark).filter(m => [m.name, m.source, m.effect, m.cost, m.ends].some(x => String(x).trim()))
+    .map(m => ({ ...m, name: m.name.trim(), source: m.source.trim(), effect: m.effect.trim(), cost: m.cost.trim(), ends: m.ends.trim() }));
+}
+function renderMarksEditor(){
+  const wrap = document.getElementById('marksEditorWrap');
+  if(wrap) wrap.innerHTML = markRowsHtml('char', pendingMarks);
+}
+function openMarksForm(char, snap){
+  pendingMarks = (snap.marks || []).map(m => ({ ...m }));
+  modalContent.innerHTML = `
+    <h2>Marks — ${escapeHtml(char.name || 'Unnamed')}${snap.chapterRange ? ' · ' + escapeHtml(snap.chapterRange) : ''}</h2>
+    <p class="sub">Blessing: an outside gift that works for them, usually with a debt. Curse: an outside cost, restriction or compulsion. Binding: tied to a person or thing until a condition is met. Changes only this chapter. Costs are text only; nothing is calculated.</p>
+    <div id="marksEditorWrap" class="marks-editor"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" id="marksSave">Save marks</button>
+    </div>
+  `;
+  renderMarksEditor();
+  document.getElementById('marksSave').addEventListener('click', async () => {
+    syncMarksFromDOM();
+    snap.marks = cleanMarks(pendingMarks);
+    await persistState();
+    renderAll();
+    closeModal();
+  });
+  openModal();
+}
+// Read-only display of a mark list.
+function markTag(kind){ return `<span class="mark-tag ${escapeAttr(kind)}">${escapeHtml((MARK_KIND_LABEL[kind] || kind).toUpperCase())}</span>`; }
+function markLinesHtml(list, isNew){
+  return (list || []).map(m => `<div class="mark-line kind-${escapeAttr(m.kind)}">
+    <div>${markTag(m.kind)} <b>${escapeHtml(m.name || 'Unnamed mark')}</b>${isNew && isNew(m) ? ' ' + NEW_TAG : ''}</div>
+    ${m.source ? `<small>Source: ${escapeHtml(m.source)}</small>` : ''}
+    ${m.effect ? `<p>${escapeHtml(m.effect)}</p>` : ''}
+    ${m.cost ? `<small class="cost">Cost: ${escapeHtml(m.cost)}</small>` : ''}
+    ${m.ends ? `<small>Ends: ${escapeHtml(m.ends)}</small>` : ''}
+  </div>`).join('');
+}
+function markedItems(snap){ return (snap.inventory || []).filter(it => (it.marks || []).length || it.boundTo); }
+const invMarksOpen = new Set();
+
 function syncInventoryFromDOM(){
   document.querySelectorAll('.inv-edit-row').forEach((row, idx) => {
     if(!pendingInventoryItems[idx]) return;
@@ -4049,7 +4187,10 @@ function syncInventoryFromDOM(){
     const descInput = row.querySelector('.inv-desc-input');
     pendingInventoryItems[idx].name = nameInput ? nameInput.value : pendingInventoryItems[idx].name;
     pendingInventoryItems[idx].desc = descInput ? descInput.value : pendingInventoryItems[idx].desc;
+    const boundInput = row.querySelector('.inv-bound-input');
+    if(boundInput) pendingInventoryItems[idx].boundTo = boundInput.value;
   });
+  syncMarksFromDOM();
 }
 
 function renderInventoryEditor(){
@@ -4068,17 +4209,26 @@ function renderInventoryEditor(){
         <div class="inv-img-drop large" onclick="triggerInvImageInput(${idx}, 'image')" title="Photo">
           ${item.image ? `<img src="${item.image}">` : `<span>Photo</span>`}
         </div>
-        <button type="button" class="inv-remove-btn" onclick="removeInventoryItem(${idx})">×</button>
+        <button type="button" class="inv-remove-btn" onclick="removeInventoryItem(${idx})" aria-label="Remove item">×</button>
+        <details class="inv-marks" data-item-id="${escapeAttr(item.id)}" ${invMarksOpen.has(item.id) || (item.marks || []).length || item.boundTo ? 'open' : ''}>
+          <summary>Marks &amp; binding${(item.marks || []).length ? ` (${item.marks.length})` : ''}${item.boundTo ? ' · bound' : ''}</summary>
+          <label class="inv-bound-label">Bound to — person or thing it can't leave (blank if not bound)
+            <input type="text" class="inv-bound-input" list="boundToNames" value="${escapeAttr(item.boundTo || '')}" placeholder="e.g. Orin">
+          </label>
+          <div class="marks-editor">${markRowsHtml('item:' + idx, item.marks || [])}</div>
+        </details>
       </div>
     `).join('')}
+    <datalist id="boundToNames">${state.characters.map(c => `<option value="${escapeAttr(c.name || '')}">`).join('')}</datalist>
     <button type="button" class="btn ghost inv-add-btn" id="addInvItemBtn">+ Add item</button>
   `;
   document.getElementById('addInvItemBtn').addEventListener('click', addInventoryItem);
+  wrap.querySelectorAll('details.inv-marks').forEach(d => d.addEventListener('toggle', () => { if(d.open) invMarksOpen.add(d.dataset.itemId); else invMarksOpen.delete(d.dataset.itemId); }));
 }
 
 function addInventoryItem(){
   syncInventoryFromDOM();
-  pendingInventoryItems.push({ id: 'inv_' + Math.random().toString(36).slice(2), name: '', desc: '', icon: '', image: '' });
+  pendingInventoryItems.push({ id: 'inv_' + Math.random().toString(36).slice(2), name: '', desc: '', icon: '', image: '', marks: [], boundTo: '' });
   renderInventoryEditor();
 }
 
@@ -4141,8 +4291,8 @@ function reviewSystemSave(charId, snapId){
   });
   syncInventoryFromDOM();
   const inventory = pendingInventoryItems
-    .filter(it => it.name.trim() || it.desc.trim() || it.icon || it.image)
-    .map(it => ({ ...it, name: it.name.trim(), desc: it.desc.trim(), icon: it.icon || '', image: it.image || '', marks: it.marks || [], boundTo: it.boundTo || '' }));
+    .filter(it => it.name.trim() || it.desc.trim() || it.icon || it.image || cleanMarks(it.marks).length || (it.boundTo || '').trim())
+    .map(it => ({ ...it, name: it.name.trim(), desc: it.desc.trim(), icon: it.icon || '', image: it.image || '', marks: cleanMarks(it.marks), boundTo: (it.boundTo || '').trim() }));
   const skills = document.getElementById('sysSkills').value.split('\n').map(s => s.trim()).filter(Boolean).map(line => {
     const parts = line.split('|').map(p => p.trim());
     const lvl = parseFloat(parts[1]);
@@ -4313,7 +4463,7 @@ function openInventoryOnlyForm(char, snap){
   pendingInventoryItems = (snap.inventory || []).map(it => ({ ...it, name: it.name || '', desc: it.desc || '', icon: it.icon || '', image: it.image || '' }));
   modalContent.innerHTML = `
     <h2>Inventory — ${escapeHtml(char.name || 'Unnamed')}</h2>
-    <p class="sub">Icon, name, description, and a photo per item. This chapter version.</p>
+    <p class="sub">Icon, name, description, photo, marks and binding per item. This chapter version only.</p>
     <div class="field">
       <div id="inventoryEditorWrap" class="inv-editor-wrap"></div>
       <input type="file" id="invFileInput" accept="image/*" class="visually-hidden-input">
@@ -4328,8 +4478,8 @@ function openInventoryOnlyForm(char, snap){
   document.getElementById('mwInvSave').addEventListener('click', async () => {
     syncInventoryFromDOM();
     snap.inventory = pendingInventoryItems
-      .filter(it => it.name.trim() || it.desc.trim() || it.icon || it.image)
-      .map(it => ({ ...it, name: it.name.trim(), desc: it.desc.trim(), icon: it.icon || '', image: it.image || '', marks: it.marks || [], boundTo: it.boundTo || '' }));
+      .filter(it => it.name.trim() || it.desc.trim() || it.icon || it.image || cleanMarks(it.marks).length || (it.boundTo || '').trim())
+      .map(it => ({ ...it, name: it.name.trim(), desc: it.desc.trim(), icon: it.icon || '', image: it.image || '', marks: cleanMarks(it.marks), boundTo: (it.boundTo || '').trim() }));
     await persistState();
     renderAll();
     closeModal();
