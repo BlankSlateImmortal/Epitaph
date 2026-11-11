@@ -319,6 +319,7 @@
         <div class="bk-field"><span>Held by</span>${held.length ? `<ul class="bk-held">${held.map(h => `<li><b>${esc(h.name)}</b> <small>${esc(h.chapters.join(' · '))}</small></li>`).join('')}</ul>` : '<p class="bk-dim">Nobody carries it yet. Add it from a character’s Inventory tab.</p>'}</div>
         <div class="bk-actions">
           <button type="button" class="slant-btn primary" id="biSave">Save</button>
+          ${Lib.get().items.length > 1 ? '<button type="button" class="slant-btn" id="biFold" title="Make this item a state of another item">Fold into…</button>' : ''}
           <span class="bk-saved" id="biSaved" aria-live="polite"></span>
           <span class="bk-spacer"></span>
           ${held.length ? `<span class="bk-dim">Held items can be deleted from the Atlas Library, which can reassign them.</span>` : `<button type="button" class="slant-btn danger" id="biDelete">Delete</button>`}
@@ -334,6 +335,7 @@
     const clr = $('#biClearPics'); if (clr) clr.addEventListener('click', () => { readForm(); itemEditor.draft.icon = ''; itemEditor.draft.image = ''; flushItem(true); renderItemPanel(); drawLibrary(false); });
     // after a save, redraw so the state track and holders reflect it
     $('#biSave').addEventListener('click', () => { if (flushItem(true)) { renderItemPanel(); flash('Saved'); } });
+    const fold = $('#biFold'); if (fold) fold.addEventListener('click', () => { flushItem(); openFold(it.id); });
     const del = $('#biDelete');
     if (del) del.addEventListener('click', () => {
       if (del.dataset.armed) {
@@ -349,6 +351,115 @@
     });
     // keep the header and tile label in step with the name as you type
     $('#biName').addEventListener('input', (e) => { const h = panel.querySelector('.bk-panel-head h2'); if (h) h.textContent = e.target.value || 'Untitled'; });
+  }
+
+  // ------------------------------------------------------------------
+  // FOLD: make one Library item a state of another. "Seal (Weakened)"
+  // folded into "Seal (locked)" -> one item "Seal" with states Locked and
+  // Weakened; every chapter that held either is relinked, nothing is lost.
+  // ------------------------------------------------------------------
+  const baseName = n => (n || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+  const paren = n => { const m = (n || '').match(/\(([^)]*)\)\s*$/); const t = m ? m[1].trim() : ''; return t ? t.charAt(0).toUpperCase() + t.slice(1) : ''; };
+  function eachEntry(fn) { state.characters.forEach(c => (c.snapshots || []).forEach(s => (s.inventory || []).forEach(e => fn(e, c, s)))); }
+  const chLabel = s => s.chapterRange || ('CH ' + (s.startChapter || '?'));
+
+  function openFold(srcId) {
+    const src = Lib.item(srcId); if (!src) return;
+    const others = Lib.get().items.filter(i => i.id !== srcId).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    const guess = others.find(i => baseName(i.name).toLowerCase() === baseName(src.name).toLowerCase()) || others[0];
+    const free = [];
+    eachEntry((e, c, s) => { if (!e.itemId && (e.name || '').trim().toLowerCase() === (src.name || '').trim().toLowerCase()) free.push({ e, c, s }); });
+    const panel = $('#bookPanel');
+    panel.innerHTML = `
+      <div class="bk-panel-head"><span class="bk-big">⇢</span><div><small>FOLD INTO ANOTHER ITEM</small><h2>${esc(src.name || 'Untitled')}</h2></div></div>
+      <div class="bk-form">
+        <p class="bk-dim">This item becomes a <b>state</b> of the item you pick. Its description, marks and picture move into that state, every chapter holding it is relinked, and this Library entry is removed.</p>
+        <label class="bk-field"><span>Fold into</span><select id="bfInto">${others.map(i => `<option value="${attr(i.id)}"${i === guess ? ' selected' : ''}>${esc(i.name || 'Untitled')}</option>`).join('')}</select></label>
+        <label class="bk-field"><span>This item becomes the state</span><input type="text" id="bfState" value="${attr(paren(src.name) || src.name || 'New state')}"></label>
+        <label class="bk-field" id="bfTgtWrap"><span>The other item's current form becomes the state <em>— it has no states yet; its holders get this one</em></span><input type="text" id="bfTgtState"></label>
+        <label class="bk-field"><span>Name of the combined item</span><input type="text" id="bfName"></label>
+        ${free.length ? `<div class="bk-field"><span>Typed-in entries with the same name <em>— relink them too</em></span>${free.map((f, i) => `<label class="bk-check"><input type="checkbox" data-free="${i}" checked> ${esc(f.c.name || 'Unnamed')} · ${esc(chLabel(f.s))}${(f.e.desc || '').trim() && !(src.desc || '').includes((f.e.desc || '').trim()) ? ' <em>(its description moves to the chapter note)</em>' : ''}</label>`).join('')}</div>` : ''}
+        <div class="bk-field"><span>What will happen</span><ul class="bk-plan" id="bfPlan"></ul></div>
+        <p class="bk-dim" id="bfMsg" role="alert"></p>
+        <div class="bk-actions">
+          <button type="button" class="slant-btn primary" id="bfGo">Fold</button>
+          <button type="button" class="slant-btn" id="bfCancel">Cancel</button>
+        </div>
+      </div>`;
+    itemEditor = null;
+    const into = $('#bfInto'), stateIn = $('#bfState'), tgtIn = $('#bfTgtState'), nameIn = $('#bfName');
+    function syncTarget() {
+      const t = Lib.item(into.value);
+      $('#bfTgtWrap').hidden = !!(t && t.states.length);
+      tgtIn.value = t ? (paren(t.name) || 'Original') : '';
+      nameIn.value = t ? (baseName(t.name) || t.name) : '';
+      plan();
+    }
+    function readPlan() {
+      const t = Lib.item(into.value);
+      const picked = free.filter((f, i) => { const cb = panel.querySelector(`[data-free="${i}"]`); return cb && cb.checked; });
+      const srcRows = [], tgtRows = [];
+      eachEntry((e, c, s) => { if (e.itemId === src.id) srcRows.push({ e, c, s }); if (t && e.itemId === t.id && !e.stateId) tgtRows.push({ e, c, s }); });
+      return { t, picked, srcRows, tgtRows, stateName: stateIn.value.trim() || 'New state', tgtState: tgtIn.value.trim() || 'Original', name: nameIn.value.trim() || (t && t.name) || 'Untitled' };
+    }
+    function plan() {
+      const P = readPlan(); if (!P.t) return;
+      const rows = [];
+      if (P.name !== P.t.name) rows.push(`Rename “${P.t.name}” to “${P.name}”.`);
+      if (!P.t.states.length) rows.push(`Add state <b>${esc(P.tgtState)}</b> (01) to it${P.tgtRows.length ? ` and set it on ${P.tgtRows.map(r => esc((r.c.name || 'Unnamed') + ' ' + chLabel(r.s))).join(', ')}` : ''}.`);
+      else if (P.tgtRows.length) rows.push(`${P.tgtRows.length} chapter${P.tgtRows.length === 1 ? '' : 's'} holding it with no state set stay unset.`);
+      rows.push(`Add state <b>${esc(P.stateName)}</b> (${pad2((P.t.states.length || 1) + 1)}) with this item’s description${(src.marks || []).length ? ', marks' : ''}${isImg(src.image) || isImg(src.icon) ? ' and picture' : ''}.`);
+      P.srcRows.concat(P.picked).forEach(r => rows.push(`${esc(r.c.name || 'Unnamed')} ${esc(chLabel(r.s))}: ${r.e.itemId ? '' : 'typed-in entry '}→ ${esc(P.name)} · ${esc(P.stateName)}.`));
+      rows.push(`Remove “${esc(src.name)}” from the Library.`);
+      $('#bfPlan').innerHTML = rows.map(r => `<li>${r}</li>`).join('');
+    }
+    [stateIn, tgtIn, nameIn].forEach(i => i.addEventListener('input', plan));
+    into.addEventListener('change', syncTarget);
+    panel.querySelectorAll('[data-free]').forEach(cb => cb.addEventListener('change', plan));
+    $('#bfCancel').addEventListener('click', renderItemPanel);
+    $('#bfGo').addEventListener('click', () => {
+      const go = $('#bfGo');
+      if (!go.dataset.armed) { go.dataset.armed = '1'; go.textContent = 'Confirm fold'; setTimeout(() => { if (go.isConnected) { delete go.dataset.armed; go.textContent = 'Fold'; } }, 5000); return; }
+      const msg = doFold(src, readPlan());
+      if (msg) { $('#bfMsg').textContent = msg; return; }
+    });
+    syncTarget();
+  }
+
+  function doFold(src, P) {
+    const t = P.t; if (!t) return 'Pick an item to fold into.';
+    const tgtStateId = t.states.length ? '' : Lib.newId('state');
+    const newState = { id: Lib.newId('state'), name: P.stateName, desc: [src.desc, src.note].map(x => (x || '').trim()).filter(Boolean).join('\n\n'),
+      marks: src.marks || [], image: isImg(src.image) ? src.image : (isImg(src.icon) ? src.icon : '') };
+    // 1) relink the chapters (Dossier store), keeping a copy to roll back
+    const before = JSON.stringify(state);
+    P.srcRows.forEach(({ e }) => { e.itemId = t.id; e.stateId = newState.id; e.name = P.name; });
+    if (tgtStateId) P.tgtRows.forEach(({ e }) => { e.stateId = tgtStateId; e.name = P.name; });
+    P.picked.forEach(({ e }) => {
+      // its own description goes to the chapter note, unless the state already says the same
+      const own = (e.desc || '').trim();
+      const note = [own && !newState.desc.includes(own) ? own : '', (e.note || '').trim()].filter(Boolean).join(' — ');
+      if (!newState.image && isImg(e.image)) newState.image = e.image;
+      Object.keys(e).forEach(k => { if (!['id', 'marks', 'boundTo'].includes(k)) delete e[k]; });
+      Object.assign(e, { itemId: t.id, stateId: newState.id, note, name: P.name });
+    });
+    const rollback = () => { const old = JSON.parse(before); Object.keys(state).forEach(k => delete state[k]); Object.assign(state, old); };
+    persistState();
+    let ok = false; try { ok = localStorage.getItem('epitaph-character-profiles') === JSON.stringify(state); } catch (err) { ok = false; }
+    if (!ok) { rollback(); return 'Could not save — nothing was changed.'; }
+    // 2) the Library: states on the target, rename, remove the folded item
+    const saved = Lib.update(l => {
+      const x = l.items.find(i => i.id === t.id); if (!x) return;
+      x.name = P.name;
+      x.states = (tgtStateId ? [{ id: tgtStateId, name: P.tgtState, desc: '', marks: [], image: '' }] : x.states || []).concat([newState]);
+      l.items = l.items.filter(i => i.id !== src.id);
+    });
+    if (!saved) { rollback(); persistState(); return 'Could not save the Library — nothing was changed.'; }
+    selItem = t.id;
+    if (typeof renderAll === 'function') renderAll();
+    openLibrary();   // redraws the board and the item count
+    flash(`Folded into ${P.name}`);
+    return '';
   }
 
   function normItem(d) {

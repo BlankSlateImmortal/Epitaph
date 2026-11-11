@@ -168,3 +168,9 @@
 @media (prefers-reduced-motion: reduce){
   .book, .bk-tile{ transition:none; }
 }
+/* fold into another item */
+.bk-plan{ margin:0; padding-left:18px; font-size:13px; color:var(--bone); display:flex; flex-direction:column; gap:4px; }
+.bk-plan b{ color:var(--amber); font-weight:400; font-family:var(--f-crt); font-size:16px; letter-spacing:.06em; }
+.bk-check{ display:flex; gap:8px; align-items:center; font-size:13px; color:var(--bone); min-height:36px; }
+.bk-check em{ color:var(--dust); font-style:normal; }
+.bk-check input{ accent-color:var(--amber); width:18px; height:18px; }
