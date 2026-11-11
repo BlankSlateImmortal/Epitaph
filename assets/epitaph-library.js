@@ -12,7 +12,7 @@
  *   countries: [{ id, name, lat, lon, note }]
  *   places:    [{ id, name, countryId, kind, lat, lon, note, era? }]
  *   items:     [{ id, name, desc, originPlaceId, marks: [Mark], note, icon, image }]
- *   Mark = { id, kind: 'blessing'|'curse'|'binding', name, source, effect, cost, ends }
+ *   Mark = { id, kind: 'blessing'|'curse'|'binding', name, source, effect, cost, ends, image? }
  *
  * Built-in geography stays read-only in assets/epitaph-world.js; this file
  * registers the Library's countries and places with EpitaphWorld so both
@@ -28,7 +28,7 @@
   function normalizeMark(m) {
     m = m || {};
     return { id: m.id || newId('mark'), kind: MARK_KINDS.includes(m.kind) ? m.kind : 'blessing',
-      name: str(m.name), source: str(m.source), effect: str(m.effect), cost: str(m.cost), ends: str(m.ends) };
+      name: str(m.name), source: str(m.source), effect: str(m.effect), cost: str(m.cost), ends: str(m.ends), image: str(m.image) };
   }
   function normalize(raw) {
     const d = raw && typeof raw === 'object' ? raw : {};

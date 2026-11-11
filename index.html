@@ -1122,13 +1122,14 @@
   }
   .gen-loc-cascade select:focus{ outline:none; border-color: var(--dust); }
 </style>
-<link rel="stylesheet" href="assets/epitaph-theme.css?v=9">
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=10">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="assets/portrait-gen.js?v=8"></script>
 <script src="assets/epitaph-muses.js?v=7"></script>
 <script src="assets/archetypes.js?v=1"></script>
 <script src="assets/epitaph-world.js?v=2"></script>
-<script src="assets/epitaph-library.js?v=1"></script>
+<script src="assets/epitaph-library.js?v=2"></script>
+<script src="assets/epitaph-marks.js?v=2"></script>
 <script src="assets/epitaph-checks.js?v=1"></script>
 </head>
 <body>
@@ -1389,7 +1390,8 @@ function normalizeMark(m){
   return {
     id: m.id || newId('mark'),
     kind: MARK_KINDS.includes(m.kind) ? m.kind : 'blessing',
-    name: m.name || '', source: m.source || '', effect: m.effect || '', cost: m.cost || '', ends: m.ends || ''
+    name: m.name || '', source: m.source || '', effect: m.effect || '', cost: m.cost || '', ends: m.ends || '',
+    image: typeof m.image === 'string' ? m.image : ''
   };
 }
 
@@ -3851,6 +3853,7 @@ function markRowsHtml(path, list){
   return list.map((m, i) => `
     <div class="mark-edit kind-${escapeAttr(m.kind)}">
       <div class="mark-edit-top">
+        ${EpitaphMarks.sigilPickerHtml(m, `data-sigil-path="${path}" data-sigil-idx="${i}"`)}
         <select ${a(i, 'kind')} aria-label="Kind">${MARK_KINDS.map(k => `<option value="${k}"${m.kind === k ? ' selected' : ''}>${MARK_KIND_LABEL[k]}</option>`).join('')}</select>
         <input type="text" ${a(i, 'name')} value="${escapeAttr(m.name)}" placeholder="Name" aria-label="Name">
       </div>
@@ -3861,9 +3864,29 @@ function markRowsHtml(path, list){
       <button type="button" class="btn ghost mark-remove" onclick="removeMark('${path}', ${i})">Remove mark</button>
     </div>`).join('') + `<button type="button" class="btn ghost mark-add" onclick="addMark('${path}')">+ Add mark</button>`;
 }
-// keeps marks that have any text
+// Mark images: one delegated handler covers every mark editor on screen
+// (character marks and item marks), so re-renders need no rebinding.
+document.addEventListener('change', async (e) => {
+  const inp = e.target;
+  if(!inp.matches || !inp.matches('input[type=file][data-sigil-path]')) return;
+  const f = inp.files && inp.files[0]; if(!f) return;
+  const path = inp.dataset.sigilPath, idx = parseInt(inp.dataset.sigilIdx);
+  syncInventoryFromDOM();
+  try{ const m = markList(path)[idx]; if(m) m.image = await EpitaphMarks.readImage(f); }
+  catch(err){ showToast('That image could not be opened — try a JPEG or PNG instead.'); }
+  rerenderMarks(path);
+});
+document.addEventListener('click', (e) => {
+  const b = e.target.closest && e.target.closest('button[data-sigil-path][data-clear]');
+  if(!b) return;
+  syncInventoryFromDOM();
+  const m = markList(b.dataset.sigilPath)[parseInt(b.dataset.sigilIdx)];
+  if(m) m.image = '';
+  rerenderMarks(b.dataset.sigilPath);
+});
+// keeps marks that have any text or an image
 function cleanMarks(list){
-  return (list || []).map(normalizeMark).filter(m => [m.name, m.source, m.effect, m.cost, m.ends].some(x => String(x).trim()))
+  return (list || []).map(normalizeMark).filter(m => m.image || [m.name, m.source, m.effect, m.cost, m.ends].some(x => String(x).trim()))
     .map(m => ({ ...m, name: m.name.trim(), source: m.source.trim(), effect: m.effect.trim(), cost: m.cost.trim(), ends: m.ends.trim() }));
 }
 function renderMarksEditor(){
@@ -3895,13 +3918,13 @@ function openMarksForm(char, snap){
 // Read-only display of a mark list.
 function markTag(kind){ return `<span class="mark-tag ${escapeAttr(kind)}">${escapeHtml((MARK_KIND_LABEL[kind] || kind).toUpperCase())}</span>`; }
 function markLinesHtml(list, isNew){
-  return (list || []).map(m => `<div class="mark-line kind-${escapeAttr(m.kind)}">
+  return (list || []).map(m => `<div class="mark-line kind-${escapeAttr(m.kind)}${m.image ? ' has-img' : ''}">${EpitaphMarks.sigilHtml(m)}<div class="mark-body">
     <div>${markTag(m.kind)} <b>${escapeHtml(m.name || 'Unnamed mark')}</b>${isNew && isNew(m) ? ' ' + NEW_TAG : ''}</div>
     ${m.source ? `<small>Source: ${escapeHtml(m.source)}</small>` : ''}
     ${m.effect ? `<p>${escapeHtml(m.effect)}</p>` : ''}
     ${m.cost ? `<small class="cost">Cost: ${escapeHtml(m.cost)}</small>` : ''}
     ${m.ends ? `<small>Ends: ${escapeHtml(m.ends)}</small>` : ''}
-  </div>`).join('');
+  </div></div>`).join('');
 }
 // ---- Inventory entries: Library items or old free-text items ----
 const Lib = window.EpitaphLibrary;

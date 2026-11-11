@@ -513,5 +513,18 @@ input, select, textarea{ accent-color:var(--amber); }
 .mark-line b{ font-weight:400; color:var(--bone); font-size:17px; }
 .mark-line p{ margin:4px 0; font-size:15px; }
 .mark-line small{ display:block; font-size:13px; color:var(--dust); }
+/* mark images (sigils): square, framed in the mark's colour */
+.mark-line.has-img{ display:grid; grid-template-columns:64px minmax(0, 1fr); gap:12px; align-items:start; }
+.mark-sigil{ width:64px; height:64px; object-fit:cover; border:1px solid var(--gold); background:var(--ink); }
+.mark-line.kind-curse .mark-sigil{ border-color:var(--ember); }
+.mark-line.kind-binding .mark-sigil{ border-color:var(--verdigris); }
+.mark-sigil-pick{ position:relative; flex:0 0 auto; }
+.mark-sigil-btn{ display:flex; align-items:center; justify-content:center; width:44px; height:44px; border:1px dashed var(--line); cursor:pointer; overflow:hidden; color:var(--dust); font-family:var(--f-mono, monospace); font-size:10px; letter-spacing:.04em; text-align:center; line-height:1.1; }
+.mark-sigil-btn:hover, .mark-sigil-btn:focus-within{ border-color:var(--amber); color:var(--amber); }
+.mark-sigil-btn.has{ border-style:solid; }
+.mark-sigil-btn img{ width:100%; height:100%; object-fit:cover; }
+.mark-sigil-btn input{ position:absolute; width:1px; height:1px; opacity:0; overflow:hidden; }
+.mark-sigil-clear{ position:absolute; top:-8px; right:-8px; width:22px; height:22px; border-radius:50%; border:1px solid var(--line); background:var(--ink); color:var(--bone); font-size:14px; line-height:1; cursor:pointer; padding:0; }
+.mark-sigil-clear:hover{ border-color:var(--ember); color:var(--ember); }
 .mark-line small.cost{ color:var(--amber); }
 .mark-edit button{ font:inherit; }

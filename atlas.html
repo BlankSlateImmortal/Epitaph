@@ -371,12 +371,12 @@
   }
   .subject-record .r-open-btn:hover{ border-color:var(--dust); }
 </style>
-<link rel="stylesheet" href="assets/epitaph-theme.css?v=9">
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=10">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="assets/terrain.js?v=7"></script>
 <script src="assets/epitaph-world.js?v=2"></script>
-<script src="assets/epitaph-library.js?v=1"></script>
-<script src="assets/epitaph-marks.js?v=1"></script>
+<script src="assets/epitaph-library.js?v=2"></script>
+<script src="assets/epitaph-marks.js?v=2"></script>
 <script src="assets/epitaph-checks.js?v=1"></script>
 </head>
 <body>
@@ -1794,7 +1794,7 @@ function renderItemForm(v){
         <label class="lib-pic large">${d.image ? `<img src="${d.image}" alt="">` : '<span>Photo</span>'}<input type="file" accept="image/*" id="liImage" class="visually-hidden"></label>
         ${d.icon || d.image ? '<button type="button" class="lib-btn" id="liClearPics">Remove pictures</button>' : ''}
       </div></div>
-    <div class="lib-field">Marks (text only; each character's copy can differ)<div id="liMarks"></div></div>
+    <div class="lib-field">Marks (each character's copy can differ)<div id="liMarks"></div></div>
     <label class="lib-field">Note<textarea id="liNote">${escapeHud(d.note || '')}</textarea></label>
     ${formButtons(v.id ? 'Save item' : 'Add item')}`;
   const marks = EpitaphMarks.editor(document.getElementById('liMarks'), d.marks || []);
