@@ -153,6 +153,7 @@
         <div class="bk-tools">
           ${kind === 'library' ? `<input type="search" id="bkFilter" class="bk-filter" placeholder="filter…" value="${attr(filter)}" aria-label="Filter items">
           <button type="button" class="slant-btn primary" id="bkNewItem">+ New item</button>` : ''}
+          ${kind === 'library' ? `<label class="bk-skin"><span>Look</span><select id="bkLook" aria-label="Library look">${Object.keys(LIB_LOOKS).map(k => `<option value="${k}"${k === libLook ? ' selected' : ''}>${esc(LIB_LOOKS[k])}</option>`).join('')}</select></label>` : ''}
           ${kind === 'skills' ? `<label class="bk-skin"><span>Look</span><select id="bkSkin" aria-label="Skill tree look">${Object.keys(SKINS).map(k => `<option value="${k}"${k === skin ? ' selected' : ''}>${esc(SKINS[k].label)}</option>`).join('')}</select></label>` : ''}
           <button type="button" class="slant-btn" id="bkFit" title="Fit everything in view">Fit</button>
           <button type="button" class="slant-btn" id="bkBack" title="Back to the storybook (or type back)">Back</button>
@@ -166,6 +167,7 @@
     $('#bookPanel').hidden = false;
     $('#bkBack').addEventListener('click', () => closeView(true));
     $('#bkFit').addEventListener('click', () => fitAll());
+    if ($('#bkLook')) $('#bkLook').addEventListener('change', (e) => setLibLook(e.target.value));
     if ($('#bkSkin')) $('#bkSkin').addEventListener('change', (e) => setSkin(e.target.value));
     $('#bkZoomIn').addEventListener('click', () => viewport && viewport.zoom(1.25));
     $('#bkZoomOut').addEventListener('click', () => viewport && viewport.zoom(0.8));
@@ -180,7 +182,7 @@
     if (viewport) viewport.stop();
     mode = ''; viewport = null; itemEditor = null;
     const book = $('#theBook');
-    book.classList.remove('wide'); delete book.dataset.view; delete book.dataset.skin;
+    book.classList.remove('wide'); delete book.dataset.view; delete book.dataset.skin; delete book.dataset.look; cancelAnimationFrame(webAnim); webPos.clear();
     const left = $('.book-page.left-page');
     left.classList.remove('bk-left');
     $('#bookPanel').hidden = true; $('#bookPanel').innerHTML = '';
@@ -219,6 +221,245 @@
     return p.name + (c ? ', ' + c.name : '');
   }
 
+  // ------------------------------------------------------------------
+  // Library looks: Tiles (the original grid), Holder web (characters with
+  // their items around them, a chapter scrubber and an item log) and
+  // Relic vault (each item in a lit glass case). Remembered per browser.
+  // ------------------------------------------------------------------
+  const LIB_LOOKS = { tiles: 'Tiles', web: 'Holder web', vault: 'Relic vault' };
+  const LIB_LOOK_KEY = 'epitaph-library-look';
+  let libLook = 'web';
+  try { const v = localStorage.getItem(LIB_LOOK_KEY); if (LIB_LOOKS[v]) libLook = v; } catch (e) { /* storage blocked: default look */ }
+  function setLibLook(v) {
+    if (!LIB_LOOKS[v]) return;
+    libLook = v;
+    try { localStorage.setItem(LIB_LOOK_KEY, v); } catch (e) { /* not remembered, still applied */ }
+    if (mode === 'library') { $('#theBook').dataset.look = libLook; webPos.clear(); drawLibrary(true); }
+  }
+  const MARK_ORDER = ['curse', 'binding', 'blessing'];
+  function itemMarkKinds(it, stateId) {
+    const st = Lib.stateOf(it, stateId);
+    return [...new Set([...(it.marks || []), ...((st && st.marks) || [])].map(m => m.kind))];
+  }
+  const markClass = kinds => MARK_ORDER.find(k => kinds.includes(k)) || '';
+  const itemPic = (it, stateId) => { const st = Lib.stateOf(it, stateId); return [st && st.image, it.image, it.icon].find(isImg) || ''; };
+  const itemInitial = it => esc((it.name || '?').trim().charAt(0).toUpperCase() || '◈');
+  function clearLibExtras() { ['#bkScrub', '#bkItemLog'].forEach(s => { const el = $(s); if (el) el.remove(); }); cancelAnimationFrame(webAnim); }
+
+  // ---- shared chapter helpers ----
+  function libChapters() {
+    const set = new Set();
+    state.characters.forEach(c => (c.snapshots || []).forEach(s => { if (Number.isInteger(s.startChapter)) set.add(s.startChapter); }));
+    return [...set].sort((a, b) => a - b);
+  }
+  const snapAt = (c, n) => n == null ? getActiveSnapshot(c) : stateAtChapter(c, n);
+  // itemId -> [{ c, snap, entry }]
+  function holdersAt(n) {
+    const map = new Map();
+    state.characters.forEach(c => {
+      const s = snapAt(c, n); if (!s) return;
+      (s.inventory || []).forEach(e => { if (!e.itemId) return; if (!map.has(e.itemId)) map.set(e.itemId, []); map.get(e.itemId).push({ c, snap: s, entry: e }); });
+    });
+    return map;
+  }
+  const chNumLabel = n => n == null ? 'NOW' : (typeof chapterLabel === 'function' ? chapterLabel(n) : 'CH ' + n);
+  let libCh = null; // chapter number shown by the web (null = latest)
+
+  // ---- RELIC VAULT ----
+  const CASE_W = 176, CASE_H = 236, CASE_GAP = 30;
+  function drawVault(list) {
+    gridCols = Math.max(1, Math.ceil(Math.sqrt(list.length * 1.3)));
+    const now = holdersAt(null);
+    const content = $('#bkContent');
+    content.innerHTML = list.map((it, i) => {
+      const x = (i % gridCols) * (CASE_W + CASE_GAP), y = Math.floor(i / gridCols) * (CASE_H + CASE_GAP);
+      const hs = now.get(it.id) || [];
+      const stId = hs[0] && hs[0].entry.stateId;
+      const st = Lib.stateOf(it, stId);
+      const kinds = itemMarkKinds(it, stId);
+      const pic = itemPic(it, stId);
+      return `<button type="button" class="bk-case ${markClass(kinds)}${it.id === selItem ? ' on' : ''}${hs.length ? '' : ' unheld'}" data-id="${attr(it.id)}" data-cx="${x + CASE_W / 2}" data-cy="${y + CASE_H / 2}" style="left:${x}px;top:${y}px;--d:${(i % 7) * -0.6}s" title="${attr(it.name)}">
+        <span class="bk-case-glass"><span class="bk-case-light"></span>
+          <span class="bk-case-obj">${pic ? `<img src="${attr(pic)}" alt="" draggable="false">` : `<b>${itemInitial(it)}</b>`}</span>
+          <span class="bk-case-shadow"></span>
+          ${kinds.length ? `<span class="bk-case-seals">${kinds.map(k => `<i class="${attr(k)}" title="${attr(k)}"></i>`).join('')}</span>` : ''}
+        </span>
+        <span class="bk-case-plinth"><span class="bk-case-no">${pad2(i + 1)}</span>
+          <span class="bk-case-name">${esc(it.name || 'Untitled')}</span>
+          <span class="bk-case-sub">${st ? esc(st.name) + ' · ' : ''}${hs.length ? esc(hs.map(h => h.c.name || 'Unnamed').join(' · ')) : 'in the vault'}</span></span>
+      </button>`;
+    }).join('');
+    content.querySelectorAll('.bk-case').forEach(b => b.addEventListener('click', () => selectItem(b.dataset.id)));
+    const rows = Math.ceil(list.length / gridCols);
+    return { x: -10, y: -10, w: gridCols * (CASE_W + CASE_GAP) + 10, h: rows * (CASE_H + CASE_GAP) + 10 };
+  }
+
+  // ---- HOLDER WEB ----
+  const webPos = new Map();   // key -> {x, y} currently drawn
+  let webAnim = 0, webTargets = null;
+  function webLayout(list, n) {
+    const held = holdersAt(n);
+    const hubs = state.characters.map(c => ({ c, snap: snapAt(c, n) })).filter(h => h.snap);
+    const HR = hubs.length < 2 ? 0 : Math.max(240, hubs.length * 95);
+    hubs.forEach((h, i) => { const a = -Math.PI / 2 + i * 2 * Math.PI / hubs.length; h.x = Math.cos(a) * HR; h.y = Math.sin(a) * HR; h.a = a; });
+    const hubOf = new Map(hubs.map(h => [h.c.id, h]));
+    const solo = new Map(), shared = [], loose = [];
+    list.forEach(it => {
+      const hs = (held.get(it.id) || []).filter(h => hubOf.has(h.c.id));
+      if (!hs.length) loose.push(it);
+      else if (hs.length === 1) { const k = hs[0].c.id; if (!solo.has(k)) solo.set(k, []); solo.get(k).push({ it, hs }); }
+      else shared.push({ it, hs });
+    });
+    const nodes = [];
+    hubs.forEach(h => {
+      const mine = solo.get(h.c.id) || [];
+      mine.forEach((m, i) => {
+        const ring = Math.floor(i / 8), inRing = Math.min(8, mine.length - ring * 8);
+        const a = (hubs.length < 2 ? -Math.PI / 2 : h.a) + (i % 8 - (inRing - 1) / 2) * (Math.PI * 1.6 / Math.max(inRing, 4));
+        const r = 120 + ring * 95;
+        nodes.push({ ...m, x: h.x + Math.cos(a) * r, y: h.y + Math.sin(a) * r });
+      });
+    });
+    shared.forEach((m, i) => {
+      const x = m.hs.reduce((a, h) => a + hubOf.get(h.c.id).x, 0) / m.hs.length, y = m.hs.reduce((a, h) => a + hubOf.get(h.c.id).y, 0) / m.hs.length;
+      nodes.push({ ...m, x: x * 0.55 + (i % 3 - 1) * 70, y: y * 0.55 + Math.floor(i / 3) * 70 });
+    });
+    // items nobody holds rest in an arc below the circle
+    const baseY = (HR || 0) + 340 + (hubs.length < 2 ? 40 : 0);
+    const per = Math.max(6, Math.ceil(Math.sqrt(loose.length * 3)));
+    loose.forEach((it, i) => nodes.push({ it, hs: [], loose: true, x: (i % per - (Math.min(per, loose.length) - 1) / 2) * 110, y: baseY + Math.floor(i / per) * 110 }));
+    return { hubs, nodes, hubOf, looseY: loose.length ? baseY : null };
+  }
+  function drawWeb(list, animate) {
+    const chs = libChapters();
+    if (libCh != null && !chs.includes(libCh)) libCh = null;
+    const n = libCh == null ? (chs.length ? chs[chs.length - 1] : null) : libCh;
+    const L = webLayout(list, n);
+    const content = $('#bkContent');
+    // build / reuse elements so they can slide between chapters
+    const keep = new Set();
+    let svg = $('#bkWebLines');
+    if (!svg) { content.innerHTML = '<svg id="bkWebLines" class="bk-web-lines"></svg>'; svg = $('#bkWebLines'); }
+    const ensure = (key, cls, html, x, y) => {
+      keep.add(key);
+      let el = content.querySelector(`[data-key="${CSS.escape(key)}"]`);
+      if (!el) {
+        el = document.createElement(key.startsWith('i:') ? 'button' : 'div');
+        if (key.startsWith('i:')) el.type = 'button';
+        el.dataset.key = key; el.className = cls + ' enter'; content.appendChild(el);
+        if (!webPos.has(key)) webPos.set(key, { x, y });
+        el.addEventListener('animationend', () => el.classList.remove('enter'), { once: true });
+      } else el.className = cls;
+      el.innerHTML = html;
+      return el;
+    };
+    const targets = new Map();
+    L.hubs.forEach(h => {
+      const s = h.snap, pic = [s.portrait, s.systemPortrait].find(isImg);
+      const gone = s.presence && s.presence !== 'alive';
+      ensure('c:' + h.c.id, 'bk-hub' + (gone ? ' gone' : ''), `<span class="bk-hub-pic">${pic ? `<img src="${attr(pic)}" alt="" draggable="false">` : `<b>${esc((h.c.name || '?').charAt(0).toUpperCase())}</b>`}</span>
+        <span class="bk-hub-name">${esc(h.c.name || 'Unnamed')}</span>${gone ? `<span class="bk-hub-tag">${s.presence === 'dead' ? '† DEAD' : '? MISSING'}</span>` : ''}`, h.x, h.y);
+      targets.set('c:' + h.c.id, { x: h.x, y: h.y });
+    });
+    L.nodes.forEach(nd => {
+      const it = nd.it, stId = nd.hs[0] && nd.hs[0].entry.stateId, st = Lib.stateOf(it, stId);
+      const kinds = itemMarkKinds(it, stId), pic = itemPic(it, stId);
+      const el = ensure('i:' + it.id, `bk-wn ${markClass(kinds)}${it.id === selItem ? ' on' : ''}${nd.loose ? ' loose' : ''}`,
+        `<span class="bk-wn-pic">${pic ? `<img src="${attr(pic)}" alt="" draggable="false">` : `<b>${itemInitial(it)}</b>`}</span>
+        <span class="bk-wn-name">${esc(it.name || 'Untitled')}</span>${st ? `<span class="bk-wn-state">${esc(st.name)}</span>` : ''}`, nd.x, nd.y);
+      el.dataset.id = it.id; el.title = it.name || '';
+      targets.set('i:' + it.id, { x: nd.x, y: nd.y });
+    });
+    content.querySelectorAll('[data-key]').forEach(el => { if (!keep.has(el.dataset.key)) { webPos.delete(el.dataset.key); el.remove(); } });
+    content.querySelectorAll('.bk-wn').forEach(b => { if (!b._wired) { b._wired = true; b.addEventListener('click', () => selectItem(b.dataset.id)); } });
+    // lines: holder -> item (gold when bound)
+    const links = [];
+    L.nodes.forEach(nd => nd.hs.forEach(h => links.push({ a: 'c:' + h.c.id, b: 'i:' + nd.it.id, bound: !!(h.entry.boundTo || '').trim(), on: nd.it.id === selItem })));
+    webTargets = { targets, links, looseY: L.looseY };
+    const paint = (pos) => {
+      content.querySelectorAll('[data-key]').forEach(el => { const p = pos.get(el.dataset.key); if (p) { el.style.left = p.x + 'px'; el.style.top = p.y + 'px'; el.dataset.cx = p.x; el.dataset.cy = p.y; } });
+      svg.innerHTML = links.map(l => { const a = pos.get(l.a), b = pos.get(l.b); return a && b ? `<line class="bk-wl${l.bound ? ' bound' : ''}${l.on ? ' on' : ''}" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/>` : ''; }).join('')
+        + (L.looseY != null ? `<text class="bk-wl-label" x="0" y="${L.looseY - 70}">— NOT HELD AT ${esc(chNumLabel(n).toUpperCase())} —</text>` : '');
+    };
+    cancelAnimationFrame(webAnim);
+    const from = new Map([...targets.keys()].map(k => [k, webPos.get(k) || targets.get(k)]));
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!animate || reduce) { targets.forEach((p, k) => webPos.set(k, { ...p })); paint(webPos); }
+    else {
+      const t0 = performance.now(), dur = 650, ease = q => q < .5 ? 4 * q * q * q : 1 - Math.pow(-2 * q + 2, 3) / 2;
+      const tick = (now) => {
+        const e = ease(Math.min(1, (now - t0) / dur));
+        targets.forEach((p, k) => { const f = from.get(k); webPos.set(k, { x: f.x + (p.x - f.x) * e, y: f.y + (p.y - f.y) * e }); });
+        paint(webPos);
+        if (e < 1) webAnim = requestAnimationFrame(tick);
+      };
+      webAnim = requestAnimationFrame(tick);
+    }
+    drawScrub(chs, n);
+    drawItemLog(chs, n);
+    const pts = [...targets.values()];
+    if (!pts.length) return { x: -200, y: -150, w: 400, h: 300 };
+    const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+    const x0 = Math.min(...xs) - 120, y0 = Math.min(...ys) - 190; // room for the chapter slider
+    return { x: x0, y: y0, w: Math.max(...xs) + 120 - x0, h: Math.max(...ys) + 100 - y0 };
+  }
+  function drawScrub(chs, n) {
+    const box = $('#bkSandbox'); if (!box) return;
+    let el = $('#bkScrub');
+    if (!chs.length) { if (el) el.remove(); return; }
+    if (!el) {
+      el = document.createElement('div'); el.id = 'bkScrub'; el.className = 'bk-scrub bk-no-pan'; box.appendChild(el);
+      el.innerHTML = `<button type="button" class="bk-scrub-step" data-d="-1" aria-label="Previous chapter">‹</button>
+        <div class="bk-scrub-mid"><output class="bk-scrub-label"></output><input type="range" min="0" step="1" aria-label="Chapter"><div class="bk-scrub-ticks"></div></div>
+        <button type="button" class="bk-scrub-step" data-d="1" aria-label="Next chapter">›</button>`;
+      const range = el.querySelector('input');
+      range.addEventListener('input', () => { libCh = libChapters()[+range.value]; redrawWeb(); });
+      el.querySelectorAll('.bk-scrub-step').forEach(b => b.addEventListener('click', () => {
+        const all = libChapters(), i = Math.max(0, all.indexOf(libCh == null ? all[all.length - 1] : libCh));
+        const j = Math.min(all.length - 1, Math.max(0, i + +b.dataset.d)); if (j !== i) { libCh = all[j]; redrawWeb(); }
+      }));
+    }
+    const i = Math.max(0, chs.indexOf(n));
+    const range = el.querySelector('input');
+    range.max = chs.length - 1; range.value = i; range.disabled = chs.length < 2;
+    el.querySelector('.bk-scrub-label').textContent = chNumLabel(n);
+    el.querySelector('.bk-scrub-ticks').innerHTML = chs.map(c => `<i class="${c === n ? 'on' : ''}">${c}</i>`).join('');
+    el.querySelectorAll('.bk-scrub-step').forEach(b => { b.disabled = (+b.dataset.d < 0 ? i === 0 : i === chs.length - 1); });
+  }
+  function redrawWeb() { if (mode === 'library' && libLook === 'web') { lastBox = drawWeb(items(), true); } }
+  // what happened to items chapter by chapter: acquired / lost / state / bound
+  function itemEvents(itemId, chs, upTo) {
+    const out = [];
+    let prev = new Map();
+    for (const ch of chs) {
+      if (upTo != null && ch > upTo) break;
+      const cur = new Map((holdersAt(ch).get(itemId) || []).map(h => [h.c.id, h]));
+      const it = Lib.item(itemId);
+      cur.forEach((h, id) => {
+        const p = prev.get(id), st = Lib.stateOf(it, h.entry.stateId);
+        if (!p) out.push({ ch, tag: 'Acquired', text: (h.c.name || 'Unnamed') + (st ? ' · ' + st.name : '') });
+        else {
+          if ((p.entry.stateId || '') !== (h.entry.stateId || '')) out.push({ ch, tag: 'State', text: (st ? st.name : 'no state') + ' · ' + (h.c.name || 'Unnamed') });
+          if (!(p.entry.boundTo || '').trim() && (h.entry.boundTo || '').trim()) out.push({ ch, tag: 'Bound', text: 'to ' + h.entry.boundTo.trim() });
+        }
+      });
+      prev.forEach((h, id) => { if (!cur.has(id)) out.push({ ch, tag: 'Lost', text: h.c.name || 'Unnamed', bad: true }); });
+      prev = cur;
+    }
+    return out;
+  }
+  function drawItemLog(chs, n) {
+    const box = $('#bkSandbox'); if (!box) return;
+    let log = $('#bkItemLog');
+    if (!log) { log = document.createElement('div'); log.id = 'bkItemLog'; log.className = 'bk-log'; log.setAttribute('aria-live', 'polite'); box.appendChild(log); }
+    const line = (e) => `<p><i class="${e.bad ? 'bad' : ''}">◆</i><b>${esc(e.tag)}</b><span>${esc((e.ch != null ? 'CH ' + e.ch + ' · ' : '') + e.text)}</span></p>`;
+    const it = selItem && Lib.item(selItem);
+    let ev;
+    if (it) { ev = itemEvents(it.id, chs, n).slice(-4); if (!ev.length) ev = [{ tag: 'Vault', text: (it.name || 'Untitled') + ' · nobody holds it yet' }]; }
+    else ev = [{ tag: 'Hint', text: 'select an item to see its history' }];
+    log.innerHTML = ev.map(line).join('');
+  }
+
   function openLibrary() {
     if (!Lib) return 'The Library is not available on this page.';
     flushItem();
@@ -239,6 +480,14 @@
     if (!refit && viewport && !viewport.touched) refit = true;
     if (mode !== 'library') return;
     const list = items();
+    $('#theBook').dataset.look = libLook;
+    if (libLook !== 'tiles' && list.length) {
+      if (libLook !== 'web') { clearLibExtras(); webPos.clear(); }
+      lastBox = libLook === 'web' ? drawWeb(list, !refit) : drawVault(list);
+      if (refit) requestAnimationFrame(fitAll);
+      return;
+    }
+    clearLibExtras(); webPos.clear();
     gridCols = Math.max(1, Math.ceil(Math.sqrt(list.length * 1.6)));
     const content = $('#bkContent');
     content.innerHTML = list.length ? list.map((it, i) => {
@@ -247,7 +496,7 @@
       const y = row * (TILE_H + GAP * 0.6);
       const pic = isImg(it.image) ? it.image : (isImg(it.icon) ? it.icon : '');
       const kinds = [...new Set((it.marks || []).map(m => m.kind))];
-      return `<button type="button" class="bk-tile${it.id === selItem ? ' on' : ''}" data-id="${attr(it.id)}" style="left:${x}px;top:${y}px" title="${attr(it.name)}">
+      return `<button type="button" class="bk-tile${it.id === selItem ? ' on' : ''}" data-id="${attr(it.id)}" data-cx="${x + TILE_W / 2}" data-cy="${y + TILE_H / 2}" style="left:${x}px;top:${y}px" title="${attr(it.name)}">
         <span class="bk-tile-no">${pad2(i + 1)}</span>
         <span class="bk-tile-pic">${pic ? `<img src="${attr(pic)}" alt="" draggable="false">` : `<b>${esc((it.name || '?').trim().charAt(0).toUpperCase() || '◈')}</b>`}</span>
         <span class="bk-tile-name">${esc(it.name || 'Untitled')}</span>
@@ -264,16 +513,27 @@
     if (id === selItem) return;
     flushItem();
     selItem = id;
-    $('#bkContent').querySelectorAll('.bk-tile').forEach(b => b.classList.toggle('on', b.dataset.id === id));
-    const tile = $(`.bk-tile[data-id="${CSS.escape(id)}"]`);
-    if (tile && viewport) viewport.glideTo(tile.offsetLeft + TILE_W / 2, tile.offsetTop + TILE_H / 2);
+    $('#bkContent').querySelectorAll('[data-id]').forEach(b => b.classList.toggle('on', b.dataset.id === id));
+    const tile = $(`#bkContent [data-id="${CSS.escape(id)}"]`);
+    if (tile && viewport) viewport.glideTo(+tile.dataset.cx, +tile.dataset.cy);
     renderItemPanel();
+    if (libLook === 'web') redrawWeb();
   }
 
   function libraryKeys(e) {
     const list = items();
     if (!list.length) return;
     let i = Math.max(0, list.findIndex(x => x.id === selItem));
+    const dir = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+    if (dir && libLook === 'web') {
+      e.preventDefault();
+      const els = [...$('#bkContent').querySelectorAll('.bk-wn')], cur = els.find(b => b.dataset.id === selItem) || els[0];
+      if (!cur) return;
+      let best = null, score = -Infinity;
+      els.forEach(b => { if (b === cur) return; const dx = b.dataset.cx - cur.dataset.cx, dy = b.dataset.cy - cur.dataset.cy, len = Math.hypot(dx, dy) || 1, dot = (dx * dir[0] + dy * dir[1]) / len; if (dot > 0.5 && dot * 400 - len > score) { score = dot * 400 - len; best = b; } });
+      if (best) selectItem(best.dataset.id);
+      return;
+    }
     const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -gridCols, ArrowDown: gridCols }[e.key];
     if (step != null) { e.preventDefault(); i = Math.min(list.length - 1, Math.max(0, i + step)); selectItem(list[i].id); return; }
     if (e.key === '+' || e.key === '=') viewport.zoom(1.2);
@@ -290,8 +550,8 @@
     selItem = id;
     drawLibrary(false);
     renderItemPanel();
-    const tile = $(`.bk-tile[data-id="${CSS.escape(id)}"]`);
-    if (tile && viewport) viewport.centerOn(tile.offsetLeft + TILE_W / 2, tile.offsetTop + TILE_H / 2);
+    const tile = $(`#bkContent [data-id="${CSS.escape(id)}"]`);
+    if (tile && viewport) viewport.centerOn(+tile.dataset.cx, +tile.dataset.cy);
     const n = $('#biName'); if (n) { n.focus(); n.select(); }
   }
 
