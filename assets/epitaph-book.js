@@ -153,6 +153,7 @@
         <div class="bk-tools">
           ${kind === 'library' ? `<input type="search" id="bkFilter" class="bk-filter" placeholder="filter…" value="${attr(filter)}" aria-label="Filter items">
           <button type="button" class="slant-btn primary" id="bkNewItem">+ New item</button>` : ''}
+          ${kind === 'skills' ? `<label class="bk-skin"><span>Look</span><select id="bkSkin" aria-label="Skill tree look">${Object.keys(SKINS).map(k => `<option value="${k}"${k === skin ? ' selected' : ''}>${esc(SKINS[k].label)}</option>`).join('')}</select></label>` : ''}
           <button type="button" class="slant-btn" id="bkFit" title="Fit everything in view">Fit</button>
           <button type="button" class="slant-btn" id="bkBack" title="Back to the storybook (or type back)">Back</button>
         </div>
@@ -165,6 +166,7 @@
     $('#bookPanel').hidden = false;
     $('#bkBack').addEventListener('click', () => closeView(true));
     $('#bkFit').addEventListener('click', () => fitAll());
+    if ($('#bkSkin')) $('#bkSkin').addEventListener('change', (e) => setSkin(e.target.value));
     $('#bkZoomIn').addEventListener('click', () => viewport && viewport.zoom(1.25));
     $('#bkZoomOut').addEventListener('click', () => viewport && viewport.zoom(0.8));
     if (viewport) viewport.stop();
@@ -178,7 +180,7 @@
     if (viewport) viewport.stop();
     mode = ''; viewport = null; itemEditor = null;
     const book = $('#theBook');
-    book.classList.remove('wide'); delete book.dataset.view;
+    book.classList.remove('wide'); delete book.dataset.view; delete book.dataset.skin;
     const left = $('.book-page.left-page');
     left.classList.remove('bk-left');
     $('#bookPanel').hidden = true; $('#bookPanel').innerHTML = '';
@@ -510,7 +512,7 @@
   // ==================================================================
   // SKILLS
   // ==================================================================
-  const RING = 170;
+  const RING = 210;
   function buildSkillTree() {
     const root = { key: '', name: 'EPITAPH', children: [], holders: [], depth: 0 };
     const nodes = new Map([['', root]]);
@@ -564,6 +566,7 @@
     tree = buildSkillTree();
     const count = tree.nodes.size - 1;
     shell('skills', 'Skill Tree', '技能樹', count);
+    $('#theBook').dataset.skin = skin;
     $('#bkSandbox').addEventListener('keydown', (e) => {
       if (e.key === '+' || e.key === '=') viewport.zoom(1.2);
       if (e.key === '-') viewport.zoom(0.83);
@@ -589,53 +592,121 @@
     return `Opening the skill tree… ${count} skill${count === 1 ? '' : 's'} from ${chars.size} character${chars.size === 1 ? '' : 's'} (each at their current chapter).`;
   }
 
+  // Drawn like an RPG skill screen (ref: Webdesign/shield hero.jpg): silver
+  // medallions with notched double rings, gothic names over a small crest,
+  // straight links, the selected skill enlarged and glowing in the middle.
+  // Looks (A–E). Colours live in epitaph-book.css under [data-skin]; the
+  // gradients and the badge shape are drawn here. Remembered per browser.
+  const SKINS = {
+    teal:  { label: 'A · Silver & teal', face: ['#2b2f2c', '#060707'], on: ['#4fe0b8', '#16735e', '#041a15'], bad: ['#ff7a55', '#7a2414', '#1a0604'], haze: '#3fbf9a' },
+    amber: { label: 'B · Amber relic',   face: ['#2d2414', '#090603'], on: ['#ffd27a', '#a8650f', '#1c0f02'], bad: ['#ff7a55', '#7a2414', '#1a0604'], haze: '#ffb238' },
+    blood: { label: 'C · Blood seal',    face: ['#2a2120', '#070404'], on: ['#ff7a55', '#8a1d10', '#1a0403'], bad: ['#c9a2ff', '#4b2a8a', '#0e0618'], haze: '#d4452b' },
+    hex:   { label: 'D · Hex crests',    face: ['#2d2414', '#090603'], on: ['#ffd27a', '#a8650f', '#1c0f02'], bad: ['#ff7a55', '#7a2414', '#1a0604'], haze: '#ffb238', hex: true },
+    crt:   { label: 'E · CRT terminal',  face: ['#1c1408', '#090603'], on: ['#ffd27a', '#a8650f', '#1c0f02'], bad: ['#ff7a55', '#7a2414', '#1a0604'], haze: '#ffb238', plain: true }
+  };
+  const SKIN_KEY = 'epitaph-skill-skin';
+  let skin = 'teal';
+  try { const v = localStorage.getItem(SKIN_KEY); if (SKINS[v]) skin = v; } catch (e) { /* storage blocked: default look */ }
+  function setSkin(v) {
+    if (!SKINS[v]) return;
+    skin = v;
+    try { localStorage.setItem(SKIN_KEY, v); } catch (e) { /* not remembered, still applied */ }
+    if (mode === 'skills') { $('#theBook').dataset.skin = skin; drawSkills(false); }
+  }
+  const hexPts = (r) => Array.from({ length: 6 }, (_, i) => { const a = -Math.PI / 2 + i * Math.PI / 3; return `${(Math.cos(a) * r).toFixed(1)},${(Math.sin(a) * r * 1.08).toFixed(1)}`; }).join(' ');
+  const ring = (cls, r) => SKINS[skin].hex ? `<polygon class="${cls}" points="${hexPts(r)}"/>` : `<circle class="${cls}" r="${r}"/>`;
+  const initial = s => (String(s || '?').trim().match(/[\p{L}\p{N}]/u) || ['?'])[0].toUpperCase();
+  function medal(r) {
+    const o = r + 7;
+    const spikes = [0, 1, 2, 3].map(i => {
+      const a = i * Math.PI / 2, c = Math.cos(a), s = Math.sin(a), px = -s, py = c;
+      const p = (d, w) => `${(c * d + px * w).toFixed(1)},${(s * d + py * w).toFixed(1)}`;
+      return `M${p(o - 3, 0)} L${p(o + 3, -3.2)} L${p(o + 9, 0)} L${p(o + 3, 3.2)}Z`;
+    }).join(' ');
+    const sk = SKINS[skin];
+    if (sk.plain) return `${ring('bk-m-outer', o - 2)}${ring('bk-m-face', r)}`;
+    return `${ring('bk-m-outer', o)}${sk.hex ? '' : `<path class="bk-m-spike" d="${spikes}"/>`}${ring('bk-m-face', r)}${ring('bk-m-inner', r - 4)}`;
+  }
+  const crest = (y) => SKINS[skin].plain ? '' : `<path class="bk-crest" transform="translate(0 ${y})" d="M-26,0 Q-15,-1 -8,-5 L-4,-4 L0,-11 L4,-4 L8,-5 Q15,-1 26,0 M-8,-5 Q0,0 8,-5 M-19,-1 Q-24,-6 -29,-4 M19,-1 Q24,-6 29,-4"/><circle class="bk-crest-dot" cx="0" cy="${y - 14}" r="1.6"/>`;
+
   function drawSkills(refit) {
     const all = [...tree.nodes.values()];
     const maxDepth = Math.max(1, ...all.map(n => n.depth));
-    const R = maxDepth * RING + 90;
-    const rings = Array.from({ length: maxDepth }, (_, i) => `<circle class="bk-ring" r="${(i + 1) * RING}"/>`).join('');
-    const ticks = Array.from({ length: 72 }, (_, i) => { const a = i / 72 * Math.PI * 2, r1 = R - 18, r2 = R - (i % 6 ? 10 : 2); return `<line class="bk-tick" x1="${Math.cos(a) * r1}" y1="${Math.sin(a) * r1}" x2="${Math.cos(a) * r2}" y2="${Math.sin(a) * r2}"/>`; }).join('');
+    const R = maxDepth * RING + 140;
+    // huge faint shield silhouettes behind the tree
+    const shield = (s, rot) => { const pts = Array.from({ length: 6 }, (_, i) => { const a = Math.PI / 6 + i * Math.PI / 3; return `${(Math.cos(a) * s).toFixed(0)},${(Math.sin(a) * s * 1.1).toFixed(0)}`; }).join(' '); return `<polygon class="bk-shield" points="${pts}" transform="rotate(${rot})"/>`; };
+    const backdrop = shield(R * 0.55, 0) + shield(R * 0.82, 30) + shield(R * 0.98, 0);
     const link = (n) => {
       const p = tree.nodes.get(n.parentKey || '');
-      // curve bends around the centre: control point on the parent's ring at the child's angle
-      const cr = p.depth * RING, cx = Math.cos(n.angle) * cr, cy = Math.sin(n.angle) * cr;
-      return `<path class="bk-link-line${n.holders.some(h => h.skill.corrupted) ? ' corrupt' : ''}${isLit(n) ? ' lit' : ''}" d="M${p.x},${p.y} Q${cx},${cy} ${n.x},${n.y}"/>`;
+      return `<line class="bk-link-line${n.holders.some(h => h.skill.corrupted) ? ' corrupt' : ''}${isLit(n) ? ' lit' : ''}" x1="${p.x}" y1="${p.y}" x2="${n.x}" y2="${n.y}"/>`;
     };
     const nodeSvg = (n) => {
-      if (!n.depth) return `<g class="bk-node root${selSkill === '' ? ' on' : ''}" data-key="" tabindex="0" role="button" aria-label="Centre"><circle class="bk-halo" r="46"/><circle r="30"/><text class="bk-root-t" y="5">${esc('始')}</text></g>`;
+      const on = selSkill === n.key;
+      if (!n.depth) {
+        const r = on ? 44 : 36;
+        return `<g class="bk-node root${on ? ' on' : ''}" data-key="" tabindex="0" role="button" aria-label="Centre">
+          ${on ? ring('bk-pulse', r + 16) : ''}${medal(r)}
+          <text class="bk-root-t" y="2">${esc('始')}</text>
+          ${crest(-r - 40)}<text class="bk-n-label" y="${-r - 18}">${SKINS[skin].plain ? 'EPITAPH' : 'Epitaph'}</text></g>`;
+      }
       const lvl = Math.round(n.holders.reduce((a, h) => a + (+h.skill.level || 0), 0) / Math.max(1, n.holders.length));
-      const r = 12 + Math.min(10, n.children.length * 2);
-      const circ = 2 * Math.PI * (r + 5);
       const corrupt = n.holders.some(h => h.skill.corrupted);
-      const flip = Math.cos(n.angle) < -0.01;
-      const lx = Math.cos(n.angle) * (r + 12), ly = Math.sin(n.angle) * (r + 12);
-      const deg = n.angle * 180 / Math.PI + (flip ? 180 : 0);
-      return `<g class="bk-node${corrupt ? ' corrupt' : ''}${selSkill === n.key ? ' on' : ''}${n.holders.length > 1 ? ' shared' : ''}" data-key="${attr(n.key)}" transform="translate(${n.x} ${n.y})" tabindex="0" role="button" aria-label="${attr(n.name)}">
-        <circle class="bk-lvl-track" r="${r + 5}"/>
-        <circle class="bk-lvl" r="${r + 5}" stroke-dasharray="${(circ * Math.min(100, lvl) / 100).toFixed(1)} ${circ.toFixed(1)}" transform="rotate(-90)"/>
-        <circle class="bk-core" r="${r}"/>
-        ${n.holders.length > 1 ? `<text class="bk-n-count" y="4">${n.holders.length}</text>` : ''}
-        <g transform="translate(${lx} ${ly}) rotate(${deg})"><text class="bk-n-label" text-anchor="${flip ? 'end' : 'start'}" y="4">${esc(n.name.toUpperCase())}</text>
-        <text class="bk-n-sub" text-anchor="${flip ? 'end' : 'start'}" y="17">${esc(n.holders.map(h => h.name).join(' · '))}</text></g>
+      const r = on ? 40 : 24 + Math.min(6, n.children.length * 2);
+      const lr = r + 12, circ = 2 * Math.PI * lr;
+      return `<g class="bk-node${corrupt ? ' corrupt' : ''}${on ? ' on' : ''}${lvl ? '' : ' dim'}${n.holders.length > 1 ? ' shared' : ''}" data-key="${attr(n.key)}" transform="translate(${n.x} ${n.y})" tabindex="0" role="button" aria-label="${attr(n.name)}">
+        ${on ? ring('bk-pulse', r + 18) : ''}
+        <circle class="bk-lvl" r="${lr}" stroke-dasharray="${(circ * Math.min(100, lvl) / 100).toFixed(1)} ${circ.toFixed(1)}" transform="rotate(-90)"/>
+        ${medal(r)}
+        <text class="bk-n-icon" y="${(r * 0.36).toFixed(1)}" style="font-size:${Math.round(r * 1.15)}px">${esc(initial(n.name))}</text>
+        ${n.holders.length > 1 ? `<g transform="translate(${(r * 0.8).toFixed(1)} ${(r * 0.8).toFixed(1)})"><circle class="bk-n-badge" r="9"/><text class="bk-n-count" y="4">${n.holders.length}</text></g>` : ''}
+        ${crest(-r - (on ? 72 : 36))}
+        ${on ? `<text class="bk-n-form" y="${-r - 48}">- Lv ${lvl} -</text>` : ''}
+        <text class="bk-n-label" y="${-r - 16}">${esc(SKINS[skin].plain ? n.name.toUpperCase() : n.name)}</text>
+        <text class="bk-n-sub" y="${r + 24}">${esc(n.holders.map(h => h.name).join(' · '))}</text>
       </g>`;
     };
+    // the selected node is drawn last so its glow sits on top
+    const order = all.filter(n => n.depth).concat(tree.root).sort((a, b) => (a.key === selSkill) - (b.key === selSkill));
     const svg = `<svg class="bk-tree" viewBox="${-R} ${-R} ${R * 2} ${R * 2}" width="${R * 2}" height="${R * 2}" style="left:${-R}px;top:${-R}px">
-      <defs><pattern id="bkHalftone" width="9" height="9" patternUnits="userSpaceOnUse"><circle cx="4.5" cy="4.5" r="1.3" class="bk-dot"/></pattern>
-      <radialGradient id="bkFade"><stop offset="0" stop-color="#fff" stop-opacity="1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
-      <mask id="bkFadeMask"><circle r="${RING * 1.6}" fill="url(#bkFade)"/></mask></defs>
-      <circle r="${RING * 1.6}" fill="url(#bkHalftone)" mask="url(#bkFadeMask)"/>
-      ${rings}${ticks}
+      <defs>
+        ${(() => { const k = SKINS[skin], st = (c) => c.map((x, i) => `<stop offset="${[0, .55, 1][c.length === 2 ? i * 2 : i]}" stop-color="${x}"/>`).join('');
+          return `<radialGradient id="bkFace" cx=".5" cy=".38" r=".7">${st(k.face)}</radialGradient>
+        <radialGradient id="bkFaceOn" cx=".5" cy=".42" r=".65">${st(k.on)}</radialGradient>
+        <radialGradient id="bkFaceBad" cx=".5" cy=".42" r=".65">${st(k.bad)}</radialGradient>
+        <radialGradient id="bkHaze"><stop offset="0" stop-color="${k.haze}" stop-opacity=".16"/><stop offset=".6" stop-color="${k.haze}" stop-opacity=".04"/><stop offset="1" stop-color="${k.haze}" stop-opacity="0"/></radialGradient>`; })()}
+      </defs>
+      <circle r="${R}" fill="url(#bkHaze)"/>
+      ${backdrop}
       ${all.filter(n => n.depth).map(link).join('')}
-      ${all.filter(n => n.depth).map(nodeSvg).join('')}${nodeSvg(tree.root)}
-      ${all.length === 1 ? `<text class="bk-n-sub" text-anchor="middle" y="80">No skills yet. Select the centre to add one.</text>` : ''}
+      ${order.map(nodeSvg).join('')}
+      ${all.length === 1 ? `<text class="bk-n-sub" y="110">No skills yet. Select the centre to add one.</text>` : ''}
     </svg>`;
     $('#bkContent').innerHTML = svg;
     $('#bkContent').querySelectorAll('.bk-node').forEach(g => {
       g.addEventListener('click', () => selectSkill(g.dataset.key));
       g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectSkill(g.dataset.key); } });
     });
-    lastBox = { x: -R, y: -R, w: R * 2, h: R * 2 };
+    drawSkillLog();
+    // fit to the medallions and their names, not the backdrop
+    const xs = all.map(n => n.x), ys = all.map(n => n.y);
+    const x0 = Math.min(...xs) - 110, x1 = Math.max(...xs) + 110, y0 = Math.min(...ys) - 110, y1 = Math.max(...ys) + 70;
+    lastBox = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
     if (refit) requestAnimationFrame(fitAll);
+  }
+  // bottom-left feed, like the picture's "Absorb / Unlock" lines
+  function drawSkillLog() {
+    const box = $('#bkSandbox'); if (!box) return;
+    let log = $('#bkSkillLog');
+    if (!log) { log = document.createElement('div'); log.id = 'bkSkillLog'; log.className = 'bk-log'; log.setAttribute('aria-live', 'polite'); box.appendChild(log); }
+    const n = tree.nodes.get(selSkill);
+    const line = (tag, text, bad) => `<p><i class="${bad ? 'bad' : ''}">◆</i><b>${esc(tag)}</b><span>${esc(text)}</span></p>`;
+    if (!n || !n.depth) {
+      const learned = [...tree.nodes.values()].filter(x => x.depth && x.holders.some(h => +h.skill.level > 0)).length;
+      log.innerHTML = line('Tree', `${tree.nodes.size - 1} skills · ${learned} learned`) + line('Hint', 'select a medallion');
+      return;
+    }
+    log.innerHTML = n.holders.slice(0, 4).map(h => line(+h.skill.level > 0 ? 'Unlock' : 'Sealed', `${h.name} — ${n.name} · Lv ${+h.skill.level || 0}${h.chapter ? ' · ' + h.chapter : ''}`, h.skill.corrupted)).join('')
+      + (n.children.length ? line('Branch', `${n.children.length} skill${n.children.length === 1 ? '' : 's'} grow from here`) : '');
   }
   // lit = on the path from the centre to the selected node
   function isLit(n) { return !!selSkill && (selSkill === n.key || selSkill.startsWith(n.key + '/')); }
