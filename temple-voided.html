@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Epitaph — Temple of the Voided</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Noto+Serif+JP:wght@500;900&family=VT323&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=17">
+<style>
+  *{ box-sizing:border-box; }
+  [hidden]{ display:none !important; }
+  html,body{ margin:0; height:100%; overflow:hidden; background:#08070b; color:var(--bone); font-family:var(--f-mono); }
+  html[data-theme="paper"] body{ background:#f6eddd; color:#141a2c; }
+  html[data-theme="paper"] body::after, html[data-theme="paper"] body::before{ display:none; }
+
+  .wrap{ position:fixed; inset:0; display:grid; grid-template-rows:auto 1fr auto; }
+  .stage-box{ position:relative; overflow:hidden; background:#08070b; }
+  html[data-theme="paper"] .stage-box{ background:#f6eddd; }
+  #stage{ position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none; }
+  .vignette{ position:absolute; inset:0; pointer-events:none; background:radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(0,0,0,.55) 100%); }
+  html[data-theme="paper"] .vignette{ background:radial-gradient(ellipse at 50% 45%, transparent 60%, rgba(122,85,50,.18) 100%); }
+
+  .top{ display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center; justify-content:space-between;
+    padding:calc(12px + env(safe-area-inset-top)) 18px 12px; border-bottom:1px solid var(--line); position:relative; z-index:3; }
+  html[data-theme="paper"] .top{ border-color:rgba(20,26,44,.15); }
+  .brand{ font-family:'Bebas Neue',sans-serif; letter-spacing:.12em; font-size:16px; color:var(--dust); white-space:nowrap; }
+  .brand span{ color:#9b8cff; text-shadow:0 0 8px rgba(155,140,255,.6); }
+  html[data-theme="paper"] .brand span{ color:#6a5acd; text-shadow:none; }
+  .nav{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .seg{ display:inline-flex; border:1px solid var(--line); }
+  .seg button, .btn{ font-family:'Bebas Neue',sans-serif; letter-spacing:.1em; font-size:14px; padding:6px 12px 5px;
+    background:transparent; color:var(--dust); border:0; cursor:pointer; white-space:nowrap; }
+  .seg button + button{ border-left:1px solid var(--line); }
+  .seg button:hover, .btn:hover{ color:var(--bone); }
+  .seg button.on, .btn.on{ background:var(--amber); color:var(--ink); }
+  .seg button small{ font-family:var(--f-mono); font-size:9px; opacity:.7; margin-right:5px; letter-spacing:0; }
+  .btn{ border:1px solid var(--line); }
+  html[data-theme="paper"] .seg, html[data-theme="paper"] .btn{ border-color:rgba(20,26,44,.25); }
+  html[data-theme="paper"] .seg button, html[data-theme="paper"] .btn{ color:#5b5444; }
+  html[data-theme="paper"] .seg button.on, html[data-theme="paper"] .btn.on{ background:#141a2c; color:#f6eddd; }
+
+  #card{ position:absolute; z-index:3; left:16px; bottom:16px; max-width:330px; padding:12px 14px 12px;
+    background:rgba(8,7,11,.8); border:1px solid var(--line); border-left:3px solid #9b8cff; backdrop-filter:blur(4px); }
+  #card small{ font-size:10px; letter-spacing:.14em; color:var(--dust); }
+  #card h1{ margin:2px 0 6px; font-family:'Bebas Neue',sans-serif; font-weight:400; letter-spacing:.06em; font-size:30px; line-height:1; color:var(--bone); }
+  #card p{ margin:0 0 8px; font-size:11px; line-height:1.5; color:var(--dust); }
+  #cardSeed{ font-size:10px; letter-spacing:.12em; color:#9b8cff; }
+  html[data-theme="paper"] #card{ background:rgba(255,250,241,.92); border-color:rgba(20,26,44,.2); border-left-color:#6a5acd; }
+  html[data-theme="paper"] #card h1{ color:#141a2c; } html[data-theme="paper"] #card p, html[data-theme="paper"] #card small{ color:#5b5444; }
+  html[data-theme="paper"] #cardSeed{ color:#6a5acd; }
+
+  .bottom{ display:flex; align-items:center; gap:10px; padding:10px 18px calc(12px + env(safe-area-inset-bottom)); border-top:1px solid var(--line); position:relative; z-index:3; }
+  html[data-theme="paper"] .bottom{ border-color:rgba(20,26,44,.15); }
+  .hint{ flex:1; font-size:10px; color:var(--dust); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  #boot{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; padding:16px;
+    font-family:var(--f-crt); font-size:22px; color:#9b8cff; }
+
+  @media (max-width: 760px){
+    .top{ padding-left:12px; padding-right:12px; }
+    .nav{ width:100%; gap:6px; }
+    #variantSeg{ flex:1 1 100%; } #variantSeg button{ flex:1; padding:7px 2px 6px; font-size:12px; letter-spacing:.04em; }
+    .seg button small{ display:none; }
+    .slant-btn{ font-size:13px; padding:6px 10px 5px; }
+    #card{ left:10px; right:10px; bottom:10px; max-width:none; padding:9px 12px; }
+    #card h1{ font-size:22px; margin-bottom:2px; } #card p{ display:none; }
+    .bottom{ padding-left:12px; padding-right:12px; gap:6px; }
+    .hint{ display:none; } .bottom .spacer{ flex:1; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">EPITAPH // TEMPLE OF THE <span>VOIDED</span></div>
+    <nav class="nav">
+      <div class="seg" role="group" aria-label="Variation" id="variantSeg"></div>
+      <div class="seg" role="group" aria-label="Palette">
+        <button type="button" data-theme-btn="crt">Signal</button>
+        <button type="button" data-theme-btn="paper">Paper</button>
+      </div>
+      <a class="slant-btn" href="atlas-3d.html">Atlas 3D</a>
+    </nav>
+  </header>
+
+  <main class="stage-box">
+    <canvas id="stage" aria-label="3D model of the Temple of the Voided"></canvas>
+    <div class="vignette"></div>
+    <section id="card" aria-live="polite">
+      <small id="cardNo">VARIATION 01</small>
+      <h1 id="cardName">Hollow Nave</h1>
+      <p id="cardDesc"></p>
+      <span id="cardSeed">SEED 1</span>
+    </section>
+    <div id="boot">RAISING THE TEMPLE…</div>
+  </main>
+
+  <footer class="bottom">
+    <button class="btn" type="button" id="rerollBtn" title="New random version of this variation">↻ Reroll</button>
+    <span class="hint">drag to turn · scroll to zoom · reroll changes bays, heights, spires and windows</span>
+    <span class="spacer"></span>
+    <button class="btn" type="button" id="spinBtn">Spin</button>
+    <button class="btn" type="button" id="saveBtn">Save PNG</button>
+  </footer>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script type="module" src="assets/temple/temple.js?v=1"></script>
+</body>
+</html>
