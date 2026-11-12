@@ -2491,12 +2491,10 @@ function renderCodexPage(char, snap, animate){
       </div>`;
   } else if(sysTab === 'knowledge'){
     const kn = snap.knowledge || [], se = snap.secrets || [];
-    html = codexLeft(n, 'Knowledge', 'Known', `${kn.length} known · ${se.length} secret${se.length === 1 ? '' : 's'}`, 'mwOpenKnowledge', 'Edit knowledge', ch) +
-      `<div class="codex-right crt-log">
-        ${kn.length ? kn.map(k => `<p>&gt; ${escapeHtml(k)}${chg.isNew('knowledge', k) ? ' ' + NEW_TAG : ''}</p>`).join('') : `<p class="dim">&gt; nothing known yet</p>`}
-        <p class="sep">— SECRETS —</p>
-        ${se.length ? se.map(sc => `<p class="${sc.characterKnows ? '' : 'dim'}">&gt; ${escapeHtml(sc.text)}${chg.isNew('secrets', sc) ? ' ' + NEW_TAG : ''}<br><small>character knows: ${sc.characterKnows ? 'yes' : 'no'} · known by: ${escapeHtml(sc.knownBy || '—')}</small></p>`).join('') : `<p class="dim">&gt; no secrets recorded</p>`}
-      </div>`;
+    const knownSecrets = se.filter(x => x.characterKnows).length, C = 2 * Math.PI * 22;
+    const gauge = se.length ? `<div class="k-gauge"><svg viewBox="0 0 54 54" aria-hidden="true"><circle cx="27" cy="27" r="22" fill="none" stroke="rgba(255,178,56,.25)" stroke-width="4" stroke-dasharray="2 3"/><circle cx="27" cy="27" r="22" fill="none" stroke="var(--amber)" stroke-width="4" stroke-dasharray="${(C * knownSecrets / se.length).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 27 27)"/></svg><span><b>${knownSecrets}/${se.length}</b><small>SECRETS KNOWN</small></span></div>` : '';
+    html = codexLeft(n, 'Knowledge', 'Known', `${kn.length} known · ${se.length} secret${se.length === 1 ? '' : 's'}`, 'mwOpenKnowledge', 'Edit knowledge', ch).replace(/<\/div>\s*$/, gauge + '</div>') +
+      `<div class="codex-right">${kn.length || se.length ? `<div class="atree ktree" id="ktree" tabindex="0" aria-label="Knowledge tree. Arrow keys move between entries."></div><div class="atree-detail" id="ktreeDetail" aria-live="polite"></div>` : `<div class="sys-empty">Nothing known yet. Add facts and secrets with “Edit knowledge”.</div>`}</div>`;
   }
   page.innerHTML = html;
 
@@ -2516,6 +2514,7 @@ function renderCodexPage(char, snap, animate){
   wireItemTuner(page, char, snap);
   hydrateGenPortraits(page);
   if(sysTab === 'skills' && snap.skills.length) renderAuthorityTree(char, snap, animate);
+  if(sysTab === 'knowledge' && ((snap.knowledge || []).length || (snap.secrets || []).length)) renderKnowledgeTree(char, snap, animate);
 
   if(HAS_GSAP && !REDUCED_MOTION && animate){
     gsap.fromTo(page.children, { x: 30, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5, stagger: 0.08, ease: 'power3.out' });
@@ -2543,21 +2542,24 @@ function buildSkillTree(char, snap){
   });
   return nodes;
 }
+// ---- Focus tree: the Skills and Knowledge tabs' navigator ----
+// One node in the middle; where it's filed on the left, its neighbours above
+// and below, what grows from it on the right. Every move is a camera move
+// toward the node you picked: it slides in from where it was, nodes that stay
+// slide to their new places, newcomers arrive from that side and what's left
+// behind slides off the other way. Arrow keys pick whatever sits that way.
 let atreeLoop = null;
-function renderAuthorityTree(char, snap, animate){
-  const host = document.getElementById('atree'), detail = document.getElementById('atreeDetail');
-  if(!host) return;
-  const nodes = buildSkillTree(char, snap);
-  let focus = nodes[skillFocus[char.id]] ? skillFocus[char.id] : (nodes.root.children[0] || 'root');
-  const corrColor = char.corruptionColor || DEFAULT_CORRUPTION_COLOR;
+function focusTree(host, detail, o){
+  const N = o.nodes;
+  let focus = N[o.focus] ? o.focus : 'root';
   const W = 640, H = 330, CX = 320, CY = 165;
-
+  let busy = null;
   function layout(fk){
-    const f = nodes[fk], pos = {};
+    const f = N[fk], pos = {};
     pos[fk] = { x: CX, y: CY, r: 34, role: 'focus' };
     if(f.parent){ pos[f.parent] = { x: 96, y: CY, r: 20, role: 'parent' };
       // only the neighbours that the up / down keys go to, so labels never pile up
-      const all = nodes[f.parent].children, at = all.indexOf(fk);
+      const all = N[f.parent].children, at = all.indexOf(fk);
       if(all.length > 1){
         const prev = all[(at - 1 + all.length) % all.length], next = all[(at + 1) % all.length];
         pos[prev] = { x: 210, y: CY - 112, r: 13, role: 'sibling' };
@@ -2568,89 +2570,193 @@ function renderAuthorityTree(char, snap, animate){
     kids.forEach((k, i) => { const spread = kids.length === 1 ? 0 : (i / (kids.length - 1) - 0.5) * 220; pos[k] = { x: 520, y: CY + spread, r: 18, role: 'child' }; });
     return pos;
   }
-  function draw(){
-    const f = nodes[focus], pos = layout(focus);
-    const color = nd => nd.corrupted ? corrColor : 'var(--amber)';
-    let links = '', marks = '';
+  function nodeSvg(k, p, ghost){
+    const nd = N[k], circ = 2 * Math.PI * (p.r + 6), done = circ * Math.max(0, Math.min(1, o.progress(nd)));
+    const col = o.color(nd), name = nd.name.length > 22 ? nd.name.slice(0, 21) + '…' : nd.name;
+    const ly = p.r + (p.role === 'focus' ? 30 : 22), glyph = o.glyph ? o.glyph(nd, p.role) : '';
+    const label = o.hidden && o.hidden(nd)
+      ? `<rect class="atree-redact" x="${p.role === 'focus' ? -70 : -48}" y="${ly - 13}" width="${p.role === 'focus' ? 140 : 96}" height="16"/>`
+      : `<text class="atree-label" y="${ly}" text-anchor="middle">${escapeHtml(name.toUpperCase())}</text>`;
+    return `<g transform="translate(${p.x} ${p.y})"${ghost ? ' class="atree-ghost"' : ''}><g class="atree-node ${p.role}${nd.root ? ' root' : ''} ${o.cls ? o.cls(nd) : ''}" data-key="${ghost ? '' : k}">
+      ${p.role === 'focus' ? `<circle class="atree-halo" r="${p.r + 22}" stroke="${col}"/><g class="atree-orbit">${[0, 1, 2].map(i => `<circle r="2.4" cx="${(p.r + 14) * Math.cos(i * 2.094)}" cy="${(p.r + 14) * Math.sin(i * 2.094)}"/>`).join('')}</g>` : ''}
+      <circle class="atree-track" r="${p.r + 6}"/>
+      ${nd.root ? '' : `<circle class="atree-prog" r="${p.r + 6}" stroke="${col}" stroke-dasharray="${done.toFixed(1)} ${circ.toFixed(1)}" transform="rotate(-90)"/>`}
+      <circle class="atree-core" r="${p.r}" ${nd.root ? '' : `stroke="${col}"`}/>
+      ${glyph ? `<text class="atree-lv" y="6" text-anchor="middle"${p.role === 'focus' ? '' : ' style="font-size:15px"'}>${escapeHtml(glyph)}</text>` : ''}
+      ${label}</g></g>`;
+  }
+  function draw(move){
+    const f = N[focus], pos = layout(focus);
+    let links = '', marks = '', ghosts = '';
     Object.entries(pos).forEach(([k, p]) => {
       if(k === focus) return;
-      const nd = nodes[k], from = p.role === 'child' ? pos[focus] : (p.role === 'parent' ? pos[focus] : pos[f.parent]);
-      if(from) links += `<path class="atree-link ${p.role}" d="M${from.x} ${from.y} C${(from.x + p.x) / 2} ${from.y} ${(from.x + p.x) / 2} ${p.y} ${p.x} ${p.y}" stroke="${color(nd)}"/>`;
+      const from = p.role === 'sibling' ? pos[f.parent] : pos[focus];
+      if(from) links += `<path class="atree-link ${p.role}" d="M${from.x} ${from.y} C${(from.x + p.x) / 2} ${from.y} ${(from.x + p.x) / 2} ${p.y} ${p.x} ${p.y}" stroke="${o.color(N[k])}"/>`;
     });
-    Object.entries(pos).forEach(([k, p]) => {
-      const nd = nodes[k], circ = 2 * Math.PI * (p.r + 6), done = circ * Math.min(100, nd.level) / 100;
-      const label = nd.name.length > 22 ? nd.name.slice(0, 21) + '…' : nd.name;
-      marks += `<g transform="translate(${p.x} ${p.y})"><g class="atree-node ${p.role}${nd.root ? ' root' : ''}${nd.corrupted ? ' corrupt' : ''}" data-key="${k}">
-        ${p.role === 'focus' ? `<circle class="atree-halo" r="${p.r + 22}"/><g class="atree-orbit">${[0, 1, 2].map(i => `<circle r="2.4" cx="${(p.r + 14) * Math.cos(i * 2.094)}" cy="${(p.r + 14) * Math.sin(i * 2.094)}"/>`).join('')}</g>` : ''}
-        <circle class="atree-track" r="${p.r + 6}"/>
-        ${nd.root ? '' : `<circle class="atree-prog" r="${p.r + 6}" stroke="${color(nd)}" stroke-dasharray="${done.toFixed(1)} ${circ.toFixed(1)}" transform="rotate(-90)"/>`}
-        <circle class="atree-core" r="${p.r}" ${nd.root ? '' : `stroke="${color(nd)}"`}/>
-        ${p.role === 'focus' ? `<text class="atree-lv" y="6" text-anchor="middle">${nd.root ? '◆' : 'LV' + levelInfo(nd.level).lvl}</text>` : ''}
-        <text class="atree-label" y="${p.r + (p.role === 'focus' ? 30 : 22)}" text-anchor="middle">${escapeHtml(label.toUpperCase())}</text>
-      </g></g>`;
-    });
-    const stars = Array.from({ length: 46 }, (_, i) => `<circle cx="${(i * 137) % W}" cy="${(i * 71) % H}" r="${i % 9 === 0 ? 1.3 : 0.6}" opacity="${0.12 + (i % 5) * 0.07}"/>`).join('');
-    const crumbs = []; let w = f; while(w){ crumbs.unshift(w); w = w.parent ? nodes[w.parent] : null; }
+    Object.entries(pos).forEach(([k, p]) => { marks += nodeSvg(k, p); });
+    if(move) Object.entries(move.old).forEach(([k, p]) => { if(!pos[k] && N[k]) ghosts += nodeSvg(k, p, true); });
+    const stars = Array.from({ length: 60 }, (_, i) => `<circle cx="${(i * 137) % (W + 80) - 40}" cy="${(i * 71) % (H + 60) - 30}" r="${i % 9 === 0 ? 1.3 : 0.6}" opacity="${0.12 + (i % 5) * 0.07}"/>`).join('');
+    const crumbs = []; let w = f; while(w){ crumbs.unshift(w); w = w.parent ? N[w.parent] : null; }
+    const crumbName = c => (o.hidden && o.hidden(c)) ? '▓▓▓▓▓▓' : escapeHtml(c.name.toUpperCase());
     host.innerHTML = `
-      <svg viewBox="0 0 ${W} ${H}" aria-hidden="true"><g class="atree-stars">${stars}</g>${links}${marks}</svg>
-      <div class="atree-crumbs">${crumbs.map(c => `<button type="button" data-key="${c.key}" class="${c.key === focus ? 'on' : ''}">${escapeHtml(c.name.toUpperCase())}</button>`).join('<span>›</span>')}</div>
+      <svg viewBox="0 0 ${W} ${H}" aria-hidden="true"><g class="atree-stars">${stars}</g><g class="atree-links">${links}</g><g class="atree-ghosts">${ghosts}</g>${marks}</svg>
+      <div class="atree-crumbs">${crumbs.map(c => `<button type="button" data-key="${c.key}" class="${c.key === focus ? 'on' : ''}">${crumbName(c)}</button>`).join('<span>›</span>')}</div>
       <div class="atree-nav">
-        <button type="button" data-go="parent" ${f.parent ? '' : 'disabled'} aria-label="Back to parent">← BACK</button>
-        <button type="button" data-go="prev" aria-label="Previous sibling">↑</button>
-        <button type="button" data-go="next" aria-label="Next sibling">↓</button>
+        <button type="button" data-go="parent" ${f.parent ? '' : 'disabled'} aria-label="Back">← BACK</button>
+        <button type="button" data-go="prev" aria-label="Previous">↑</button>
+        <button type="button" data-go="next" aria-label="Next">↓</button>
         <button type="button" data-go="child" ${f.children.length ? '' : 'disabled'} aria-label="Into first branch">BRANCH →</button>
       </div>`;
-    // description, S1 console style
-    const lvl = levelInfo(f.level);
-    detail.innerHTML = f.root
-      ? `<div class="sig-bar"><span>CONCEPT · ${escapeHtml(f.name.toUpperCase())}</span><span class="dim">${f.children.length} BRANCH${f.children.length === 1 ? '' : 'ES'}</span></div><p class="crt">&gt; every skill grows from here. pick a branch →</p>`
-      : `<div class="sig-bar"><span>${escapeHtml(f.name.toUpperCase())}</span><span class="dim">${f.corrupted ? 'CORRUPTED · ' : ''}LV${lvl.lvl} · ${Math.round(f.level)}/100</span></div>
+    detail.className = 'atree-detail' + (o.detailClass ? ' ' + o.detailClass(f) : '');
+    detail.innerHTML = o.detail(f);
+    if(o.wireDetail) o.wireDetail(detail, f);
+    host.querySelectorAll('.atree-node:not(.focus)[data-key]:not([data-key=""]), .atree-crumbs button').forEach(el => el.addEventListener('click', () => go(el.dataset.key)));
+    host.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => step(b.dataset.go)));
+    animate(move, pos);
+  }
+  function step(dir){
+    const f = N[focus];
+    if(dir === 'parent' && f.parent) go(f.parent);
+    else if(dir === 'child' && f.children.length) go(f.children[0]);
+    else if((dir === 'prev' || dir === 'next') && f.parent){
+      const sib = N[f.parent].children, i = sib.indexOf(focus);
+      go(sib[(i + (dir === 'next' ? 1 : -1) + sib.length) % sib.length]);
+    }
+  }
+  function go(key){
+    if(!N[key] || key === focus) return;
+    const old = layout(focus);
+    // travel toward where the picked node was; an ancestor picked from the
+    // crumbs travels back toward "where it's filed"
+    let at = old[key];
+    if(!at){ let w = N[focus]; while(w && w.key !== key) w = w.parent ? N[w.parent] : null; at = (w && old[N[focus].parent]) || { x: CX + 200, y: CY, r: 18 }; old[key] = { x: at.x, y: at.y, r: at.r }; }
+    focus = key;
+    if(o.onFocus) o.onFocus(key);
+    draw({ old, vec: { x: at.x - CX, y: at.y - CY } });
+  }
+  function animate(move, pos){
+    if(atreeLoop){ atreeLoop.forEach(t => t.kill()); atreeLoop = null; }
+    if(busy){ busy.kill(); busy = null; }
+    const svg = host.querySelector('svg');
+    const clearGhosts = () => { const g = svg.querySelector('.atree-ghosts'); if(g) g.innerHTML = ''; };
+    const loops = () => {
+      if(!HAS_GSAP || REDUCED_MOTION) return;
+      atreeLoop = [
+        gsap.to(svg.querySelector('.atree-orbit'), { rotation: 360, svgOrigin: '0 0', duration: 6, ease: 'none', repeat: -1 }),
+        gsap.fromTo(svg.querySelector('.atree-halo'), { attr: { 'stroke-opacity': 0.5 }, scale: 0.92, svgOrigin: '0 0' }, { attr: { 'stroke-opacity': 0 }, scale: 1.25, duration: 2.2, ease: 'sine.out', repeat: -1 }),
+        gsap.to(svg.querySelector('.atree-stars'), { x: '-=12', duration: 14, ease: 'sine.inOut', repeat: -1, yoyo: true }),
+        gsap.to(svg.querySelectorAll('.atree-link'), { strokeDashoffset: -40, duration: 2.4, ease: 'none', repeat: -1 })
+      ];
+    };
+    if(!HAS_GSAP || REDUCED_MOTION){ clearGhosts(); return; }
+    if(!move){
+      if(o.intro){ gsap.fromTo(svg.querySelectorAll('.atree-node'), { opacity: 0, scale: 0.7, svgOrigin: '0 0' }, { opacity: 1, scale: 1, duration: 0.5, ease: 'power3.out', stagger: 0.04 }); o.intro = false; }
+      loops(); return;
+    }
+    const { old, vec } = move, len = Math.hypot(vec.x, vec.y) || 1, ux = vec.x / len, uy = vec.y / len;
+    const tl = gsap.timeline({ onComplete: () => { clearGhosts(); loops(); } });
+    busy = tl;
+    tl.fromTo(svg.querySelector('.atree-stars'), { x: vec.x * 0.12, y: vec.y * 0.12 }, { x: 0, y: 0, duration: 0.9, ease: 'power2.out' }, 0);
+    svg.querySelectorAll('.atree-node[data-key]:not([data-key=""])').forEach(el => {
+      const k = el.dataset.key, p = pos[k], was = old[k];
+      if(was) tl.fromTo(el, { x: was.x - p.x, y: was.y - p.y, scale: (was.r || p.r) / p.r, svgOrigin: '0 0' }, { x: 0, y: 0, scale: 1, duration: 0.7, ease: 'power3.inOut' }, 0);
+      else tl.fromTo(el, { x: ux * 140, y: uy * 140, opacity: 0, scale: 0.6, svgOrigin: '0 0' }, { x: 0, y: 0, opacity: 1, scale: 1, duration: 0.55, ease: 'power3.out' }, 0.22);
+    });
+    svg.querySelectorAll('.atree-ghost .atree-node').forEach(el => tl.to(el, { x: -ux * 160, y: -uy * 160, opacity: 0, scale: 0.6, svgOrigin: '0 0', duration: 0.5, ease: 'power2.in' }, 0));
+    tl.fromTo(svg.querySelectorAll('.atree-link'), { opacity: 0 }, { opacity: (i, el) => el.classList.contains('sibling') ? 0.3 : 0.75, duration: 0.35 }, 0.5);
+    const pr = svg.querySelector('.focus .atree-prog'); if(pr) tl.fromTo(pr, { strokeDashoffset: 260 }, { strokeDashoffset: 0, duration: 0.9, ease: 'power2.out' }, 0.35);
+    tl.fromTo(detail.children, { opacity: 0, x: ux * 24, y: uy * 12 }, { opacity: 1, x: 0, y: 0, duration: 0.4, stagger: 0.05 }, 0.3);
+  }
+  host.addEventListener('keydown', (e) => {
+    const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+    if(!d) return;
+    e.preventDefault();
+    const pos = layout(focus); let best = null, score = -Infinity;
+    Object.entries(pos).forEach(([k, p]) => {
+      if(k === focus) return;
+      const dx = p.x - CX, dy = p.y - CY, len = Math.hypot(dx, dy) || 1, dot = (dx * d[0] + dy * d[1]) / len;
+      if(dot > 0.35 && dot - len / 2000 > score){ score = dot - len / 2000; best = k; }
+    });
+    if(best) go(best);
+  });
+  draw();
+}
+// Knowledge tab: the character at the root, then Facts / Secrets they know /
+// Kept from them, each entry under its branch, and the other people who know a
+// secret under that secret (names that match a character open their dossier).
+const knowledgeFocus = {};   // charId -> focused node key
+function renderKnowledgeTree(char, snap, animate){
+  const host = document.getElementById('ktree'), detail = document.getElementById('ktreeDetail');
+  if(!host) return;
+  const kn = snap.knowledge || [], se = snap.secrets || [];
+  // the chapter each entry first appears in, from the character's versions in chapter order
+  const vs = char.snapshots.filter(s => Number.isInteger(s.startChapter)).sort((a, b) => a.startChapter - b.startChapter);
+  const firstCh = (test) => { const v = vs.find(test); return v ? v.startChapter : (Number.isInteger(snap.startChapter) ? snap.startChapter : null); };
+  const norm = t => String(t || '').trim().toLowerCase();
+  const me = norm(char.name);
+  const N = {};
+  const add = (key, nd) => { N[key] = Object.assign({ key, children: [], parent: null }, nd); if(nd.parent) N[nd.parent].children.push(key); };
+  const knows = se.filter(x => x.characterKnows), kept = se.filter(x => !x.characterKnows);
+  add('root', { name: char.name || 'Unnamed', kind: 'root', root: true, fill: 1 });
+  if(kn.length) add('facts', { name: 'Facts', kind: 'hub', parent: 'root', fill: 1, count: kn.length });
+  if(knows.length) add('secrets', { name: 'Secrets known', kind: 'hubsec', parent: 'root', fill: knows.length / se.length, count: knows.length });
+  if(kept.length) add('kept', { name: 'Kept from ' + (char.name || 'them'), kind: 'hubhid', parent: 'root', fill: 0, count: kept.length });
+  kn.forEach((t, i) => add('f' + i, { name: String(t).replace(/^(knows|knew)\s+(about|that|of)\s+/i, '').replace(/\.$/, ''), text: t, kind: 'fact', parent: 'facts', fill: 1,
+    ch: firstCh(v => (v.knowledge || []).some(x => norm(x) === norm(t))) }));
+  se.forEach((x, i) => {
+    const key = 's' + i;
+    const people = String(x.knownBy || '').split(/\s*(?:,|;|&|\band\b)\s*/i).map(p => p.trim()).filter(p => p && norm(p) !== me);
+    add(key, { name: x.text || 'Untitled secret', text: x.text || '', kind: x.characterKnows ? 'sec' : 'hid', parent: x.characterKnows ? 'secrets' : 'kept', people,
+      fill: x.characterKnows ? 1 : 0, ch: firstCh(v => (v.secrets || []).some(y => norm(y.text) === norm(x.text))) });
+    people.forEach((p, j) => { const c = state.characters.find(cc => norm(cc.name) === norm(p)); add(key + 'p' + j, { name: p, kind: 'person', parent: key, fill: 1, charId: c ? c.id : null }); });
+  });
+  const isHidden = nd => nd.kind === 'hid';
+  const color = nd => ({ hubsec: 'var(--verdigris)', sec: 'var(--verdigris)', person: 'var(--verdigris)', hubhid: 'var(--ember)', hid: 'var(--ember)' }[nd.kind] || 'var(--amber)');
+  const cls = nd => ({ hubsec: 'k-sec k-hub', sec: 'k-sec', person: 'k-person', hubhid: 'k-hid k-hub', hid: 'k-hid', hub: 'k-hub' }[nd.kind] || '');
+  const who = char.name || 'They';
+  focusTree(host, detail, {
+    nodes: N, focus: N[knowledgeFocus[char.id]] ? knowledgeFocus[char.id] : (N.root.children[0] || 'root'), intro: !!animate,
+    onFocus: k => { knowledgeFocus[char.id] = k; },
+    color, cls, hidden: isHidden, progress: nd => nd.fill,
+    glyph: (nd, role) => role === 'focus' || role === 'child' ? ({ root: '◆', hub: String(nd.count).padStart(2, '0'), hubsec: String(nd.count).padStart(2, '0'), hubhid: String(nd.count).padStart(2, '0'), fact: '◎', sec: '■', hid: '▓', person: '◇' }[nd.kind] || '') : '',
+    detailClass: nd => nd.kind === 'sec' || nd.kind === 'hubsec' || nd.kind === 'person' ? 'k-sec' : (nd.kind === 'hid' || nd.kind === 'hubhid' ? 'k-hid' : ''),
+    detail: f => {
+      if(f.kind === 'root') return `<div class="sig-bar"><span>${escapeHtml(who.toUpperCase())} · WHAT THEY KNOW</span><span class="dim">${escapeHtml(snap.chapterRange || '')}</span></div><p class="crt">&gt; ${kn.length} fact${kn.length === 1 ? '' : 's'} · ${knows.length} secret${knows.length === 1 ? '' : 's'} known · ${kept.length} kept from ${escapeHtml(who)}. pick a branch →</p>`;
+      if(f.kind.startsWith('hub')) return `<div class="sig-bar"><span>${escapeHtml(f.name.toUpperCase())}</span><span class="dim">${f.count} ENTR${f.count === 1 ? 'Y' : 'IES'}</span></div><p class="crt">&gt; ${f.children.map(k => isHidden(N[k]) ? '▓▓▓▓▓▓' : escapeHtml(N[k].name)).join(' · ')}</p>`;
+      if(f.kind === 'person') return `<div class="sig-bar"><span>${escapeHtml(f.name.toUpperCase())}</span><span class="dim">ALSO KNOWS</span></div><p class="crt">&gt; ${isHidden(N[f.parent]) ? `a secret kept from ${escapeHtml(who)}` : '“' + escapeHtml(N[f.parent].name) + '”'}</p>${f.charId ? `<p><button type="button" class="slant-btn k-open" data-char="${escapeAttr(f.charId)}">Open ${escapeHtml(f.name)}'s dossier</button></p>` : ''}`;
+      const segs = f.kind === 'fact' ? '' : `<div class="k-segs" title="Who knows it">${[f.kind === 'sec' ? 'on' : 'off'].concat(f.people.map(() => f.kind === 'hid' ? 'hot' : 'on')).map(c => `<i class="${c}"></i>`).join('')}</div>`;
+      return `<div class="sig-bar"><span>${isHidden(f) ? '▓▓▓▓▓▓▓▓▓▓' : escapeHtml(f.name.toUpperCase())}${f.kind === 'fact' ? '' : `<span class="k-stamp${isHidden(f) ? ' hid' : ''}">${isHidden(f) ? 'HIDDEN' : 'KNOWN'}</span>`}</span><span class="dim">${f.kind === 'fact' ? 'FACT' : 'SECRET'}${f.ch != null ? ' · SINCE CH ' + f.ch : ''}</span></div>
+        ${segs}
+        <p class="k-text">${isHidden(f) ? `<button type="button" class="k-redact" aria-label="Kept from ${escapeAttr(who)}: click to reveal">${escapeHtml(f.text)}</button>` : escapeHtml(f.text)}</p>
+        <p class="crt dim">&gt; filed under ${escapeHtml(N[f.parent].name.toLowerCase())}${f.kind === 'fact' ? '' : (f.people.length ? ` · also known by ${f.people.map(escapeHtml).join(', ')}` : ` · only ${escapeHtml(who)} knows`)}</p>`;
+    },
+    wireDetail: (box) => {
+      box.querySelectorAll('.k-redact').forEach(b => b.addEventListener('click', () => b.classList.toggle('open')));
+      box.querySelectorAll('.k-open').forEach(b => b.addEventListener('click', () => { if(findCharacterById(b.dataset.char)){ switchActiveCharacter(b.dataset.char); window.scrollTo({ top: 0, behavior: 'smooth' }); } }));
+    }
+  });
+}
+function renderAuthorityTree(char, snap, animate){
+  const host = document.getElementById('atree'), detail = document.getElementById('atreeDetail');
+  if(!host) return;
+  const nodes = buildSkillTree(char, snap);
+  const corrColor = char.corruptionColor || DEFAULT_CORRUPTION_COLOR;
+  focusTree(host, detail, {
+    nodes, focus: nodes[skillFocus[char.id]] ? skillFocus[char.id] : (nodes.root.children[0] || 'root'), intro: !!animate,
+    onFocus: k => { skillFocus[char.id] = k; },
+    color: nd => nd.corrupted ? corrColor : 'var(--amber)',
+    progress: nd => Math.min(100, nd.level) / 100,
+    cls: nd => nd.corrupted ? 'corrupt' : '',
+    glyph: (nd, role) => role === 'focus' ? (nd.root ? '◆' : 'LV' + levelInfo(nd.level).lvl) : '',
+    detail: f => {
+      if(f.root) return `<div class="sig-bar"><span>CONCEPT · ${escapeHtml(f.name.toUpperCase())}</span><span class="dim">${f.children.length} BRANCH${f.children.length === 1 ? '' : 'ES'}</span></div><p class="crt">&gt; every skill grows from here. pick a branch →</p>`;
+      const lvl = levelInfo(f.level);
+      return `<div class="sig-bar"><span>${escapeHtml(f.name.toUpperCase())}</span><span class="dim">${f.corrupted ? 'CORRUPTED · ' : ''}LV${lvl.lvl} · ${Math.round(f.level)}/100</span></div>
          <i class="seg${f.corrupted ? ' hot' : ''}" style="width:${Math.min(100, f.level)}%"></i>
          <p>${f.desc ? escapeHtml(f.desc) : '<span class="dim">No description yet.</span>'}</p>
          <p class="crt dim">&gt; branches from ${escapeHtml(nodes[f.parent].name)}${f.children.length ? ` · leads to ${f.children.map(k => escapeHtml(nodes[k].name)).join(', ')}` : ''}</p>`;
-    host.querySelectorAll('.atree-node:not(.focus), .atree-crumbs button').forEach(el => el.addEventListener('click', () => go(el.dataset.key)));
-    host.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => step(b.dataset.go)));
-    animateTree();
-  }
-  function step(dir){
-    const f = nodes[focus];
-    if(dir === 'parent' && f.parent) go(f.parent, 'left');
-    else if(dir === 'child' && f.children.length) go(f.children[0], 'right');
-    else if((dir === 'prev' || dir === 'next') && f.parent){
-      const sib = nodes[f.parent].children, i = sib.indexOf(focus);
-      go(sib[(i + (dir === 'next' ? 1 : -1) + sib.length) % sib.length], dir === 'next' ? 'down' : 'up');
     }
-  }
-  function go(key, from){
-    if(!nodes[key] || key === focus) return;
-    const prev = nodes[focus];
-    from = from || (nodes[key].parent === focus ? 'right' : (prev.parent === key ? 'left' : 'down'));
-    focus = key; skillFocus[char.id] = key; lastFrom = from; draw();
-  }
-  let lastFrom = animate ? 'fade' : null;
-  function animateTree(){
-    if(atreeLoop){ atreeLoop.forEach(t => t.kill()); atreeLoop = null; }
-    if(!HAS_GSAP || REDUCED_MOTION) return;
-    const svg = host.querySelector('svg');
-    const dx = { right: 120, left: -120 }[lastFrom] || 0, dy = { down: 60, up: -60 }[lastFrom] || 0;
-    if(lastFrom){
-      gsap.fromTo(svg.querySelectorAll('.atree-node'), { opacity: 0, x: (i, el) => (el.classList.contains('focus') ? dx : dx * 0.5), y: dy }, { opacity: 1, x: 0, y: 0, duration: 0.55, ease: 'power3.out', stagger: 0.03 });
-      gsap.fromTo(svg.querySelectorAll('.atree-link'), { strokeDashoffset: 260 }, { strokeDashoffset: 0, duration: 0.8, ease: 'power2.out' });
-      gsap.fromTo(svg.querySelector('.focus .atree-prog'), { strokeDashoffset: 260 }, { strokeDashoffset: 0, duration: 1, ease: 'power2.out' });
-      gsap.fromTo(detail.children, { opacity: 0, x: 16 }, { opacity: 1, x: 0, duration: 0.4, stagger: 0.05 });
-    }
-    atreeLoop = [
-      gsap.to(svg.querySelector('.atree-orbit'), { rotation: 360, svgOrigin: '0 0', duration: 6, ease: 'none', repeat: -1 }),
-      gsap.fromTo(svg.querySelector('.atree-halo'), { attr: { 'stroke-opacity': 0.5 }, scale: 0.92, svgOrigin: '0 0' }, { attr: { 'stroke-opacity': 0 }, scale: 1.25, duration: 2.2, ease: 'sine.out', repeat: -1 }),
-      gsap.to(svg.querySelector('.atree-stars'), { x: -14, duration: 14, ease: 'sine.inOut', repeat: -1, yoyo: true }),
-      gsap.to(svg.querySelectorAll('.atree-link'), { strokeDashoffset: -40, duration: 2.4, ease: 'none', repeat: -1 })
-    ];
-  }
-  host.addEventListener('keydown', (e) => {
-    const map = { ArrowLeft: 'parent', ArrowRight: 'child', ArrowUp: 'prev', ArrowDown: 'next' };
-    if(map[e.key]){ e.preventDefault(); step(map[e.key]); }
   });
-  draw();
 }
 
 // ============================================================
@@ -5372,7 +5478,7 @@ function restoreLeftPage(){
 
 
 </script>
-<script src="assets/epitaph-book.js?v=4"></script>
+<script src="assets/epitaph-book.js?v=5"></script>
 
 </body>
 </html>

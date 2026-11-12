@@ -119,6 +119,19 @@
         if (sx > 60 && sx < w - 60 && sy > 60 && sy < h - 60) return; // already in view
         t.x = w / 2 - x * t.k; t.y = h / 2 - y * t.k; apply();
       },
+      // Camera move: glide so (x, y) ends up in the middle. The view travels
+      // toward whatever was picked, so the board slides the opposite way.
+      glideTo(x, y) {
+        const w = host.clientWidth, h = host.clientHeight;
+        if (!w || !h) return;
+        touched = true;
+        const fx = t.x, fy = t.y, tx = w / 2 - x * t.k, ty = h / 2 - y * t.k;
+        cancelAnimationFrame(api._glide);
+        if (matchMedia('(prefers-reduced-motion: reduce)').matches) { t.x = tx; t.y = ty; apply(); return; }
+        const t0 = performance.now(), dur = 520, ease = q => q < .5 ? 4 * q * q * q : 1 - Math.pow(-2 * q + 2, 3) / 2;
+        const tick = (now) => { const q = Math.min(1, (now - t0) / dur), e = ease(q); t.x = fx + (tx - fx) * e; t.y = fy + (ty - fy) * e; apply(); if (q < 1) api._glide = requestAnimationFrame(tick); };
+        api._glide = requestAnimationFrame(tick);
+      },
       zoom(f) { touched = true; zoomAt(host.clientWidth / 2, host.clientHeight / 2, f); },
       apply
     };
@@ -251,7 +264,7 @@
     selItem = id;
     $('#bkContent').querySelectorAll('.bk-tile').forEach(b => b.classList.toggle('on', b.dataset.id === id));
     const tile = $(`.bk-tile[data-id="${CSS.escape(id)}"]`);
-    if (tile && viewport) viewport.centerOn(tile.offsetLeft + TILE_W / 2, tile.offsetTop + TILE_H / 2);
+    if (tile && viewport) viewport.glideTo(tile.offsetLeft + TILE_W / 2, tile.offsetTop + TILE_H / 2);
     renderItemPanel();
   }
 
@@ -556,6 +569,18 @@
       if (e.key === '-') viewport.zoom(0.83);
       if (e.key === '0') fitAll();
       if (e.key === 'Escape' && selSkill) selectSkill(tree.nodes.get(selSkill).parentKey || '');
+      // arrow keys follow the picture: the nearest skill in that direction
+      const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+      if (!d) return;
+      e.preventDefault();
+      const cur = tree.nodes.get(selSkill) || tree.root;
+      let best = null, score = -Infinity;
+      tree.nodes.forEach(n => {
+        if (n === cur) return;
+        const dx = n.x - cur.x, dy = n.y - cur.y, len = Math.hypot(dx, dy) || 1, dot = (dx * d[0] + dy * d[1]) / len;
+        if (dot > 0.5 && dot * 400 - len > score) { score = dot * 400 - len; best = n; }
+      });
+      if (best) selectSkill(best.key);
     });
     if (!tree.nodes.has(selSkill)) selSkill = '';
     drawSkills(true);
@@ -619,7 +644,7 @@
     selSkill = key || ''; selHolder = 0;
     drawSkills(false);
     const n = tree.nodes.get(selSkill);
-    if (n && viewport) viewport.centerOn(n.x, n.y);
+    if (n && viewport) viewport.glideTo(n.x, n.y);
     renderSkillPanel();
   }
 

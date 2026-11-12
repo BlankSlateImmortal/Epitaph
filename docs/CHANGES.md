@@ -197,3 +197,10 @@ Animated, front-view figures in the Spike style for Sils, Moinera, Universe and 
 - An uploaded portrait still wins. With no upload and a figure set, the hero shows it animated (`mountHeroFigure`); click it to play the ability once. Other spots (rail, ties) show a still frame (`figureStill`).
 - Abilities: Sils **Erase** (glitches out, vanishes, rebuilds from the feet up), Moinera **Shift dream** (cycles four dreams; the page's amber is re-tinted to each dream's colour while it plays, then restored), Universe **Unmake & remake** (planet explodes, debris orbits, he absorbs it and makes a new one), Antholonious **Rewrite** (the wheel of hands, Fate, spins and opens its palm eyes; pages circle him).
 - Reduced motion: no autoplay; a click still plays the ability once.
+
+## Knowledge tab tree, and moves that follow the picture
+
+- **Shared navigator** (`focusTree` in index.html) now drives both the Skills and Knowledge tabs. Every move is a camera move toward the node you picked: it slides into the middle from where it was, nodes that stay slide (and resize) to their new places, newcomers arrive from that side, nodes left behind slide off the other way, the starfield drifts the opposite way and the readout comes in from the same side. Arrow keys pick whatever sits in that direction.
+- **Knowledge tab**: the character at the root; branches Facts / Secrets known / Kept from them; each entry under its branch; other people who know a secret under the secret (from “known by”; a name that matches a character offers “Open … dossier”). Facts amber, known secrets teal, kept secrets red and blacked out (click to reveal in the readout). Readout shows “since CH n” (the first chapter version containing the entry) and who else knows. Gauge under the left column: secrets known / total.
+- **The book** (`opl`, `ops`): picking a tile or skill glides the board so it lands in the middle; in the skill tree the arrow keys pick the nearest skill in that direction.
+
