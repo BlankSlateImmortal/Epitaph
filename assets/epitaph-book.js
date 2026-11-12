@@ -89,6 +89,7 @@
     // a drag must not also count as a click on the tile it started on
     host.addEventListener('click', (e) => { if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; } }, true);
     host.addEventListener('wheel', (e) => {
+      if (e.target.closest('.bk-no-pan')) return;
       e.preventDefault(); touched = true;
       const p = local(e);
       zoomAt(p.x, p.y, Math.exp(-e.deltaY * 0.0015));
@@ -154,7 +155,6 @@
           ${kind === 'library' ? `<input type="search" id="bkFilter" class="bk-filter" placeholder="filter…" value="${attr(filter)}" aria-label="Filter items">
           <button type="button" class="slant-btn primary" id="bkNewItem">+ New item</button>` : ''}
           ${kind === 'library' ? `<label class="bk-skin"><span>Look</span><select id="bkLook" aria-label="Library look">${Object.keys(LIB_LOOKS).map(k => `<option value="${k}"${k === libLook ? ' selected' : ''}>${esc(LIB_LOOKS[k])}</option>`).join('')}</select></label>` : ''}
-          ${kind === 'skills' ? `<label class="bk-skin"><span>Look</span><select id="bkSkin" aria-label="Skill tree look">${Object.keys(SKINS).map(k => `<option value="${k}"${k === skin ? ' selected' : ''}>${esc(SKINS[k].label)}</option>`).join('')}</select></label>` : ''}
           <button type="button" class="slant-btn" id="bkFit" title="Fit everything in view">Fit</button>
           <button type="button" class="slant-btn" id="bkBack" title="Back to the storybook (or type back)">Back</button>
         </div>
@@ -168,7 +168,6 @@
     $('#bkBack').addEventListener('click', () => closeView(true));
     $('#bkFit').addEventListener('click', () => fitAll());
     if ($('#bkLook')) $('#bkLook').addEventListener('change', (e) => setLibLook(e.target.value));
-    if ($('#bkSkin')) $('#bkSkin').addEventListener('change', (e) => setSkin(e.target.value));
     $('#bkZoomIn').addEventListener('click', () => viewport && viewport.zoom(1.25));
     $('#bkZoomOut').addEventListener('click', () => viewport && viewport.zoom(0.8));
     if (viewport) viewport.stop();
@@ -182,7 +181,7 @@
     if (viewport) viewport.stop();
     mode = ''; viewport = null; itemEditor = null;
     const book = $('#theBook');
-    book.classList.remove('wide'); delete book.dataset.view; delete book.dataset.skin; delete book.dataset.look; cancelAnimationFrame(webAnim); webPos.clear();
+    book.classList.remove('wide'); delete book.dataset.view; delete book.dataset.look; cancelAnimationFrame(webAnim); webPos.clear();
     const left = $('.book-page.left-page');
     left.classList.remove('bk-left');
     $('#bookPanel').hidden = true; $('#bookPanel').innerHTML = '';
@@ -193,7 +192,6 @@
   // ==================================================================
   // LIBRARY
   // ==================================================================
-  const TILE_W = 132, TILE_H = 150, GAP = 26;
   function items() {
     const all = Lib ? Lib.get().items.slice() : [];
     all.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
@@ -222,11 +220,11 @@
   }
 
   // ------------------------------------------------------------------
-  // Library looks: Tiles (the original grid), Holder web (characters with
-  // their items around them, a chapter scrubber and an item log) and
-  // Relic vault (each item in a lit glass case). Remembered per browser.
+  // Library looks: Holder web (characters with their items around them, a
+  // chapter ruler and an item log) and Relic vault (each item in a lit glass
+  // case). Remembered per browser.
   // ------------------------------------------------------------------
-  const LIB_LOOKS = { tiles: 'Tiles', web: 'Holder web', vault: 'Relic vault' };
+  const LIB_LOOKS = { web: 'Holder web', vault: 'Relic vault' };
   const LIB_LOOK_KEY = 'epitaph-library-look';
   let libLook = 'web';
   try { const v = localStorage.getItem(LIB_LOOK_KEY); if (LIB_LOOKS[v]) libLook = v; } catch (e) { /* storage blocked: default look */ }
@@ -295,12 +293,16 @@
   }
 
   // ---- HOLDER WEB ----
+  // Characters are large medallions with their items around them (same
+  // medallions as the skill tree). A chapter ruler moves the story; items
+  // slide to their new holders, and ones that changed get a tag. The selected
+  // item shows its journey between holders as a dashed trail.
   const webPos = new Map();   // key -> {x, y} currently drawn
-  let webAnim = 0, webTargets = null;
+  let webAnim = 0;
   function webLayout(list, n) {
     const held = holdersAt(n);
     const hubs = state.characters.map(c => ({ c, snap: snapAt(c, n) })).filter(h => h.snap);
-    const HR = hubs.length < 2 ? 0 : Math.max(240, hubs.length * 95);
+    const HR = hubs.length < 2 ? 0 : Math.max(230, hubs.length * 80);
     hubs.forEach((h, i) => { const a = -Math.PI / 2 + i * 2 * Math.PI / hubs.length; h.x = Math.cos(a) * HR; h.y = Math.sin(a) * HR; h.a = a; });
     const hubOf = new Map(hubs.map(h => [h.c.id, h]));
     const solo = new Map(), shared = [], loose = [];
@@ -313,42 +315,64 @@
     const nodes = [];
     hubs.forEach(h => {
       const mine = solo.get(h.c.id) || [];
-      mine.forEach((m, i) => {
-        const ring = Math.floor(i / 8), inRing = Math.min(8, mine.length - ring * 8);
-        const a = (hubs.length < 2 ? -Math.PI / 2 : h.a) + (i % 8 - (inRing - 1) / 2) * (Math.PI * 1.6 / Math.max(inRing, 4));
-        const r = 120 + ring * 95;
-        nodes.push({ ...m, x: h.x + Math.cos(a) * r, y: h.y + Math.sin(a) * r });
-      });
+      h.count = mine.length + shared.filter(m => m.hs.some(x => x.c.id === h.c.id)).length;
+      // fan the items out on the side facing away from the centre, leaving
+      // the space under the medallion free for the character's name
+      const a0 = hubs.length < 2 ? -Math.PI / 2 : h.a;
+      const gap = (a) => Math.abs(Math.atan2(Math.sin(a - Math.PI / 2), Math.cos(a - Math.PI / 2))) < 0.9;
+      const off = (a) => Math.abs(Math.atan2(Math.sin(a - a0), Math.cos(a - a0)));
+      let i = 0;
+      for (let ring = 0; i < mine.length; ring++) {
+        const r = 125 + ring * 95, n = Math.max(6, Math.floor(2 * Math.PI * r / 92));
+        const slots = Array.from({ length: n }, (_, k) => a0 + k * 2 * Math.PI / n).filter(a => !gap(a)).sort((x, y) => off(x) - off(y));
+        slots.slice(0, mine.length - i).sort((x, y) => x - y).forEach(a => { const m = mine[i++]; nodes.push({ ...m, x: h.x + Math.cos(a) * r, y: h.y + Math.sin(a) * r }); });
+      }
     });
     shared.forEach((m, i) => {
       const x = m.hs.reduce((a, h) => a + hubOf.get(h.c.id).x, 0) / m.hs.length, y = m.hs.reduce((a, h) => a + hubOf.get(h.c.id).y, 0) / m.hs.length;
-      nodes.push({ ...m, x: x * 0.55 + (i % 3 - 1) * 70, y: y * 0.55 + Math.floor(i / 3) * 70 });
+      nodes.push({ ...m, x: x * 0.5 + (i % 3 - 1) * 110, y: y * 0.5 + Math.floor(i / 3) * 110 });
     });
-    // items nobody holds rest in an arc below the circle
-    const baseY = (HR || 0) + 340 + (hubs.length < 2 ? 40 : 0);
+    // items nobody holds rest in rows below the circle
+    const baseY = (HR || 0) + 290;
     const per = Math.max(6, Math.ceil(Math.sqrt(loose.length * 3)));
-    loose.forEach((it, i) => nodes.push({ it, hs: [], loose: true, x: (i % per - (Math.min(per, loose.length) - 1) / 2) * 110, y: baseY + Math.floor(i / per) * 110 }));
-    return { hubs, nodes, hubOf, looseY: loose.length ? baseY : null };
+    loose.forEach((it, i) => nodes.push({ it, hs: [], loose: true, x: (i % per - (Math.min(per, loose.length) - 1) / 2) * 120, y: baseY + Math.floor(i / per) * 115 }));
+    return { hubs, nodes, hubOf, HR, looseY: loose.length ? baseY : null };
+  }
+  const medalSvg = (r, extra) => { const R = r + 30; return `<svg class="bk-medal" viewBox="${-R} ${-R} ${R * 2} ${R * 2}" width="${R * 2}" height="${R * 2}" aria-hidden="true">${extra || ''}${medal(r)}</svg>`; };
+  const crestSvg = () => `<svg class="bk-crest-svg" viewBox="-32 -18 64 20" width="64" height="20" aria-hidden="true">${crest(0)}</svg>`;
+  function changeOf(itemId, n, prevN) {
+    if (prevN == null) return '';
+    const now = holdersAt(n).get(itemId) || [], before = holdersAt(prevN).get(itemId) || [];
+    if (!now.length) return '';
+    if (!before.length) return 'new';
+    const ids = a => a.map(h => h.c.id).sort().join(',');
+    if (ids(now) !== ids(before)) return 'moved';
+    const sts = a => a.map(h => h.c.id + ':' + (h.entry.stateId || '')).sort().join(',');
+    return sts(now) !== sts(before) ? 'state' : '';
   }
   function drawWeb(list, animate) {
     const chs = libChapters();
     if (libCh != null && !chs.includes(libCh)) libCh = null;
     const n = libCh == null ? (chs.length ? chs[chs.length - 1] : null) : libCh;
+    const prevN = n == null ? null : (chs[chs.indexOf(n) - 1] ?? null);
     const L = webLayout(list, n);
     const content = $('#bkContent');
-    // build / reuse elements so they can slide between chapters
-    const keep = new Set();
     let svg = $('#bkWebLines');
-    if (!svg) { content.innerHTML = '<svg id="bkWebLines" class="bk-web-lines"></svg>'; svg = $('#bkWebLines'); }
-    const ensure = (key, cls, html, x, y) => {
+    if (!svg) {
+      content.innerHTML = `<svg class="bk-web-defs" width="0" height="0" aria-hidden="true"><defs>${medalDefs()}<marker id="bkArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="bk-arrow"/></marker></defs></svg><svg id="bkWebLines" class="bk-web-lines"></svg>`;
+      svg = $('#bkWebLines');
+    }
+    const keep = new Set();
+    const ensure = (key, cls, html) => {
       keep.add(key);
       let el = content.querySelector(`[data-key="${CSS.escape(key)}"]`);
       if (!el) {
-        el = document.createElement(key.startsWith('i:') ? 'button' : 'div');
-        if (key.startsWith('i:')) el.type = 'button';
-        el.dataset.key = key; el.className = cls + ' enter'; content.appendChild(el);
-        if (!webPos.has(key)) webPos.set(key, { x, y });
-        el.addEventListener('animationend', () => el.classList.remove('enter'), { once: true });
+        const isItem = key.startsWith('i:');
+        el = document.createElement(isItem ? 'button' : 'div');
+        if (isItem) el.type = 'button';
+        el.dataset.key = key; content.appendChild(el);
+        el.className = cls + ' enter';
+        el.addEventListener('animationend', (e) => { if (e.target === el) el.classList.remove('enter'); });
       } else el.className = cls;
       el.innerHTML = html;
       return el;
@@ -357,34 +381,50 @@
     L.hubs.forEach(h => {
       const s = h.snap, pic = [s.portrait, s.systemPortrait].find(isImg);
       const gone = s.presence && s.presence !== 'alive';
-      ensure('c:' + h.c.id, 'bk-hub' + (gone ? ' gone' : ''), `<span class="bk-hub-pic">${pic ? `<img src="${attr(pic)}" alt="" draggable="false">` : `<b>${esc((h.c.name || '?').charAt(0).toUpperCase())}</b>`}</span>
-        <span class="bk-hub-name">${esc(h.c.name || 'Unnamed')}</span>${gone ? `<span class="bk-hub-tag">${s.presence === 'dead' ? '† DEAD' : '? MISSING'}</span>` : ''}`, h.x, h.y);
+      ensure('c:' + h.c.id, 'bk-hub' + (gone ? ' gone' : ''), `<span class="bk-hub-medal">${medalSvg(46)}<span class="bk-hub-face">${pic ? `<img src="${attr(pic)}" alt="" draggable="false">` : `<b>${esc(initial(h.c.name))}</b>`}</span></span>
+        ${crestSvg()}<span class="bk-hub-name">${esc(h.c.name || 'Unnamed')}</span>
+        <span class="bk-hub-sub">${gone ? (s.presence === 'dead' ? '† dead · ' : '? missing · ') : ''}${h.count} item${h.count === 1 ? '' : 's'}</span>`);
       targets.set('c:' + h.c.id, { x: h.x, y: h.y });
     });
     L.nodes.forEach(nd => {
       const it = nd.it, stId = nd.hs[0] && nd.hs[0].entry.stateId, st = Lib.stateOf(it, stId);
-      const kinds = itemMarkKinds(it, stId), pic = itemPic(it, stId);
-      const el = ensure('i:' + it.id, `bk-wn ${markClass(kinds)}${it.id === selItem ? ' on' : ''}${nd.loose ? ' loose' : ''}`,
-        `<span class="bk-wn-pic">${pic ? `<img src="${attr(pic)}" alt="" draggable="false">` : `<b>${itemInitial(it)}</b>`}</span>
-        <span class="bk-wn-name">${esc(it.name || 'Untitled')}</span>${st ? `<span class="bk-wn-state">${esc(st.name)}</span>` : ''}`, nd.x, nd.y);
+      const kinds = itemMarkKinds(it, stId), pic = itemPic(it, stId), mc = markClass(kinds);
+      const on = it.id === selItem, ch = changeOf(it.id, n, prevN);
+      const el = ensure('i:' + it.id, `bk-wn bk-node${mc ? ' ' + mc : ''}${mc === 'curse' ? ' corrupt' : ''}${on ? ' on' : ''}${nd.loose ? ' loose' : ''}${ch ? ' changed' : ''}`,
+        `${ch ? `<span class="bk-wn-tag ${ch}">${{ new: '+ NEW', moved: 'MOVED', state: 'STATE' }[ch]}</span>` : ''}
+        <span class="bk-wn-medal">${medalSvg(on ? 34 : 26, on ? `<circle class="bk-pulse" r="${34 + 16}"/>` : '')}<span class="bk-wn-face">${pic ? `<img src="${attr(pic)}" alt="" draggable="false">` : `<b>${itemInitial(it)}</b>`}</span></span>
+        <span class="bk-wn-name">${esc(it.name || 'Untitled')}</span>${st ? `<span class="bk-wn-state">${esc(st.name)}</span>` : ''}`);
       el.dataset.id = it.id; el.title = it.name || '';
+      if (!el._wired) { el._wired = true; el.addEventListener('click', () => selectItem(el.dataset.id)); }
       targets.set('i:' + it.id, { x: nd.x, y: nd.y });
     });
     content.querySelectorAll('[data-key]').forEach(el => { if (!keep.has(el.dataset.key)) { webPos.delete(el.dataset.key); el.remove(); } });
-    content.querySelectorAll('.bk-wn').forEach(b => { if (!b._wired) { b._wired = true; b.addEventListener('click', () => selectItem(b.dataset.id)); } });
-    // lines: holder -> item (gold when bound)
+    // lines: holder -> item (gold dashed when bound); selected item's journey
     const links = [];
     L.nodes.forEach(nd => nd.hs.forEach(h => links.push({ a: 'c:' + h.c.id, b: 'i:' + nd.it.id, bound: !!(h.entry.boundTo || '').trim(), on: nd.it.id === selItem })));
-    webTargets = { targets, links, looseY: L.looseY };
+    const trail = [];
+    if (selItem) {
+      let last = null;
+      chs.filter(c => n == null || c <= n).forEach(c => {
+        const hs = (holdersAt(c).get(selItem) || []).map(h => h.c.id).filter(id => L.hubOf.has(id));
+        const id = hs[0];
+        if (id && id !== last) { if (last) trail.push({ a: 'c:' + last, b: 'c:' + id, ch: c }); last = id; }
+      });
+    }
+    const R = (L.HR || 0) + 220;
+    const shield = (sz, rot) => { const pts = Array.from({ length: 6 }, (_, i) => { const a = Math.PI / 6 + i * Math.PI / 3; return `${(Math.cos(a) * sz).toFixed(0)},${(Math.sin(a) * sz * 1.1).toFixed(0)}`; }).join(' '); return `<polygon class="bk-shield" points="${pts}" transform="rotate(${rot})"/>`; };
+    const backdrop = `<circle r="${R}" fill="url(#bkHaze)"/>${shield(R * 0.62, 0)}`;
     const paint = (pos) => {
       content.querySelectorAll('[data-key]').forEach(el => { const p = pos.get(el.dataset.key); if (p) { el.style.left = p.x + 'px'; el.style.top = p.y + 'px'; el.dataset.cx = p.x; el.dataset.cy = p.y; } });
-      svg.innerHTML = links.map(l => { const a = pos.get(l.a), b = pos.get(l.b); return a && b ? `<line class="bk-wl${l.bound ? ' bound' : ''}${l.on ? ' on' : ''}" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/>` : ''; }).join('')
-        + (L.looseY != null ? `<text class="bk-wl-label" x="0" y="${L.looseY - 70}">— NOT HELD AT ${esc(chNumLabel(n).toUpperCase())} —</text>` : '');
+      const ln = (l, cls) => { const a = pos.get(l.a), b = pos.get(l.b); return a && b ? `<line class="${cls}" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/>` : ''; };
+      const tr = (t) => { const a = pos.get(t.a), b = pos.get(t.b); if (!a || !b) return ''; const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, dx = b.x - a.x, dy = b.y - a.y, k = 0.25;
+        return `<path class="bk-trail" d="M${a.x},${a.y} Q${mx - dy * k},${my + dx * k} ${b.x},${b.y}" marker-end="url(#bkArrow)"/><text class="bk-trail-t" x="${mx - dy * k * 0.55}" y="${my + dx * k * 0.55}">CH ${t.ch}</text>`; };
+      svg.innerHTML = backdrop + links.map(l => ln(l, `bk-wl${l.bound ? ' bound' : ''}${l.on ? ' on' : ''}`)).join('') + trail.map(tr).join('')
+        + (L.looseY != null ? `<text class="bk-wl-label" x="0" y="${L.looseY - 90}">— NOT HELD AT ${esc(chNumLabel(n).toUpperCase())} —</text>` : '');
     };
     cancelAnimationFrame(webAnim);
     const from = new Map([...targets.keys()].map(k => [k, webPos.get(k) || targets.get(k)]));
-    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (!animate || reduce) { targets.forEach((p, k) => webPos.set(k, { ...p })); paint(webPos); }
+    if (!animate || matchMedia('(prefers-reduced-motion: reduce)').matches) { targets.forEach((p, k) => webPos.set(k, { ...p })); paint(webPos); }
     else {
       const t0 = performance.now(), dur = 650, ease = q => q < .5 ? 4 * q * q * q : 1 - Math.pow(-2 * q + 2, 3) / 2;
       const tick = (now) => {
@@ -395,38 +435,60 @@
       };
       webAnim = requestAnimationFrame(tick);
     }
-    drawScrub(chs, n);
+    drawTuner(chs, n);
     drawItemLog(chs, n);
-    const pts = [...targets.values()];
+    // frame every chapter at once, so scrubbing never needs a refit
+    const pts = [];
+    (chs.length ? chs : [null]).forEach(c => { const l = webLayout(list, c); l.hubs.forEach(h => pts.push(h)); l.nodes.forEach(p => pts.push(p)); });
     if (!pts.length) return { x: -200, y: -150, w: 400, h: 300 };
     const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
-    const x0 = Math.min(...xs) - 120, y0 = Math.min(...ys) - 190; // room for the chapter slider
-    return { x: x0, y: y0, w: Math.max(...xs) + 120 - x0, h: Math.max(...ys) + 100 - y0 };
+    const x0 = Math.min(...xs) - 100, y0 = Math.min(...ys) - 170; // room for the chapter ruler
+    return { x: x0, y: y0, w: Math.max(...xs) + 100 - x0, h: Math.max(...ys) + 70 - y0 };
   }
-  function drawScrub(chs, n) {
+  // Chapter ruler, like the Inventory tuner: stops on a scale under a fixed
+  // needle. Click a chapter, swipe or scroll the ruler, or use the arrow keys.
+  function drawTuner(chs, n) {
     const box = $('#bkSandbox'); if (!box) return;
     let el = $('#bkScrub');
     if (!chs.length) { if (el) el.remove(); return; }
-    if (!el) {
-      el = document.createElement('div'); el.id = 'bkScrub'; el.className = 'bk-scrub bk-no-pan'; box.appendChild(el);
-      el.innerHTML = `<button type="button" class="bk-scrub-step" data-d="-1" aria-label="Previous chapter">‹</button>
-        <div class="bk-scrub-mid"><output class="bk-scrub-label"></output><input type="range" min="0" step="1" aria-label="Chapter"><div class="bk-scrub-ticks"></div></div>
-        <button type="button" class="bk-scrub-step" data-d="1" aria-label="Next chapter">›</button>`;
-      const range = el.querySelector('input');
-      range.addEventListener('input', () => { libCh = libChapters()[+range.value]; redrawWeb(); });
-      el.querySelectorAll('.bk-scrub-step').forEach(b => b.addEventListener('click', () => {
-        const all = libChapters(), i = Math.max(0, all.indexOf(libCh == null ? all[all.length - 1] : libCh));
-        const j = Math.min(all.length - 1, Math.max(0, i + +b.dataset.d)); if (j !== i) { libCh = all[j]; redrawWeb(); }
-      }));
+    const sig = chs.join(',');
+    if (!el || el.dataset.sig !== sig) {
+      if (el) el.remove();
+      el = document.createElement('div'); el.id = 'bkScrub'; el.className = 'bk-tuner bk-no-pan'; el.dataset.sig = sig; box.appendChild(el);
+      el.innerHTML = `<div class="bk-tuner-scale" role="listbox" aria-label="Chapter" tabindex="0">${chs.map(c => {
+        const t = typeof chapterByNumber === 'function' && chapterByNumber(c);
+        return `<button type="button" role="option" class="bk-tuner-st" data-ch="${c}" tabindex="-1"><b>CH ${c}</b>${t && t.title ? `<small>${esc(t.title)}</small>` : ''}</button>`;
+      }).join('')}</div><span class="bk-tuner-needle" aria-hidden="true"></span>`;
+      const scale = el.querySelector('.bk-tuner-scale');
+      const pick = c => { if (c === (libCh == null ? libChapters().slice(-1)[0] : libCh)) return; libCh = c; redrawWeb(); };
+      scale.querySelectorAll('[data-ch]').forEach(b => b.addEventListener('click', () => centreStop(scale, b, true)));
+      let settle = null;
+      scale.addEventListener('scroll', () => {
+        clearTimeout(settle);
+        settle = setTimeout(() => {
+          const mid = scale.scrollLeft + scale.clientWidth / 2;
+          let best = null, dist = Infinity;
+          scale.querySelectorAll('[data-ch]').forEach(b => { const d = Math.abs(b.offsetLeft + b.offsetWidth / 2 - mid); if (d < dist) { dist = d; best = b; } });
+          if (best) pick(+best.dataset.ch);
+        }, 140);
+      }, { passive: true });
+      scale.addEventListener('wheel', (e) => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); scale.scrollLeft += e.deltaY; } }, { passive: false });
+      scale.addEventListener('keydown', (e) => {
+        const k = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+        if (!k) return;
+        e.preventDefault(); e.stopPropagation();
+        const list = [...scale.querySelectorAll('[data-ch]')], i = list.findIndex(b => b.classList.contains('on'));
+        const next = list[Math.min(list.length - 1, Math.max(0, i + k))];
+        if (next) centreStop(scale, next, true);
+      });
     }
-    const i = Math.max(0, chs.indexOf(n));
-    const range = el.querySelector('input');
-    range.max = chs.length - 1; range.value = i; range.disabled = chs.length < 2;
-    el.querySelector('.bk-scrub-label').textContent = chNumLabel(n);
-    el.querySelector('.bk-scrub-ticks').innerHTML = chs.map(c => `<i class="${c === n ? 'on' : ''}">${c}</i>`).join('');
-    el.querySelectorAll('.bk-scrub-step').forEach(b => { b.disabled = (+b.dataset.d < 0 ? i === 0 : i === chs.length - 1); });
+    const scale = el.querySelector('.bk-tuner-scale');
+    let on = null;
+    scale.querySelectorAll('[data-ch]').forEach(b => { const hit = +b.dataset.ch === n; b.classList.toggle('on', hit); b.setAttribute('aria-selected', hit); if (hit) on = b; });
+    if (on && !el._centred) { el._centred = true; requestAnimationFrame(() => centreStop(scale, on, false)); }
   }
-  function redrawWeb() { if (mode === 'library' && libLook === 'web') { lastBox = drawWeb(items(), true); } }
+  function centreStop(scale, b, smooth) { scale.scrollTo({ left: b.offsetLeft - (scale.clientWidth - b.offsetWidth) / 2, behavior: smooth ? 'smooth' : 'auto' }); }
+  function redrawWeb() { if (mode === 'library' && libLook === 'web') { drawWeb(items(), true); } }
   // what happened to items chapter by chapter: acquired / lost / state / bound
   function itemEvents(itemId, chs, upTo) {
     const out = [];
@@ -481,31 +543,14 @@
     if (mode !== 'library') return;
     const list = items();
     $('#theBook').dataset.look = libLook;
-    if (libLook !== 'tiles' && list.length) {
+    if (!list.length) {
+      clearLibExtras(); webPos.clear();
+      $('#bkContent').innerHTML = `<p class="bk-empty">${filter ? 'No items match that filter.' : 'The Library is empty. Use + New item.'}</p>`;
+      lastBox = { x: 0, y: 0, w: 360, h: 80 };
+    } else {
       if (libLook !== 'web') { clearLibExtras(); webPos.clear(); }
       lastBox = libLook === 'web' ? drawWeb(list, !refit) : drawVault(list);
-      if (refit) requestAnimationFrame(fitAll);
-      return;
     }
-    clearLibExtras(); webPos.clear();
-    gridCols = Math.max(1, Math.ceil(Math.sqrt(list.length * 1.6)));
-    const content = $('#bkContent');
-    content.innerHTML = list.length ? list.map((it, i) => {
-      const col = i % gridCols, row = Math.floor(i / gridCols);
-      const x = col * (TILE_W + GAP) + (row % 2 ? (TILE_W + GAP) / 2 : 0);
-      const y = row * (TILE_H + GAP * 0.6);
-      const pic = isImg(it.image) ? it.image : (isImg(it.icon) ? it.icon : '');
-      const kinds = [...new Set((it.marks || []).map(m => m.kind))];
-      return `<button type="button" class="bk-tile${it.id === selItem ? ' on' : ''}" data-id="${attr(it.id)}" data-cx="${x + TILE_W / 2}" data-cy="${y + TILE_H / 2}" style="left:${x}px;top:${y}px" title="${attr(it.name)}">
-        <span class="bk-tile-no">${pad2(i + 1)}</span>
-        <span class="bk-tile-pic">${pic ? `<img src="${attr(pic)}" alt="" draggable="false">` : `<b>${esc((it.name || '?').trim().charAt(0).toUpperCase() || '◈')}</b>`}</span>
-        <span class="bk-tile-name">${esc(it.name || 'Untitled')}</span>
-        ${kinds.length ? `<span class="bk-tile-marks">${kinds.map(k => `<i class="mk ${attr(k)}">${{ blessing: 'BLS', curse: 'CRS', binding: 'BND' }[k] || ''}</i>`).join('')}</span>` : ''}
-      </button>`;
-    }).join('') : `<p class="bk-empty">${filter ? 'No items match that filter.' : 'The Library is empty. Use + New item.'}</p>`;
-    content.querySelectorAll('.bk-tile').forEach(b => b.addEventListener('click', () => selectItem(b.dataset.id)));
-    const rows = Math.ceil(list.length / gridCols);
-    lastBox = { x: 0, y: 0, w: gridCols * (TILE_W + GAP) + (rows > 1 ? (TILE_W + GAP) / 2 : 0), h: rows * (TILE_H + GAP * 0.6) };
     if (refit) requestAnimationFrame(fitAll);
   }
 
@@ -826,7 +871,6 @@
     tree = buildSkillTree();
     const count = tree.nodes.size - 1;
     shell('skills', 'Skill Tree', '技能樹', count);
-    $('#theBook').dataset.skin = skin;
     $('#bkSandbox').addEventListener('keydown', (e) => {
       if (e.key === '+' || e.key === '=') viewport.zoom(1.2);
       if (e.key === '-') viewport.zoom(0.83);
@@ -852,29 +896,18 @@
     return `Opening the skill tree… ${count} skill${count === 1 ? '' : 's'} from ${chars.size} character${chars.size === 1 ? '' : 's'} (each at their current chapter).`;
   }
 
-  // Drawn like an RPG skill screen (ref: Webdesign/shield hero.jpg): silver
-  // medallions with notched double rings, gothic names over a small crest,
-  // straight links, the selected skill enlarged and glowing in the middle.
-  // Looks (A–E). Colours live in epitaph-book.css under [data-skin]; the
-  // gradients and the badge shape are drawn here. Remembered per browser.
-  const SKINS = {
-    teal:  { label: 'A · Silver & teal', face: ['#2b2f2c', '#060707'], on: ['#4fe0b8', '#16735e', '#041a15'], bad: ['#ff7a55', '#7a2414', '#1a0604'], haze: '#3fbf9a' },
-    amber: { label: 'B · Amber relic',   face: ['#2d2414', '#090603'], on: ['#ffd27a', '#a8650f', '#1c0f02'], bad: ['#ff7a55', '#7a2414', '#1a0604'], haze: '#ffb238' },
-    blood: { label: 'C · Blood seal',    face: ['#2a2120', '#070404'], on: ['#ff7a55', '#8a1d10', '#1a0403'], bad: ['#c9a2ff', '#4b2a8a', '#0e0618'], haze: '#d4452b' },
-    hex:   { label: 'D · Hex crests',    face: ['#2d2414', '#090603'], on: ['#ffd27a', '#a8650f', '#1c0f02'], bad: ['#ff7a55', '#7a2414', '#1a0604'], haze: '#ffb238', hex: true },
-    crt:   { label: 'E · CRT terminal',  face: ['#1c1408', '#090603'], on: ['#ffd27a', '#a8650f', '#1c0f02'], bad: ['#ff7a55', '#7a2414', '#1a0604'], haze: '#ffb238', plain: true }
-  };
-  const SKIN_KEY = 'epitaph-skill-skin';
-  let skin = 'teal';
-  try { const v = localStorage.getItem(SKIN_KEY); if (SKINS[v]) skin = v; } catch (e) { /* storage blocked: default look */ }
-  function setSkin(v) {
-    if (!SKINS[v]) return;
-    skin = v;
-    try { localStorage.setItem(SKIN_KEY, v); } catch (e) { /* not remembered, still applied */ }
-    if (mode === 'skills') { $('#theBook').dataset.skin = skin; drawSkills(false); }
+  // Drawn like an RPG skill screen (ref: Webdesign/shield hero.jpg) in the
+  // "amber relic" look: gold medallions with notched double rings, gothic
+  // names over a small crest, straight links, the selected skill enlarged and
+  // glowing. The Library's Holder web reuses medal(), crest() and medalDefs().
+  const ring = (cls, r) => `<circle class="${cls}" r="${r}"/>`;
+  function medalDefs() {
+    const st = (c) => c.map((x, i) => `<stop offset="${[0, .55, 1][c.length === 2 ? i * 2 : i]}" stop-color="${x}"/>`).join('');
+    return `<radialGradient id="bkFace" cx=".5" cy=".38" r=".7">${st(['#2d2414', '#090603'])}</radialGradient>
+        <radialGradient id="bkFaceOn" cx=".5" cy=".42" r=".65">${st(['#ffd27a', '#a8650f', '#1c0f02'])}</radialGradient>
+        <radialGradient id="bkFaceBad" cx=".5" cy=".42" r=".65">${st(['#ff7a55', '#7a2414', '#1a0604'])}</radialGradient>
+        <radialGradient id="bkHaze"><stop offset="0" stop-color="#ffb238" stop-opacity=".16"/><stop offset=".6" stop-color="#ffb238" stop-opacity=".04"/><stop offset="1" stop-color="#ffb238" stop-opacity="0"/></radialGradient>`;
   }
-  const hexPts = (r) => Array.from({ length: 6 }, (_, i) => { const a = -Math.PI / 2 + i * Math.PI / 3; return `${(Math.cos(a) * r).toFixed(1)},${(Math.sin(a) * r * 1.08).toFixed(1)}`; }).join(' ');
-  const ring = (cls, r) => SKINS[skin].hex ? `<polygon class="${cls}" points="${hexPts(r)}"/>` : `<circle class="${cls}" r="${r}"/>`;
   const initial = s => (String(s || '?').trim().match(/[\p{L}\p{N}]/u) || ['?'])[0].toUpperCase();
   function medal(r) {
     const o = r + 7;
@@ -883,11 +916,9 @@
       const p = (d, w) => `${(c * d + px * w).toFixed(1)},${(s * d + py * w).toFixed(1)}`;
       return `M${p(o - 3, 0)} L${p(o + 3, -3.2)} L${p(o + 9, 0)} L${p(o + 3, 3.2)}Z`;
     }).join(' ');
-    const sk = SKINS[skin];
-    if (sk.plain) return `${ring('bk-m-outer', o - 2)}${ring('bk-m-face', r)}`;
-    return `${ring('bk-m-outer', o)}${sk.hex ? '' : `<path class="bk-m-spike" d="${spikes}"/>`}${ring('bk-m-face', r)}${ring('bk-m-inner', r - 4)}`;
+    return `${ring('bk-m-outer', o)}<path class="bk-m-spike" d="${spikes}"/>${ring('bk-m-face', r)}${ring('bk-m-inner', r - 4)}`;
   }
-  const crest = (y) => SKINS[skin].plain ? '' : `<path class="bk-crest" transform="translate(0 ${y})" d="M-26,0 Q-15,-1 -8,-5 L-4,-4 L0,-11 L4,-4 L8,-5 Q15,-1 26,0 M-8,-5 Q0,0 8,-5 M-19,-1 Q-24,-6 -29,-4 M19,-1 Q24,-6 29,-4"/><circle class="bk-crest-dot" cx="0" cy="${y - 14}" r="1.6"/>`;
+  const crest = (y) => `<path class="bk-crest" transform="translate(0 ${y})" d="M-26,0 Q-15,-1 -8,-5 L-4,-4 L0,-11 L4,-4 L8,-5 Q15,-1 26,0 M-8,-5 Q0,0 8,-5 M-19,-1 Q-24,-6 -29,-4 M19,-1 Q24,-6 29,-4"/><circle class="bk-crest-dot" cx="0" cy="${y - 14}" r="1.6"/>`;
 
   function drawSkills(refit) {
     const all = [...tree.nodes.values()];
@@ -907,7 +938,7 @@
         return `<g class="bk-node root${on ? ' on' : ''}" data-key="" tabindex="0" role="button" aria-label="Centre">
           ${on ? ring('bk-pulse', r + 16) : ''}${medal(r)}
           <text class="bk-root-t" y="2">${esc('始')}</text>
-          ${crest(-r - 40)}<text class="bk-n-label" y="${-r - 18}">${SKINS[skin].plain ? 'EPITAPH' : 'Epitaph'}</text></g>`;
+          ${crest(-r - 40)}<text class="bk-n-label" y="${-r - 18}">Epitaph</text></g>`;
       }
       const lvl = Math.round(n.holders.reduce((a, h) => a + (+h.skill.level || 0), 0) / Math.max(1, n.holders.length));
       const corrupt = n.holders.some(h => h.skill.corrupted);
@@ -921,7 +952,7 @@
         ${n.holders.length > 1 ? `<g transform="translate(${(r * 0.8).toFixed(1)} ${(r * 0.8).toFixed(1)})"><circle class="bk-n-badge" r="9"/><text class="bk-n-count" y="4">${n.holders.length}</text></g>` : ''}
         ${crest(-r - (on ? 72 : 36))}
         ${on ? `<text class="bk-n-form" y="${-r - 48}">- Lv ${lvl} -</text>` : ''}
-        <text class="bk-n-label" y="${-r - 16}">${esc(SKINS[skin].plain ? n.name.toUpperCase() : n.name)}</text>
+        <text class="bk-n-label" y="${-r - 16}">${esc(n.name)}</text>
         <text class="bk-n-sub" y="${r + 24}">${esc(n.holders.map(h => h.name).join(' · '))}</text>
       </g>`;
     };
@@ -929,11 +960,7 @@
     const order = all.filter(n => n.depth).concat(tree.root).sort((a, b) => (a.key === selSkill) - (b.key === selSkill));
     const svg = `<svg class="bk-tree" viewBox="${-R} ${-R} ${R * 2} ${R * 2}" width="${R * 2}" height="${R * 2}" style="left:${-R}px;top:${-R}px">
       <defs>
-        ${(() => { const k = SKINS[skin], st = (c) => c.map((x, i) => `<stop offset="${[0, .55, 1][c.length === 2 ? i * 2 : i]}" stop-color="${x}"/>`).join('');
-          return `<radialGradient id="bkFace" cx=".5" cy=".38" r=".7">${st(k.face)}</radialGradient>
-        <radialGradient id="bkFaceOn" cx=".5" cy=".42" r=".65">${st(k.on)}</radialGradient>
-        <radialGradient id="bkFaceBad" cx=".5" cy=".42" r=".65">${st(k.bad)}</radialGradient>
-        <radialGradient id="bkHaze"><stop offset="0" stop-color="${k.haze}" stop-opacity=".16"/><stop offset=".6" stop-color="${k.haze}" stop-opacity=".04"/><stop offset="1" stop-color="${k.haze}" stop-opacity="0"/></radialGradient>`; })()}
+        ${medalDefs()}
       </defs>
       <circle r="${R}" fill="url(#bkHaze)"/>
       ${backdrop}
