@@ -1,36 +1,21 @@
-/* Epitaph — "New" presentations for three codex tabs, each adding one new
+/* Epitaph — presentations for two codex tabs, each adding one new
  * dimension on top of the tabs before it:
  *
- *   ties       -> Bond strips: one tall vertical strip per tie (poster style),
- *                 with what the other person calls them back at the foot and
- *                 the bond's arc down the selected strip.
- *   arc        -> Heading HUD over strata: a heading tape of archetypes with a
- *                 needle and the "heading toward" marker, above stacked
- *                 contour layers (one per chapter) that the path climbs.
- *   knowledge  -> System windows: facts, known secrets and secrets kept from
- *                 them as overlapping windows; kept ones are redacted, reveals
- *                 pop a dialog. Windows can be dragged and raised.
+ *   ties  -> Bond strips: one tall vertical strip per tie (poster style),
+ *            with what the other person calls them back at the foot and the
+ *            bond's arc down the selected strip.
+ *   arc   -> Heading HUD over strata: a heading tape of archetypes with a
+ *            needle and the "heading toward" marker, above stacked contour
+ *            layers (one per chapter) that the path climbs.
  *
  * Loaded before index.html's main script runs its first render; every
  * function here is called later and uses index.html's globals (state,
  * escapeHtml, escapeAttr, getActiveSnapshot, findCharacterById, ...).
- * A per-tab Classic / New switch is remembered per browser.
  */
 (function () {
   'use strict';
   const esc = s => escapeHtml(s == null ? '' : String(s));
   const attr = s => escapeAttr(s == null ? '' : String(s));
-  const KEY = 'epitaph-codex-look';
-  let looks = {};
-  try { looks = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { looks = {}; }
-  const lookOf = tab => looks[tab] === 'classic' ? 'classic' : 'new';
-  function setLook(tab, v) {
-    looks[tab] = v;
-    try { localStorage.setItem(KEY, JSON.stringify(looks)); } catch (e) { /* not remembered */ }
-  }
-  const switchHtml = tab => `<div class="cx-look" role="group" aria-label="Presentation">
-    <button type="button" data-cx-look="new" class="${lookOf(tab) === 'new' ? 'on' : ''}" aria-pressed="${lookOf(tab) === 'new'}">New</button>
-    <button type="button" data-cx-look="classic" class="${lookOf(tab) === 'classic' ? 'on' : ''}" aria-pressed="${lookOf(tab) === 'classic'}">Classic</button></div>`;
   const byChapter = c => (c.snapshots || []).map((s, i) => ({ s, i }))
     .sort((a, b) => (Number.isInteger(a.s.startChapter) ? a.s.startChapter : Infinity) - (Number.isInteger(b.s.startChapter) ? b.s.startChapter : Infinity) || a.i - b.i)
     .map(x => x.s);
@@ -86,18 +71,27 @@
       </button>`;
     }).join('')}</div>`;
   }
-  function wireTies(page, char, snap, rerender) {
+  function wireTies(page, char) {
     const box = page.querySelector('.cx-strips'); if (!box) return;
     const strips = [...box.querySelectorAll('.cx-strip')];
-    const pick = (b) => { if (b.classList.contains('on')) return; tieFocus[char.id] = b.dataset.tie; rerender(); const nb = document.querySelector(`.cx-strip[data-tie="${CSS.escape(b.dataset.tie)}"]`); if (nb) nb.focus({ preventScroll: true }); };
-    strips.forEach(b => b.addEventListener('click', (e) => { if (e.target.closest('.cx-open')) return; pick(b); }));
+    // change the selection in place, so widths and text glide instead of the
+    // whole page being rebuilt
+    const pick = (b, focus) => {
+      if (!b.classList.contains('on')) {
+        tieFocus[char.id] = b.dataset.tie;
+        strips.forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-selected', on); });
+      }
+      if (focus) b.focus({ preventScroll: true });
+      if (matchMedia('(max-width: 899px)').matches) setTimeout(() => b.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 380);
+    };
+    strips.forEach(b => b.addEventListener('click', (e) => { if (e.target.closest('.cx-open')) return; pick(b, false); }));
     box.addEventListener('keydown', (e) => {
       const k = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
       if (!k) return;
       e.preventDefault();
       const i = strips.findIndex(b => b.classList.contains('on'));
       const nb = strips[Math.min(strips.length - 1, Math.max(0, i + k))];
-      if (nb) pick(nb);
+      if (nb) pick(nb, true);
     });
   }
 
@@ -171,89 +165,15 @@
   }
 
   // ================================================================
-  // KNOWLEDGE — system windows
-  // ================================================================
-  const dismissed = new Set();
-  function secretHistory(char, snap, text) {
-    // first chapter they knew it, and when each name started knowing it
-    const out = { revealed: null, learned: [] };
-    const seen = new Set();
-    let knewBefore = null, first = true;
-    for (const s of byChapter(char)) {
-      const x = (s.secrets || []).find(y => (y.text || '').trim().toLowerCase() === text.trim().toLowerCase());
-      if (x) {
-        if (knewBefore === false && x.characterKnows && !out.revealed) out.revealed = chOf(s);
-        knewBefore = !!x.characterKnows;
-        // names already there when the secret first appears are not "learned"
-        String(x.knownBy || '').split(/\s*(?:,|;|&|\band\b)\s*/i).map(p => p.trim()).filter(Boolean).forEach(p => {
-          const k = p.toLowerCase();
-          if (!seen.has(k)) { if (!first) out.learned.push({ who: p, ch: chOf(s) }); seen.add(k); }
-        });
-        first = false;
-      }
-      if (s.id === snap.id) break;
-    }
-    return out;
-  }
-  function knowledgeHtml(char, snap) {
-    const kn = snap.knowledge || [], se = snap.secrets || [];
-    if (!kn.length && !se.length) return `<div class="sys-empty">Nothing known yet. Add facts and secrets with “Edit knowledge”.</div>`;
-    const known = se.filter(x => x.characterKnows), kept = se.filter(x => !x.characterKnows);
-    const me = (char.name || 'them').toUpperCase().replace(/\s+/g, '_');
-    const who = (x) => String(x.knownBy || '').split(/\s*(?:,|;|&|\band\b)\s*/i).map(p => p.trim()).filter(Boolean);
-    const chip = (p) => { const c = state.characters.find(z => (z.name || '').toLowerCase() === p.toLowerCase()); return `<span class="cx-who${c ? ' file' : ''}" title="${attr(p)}">${c ? portraitOf(c) : ''}<i>${esc(p)}</i></span>`; };
-    const win = (id, title, body, cls) => `<section class="cx-win ${cls || ''}" data-win="${id}" tabindex="-1"><header class="cx-win-bar"><span class="cx-win-box" aria-hidden="true"></span><h4>${esc(title)}</h4><span class="cx-win-lines" aria-hidden="true"></span></header><div class="cx-win-body">${body}</div></section>`;
-    const facts = win('facts', 'FACTS.TXT', kn.length ? kn.map(t => `<p>&gt; ${esc(t)}</p>`).join('') : '<p class="dim">&gt; empty</p>', 'w-facts');
-    const secrets = win('known', 'SECRETS · KNOWN', known.length ? known.map(x => { const h = secretHistory(char, snap, x.text || ''); return `<div class="cx-sec"><p>${esc(x.text || 'Untitled secret')}</p>
-      <div class="cx-sec-meta">${h.revealed ? `<span class="cx-tag rev">REVEALED · ${esc(h.revealed)}</span>` : ''}${h.learned.map(l => `<span class="cx-tag">${esc(l.who.toUpperCase())} LEARNED · ${esc(l.ch)}</span>`).join('')}</div>
-      ${who(x).length ? `<div class="cx-whos"><small>ALSO KNOWN BY</small>${who(x).map(chip).join('')}</div>` : ''}</div>`; }).join('') : '<p class="dim">&gt; none</p>', 'w-known');
-    const keptWin = win('kept', `KEPT_FROM_${me}`, kept.length ? kept.map((x, i) => `<button type="button" class="cx-redact" aria-label="Kept secret ${i + 1}, hover or focus to read"><span class="cx-redact-bar" aria-hidden="true"></span><span class="cx-redact-text">${esc(x.text || 'Untitled secret')}</span></button>
-      ${who(x).length ? `<div class="cx-whos"><small>KNOWN BY</small>${who(x).map(chip).join('')}</div>` : ''}`).join('') : '<p class="dim">&gt; nothing is kept from them</p>', 'w-kept');
-    // a reveal in this chapter version pops a dialog
-    const prev = typeof previousSnapshot === 'function' ? previousSnapshot(char, snap) : null;
-    const fresh = prev ? known.filter(x => (prev.secrets || []).some(y => (y.text || '').trim().toLowerCase() === (x.text || '').trim().toLowerCase() && !y.characterKnows)) : [];
-    const dkey = snap.id + ':' + fresh.map(x => x.text).join('|');
-    const dialog = fresh.length && !dismissed.has(dkey) ? `<section class="cx-win cx-alert" data-win="alert" data-dkey="${attr(dkey)}" role="alertdialog" aria-label="Secret revealed"><div class="cx-win-body"><span class="cx-alert-ico" aria-hidden="true">!</span><div><p><b>Secret revealed · ${esc(chOf(snap))}</b></p>${fresh.map(x => `<p>${esc(x.text)}</p>`).join('')}<button type="button" class="cx-alert-ok">Acknowledge</button></div></div></section>` : '';
-    const task = `<footer class="cx-task"><span>▣ ${esc(chOf(snap))}</span><span>${kn.length} FACT${kn.length === 1 ? '' : 'S'}</span><span>${known.length}/${se.length} SECRETS KNOWN</span><span class="cx-task-r">${kept.length ? kept.length + ' REDACTED' : 'NOTHING HIDDEN'}</span></footer>`;
-    return `<div class="cx-desk">${facts}${secrets}${keptWin}${dialog}${task}</div>`;
-  }
-  function wireKnowledge(page) {
-    const desk = page.querySelector('.cx-desk'); if (!desk) return;
-    let z = 5;
-    desk.querySelectorAll('.cx-win').forEach(w => {
-      w.addEventListener('pointerdown', () => { w.style.zIndex = ++z; });
-      const bar = w.querySelector('.cx-win-bar');
-      if (!bar || !matchMedia('(min-width: 900px)').matches) return;
-      bar.addEventListener('pointerdown', (e) => {
-        if (e.button !== 0) return;
-        const sx = e.clientX, sy = e.clientY, ox = parseFloat(w.dataset.dx || 0), oy = parseFloat(w.dataset.dy || 0);
-        bar.setPointerCapture(e.pointerId);
-        const move = (ev) => { const dx = ox + ev.clientX - sx, dy = oy + ev.clientY - sy; w.dataset.dx = dx; w.dataset.dy = dy; w.style.translate = `${dx}px ${dy}px`; };
-        const up = () => { bar.removeEventListener('pointermove', move); bar.removeEventListener('pointerup', up); };
-        bar.addEventListener('pointermove', move); bar.addEventListener('pointerup', up);
-      });
-    });
-    const ok = desk.querySelector('.cx-alert-ok');
-    if (ok) ok.addEventListener('click', () => { const a = ok.closest('.cx-alert'); dismissed.add(a.dataset.dkey); a.remove(); });
-  }
-
-  // ================================================================
   window.EpitaphCodexViews = {
-    has: tab => tab === 'ties' || tab === 'arc' || tab === 'knowledge',
-    look: lookOf,
-    switchHtml,
-    // returns the right-hand html for the "new" look
+    has: tab => tab === 'ties' || tab === 'arc',
+    // the right-hand column for this tab
     html(tab, char, snap, chg) {
-      if (tab === 'ties') return `<div class="codex-right cx-right">${tiesHtml(char, snap, chg)}</div>`;
-      if (tab === 'arc') return `<div class="codex-right cx-right">${arcHtml(char, snap)}</div>`;
-      return `<div class="codex-right cx-right">${knowledgeHtml(char, snap)}</div>`;
+      return `<div class="codex-right cx-right">${tab === 'ties' ? tiesHtml(char, snap, chg) : arcHtml(char, snap)}</div>`;
     },
-    wire(tab, page, char, snap, rerender) {
-      page.querySelectorAll('[data-cx-look]').forEach(b => b.addEventListener('click', () => { if (lookOf(tab) === b.dataset.cxLook) return; setLook(tab, b.dataset.cxLook); rerender(); }));
-      if (lookOf(tab) !== 'new') return;
-      if (tab === 'ties') wireTies(page, char, snap, rerender);
+    wire(tab, page, char, snap) {
+      if (tab === 'ties') wireTies(page, char);
       if (tab === 'arc') wireArc(page);
-      if (tab === 'knowledge') wireKnowledge(page);
     }
   };
 })();
