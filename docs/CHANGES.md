@@ -188,3 +188,12 @@ The selected item shows on a bevelled CRT monitor (`itemMonitorHtml` in index.ht
 
 Update: the slot grid is gone. Items are picked with a **tuner** in the monitor's top line (names on a ruler under a fixed needle: click a name, swipe/scroll, or arrow keys). The left column shows the character's **chapter timeline**: each chapter's gained / lost / state changes, and a box with the selected item's state in that chapter ("not carried" otherwise). Long histories show seven chapters around the current one. On narrow screens the monitor comes first and the timeline under it.
 
+
+## Full-body figures
+
+Animated, front-view figures in the Spike style for Sils, Moinera, Universe and Antholonious (`assets/epitaph-figures2d.js`). Each is a 2D skeleton drawn as SVG, then printed as **halftone** or **pixel**. It plays an idle loop and one ability.
+
+- Per chapter: `snap.figure2d = { char, style: 'halftone'|'pixel', seed, v }` or `null`. It carries into new chapters. Picked in Edit profile under the generated portrait ("Full-body figure"). Nothing is assigned automatically; a character named like one of the four gets a hint.
+- An uploaded portrait still wins. With no upload and a figure set, the hero shows it animated (`mountHeroFigure`); click it to play the ability once. Other spots (rail, ties) show a still frame (`figureStill`).
+- Abilities: Sils **Erase** (glitches out, vanishes, rebuilds from the feet up), Moinera **Shift dream** (cycles four dreams; the page's amber is re-tinted to each dream's colour while it plays, then restored), Universe **Unmake & remake** (planet explodes, debris orbits, he absorbs it and makes a new one), Antholonious **Rewrite** (the wheel of hands, Fate, spins and opens its palm eyes; pages circle him).
+- Reduced motion: no autoplay; a click still plays the ability once.

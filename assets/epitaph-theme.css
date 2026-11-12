@@ -123,6 +123,7 @@ input, select, textarea{ accent-color:var(--amber); }
 .sig-portrait{ position:absolute; left:50%; top:44%; width:min(58%, 360px); transform:translate(-50%,-50%); z-index:2; display:flex; justify-content:center; }
 .sig-portrait img{ display:block; width:100%; max-height:420px; object-fit:contain; filter:drop-shadow(0 24px 40px rgba(0,0,0,.7)) drop-shadow(0 0 22px rgba(255,178,56,.12)); }
 .sig-portrait img.gen-portrait{ image-rendering:auto; }
+.sig-portrait canvas.fig2d-stage{ display:block; width:100%; max-height:440px; aspect-ratio:2/3; object-fit:contain; cursor:pointer; filter:drop-shadow(0 0 1.2px rgba(241,230,207,.75)) drop-shadow(0 0 1.2px rgba(241,230,207,.45)) drop-shadow(0 24px 40px rgba(0,0,0,.7)) drop-shadow(0 0 22px rgba(255,178,56,.14)); }
 .sig-portrait .reposition-btn{ position:absolute; right:-6px; bottom:6px; opacity:0; }
 .sig-portrait:hover .reposition-btn{ opacity:1; }
 .sig-name-block{ position:absolute; left:22px; right:22px; bottom:18px; z-index:3; }

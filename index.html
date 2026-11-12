@@ -1093,10 +1093,11 @@
   }
   .gen-loc-cascade select:focus{ outline:none; border-color: var(--dust); }
 </style>
-<link rel="stylesheet" href="assets/epitaph-theme.css?v=16">
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=17">
 <link rel="stylesheet" href="assets/epitaph-book.css?v=3">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="assets/portrait-gen.js?v=8"></script>
+<script src="assets/epitaph-figures2d.js?v=1"></script>
 <script src="assets/epitaph-muses.js?v=7"></script>
 <script src="assets/archetypes.js?v=1"></script>
 <script src="assets/epitaph-world.js?v=2"></script>
@@ -1268,6 +1269,15 @@ const SILHOUETTE_SVG = `data:image/svg+xml;utf8,${encodeURIComponent(`
 </svg>
 `)}`;
 
+function normalizeFigure2d(fg){
+  if(!fg || typeof fg !== 'object' || typeof fg.char !== 'string' || !fg.char) return null;
+  return { char: fg.char, style: fg.style === 'pixel' ? 'pixel' : 'halftone', seed: typeof fg.seed === 'string' ? fg.seed : '',
+    v: fg.v && typeof fg.v === 'object' && !Array.isArray(fg.v) ? { ...fg.v } : {} };
+}
+function figure2dOf(snap){
+  const fg = snap && snap.figure2d;
+  return fg && window.EpitaphFigures && EpitaphFigures.CHARACTERS[fg.char] ? fg : null;
+}
 function migrateCharacter(c){
   let result = c;
   if(!result.snapshots){
@@ -1338,6 +1348,8 @@ function migrateCharacter(c){
     portraitFigure: typeof s.portraitFigure === 'string' ? s.portraitFigure : '',
     portraitStyle: typeof s.portraitStyle === 'string' ? s.portraitStyle : '',
     portraitSeed: typeof s.portraitSeed === 'string' ? s.portraitSeed : '',
+    // full-body animated figure (EpitaphFigures), per chapter; null = use the portrait above
+    figure2d: normalizeFigure2d(s.figure2d),
     copiedFrom: typeof s.copiedFrom === 'string' ? s.copiedFrom : '',
     // canon chapters are read-only until reopened
     locked: !!s.locked,
@@ -1998,7 +2010,7 @@ function defaultSnapExtras(){
     portraitPosition: { x: 50, y: 50 }, systemPortrait: '', systemPortraitPosition: { x: 50, y: 50 },
     archetype: '', location: null, objective: '', relationships: [], knowledge: [], secrets: [],
     condition: [], marks: [], notes: '', headingToward: '',
-    portraitFigure: '', portraitStyle: '', portraitSeed: '',
+    portraitFigure: '', portraitStyle: '', portraitSeed: '', figure2d: null,
     startChapter: null, presence: 'alive', archetypeReason: ''
   };
 }
@@ -2813,6 +2825,44 @@ function genSourceFor(char, snap){
 function genOptsFor(char, extra){
   return window.EpitaphPortrait ? EpitaphPortrait.forCharacter(genSourceFor(char), extra) : null;
 }
+// A still of a full-body figure, cached as a data URL (used outside the hero).
+const figureStillCache = new Map();
+function figureStill(fg, cut){
+  const key = JSON.stringify([fg, cut]);
+  if(!figureStillCache.has(key)) figureStillCache.set(key, EpitaphFigures.frame({ ...fg, t: 0.15, scale: 1, background: cut ? false : undefined }).then(cv => cv.toDataURL()));
+  return figureStillCache.get(key);
+}
+// The hero's animated figure: idle on a loop; click to play the ability once.
+// Moinera's ability also re-tints the page to the colour of her current dream.
+let heroFigure = null;
+const THEME_TINT_KEYS = ['--amber', '--amber-hi'];
+function tintPage(col){
+  const root = document.documentElement.style;
+  THEME_TINT_KEYS.forEach(k => col ? root.setProperty(k, col) : root.removeProperty(k));
+}
+function mountHeroFigure(char, snap){
+  if(heroFigure){ heroFigure.player.pause(); heroFigure = null; tintPage(''); }
+  const fg = figure2dOf(snap);
+  const cv = posterWrap.querySelector('canvas.fig2d-stage');
+  if(!fg || !cv) return;
+  const ch = EpitaphFigures.CHARACTERS[fg.char];
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const opts = { ...fg, anim: 'idle', background: false, scale: innerWidth < 640 ? 1 : 1.5, fps: 11 };
+  const player = new EpitaphFigures.Player(cv, opts);
+  const hf = heroFigure = { player, anim: 'idle' };
+  opts.onFrame = (t) => {
+    if(heroFigure !== hf) return;
+    if(hf.anim === 'ability' && ch.accentAt) tintPage(EpitaphFigures.accentAt({ ...fg, anim: 'ability', t }));
+    if(hf.anim === 'ability' && t === 0){ hf.anim = 'idle'; tintPage(''); player.set({ anim: 'idle' }); if(reduce) player.pause(); }
+  };
+  player.set(opts).then(() => { if(!reduce && heroFigure === hf) player.play(); });
+  cv.title = `Click: ${ch.anims.ability}`;
+  cv.addEventListener('click', () => {
+    if(heroFigure !== hf || hf.anim === 'ability') return;
+    hf.anim = 'ability'; player.i = 0;
+    player.set({ anim: 'ability' }).then(() => { if(heroFigure === hf) player.play(); });
+  });
+}
 // Fills every <img data-gen-char="id"> with that character's generated portrait.
 function hydrateGenPortraits(root){
   if(!window.EpitaphPortrait) return;
@@ -2820,6 +2870,11 @@ function hydrateGenPortraits(root){
     const c = state.characters.find(x => x.id === img.dataset.genChar);
     if(!c) return;
     const extra = img.dataset.genBg === 'off' ? { background: false } : {};
+    const fg = figure2dOf(getActiveSnapshot(c));
+    if(fg){
+      figureStill(fg, extra.background === false).then(url => { if(img.isConnected) img.src = url; }).catch(() => {});
+      return;
+    }
     EpitaphPortrait.render(genOptsFor(c, extra)).then(url => { if(img.isConnected) img.src = url; }).catch(() => {});
   });
 }
@@ -2936,6 +2991,8 @@ function renderPoster(){
   const total = state.characters.length;
   const portraitHtml = snap.portrait
     ? `<img src="${snap.portrait}" alt="${escapeHtml(char.name)}" style="object-position:${pPos.x}% ${pPos.y}%;">`
+    : figure2dOf(snap)
+    ? `<canvas class="fig2d-stage" role="img" aria-label="Animated figure of ${escapeAttr(char.name || 'this character')}"></canvas>`
     : `<img class="gen-portrait" src="${SILHOUETTE_SVG}" data-gen-char="${escapeAttr(char.id)}" data-gen-bg="off" alt="Generated portrait of ${escapeAttr(char.name || 'this character')}">`;
   const titles = (snap.titles || []).slice().sort((a, b) => (b.rankTier || 0) - (a.rankTier || 0));
   const topTitle = titles[0] ? titles[0].name : (snap.blurb || '');
@@ -3042,6 +3099,7 @@ function renderPoster(){
     });
   }
   hydrateGenPortraits(posterWrap);
+  mountHeroFigure(char, snap);
   playHeroIntro(char);
 }
 
@@ -3207,6 +3265,7 @@ function openCharacterForm(existingChar){
       <label>Generated portrait — used whenever no image is uploaded</label>
       <div class="gen-preview">
         <img id="genPrev" alt="Generated portrait preview" src="${SILHOUETTE_SVG}">
+        <div class="gen-rows" style="display:flex;flex-direction:column;gap:10px;min-width:0">
         <div class="gen-row">
           <select id="fFigure" aria-label="Figure">
             <option value="">Figure: auto</option>
@@ -3217,6 +3276,17 @@ function openCharacterForm(existingChar){
             ${(window.EpitaphPortrait ? EpitaphPortrait.STYLES : []).map(a => `<option value="${a}" ${existingSnapFor(existingChar).portraitStyle === a ? 'selected' : ''}>${a}</option>`).join('')}
           </select>
           <button type="button" class="btn ghost" id="genReroll">↻ Reroll</button>
+        </div>
+        <div class="gen-row">
+          <select id="fFig2d" aria-label="Full-body figure">
+            <option value="">Full-body figure: none</option>
+            ${(window.EpitaphFigures ? Object.values(EpitaphFigures.CHARACTERS) : []).map(f => `<option value="${f.id}" ${(existingSnapFor(existingChar).figure2d || {}).char === f.id ? 'selected' : ''}>${escapeHtml(f.name)}</option>`).join('')}
+          </select>
+          <select id="fFig2dStyle" aria-label="Figure style">
+            ${['halftone', 'pixel'].map(a => `<option value="${a}" ${(existingSnapFor(existingChar).figure2d || {}).style === a ? 'selected' : ''}>${a}</option>`).join('')}
+          </select>
+        </div>
+        <small class="fig2d-hint" id="fig2dHint" style="color:var(--dust)"></small>
         </div>
       </div>
     </div>
@@ -3290,6 +3360,18 @@ function wireCharacterExtras(existingChar){
   const prev = document.getElementById('genPrev');
   const refresh = () => {
     if(!window.EpitaphPortrait || !prev || !prev.isConnected) return; // form closed before the debounce fired
+    const figSel = document.getElementById('fFig2d'), hint = document.getElementById('fig2dHint');
+    const nameNow = document.getElementById('fName').value.trim().toLowerCase();
+    if(hint && window.EpitaphFigures){
+      const match = Object.values(EpitaphFigures.CHARACTERS).find(f => f.name.toLowerCase() === nameNow);
+      hint.textContent = match && figSel && figSel.value !== match.id ? `Tip: ${match.name} has a full-body figure. Pick it above to use it.` : '';
+    }
+    if(figSel && figSel.value && window.EpitaphFigures){
+      const old = existingSnapFor(existingChar).figure2d || {};
+      EpitaphFigures.frame({ char: figSel.value, style: document.getElementById('fFig2dStyle').value, seed: old.char === figSel.value ? old.seed : '', v: old.char === figSel.value ? old.v : {}, t: 0.15, scale: 1, background: false })
+        .then(cv => { prev.src = cv.toDataURL(); }).catch(() => {});
+      return;
+    }
     const draft = genSourceFor({
       ...(existingChar || {}),
       name: document.getElementById('fName').value.trim() || 'Unnamed',
@@ -3299,7 +3381,7 @@ function wireCharacterExtras(existingChar){
     EpitaphPortrait.render(EpitaphPortrait.forCharacter(draft)).then(u => { prev.src = u; }).catch(() => {});
   };
   let t;
-  ['fName', 'fFaction', 'fFigure', 'fStyle', 'fPrimordial'].forEach(id => {
+  ['fName', 'fFaction', 'fFigure', 'fStyle', 'fPrimordial', 'fFig2d', 'fFig2dStyle'].forEach(id => {
     const el = document.getElementById(id);
     if(el){ el.addEventListener('input', () => { clearTimeout(t); t = setTimeout(refresh, 200); }); el.addEventListener('change', () => { clearTimeout(t); t = setTimeout(refresh, 200); }); }
   });
@@ -3339,6 +3421,12 @@ function reviewCharacterSave(){
     museIds: [...document.querySelectorAll('#musePicker input:checked')].map(i => i.value),
     portraitFigure: (document.getElementById('fFigure') || {}).value || '',
     portraitStyle: (document.getElementById('fStyle') || {}).value || '',
+    figure2d: (() => {
+      const id = (document.getElementById('fFig2d') || {}).value || '';
+      if(!id) return null;
+      const old = existingSnapFor(existingChar).figure2d || {};
+      return normalizeFigure2d({ char: id, style: (document.getElementById('fFig2dStyle') || {}).value, seed: old.char === id ? old.seed : '', v: old.char === id ? old.v : {} });
+    })(),
     glyph: ((document.getElementById('fGlyph') || {}).value || '').trim()
   };
 
@@ -3352,10 +3440,10 @@ function reviewCharacterSave(){
       ? existingChar.snapshots.map(s => s.id === snapId && !isLocked(s)
           ? { ...s, chapterRange: fields.chapterRange, blurb: fields.blurb, backstory: fields.backstory, portrait: fields.portrait, archetype: fields.archetype,
               startChapter: Number.isInteger(s.startChapter) ? s.startChapter : parseStartChapter(fields.chapterRange),
-              portraitFigure: fields.portraitFigure, portraitStyle: fields.portraitStyle, portraitSeed: pendingPortraitSeed }
+              portraitFigure: fields.portraitFigure, portraitStyle: fields.portraitStyle, portraitSeed: pendingPortraitSeed, figure2d: fields.figure2d }
           : s)
       : [{ id: snapId, chapterRange: fields.chapterRange, blurb: fields.blurb, backstory: fields.backstory, portrait: fields.portrait, ...defaultSnapExtras(),
-           archetype: fields.archetype, startChapter: parseStartChapter(fields.chapterRange), portraitFigure: fields.portraitFigure, portraitStyle: fields.portraitStyle, portraitSeed: pendingPortraitSeed }]
+           archetype: fields.archetype, startChapter: parseStartChapter(fields.chapterRange), portraitFigure: fields.portraitFigure, portraitStyle: fields.portraitStyle, portraitSeed: pendingPortraitSeed, figure2d: fields.figure2d }]
   });
 
   if(isDivineChar(draftChar)) applyDivineLock(draftChar);
@@ -3467,7 +3555,8 @@ function carryForwardState(prev){
     headingToward: prev.headingToward || '',
     portraitFigure: prev.portraitFigure || '',
     portraitStyle: prev.portraitStyle || '',
-    portraitSeed: prev.portraitSeed || ''
+    portraitSeed: prev.portraitSeed || '',
+    figure2d: normalizeFigure2d(prev.figure2d)
   };
 }
 
