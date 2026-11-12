@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Epitaph — Atlas 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Noto+Serif+JP:wght@500;900&family=VT323&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=14">
+<style>
+  *{ box-sizing:border-box; }
+  [hidden]{ display:none !important; }
+  html,body{ margin:0; height:100%; overflow:hidden; background:var(--ink); color:var(--bone); font-family:var(--f-mono); }
+  html[data-theme="paper"] body{ background:#f6eddd; color:#141a2c; }
+  html[data-theme="paper"] body::after, html[data-theme="paper"] body::before{ display:none; }
+
+  .wrap{ position:fixed; inset:0; display:grid; grid-template-rows:auto 1fr auto; }
+  .stage-box{ position:relative; overflow:hidden;
+    background:radial-gradient(ellipse at 50% 40%, #1a1209 0%, var(--ink) 62%, var(--ink-deep) 100%); }
+  html[data-theme="paper"] .stage-box{ background:radial-gradient(ellipse at 50% 40%, #fbf5ea 0%, #f6eddd 60%, #ecdfc8 100%); }
+  #stage{ position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none; }
+  #labels{ position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+
+  /* top bar */
+  .top{ display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center; justify-content:space-between;
+    padding:calc(12px + env(safe-area-inset-top)) 18px 12px; border-bottom:1px solid var(--line); position:relative; z-index:3; }
+  html[data-theme="paper"] .top{ border-color:rgba(20,26,44,.15); }
+  .brand{ font-family:'Bebas Neue',sans-serif; letter-spacing:.12em; font-size:16px; color:var(--dust); white-space:nowrap; }
+  .brand span{ color:var(--amber); text-shadow:var(--phosphor-glow); }
+  html[data-theme="paper"] .brand span{ color:#c4561e; text-shadow:none; }
+  .nav{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .seg{ display:inline-flex; border:1px solid var(--line); }
+  .seg button{ font-family:'Bebas Neue',sans-serif; letter-spacing:.1em; font-size:14px; padding:6px 12px 5px;
+    background:transparent; color:var(--dust); border:0; cursor:pointer; }
+  .seg button + button{ border-left:1px solid var(--line); }
+  .seg button:hover{ color:var(--bone); }
+  .seg button.on{ background:var(--amber); color:var(--ink); }
+  .seg button small{ font-family:var(--f-mono); font-size:9px; opacity:.7; margin-right:5px; letter-spacing:0; }
+  html[data-theme="paper"] .seg{ border-color:rgba(20,26,44,.25); }
+  html[data-theme="paper"] .seg button{ color:#5b5444; }
+  html[data-theme="paper"] .seg button.on{ background:#141a2c; color:#f6eddd; }
+
+  /* labels on the map */
+  .map-label{ position:absolute; left:0; top:0; white-space:nowrap; font-family:'Bebas Neue',sans-serif; letter-spacing:.08em;
+    font-size:13px; line-height:1; padding:3px 6px 2px; background:var(--ink); color:var(--bone); border-left:3px solid var(--c);
+    transition:opacity .2s; will-change:transform; }
+  html[data-theme="paper"] .map-label{ background:#141a2c; color:#f6eddd; }
+
+  /* tooltip */
+  #tip{ position:absolute; z-index:4; pointer-events:none; max-width:240px; padding:8px 10px; font-size:11px; line-height:1.45;
+    background:rgba(8,6,3,.94); border:1px solid var(--amber-dim); color:var(--bone); }
+  #tip b{ display:block; font-family:'Bebas Neue',sans-serif; font-weight:400; font-size:17px; letter-spacing:.06em; color:var(--amber); }
+  #tip span{ display:block; color:var(--dust); }
+  #tip span.here{ color:var(--bone); }
+  html[data-theme="paper"] #tip{ background:#fffaf1; border-color:#141a2c; color:#141a2c; }
+  html[data-theme="paper"] #tip b{ color:#c4561e; } html[data-theme="paper"] #tip span{ color:#5b5444; }
+
+  /* legend */
+  #legend{ position:absolute; z-index:3; top:14px; right:14px; width:230px; background:rgba(8,6,3,.82); border:1px solid var(--line);
+    backdrop-filter:blur(4px); }
+  html[data-theme="paper"] #legend{ background:rgba(255,250,241,.9); border-color:rgba(20,26,44,.2); }
+  #legendToggle{ width:100%; display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:transparent; border:0;
+    color:var(--dust); font-family:'Bebas Neue',sans-serif; letter-spacing:.12em; font-size:14px; cursor:pointer; }
+  #legendToggle::after{ content:'–'; }
+  #legend:not(.open) #legendToggle::after{ content:'+'; }
+  #legend:not(.open) .legend-body{ display:none; }
+  .legend-body{ padding:0 10px 10px; }
+  #legendList{ list-style:none; margin:0; padding:0; display:grid; gap:2px; max-height:38vh; overflow:auto; }
+  #legendList button{ width:100%; display:grid; grid-template-columns:10px 1fr; column-gap:8px; text-align:left; padding:5px 4px;
+    background:transparent; border:0; color:inherit; cursor:pointer; font:inherit; }
+  #legendList button:hover:not(:disabled){ background:var(--amber-ghost); }
+  #legendList button:disabled{ opacity:.4; cursor:default; }
+  #legendList i{ width:10px; height:10px; margin-top:3px; grid-row:span 2; transform:rotate(45deg); }
+  #legendList b{ font-family:'Bebas Neue',sans-serif; font-weight:400; letter-spacing:.06em; font-size:15px; }
+  #legendList span{ font-size:10px; color:var(--dust); }
+  .keys{ margin-top:10px; padding-top:8px; border-top:1px solid var(--line); display:grid; grid-template-columns:1fr 1fr; gap:4px 8px; font-size:10px; color:var(--dust); }
+  .keys em{ font-style:normal; display:inline-block; width:8px; height:8px; margin-right:5px; vertical-align:0; }
+  #demoNote{ margin:8px 0 0; font-size:10px; line-height:1.4; color:var(--ember); }
+
+  /* chapter scrubber */
+  .bottom{ display:flex; align-items:center; gap:12px; padding:10px 18px calc(12px + env(safe-area-inset-bottom)); border-top:1px solid var(--line); position:relative; z-index:3; }
+  html[data-theme="paper"] .bottom{ border-color:rgba(20,26,44,.15); }
+  .bottom .lbl{ font-family:'Bebas Neue',sans-serif; letter-spacing:.12em; font-size:13px; color:var(--dust); white-space:nowrap; }
+  #chapterLabel{ font-family:'Bebas Neue',sans-serif; letter-spacing:.06em; font-size:20px; min-width:9ch; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:40vw; }
+  #chapterRange{ flex:1; accent-color:var(--amber); min-width:80px; }
+  .icon{ width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--line);
+    background:transparent; color:var(--dust); cursor:pointer; font-size:14px; flex:none; }
+  .icon:hover{ color:var(--bone); border-color:var(--dust); }
+  html[data-theme="paper"] .icon{ border-color:rgba(20,26,44,.25); color:#5b5444; }
+  .hint{ font-size:10px; color:var(--dust); white-space:nowrap; }
+
+  #boot{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-family:var(--f-crt); font-size:22px; color:var(--amber); }
+
+  @media (max-width: 720px){
+    .top{ padding-left:12px; padding-right:12px; }
+    .nav{ width:100%; gap:6px; }
+    .nav .seg:first-child{ flex:1 1 100%; } .nav .seg:first-child button{ flex:1; padding:7px 4px 6px; }
+    .nav .seg button{ font-size:13px; padding:5px 9px 4px; }
+    .nav .seg button small{ display:none; }
+    .slant-btn{ font-size:13px; padding:6px 10px 5px; }
+    #legend{ top:auto; bottom:10px; right:10px; left:10px; width:auto; }
+    #legendList{ max-height:26vh; }
+    .hint{ display:none; }
+    .bottom{ padding-left:12px; padding-right:12px; gap:8px; }
+    .bottom .lbl{ display:none; }
+    #chapterLabel{ font-size:17px; max-width:34vw; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">EPITAPH // ATLAS — <span>3D</span></div>
+    <nav class="nav">
+      <div class="seg" role="group" aria-label="Map style">
+        <button type="button" data-view="relief"><small>01</small>Relief</button>
+        <button type="button" data-view="globe"><small>02</small>Globe</button>
+        <button type="button" data-view="shattered"><small>03</small>Shattered</button>
+      </div>
+      <div class="seg" role="group" aria-label="Palette">
+        <button type="button" data-theme-btn="crt">Signal</button>
+        <button type="button" data-theme-btn="paper">Paper</button>
+      </div>
+      <a class="slant-btn" href="atlas.html">Atlas</a>
+      <a class="slant-btn" href="index.html">Dossier</a>
+    </nav>
+  </header>
+
+  <main class="stage-box">
+    <canvas id="stage" aria-label="3D map of Epitaph"></canvas>
+    <div id="labels"></div>
+    <div id="tip" hidden></div>
+    <aside id="legend" class="open">
+      <button type="button" id="legendToggle">Characters</button>
+      <div class="legend-body">
+        <ul id="legendList"></ul>
+        <p id="demoNote" hidden>Demo trail. Save a character with a location and chapter in the Dossier and they show up here.</p>
+        <div class="keys">
+          <span><em style="background:#f1e6cf"></em>City</span>
+          <span><em style="background:#e3b95c"></em>Fictional city</span>
+          <span><em style="background:#d4452b"></em>Demon site</span>
+          <span><em style="background:#6fb3a3"></em>Storyborn</span>
+          <span><em style="background:#9b8cff"></em>Voided</span>
+          <span><em style="background:#e09a32"></em>Your countries</span>
+        </div>
+      </div>
+    </aside>
+    <div id="boot">LOADING ATLAS…</div>
+  </main>
+
+  <footer class="bottom">
+    <span class="lbl">Chapter</span>
+    <button class="icon" type="button" id="prevCh" aria-label="Previous chapter">◀</button>
+    <span id="chapterLabel">—</span>
+    <input type="range" id="chapterRange" min="0" max="0" value="0" aria-label="Chapter">
+    <button class="icon" type="button" id="nextCh" aria-label="Next chapter">▶</button>
+    <span class="hint">drag to turn · scroll to zoom · click a marker</span>
+    <button class="icon" type="button" id="homeBtn" title="Reset view" aria-label="Reset view">⟲</button>
+  </footer>
+</div>
+
+<script src="assets/epitaph-world.js?v=2"></script>
+<script src="assets/epitaph-library.js?v=3"></script>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script type="module" src="assets/atlas3d/atlas3d.js?v=1"></script>
+</body>
+</html>
