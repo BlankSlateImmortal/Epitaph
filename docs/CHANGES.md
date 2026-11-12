@@ -216,3 +216,12 @@ A 3D version of the map, built in code with three.js (no model files). Opened fr
 - Coastlines: Natural Earth 1:110m (public domain) in `assets/atlas3d/geo.js`. Below 60°S the flat maps squeeze latitude so Antarctica is a strip.
 - Code: `assets/atlas3d/atlas3d.js`. three.js 0.170 is loaded from jsDelivr through the import map in `atlas-3d.html`.
 - Links: `atlas-3d.html?view=globe&theme=paper` opens a given style.
+
+## Temple of the Voided (`temple-voided.html`)
+
+A dark cathedral for the Temple of the Voided, built in code with three.js (no model files). Opened from the **Temple** button on Atlas 3D.
+
+- **Five variations**, switched at the top: **Hollow Nave** (the full cathedral: twin west towers, flying buttresses, transept with rose windows, crossing spire), **Needle** (one colossal west tower, tall narrow nave, no transept), **Sundered** (cut by a rift; the east half lifts off and drifts, glowing from inside), **Sunken** (half buried and leaning, spires snapped), **Inverted** (on a floating shard of ground, with its mirror image hanging beneath).
+- **Reroll** gives a new seed: bays, heights, spires, windows and transept change within the variation. The seed is in the link, e.g. `temple-voided.html?v=sundered&seed=671`.
+- **Signal** (near-black stone, violet glass with bloom) and **Paper** (ink-outlined slate on cream). **Save PNG** downloads the current view.
+- One builder in `assets/temple/temple.js` (`buildCathedral`); variations only change its parameters and how the result is placed. Same look as Atlas 3D: orthographic camera, inverted-hull ink outlines.
