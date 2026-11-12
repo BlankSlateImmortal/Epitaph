@@ -1094,7 +1094,8 @@
   .gen-loc-cascade select:focus{ outline:none; border-color: var(--dust); }
 </style>
 <link rel="stylesheet" href="assets/epitaph-theme.css?v=17">
-<link rel="stylesheet" href="assets/epitaph-book.css?v=3">
+<link rel="stylesheet" href="assets/epitaph-book.css?v=4">
+<link rel="stylesheet" href="assets/epitaph-codex-views.css?v=1">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="assets/portrait-gen.js?v=8"></script>
 <script src="assets/epitaph-figures2d.js?v=1"></script>
@@ -1105,6 +1106,7 @@
 <script src="assets/epitaph-marks.js?v=3"></script>
 <script src="assets/epitaph-states.js?v=1"></script>
 <script src="assets/epitaph-checks.js?v=2"></script>
+<script src="assets/epitaph-codex-views.js?v=1"></script>
 </head>
 <body>
 <svg class="grain" width="0" height="0">
@@ -2496,7 +2498,17 @@ function renderCodexPage(char, snap, animate){
     html = codexLeft(n, 'Knowledge', 'Known', `${kn.length} known · ${se.length} secret${se.length === 1 ? '' : 's'}`, 'mwOpenKnowledge', 'Edit knowledge', ch).replace(/<\/div>\s*$/, gauge + '</div>') +
       `<div class="codex-right">${kn.length || se.length ? `<div class="atree ktree" id="ktree" tabindex="0" aria-label="Knowledge tree. Arrow keys move between entries."></div><div class="atree-detail" id="ktreeDetail" aria-live="polite"></div>` : `<div class="sys-empty">Nothing known yet. Add facts and secrets with “Edit knowledge”.</div>`}</div>`;
   }
+  // Ties, Arc and Knowledge have a "New" presentation (assets/epitaph-codex-views.js)
+  const CV = window.EpitaphCodexViews && EpitaphCodexViews.has(sysTab) ? EpitaphCodexViews : null;
+  if(CV){
+    const cut = html.indexOf('<div class="codex-right');
+    let left = html.slice(0, cut), right = html.slice(cut);
+    left = left.replace(/<\/div>\s*$/, CV.switchHtml(sysTab) + '</div>');
+    if(CV.look(sysTab) === 'new') right = CV.html(sysTab, char, snap, chg);
+    html = left + right;
+  }
   page.innerHTML = html;
+  page.dataset.look = CV ? CV.look(sysTab) : '';
 
   const on = (id, fn) => { const el = document.getElementById(id); if(el) el.addEventListener('click', fn); };
   on('mwOpenStats', () => openStatsOnlyForm(char, snap));
@@ -2514,7 +2526,8 @@ function renderCodexPage(char, snap, animate){
   wireItemTuner(page, char, snap);
   hydrateGenPortraits(page);
   if(sysTab === 'skills' && snap.skills.length) renderAuthorityTree(char, snap, animate);
-  if(sysTab === 'knowledge' && ((snap.knowledge || []).length || (snap.secrets || []).length)) renderKnowledgeTree(char, snap, animate);
+  if(sysTab === 'knowledge' && document.getElementById('ktree')) renderKnowledgeTree(char, snap, animate);
+  if(CV) CV.wire(sysTab, page, char, snap, () => renderCodexPage(char, snap, false));
 
   if(HAS_GSAP && !REDUCED_MOTION && animate){
     gsap.fromTo(page.children, { x: 30, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5, stagger: 0.08, ease: 'power3.out' });
@@ -5478,7 +5491,7 @@ function restoreLeftPage(){
 
 
 </script>
-<script src="assets/epitaph-book.js?v=5"></script>
+<script src="assets/epitaph-book.js?v=6"></script>
 
 </body>
 </html>
