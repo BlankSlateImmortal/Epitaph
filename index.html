@@ -1093,7 +1093,7 @@
   }
   .gen-loc-cascade select:focus{ outline:none; border-color: var(--dust); }
 </style>
-<link rel="stylesheet" href="assets/epitaph-theme.css?v=14">
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=16">
 <link rel="stylesheet" href="assets/epitaph-book.css?v=3">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="assets/portrait-gen.js?v=8"></script>
@@ -2444,18 +2444,10 @@ function renderCodexPage(char, snap, animate){
       `<div class="codex-right">${snap.skills.length ? `<div class="atree" id="atree" tabindex="0" aria-label="Authority tree. Arrow keys move between skills."></div><div class="atree-detail" id="atreeDetail" aria-live="polite"></div>` : `<div class="sys-empty">Add skills with “Edit skills”. Give a skill a fifth column naming the skill it branches from to grow the tree.</div>`}</div>`;
   } else if(sysTab === 'inventory'){
     const items = snap.inventory || [];
-    const slots = Math.max(8, Math.ceil((items.length + 1) / 4) * 4);
     const sel = items.find(i => i.id === invFocus[char.id]) || items[0];
-    html = codexLeft(n, 'Inventory', 'Carried', `${items.length} item${items.length === 1 ? '' : 's'} · this chapter version`, 'mwOpenInventory', 'Edit inventory', ch) +
-      `<div class="codex-right"><div class="inv-grid">${Array.from({ length: slots }, (_, i) => {
-        const it = items[i];
-        if(!it) return `<div class="inv-slot empty" aria-hidden="true"></div>`;
-        const v = invView(it);
-        return `<button type="button" class="inv-slot${sel && sel.id === it.id ? ' on' : ''}${heldTwice(char, snap, it.itemId).length ? ' twice' : ''}" data-inv="${escapeAttr(it.id)}">
-          ${v.icon ? `<img src="${v.icon}" alt="">` : (v.image ? `<img src="${v.image}" alt="">` : `<b>◈</b>`)}
-          <span>${escapeHtml(v.name)}${v.state ? ` <small class="slot-state">· ${escapeHtml(v.state)}</small>` : ''}</span>${(it.marks || []).length || it.boundTo ? `<span class="slot-marks">${(it.marks || []).map(m => `<i class="mk ${escapeAttr(m.kind)}" title="${escapeAttr(MARK_KIND_LABEL[m.kind] || '')}">${MARK_KIND_SHORT[m.kind] || ''}</i>`).join('')}${it.boundTo ? '<i class="mk bound" title="Bound">⛓</i>' : ''}</span>` : ''}${chg.isNew('inventory', it) ? NEW_TAG : ''}</button>`;
-      }).join('')}</div>
-      ${sel ? itemMonitorHtml(char, snap, sel, items.indexOf(sel)) : ''}</div>`;
+    const left = codexLeft(n, 'Inventory', 'Carried', `${items.length} item${items.length === 1 ? '' : 's'} · this chapter version`, 'mwOpenInventory', 'Edit inventory', ch);
+    html = left.replace(/<\/div>\s*$/, inventoryTimelineHtml(char, snap, sel) + '</div>').replace('class="codex-left"', 'class="codex-left inv-left"') +
+      `<div class="codex-right">${sel ? itemMonitorHtml(char, snap, sel, items.indexOf(sel)) : `<div class="inv-empty">&gt; nothing carried in this chapter version<span class="sig-cursor"></span></div>`}</div>`;
   } else if(sysTab === 'ties'){
     const inferred = inferredRelationships(char);
     const rels = snap.relationships || [];
@@ -2508,8 +2500,8 @@ function renderCodexPage(char, snap, animate){
   page.querySelectorAll('.rel-link').forEach(btn => btn.addEventListener('click', () => {
     if(findCharacterById(btn.dataset.charId)){ switchActiveCharacter(btn.dataset.charId); window.scrollTo({ top: 0, behavior: 'smooth' }); }
   }));
-  page.querySelectorAll('[data-inv]').forEach(b => b.addEventListener('click', () => { invFocus[char.id] = b.dataset.inv; renderCodexPage(char, snap, false); }));
   wireItemMonitor(page);
+  wireItemTuner(page, char, snap);
   hydrateGenPortraits(page);
   if(sysTab === 'skills' && snap.skills.length) renderAuthorityTree(char, snap, animate);
 
@@ -3947,6 +3939,85 @@ function wireItemMonitor(root){
   const img = plate.querySelector('.item-fig img');
   pictureHasAlpha(img.getAttribute('src')).then(a => { plate.classList.toggle('float', a); plate.classList.toggle('solid', !a); });
 }
+// The tuner in the monitor's top line: every carried item on a ruler under a
+// fixed needle. Click a name, swipe/scroll the ruler, or use the arrow keys.
+function itemTunerHtml(items, sel){
+  if(items.length < 2) return '';
+  return `<div class="item-tuner" data-tuner><div class="item-tuner-scale" role="listbox" aria-label="Carried items" tabindex="0">${items.map(it => {
+    const v = invView(it);
+    return `<button type="button" role="option" class="item-tuner-st${it.id === sel.id ? ' on' : ''}" aria-selected="${it.id === sel.id}" data-tune="${escapeAttr(it.id)}" tabindex="-1">${escapeHtml((v.name || 'Untitled').toUpperCase())}</button>`;
+  }).join('')}</div><span class="item-tuner-needle" aria-hidden="true"></span></div>`;
+}
+// Left column of the Inventory tab: the character's chapters in order, what
+// was gained / lost / changed state in each, and where the selected item was.
+function inventoryTimelineHtml(char, snap, sel){
+  const keyOf = e => e.itemId || ('free:' + (e.name || '').trim().toLowerCase());
+  const nameOf = e => invView(e).name;
+  const stateOf = e => invView(e).state;
+  const vs = char.snapshots.map((s, i) => ({ s, i })).sort((a, b) => {
+    const x = Number.isInteger(a.s.startChapter) ? a.s.startChapter : Infinity, y = Number.isInteger(b.s.startChapter) ? b.s.startChapter : Infinity;
+    return x - y || a.i - b.i;
+  }).map(o => o.s);
+  if(!vs.length) return '';
+  const selKey = sel ? keyOf(sel) : null;
+  const rows = vs.map((s, k) => {
+    const inv = s.inventory || [], prev = k ? (vs[k - 1].inventory || []) : [];
+    const pk = new Map(prev.map(e => [keyOf(e), e])), nk = new Map(inv.map(e => [keyOf(e), e]));
+    const changes = [];
+    inv.forEach(e => {
+      const was = pk.get(keyOf(e));
+      if(!was) changes.push(`<li><span class="s add">+</span><span><b>${escapeHtml(nameOf(e))}</b>${k ? ' gained' : (stateOf(e) ? ` (${escapeHtml(stateOf(e))})` : '')}</span></li>`);
+      else if(stateOf(was) !== stateOf(e) && (stateOf(was) || stateOf(e))) changes.push(`<li><span class="s st">▸</span><span><b>${escapeHtml(nameOf(e))}</b> <em>${escapeHtml(stateOf(was) || 'no state')} ▸ ${escapeHtml(stateOf(e) || 'no state')}</em></span></li>`);
+    });
+    if(k) prev.forEach(e => { if(!nk.has(keyOf(e))) changes.push(`<li><span class="s lost">−</span><span><b>${escapeHtml(nameOf(e))}</b> lost</span></li>`); });
+    const here = selKey && nk.get(selKey);
+    const cur = s.id === snap.id;
+    const num = Number.isInteger(s.startChapter) ? s.startChapter : '?';
+    return { cur, html: `<li class="${cur ? 'cur' : ''}"><span class="node">${num}</span><div class="what">
+      <span class="ch">${escapeHtml((s.chapterRange || 'CH ' + num).toUpperCase())}${cur ? ' · NOW' : ''}</span>
+      ${sel ? (here ? `<div class="this"><b>${escapeHtml(nameOf(sel).toUpperCase())}</b>${stateOf(here) ? ' · ' + escapeHtml(stateOf(here)) : ''}</div>` : `<div class="not">${escapeHtml(nameOf(sel))} not carried</div>`) : ''}
+      ${changes.length ? `<ul class="chg">${changes.join('')}</ul>` : (k ? '<div class="not">no changes</div>' : '')}
+    </div></li>` };
+  });
+  // long histories: keep the current chapter in view
+  let shown = rows, before = 0, after = 0;
+  if(rows.length > 7){
+    const ci = Math.max(0, rows.findIndex(r => r.cur));
+    const a = Math.max(0, Math.min(ci - 3, rows.length - 7)), b = a + 7;
+    before = a; after = rows.length - b; shown = rows.slice(a, b);
+  }
+  return `<div class="inv-timeline"><div class="inv-tl-h"><span>${escapeHtml((char.name || 'Unnamed').toUpperCase())} · CHAPTERS</span><b>${vs.length}</b></div>
+    ${before ? `<p class="inv-tl-more">${before} earlier chapter${before === 1 ? '' : 's'}</p>` : ''}
+    <ol class="inv-rail">${shown.map(r => r.html).join('')}</ol>
+    ${after ? `<p class="inv-tl-more">${after} later chapter${after === 1 ? '' : 's'}</p>` : ''}</div>`;
+}
+function wireItemTuner(root, char, snap){
+  const tuner = root.querySelector('[data-tuner]');
+  if(!tuner) return;
+  const scale = tuner.querySelector('.item-tuner-scale');
+  const centre = (el, smooth) => scale.scrollTo({ left: el.offsetLeft - (scale.clientWidth - el.offsetWidth) / 2, behavior: smooth ? 'smooth' : 'auto' });
+  const on = scale.querySelector('.on'); if(on) centre(on, false);
+  const pick = id => { if(id === invFocus[char.id] || (!invFocus[char.id] && on && on.dataset.tune === id)) return; invFocus[char.id] = id; renderCodexPage(char, snap, false); const s2 = document.querySelector('.item-tuner-scale'); if(s2) s2.focus({ preventScroll: true }); };
+  scale.querySelectorAll('[data-tune]').forEach(b => b.addEventListener('click', () => { centre(b, true); }));
+  let settle = null;
+  scale.addEventListener('scroll', () => {
+    clearTimeout(settle);
+    settle = setTimeout(() => {
+      const mid = scale.scrollLeft + scale.clientWidth / 2;
+      let best = null, dist = Infinity;
+      scale.querySelectorAll('[data-tune]').forEach(b => { const d = Math.abs(b.offsetLeft + b.offsetWidth / 2 - mid); if(d < dist){ dist = d; best = b; } });
+      if(best && !best.classList.contains('on')) pick(best.dataset.tune);
+    }, 160);
+  }, { passive: true });
+  scale.addEventListener('keydown', e => {
+    const k = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+    if(!k) return;
+    e.preventDefault();
+    const list = [...scale.querySelectorAll('[data-tune]')], i = list.findIndex(b => b.classList.contains('on'));
+    const next = list[(i + k + list.length) % list.length];
+    if(next) pick(next.dataset.tune);
+  });
+}
 function itemMonitorHtml(char, snap, sel, idx){
   const v = invView(sel), twice = heldTwice(char, snap, sel.itemId);
   const li = sel.itemId && Lib ? Lib.item(sel.itemId) : null;
@@ -3963,7 +4034,7 @@ function itemMonitorHtml(char, snap, sel, idx){
   const sigil = m => m.image ? `<img class="item-sig" src="${escapeAttr(m.image)}" alt="">` : '<span class="item-sig none" aria-hidden="true"></span>';
   const row = (k, val, cls) => val ? `<dt>${k}</dt><dd${cls ? ` class="${cls}"` : ''}>${escapeHtml(val)}</dd>` : '';
   return `<div class="item-crt"><div class="item-screen">
-    <div class="item-scr-top"><span>ITEM ${String(idx + 1).padStart(2, '0')} / ${escapeHtml((char.name || 'Unnamed').toUpperCase())}${snap.chapterRange ? ' / ' + escapeHtml(snap.chapterRange.toUpperCase()) : ''}</span><span class="on">● ${states.length ? `STATE ${si >= 0 ? String(si + 1).padStart(2, '0') : '--'}/${String(states.length).padStart(2, '0')}` : `${marks.length} MARK${marks.length === 1 ? '' : 'S'}`}</span></div>
+    <div class="item-scr-top"><span>ITEM ${String(idx + 1).padStart(2, '0')} / ${escapeHtml((char.name || 'Unnamed').toUpperCase())}${snap.chapterRange ? ' / ' + escapeHtml(snap.chapterRange.toUpperCase()) : ''}</span>${itemTunerHtml(snap.inventory || [], sel)}</div>
     <div class="item-scr-body">
       <div class="item-plate ${known} arc-${arc}"${pic ? ' data-has-pic' : ''}>
         <svg class="item-rings" viewBox="0 0 400 400" aria-hidden="true">
