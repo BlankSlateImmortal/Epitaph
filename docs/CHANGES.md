@@ -204,18 +204,16 @@ Animated, front-view figures in the Spike style for Sils, Moinera, Universe and 
 - **Knowledge tab**: the character at the root; branches Facts / Secrets known / Kept from them; each entry under its branch; other people who know a secret under the secret (from “known by”; a name that matches a character offers “Open … dossier”). Facts amber, known secrets teal, kept secrets red and blacked out (click to reveal in the readout). Readout shows “since CH n” (the first chapter version containing the entry) and who else knows. Gauge under the left column: secrets known / total.
 - **The book** (`opl`, `ops`): picking a tile or skill glides the board so it lands in the middle; in the skill tree the arrow keys pick the nearest skill in that direction.
 
-## Atlas 3D (`atlas-3d.html`)
+## Epitaph map (`atlas-3d.html`, 2026-11-13)
 
-A 3D version of the map, built in code with three.js (no model files). Opened from the **3D** button on the Atlas.
+Replaces the old Atlas 3D (Relief / Globe / Shattered). Same address, so the Atlas's **3D** button still opens it. Lore it follows: vault `Exploratory Ideas/Lore/Epitaph Map.md`.
 
-- **Three styles**, switched at the top: **Relief** (flat map table, land extruded with bevelled edges, your World Database countries raised and lit), **Globe** (a planet of hexagonal columns, your countries taller), **Shattered** (Era 1: terraced voxel land cut by glowing rifts, loose fragments drifting above them).
-- **Two palettes**: **Signal** (the amber CRT look) and **Paper** (cream, ink outlines). The choice is remembered per browser.
-- **Reads the same data as the Atlas**: places from `assets/epitaph-world.js` plus Library places, and each character's location per chapter from the Dossier. The chapter slider moves the tokens; arcs show where each character came from, the newest move carries a moving spark. Dead characters show a † marker at the death location. With no characters placed yet, a labelled demo trail is shown.
-- Click a marker or a name in the Characters list to fly to it. Hover a marker for its details and who is there.
-- The look: orthographic camera, ink outlines drawn as an inverted hull pushed out a fixed number of pixels, hemisphere + key light, soft shadows on a transparent shadow-catcher floor, moves eased with damping.
-- Coastlines: Natural Earth 1:110m (public domain) in `assets/atlas3d/geo.js`. Below 60°S the flat maps squeeze latitude so Antarctica is a strip.
-- Code: `assets/atlas3d/atlas3d.js`. three.js 0.170 is loaded from jsDelivr through the import map in `atlas-3d.html`.
-- Links: `atlas-3d.html?view=globe&theme=paper` opens a given style.
+- **01 Epitaph, the planet** (the old Globe look): a globe of hex columns. **Earth is a small round island on it** (not to scale), with a dashed shoreline; click it to open the board. The rest of the planet is **unmapped** (faint placeholder land). Era 1: **The Binding** wraps the whole planet as a shell of script, and a glow marks the strike.
+- **02 Earth, the board** (the old Shattered look): real Earth in blocks from real elevation, laid out as **one round island**: the main continents (Equal Earth, seam in the Bering Strait), **Antarctica whole and round** below them, and **invented continents and islands** in the open water, on a generated sea floor (shelves, ridges, trenches, seamounts). Nothing is cut by a seam or touches the shore.
+- **Era 0 / Era 1** switch: Era 1 rebuilds both views in a wave from the strike point: the gods went straight through Antarctica, so a stepped **crater** runs down to **Blankslate** (glowing seal), ringed by **impact mountains**; the sea is **+60 m** (sunk land in teal); the **floating island** and loose blocks hang over the crater.
+- **Places follow the lore**: Era 0 shows real cities only (no fictional ones). Era 1 drops Angel and Demon sites, keeps Storyborn, Voided (marked hidden) and Antholonius sites, keeps Aurelia and Verdant Reach as Era 1 settlements, and draws real cities that sank as teal ruins. **Characters only show in Era 1** (the story's chapters are set there); the chapter slider, trails, † markers and the Characters list work as before.
+- Kept from the old Atlas 3D: orthographic camera, ink outlines (inverted hull), toon blocks, soft shadows, Signal / Paper palettes, hover details, click to fly. View, era and palette are remembered per browser (`epitaph-map-prefs`). Old links (`?view=globe|relief|shattered`) still open the nearest view; `?view=planet|earth&era=0|1&theme=crt|paper` also work.
+- Code: `assets/atlas3d/epitaph-map.js`. Data: `assets/atlas3d/earth.png` + `earth.json`, built by `tools/map/build_circle.py` (AWS Terrain Tiles elevation + Natural Earth land in `tools/map/geo.js`; seed 57 sets the invented lands). Removed: `assets/atlas3d/atlas3d.js`.
 
 ## Hero art: typography and 3D renders replace the animated figures (2026-11-12)
 - The retired full-body figures (`assets/epitaph-figures2d.js`) are gone. Each chapter now has **Hero art** (`snap.heroArt`):
