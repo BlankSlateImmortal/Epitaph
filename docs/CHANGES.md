@@ -244,3 +244,16 @@ Replaces the old Atlas 3D (Relief / Globe / Shattered). Same address, so the Atl
   - **Passage and Temple of the Voided** (also Nera's greater lab): the station, six relays, console, surgical bay, tanks, data stacks, two void gates, spiral up to the hatch.
 - Diorama changes: bigger lab slice, the Archive rotunda on the north ring, temple rebuilt, hatch over the temple's spiral stair.
 - Debug: `?walk=<chapter>&stop=<n>` or `#walk-<chapter>`; `window.__walk`.
+
+## The Hollow Reach: the Voided capital (13 Nov 2026)
+
+- New site `sites/hollow-reach.html` (script `assets/sites/hollow-reach.js`), opened from the Hollow Reach pin on the map (Germany, 51.5N 9.5E).
+- **Model / Blocks** switch in the header:
+  - **Model**: the Aurelia style (flat-shaded pieces with ink outlines).
+  - **Blocks**: columns like the Earth map, made from the model by a top-down height pass (96 × 96 cells), so the two always match. Bevelled columns, white outlines (dark ink on Paper), and a soft colour gradient blurred across the city.
+- The city: a round pit with smooth black walls in the forest; Val's palace on its floor beside a lake; the capital's station on an island with six relays; the arcade ramp down the west wall under leaning fins; the drill yard; on the surface the arena, the Assembly, barracks pods, quarters, relay masts and obelisks; cut open on the south-east, the gate hall (three void gates) over the gifting chamber.
+- **Walk inside**: three chapters, interiors bigger on the inside.
+  - **Descent**: from the forest edge down the arcade to the palace.
+  - **Palace**: the Hall of Monarchs (ten portraits, the same face, more blackened each generation), then the window hall, where Val stands at the window.
+  - **Below**: the ribbed tunnel, the gifting chamber and the gate hall.
+- Debug: `?style=blocks`, `?view=below|palace`, `?walk=<chapter>&stop=<n>`; `window.__walk`.
