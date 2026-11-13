@@ -1,0 +1,410 @@
+<title>Epitaph Type Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Noto+Serif+JP:wght@500;900&family=VT323&family=Space+Mono:wght@400;700&family=Syncopate:wght@400;700&family=Fredoka:wght@700&family=Rozha+One&family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..600;1,6..96,400..600&family=Unbounded:wght@600;800;900&display=swap" rel="stylesheet">
+<style>
+/* Layout: a dossier sheet; each option is the real hero frame (rail + poster + name block) with only the figure slot swapped for type. Single dark look on purpose: it is the site's amber CRT. */
+:root{
+  color-scheme:dark;
+  --ink:#080603; --panel:#0e0a05; --amber:#ffb238; --amber-hi:#ffd58a; --amber-dim:#8a5a14;
+  --line:rgba(255,178,56,0.17); --bone:#f1e6cf; --dust:#b5904f; --ember:#d4452b;
+  --acc:#c4482b;
+  --f-display:'Anton','Bebas Neue',Impact,sans-serif;
+  --f-crt:'VT323','Space Mono',ui-monospace,monospace;
+  --f-mono:'Space Mono',ui-monospace,monospace;
+  --f-jp:'Noto Serif JP',serif;
+}
+*{box-sizing:border-box}
+body{background:var(--ink);color:var(--bone);font-family:var(--f-mono);font-size:14px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 64px}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:50;background:repeating-linear-gradient(to bottom,rgba(0,0,0,0) 0 2px,rgba(0,0,0,.2) 2px 3px)}
+.wrap{max-width:1120px;margin:0 auto;display:grid;gap:52px}
+.eyebrow{font-family:var(--f-crt);font-size:20px;letter-spacing:.14em;color:var(--amber);text-shadow:0 0 6px rgba(255,178,56,.4)}
+h1{font-family:var(--f-display);font-weight:400;font-size:clamp(40px,7vw,78px);line-height:.95;margin:6px 0 10px;text-wrap:balance}
+.lede{max-width:68ch;color:var(--dust);margin:0 0 16px}
+.controls{display:grid;gap:12px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.lbl{font-family:var(--f-crt);font-size:18px;color:var(--amber-dim);letter-spacing:.1em;margin-right:4px}
+.chip{font-family:var(--f-display);font-size:15px;letter-spacing:.06em;text-transform:uppercase;border:0;cursor:pointer;background:var(--bone);color:var(--ink);
+  padding:7px 16px;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)}
+.chip[aria-pressed="true"]{background:var(--amber)}
+.chip:focus-visible,input:focus-visible{outline:2px solid var(--amber-hi);outline-offset:3px}
+.own{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;border:1px dashed var(--line);padding:12px}
+.own label{display:grid;gap:4px;font-family:var(--f-crt);font-size:17px;color:var(--amber-dim);letter-spacing:.08em;min-width:0}
+.own input{background:#120d07;border:1px solid var(--line);color:var(--bone);font:14px 'Space Mono','Noto Serif JP',monospace;padding:7px 9px;min-width:0;width:100%}
+.own input[type=color]{padding:2px;height:36px}
+
+section.opt{display:grid;gap:14px}
+.opt-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 16px;border-bottom:1px solid var(--line);padding-bottom:8px}
+.opt-head h2{font-family:var(--f-display);font-weight:400;font-size:30px;margin:0;letter-spacing:.02em}
+.key{font-family:var(--f-crt);font-size:22px;color:var(--ink);background:var(--amber);padding:0 8px}
+.ref{font-family:var(--f-crt);font-size:18px;color:var(--amber-dim);letter-spacing:.06em;margin-left:auto}
+.note{color:var(--dust);font-size:13px;max-width:80ch;margin:0}
+.note b{color:var(--bone)}
+
+/* the real hero frame, rebuilt: left rail + poster */
+.hero{display:grid;grid-template-columns:62px minmax(0,1fr);border:1px solid rgba(255,178,56,.38);background:var(--panel);max-width:780px;position:relative}
+.rail{border-right:1px solid rgba(255,178,56,.38);display:flex;flex-direction:column;justify-content:space-between;align-items:center;padding:16px 0;
+  font-family:var(--f-mono);font-size:10px;letter-spacing:.3em;color:var(--amber-dim)}
+.rail .v{writing-mode:vertical-rl}
+.rail .jp{writing-mode:vertical-rl;font-family:var(--f-jp);font-weight:900;font-size:34px;letter-spacing:0;color:var(--bone)}
+.poster{position:relative;aspect-ratio:7/6;overflow:hidden;isolation:isolate}
+.meta{position:absolute;left:20px;right:20px;top:14px;display:flex;justify-content:space-between;font-size:10px;letter-spacing:.22em;color:var(--amber-dim);z-index:4}
+.meta b{color:var(--bone);font-weight:400}
+.slot{position:absolute;left:4%;right:4%;top:7%;height:66%;z-index:1}
+.slot svg{width:100%;height:100%;display:block;overflow:visible}
+.nameblock{position:absolute;left:22px;right:22px;bottom:16px;z-index:3;display:grid;gap:4px;justify-items:start}
+.nameblock .tag{background:var(--amber);color:var(--ink);font-family:var(--f-crt);font-size:18px;letter-spacing:.12em;padding:0 6px;line-height:1.2}
+.nameblock h3{margin:0;font-family:var(--f-display);font-weight:400;font-size:clamp(46px,9.5vw,104px);line-height:.92;letter-spacing:.01em;color:var(--bone);
+  background:repeating-linear-gradient(to bottom,var(--bone) 0 3px,#d8ccb2 3px 4px);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;max-width:100%;overflow-wrap:anywhere}
+.nameblock p{margin:0;font-size:11px;letter-spacing:.32em;color:var(--amber);text-transform:uppercase}
+@media (max-width:600px){ .hero{grid-template-columns:1fr} .rail{display:none} .poster{aspect-ratio:4/5} .slot{height:62%} }
+
+/* motion */
+@keyframes bob{50%{transform:translateY(-6px)}}
+.bob{animation:bob 4.6s ease-in-out infinite;transform-box:fill-box}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{animation:spin 60s linear infinite;transform-box:view-box;transform-origin:300px 205px}
+@keyframes fall{from{transform:translateY(-100%)}to{transform:translateY(260%)}}
+.beam{animation:fall 2.8s linear infinite}
+@keyframes dash{to{background-position:0 160px}}
+@media (prefers-reduced-motion:reduce){ .bob,.spin,.beam,.road{animation:none!important} }
+
+/* floor option is HTML 3D, not SVG */
+.floor{position:absolute;inset:0;perspective:420px;overflow:hidden}
+.floor .up{position:absolute;left:0;right:0;top:7%;text-align:center;display:grid;gap:2px;z-index:2}
+.floor .up b{font-family:var(--f-display);font-weight:400;color:var(--bone);letter-spacing:.04em;line-height:.95}
+.floor .up i{font-style:normal;font-family:var(--f-crt);color:var(--amber);letter-spacing:.2em}
+.plane{position:absolute;left:-40%;right:-40%;top:34%;height:150%;transform:rotateX(64deg);transform-origin:50% 0;
+  background:radial-gradient(60% 50% at 50% 10%,rgba(255,178,56,.10),transparent 70%);-webkit-mask-image:linear-gradient(90deg,transparent,#000 30%,#000 70%,transparent),linear-gradient(transparent,transparent);mask-image:linear-gradient(90deg,transparent,#000 30%,#000 70%,transparent)}
+.plane .road{position:absolute;left:50%;width:6px;top:0;bottom:0;transform:translateX(-50%);
+  background:repeating-linear-gradient(to bottom,var(--acc) 0 40px,transparent 40px 80px);animation:dash 2.2s linear infinite;opacity:.9}
+.plane .edge{position:absolute;top:0;bottom:0;width:2px;background:rgba(241,230,207,.25)}
+.plane .w{position:absolute;left:28%;right:28%;top:5%;text-align:center;font-family:var(--f-display);color:var(--bone);line-height:.86;letter-spacing:.02em;
+  text-shadow:0 0 1px rgba(0,0,0,.5);opacity:.92;-webkit-mask-image:radial-gradient(circle at 30% 40%,#000 0 60%,rgba(0,0,0,.7) 61% 63%,#000 64%);mask-image:radial-gradient(circle at 30% 40%,#000 0 60%,rgba(0,0,0,.7) 61% 63%,#000 64%)}
+.floor .fog{position:absolute;inset:0;background:linear-gradient(to bottom,var(--panel) 30%,transparent 46%);pointer-events:none;z-index:1}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="grit"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="4"/><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.1 1.22"/><feComposite in="SourceGraphic" operator="in"/></filter>
+  <filter id="soft"><feGaussianBlur stdDeviation="3"/></filter>
+</svg>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">EPITAPH // DOSSIER · TYPE LAB</div>
+    <h1>Ten treatments from your refs</h1>
+    <p class="lede">One treatment per reference in your typography folder, each sitting where the figure used to be in the hero you already have. Every one is built only from the character's name, concept, kanji, titles, blurb and accent, so a new character gets all ten for free. Switch subjects or type your own below.</p>
+    <div class="controls">
+      <div class="row" role="group" aria-label="Character"><span class="lbl">SUBJECT</span><span id="chips" style="display:contents"></span></div>
+      <div class="row" role="group" aria-label="Main word"><span class="lbl">MAIN WORD</span>
+        <button class="chip" data-word="concept" aria-pressed="true">Concept</button><button class="chip" data-word="name" aria-pressed="false">Name</button></div>
+      <div class="own" id="own" hidden>
+        <label>Name<input id="o-name" value="Yona"></label>
+        <label>Concept<input id="o-concept" value="Hunger"></label>
+        <label>Kanji<input id="o-glyph" value="飢"></label>
+        <label>Title<input id="o-title" value="The Mouth at the End"></label>
+        <label>Accent<input id="o-acc" type="color" value="#6fb3a3"></label>
+      </div>
+    </div>
+  </header>
+  <div id="opts" style="display:grid;gap:52px"></div>
+</div>
+
+<script>
+(function(){
+  const CHARS = {
+    sils: { name:'Sils', concept:'Nothing', glyph:'虚無', titles:['Silence'], acc:'#9b7bff', blurb:'Erasure. Concept: Nothing.', no:'001' },
+    moinera: { name:'Moinera', concept:'Imagination', glyph:'夢', titles:['Infinite Dream Mother','Unbound Dream'], acc:'#f08fd0', blurb:'Thought. Imagination, sparked inside Chaos.', no:'002' },
+    universe: { name:'Universe', concept:'Chaos', glyph:'混沌', titles:['Building Block'], acc:'#c4482b', blurb:'Chaos, the fundamental building block of the universe.', no:'003' },
+    antholonious: { name:'Antholonious', concept:'Fate', glyph:'物語', titles:['Author Beyond Pages','The Hand that Guides Fate'], acc:'#d8b25a', blurb:'Story. Concept: Fate.', no:'004' }
+  };
+  const ORDER = ['sils','moinera','universe','antholonious','own'];
+  const st = { char:'universe', word:'concept' };
+  try { const s = JSON.parse(localStorage.getItem('typeportraits') || '{}'); if (ORDER.includes(s.char)) st.char = s.char; if (s.word === 'name' || s.word === 'concept') st.word = s.word; } catch (e) {}
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+  function rng(str){ let h = 2166136261; for (const ch of str) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619); } let a = h >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function data(){
+    let d;
+    if (st.char === 'own') {
+      const v = (id) => document.getElementById(id).value.trim();
+      d = { name: v('o-name') || 'Unnamed', concept: v('o-concept') || 'Unknown', glyph: v('o-glyph') || '記録', titles: [v('o-title')].filter(Boolean), acc: v('o-acc') || '#ffb238', blurb: '', no: '005' };
+    } else d = CHARS[st.char];
+    const word = (st.word === 'name' ? d.name : d.concept).toUpperCase();
+    return Object.assign({}, d, { word, other: (st.word === 'name' ? d.concept : d.name).toUpperCase(), title: (d.titles[0] || d.concept).toUpperCase() });
+  }
+  const W = 600, H = 410;
+  const svg = (inner, label) => `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}">${inner}</svg>`;
+
+  // ---------- shared ----------
+  const BONE = '#f1e6cf', DIM = '#8a5a14', DUST = '#b5904f', AMB = '#ffb238', PANEL = '#0e0a05';
+  const anim = (s) => reduce ? '' : s;
+  const ellPath = (cx, cy, rx, ry) => `M${cx - rx} ${cy} A${rx} ${ry} 0 1 0 ${cx + rx} ${cy} A${rx} ${ry} 0 1 0 ${cx - rx} ${cy}`; // left → bottom → right → top: readable along the bottom
+  const fill = (str, n) => (str + '   ').repeat(Math.max(1, n));
+  function stars(r, n, op = 0.6){ let s = ''; for (let i = 0; i < n; i++) s += `<circle cx="${(r() * W).toFixed(0)}" cy="${(r() * H).toFixed(0)}" r="${(0.4 + r() * 1.1).toFixed(1)}" fill="${BONE}" opacity="${(0.15 + r() * op).toFixed(2)}"/>`; return s; }
+  function sparkle(x, y, s, col){ return `<path d="M${x} ${y - s} Q${x + s * 0.12} ${y - s * 0.12} ${x + s} ${y} Q${x + s * 0.12} ${y + s * 0.12} ${x} ${y + s} Q${x - s * 0.12} ${y + s * 0.12} ${x - s} ${y} Q${x - s * 0.12} ${y - s * 0.12} ${x} ${y - s}Z" fill="${col}"/>`; }
+
+  // ---------- 1 · Spire (t1) ----------
+  function spire(d){
+    const r = rng('spire' + d.word), L = [...d.word], n = L.length;
+    const adv = Math.min(62, 540 / n), fs = adv * 1.02, y0 = 196, x0 = 300 - (n * adv) / 2;
+    let s = `<defs><linearGradient id="sp-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${BONE}"/><stop offset="1" stop-color="${BONE}" stop-opacity="0"/></linearGradient>
+      <linearGradient id="sp-a" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${d.acc}"/><stop offset="1" stop-color="${d.acc}" stop-opacity="0"/></linearGradient></defs>`;
+    s += stars(r, 140, 0.7);
+    s += `<polygon points="300,${y0 - 120} ${300 + 150},${y0 + 140} ${300 - 150},${y0 + 140}" fill="${BONE}" opacity=".05"/>`;
+    [[-1, 0.62], [1, 0.75], [-1, -0.9]].forEach(([dir, k]) => s += `<line x1="${300 - 420 * dir}" y1="${y0 - 420 * k}" x2="${300 + 420 * dir}" y2="${y0 + 420 * k}" stroke="${BONE}" stroke-width=".8" opacity=".55"/>`);
+    let accentDone = false;
+    L.forEach((ch, i) => {
+      const cx = x0 + (i + 0.5) * adv;
+      s += `<text x="${cx.toFixed(1)}" y="${y0}" text-anchor="middle" font-family="Syncopate" font-weight="700" font-size="${fs.toFixed(1)}" fill="${BONE}">${esc(ch)}</text>`;
+      if ((i % 2 === 0 || r() < 0.35) && ch.trim()) {
+        const acc = !accentDone && (r() < 0.4 || i === n - 1); if (acc) accentDone = true;
+        const h = 60 + r() * 140, sx = cx - fs * 0.34 + (r() < 0.5 ? 0 : fs * 0.52), seg = 8;
+        for (let k = 0; k < seg; k++) s += `<rect x="${sx.toFixed(1)}" y="${(y0 - 2 + k * h / seg).toFixed(1)}" width="${(fs * 0.13).toFixed(1)}" height="${(h / seg + 0.6).toFixed(1)}" fill="${acc ? d.acc : BONE}" opacity="${(1 - k / seg).toFixed(2)}"/>`;
+      }
+    });
+    s += `<text x="${(x0 + n * adv).toFixed(0)}" y="${(y0 - fs * 0.62).toFixed(0)}" text-anchor="end" font-family="Syncopate" font-size="${Math.max(11, fs * 0.3).toFixed(0)}" letter-spacing="2" fill="${BONE}">${esc(d.other)}</text>`;
+    const cap = d.title.split(/\s+/).slice(0, 3);
+    cap.forEach((w, i) => s += `<text x="300" y="${H - 44 + i * 11}" text-anchor="middle" font-family="Syncopate" font-weight="700" font-size="8" fill="${BONE}" opacity=".7">${esc(w)}</text>`);
+    return svg(s, d.word);
+  }
+
+  // ---------- 2 · Melt (t2) ----------
+  function melt(d){
+    const n = d.word.length, fs = Math.min(150, 920 / Math.max(3, n)), y = 230;
+    const split = 0.42;
+    let s = `<defs><filter id="mt-f" x="-30%" y="-60%" width="160%" height="220%"><feTurbulence type="fractalNoise" baseFrequency="0.011 0.022" numOctaves="2" seed="${n * 7}">${anim('<animate attributeName="baseFrequency" values="0.011 0.022;0.015 0.03;0.011 0.022" dur="9s" repeatCount="indefinite"/>')}</feTurbulence><feDisplacementMap in="SourceGraphic" scale="58" xChannelSelector="R" yChannelSelector="G"/></filter>
+      <linearGradient id="mt-m" x1="0" x2="1"><stop offset="${split - 0.08}" stop-color="#fff" stop-opacity="0"/><stop offset="${split + 0.12}" stop-color="#fff"/></linearGradient>
+      <mask id="mt-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><rect width="${W}" height="${H}" fill="url(#mt-m)"/></mask>
+      <linearGradient id="mt-k" x1="0" x2="1"><stop offset="${split - 0.02}" stop-color="#fff"/><stop offset="${split + 0.1}" stop-color="#fff" stop-opacity="0"/></linearGradient>
+      <mask id="mt-keep" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><rect width="${W}" height="${H}" fill="url(#mt-k)"/></mask></defs>`;
+    const word = `<text x="300" y="${y}" text-anchor="middle" font-family="Fredoka" font-weight="700" font-size="${fs.toFixed(1)}" fill="${BONE}">${esc(d.word)}</text>`;
+    s += `<g mask="url(#mt-keep)">${word}</g>`;
+    s += `<g mask="url(#mt-mask)"><g filter="url(#mt-f)">${word}<path d="M${300 - fs} ${y - fs * 0.9} C${300 - fs * 0.2} ${y - fs * 1.5} ${300 + fs} ${y - fs * 1.1} ${300 + fs * 2} ${y - fs * 0.5}" fill="none" stroke="${BONE}" stroke-width="${(fs * 0.12).toFixed(0)}" stroke-linecap="round"/>
+      <path d="M${300 + fs * 0.2} ${y + fs * 0.2} C${300 + fs} ${y + fs * 0.7} ${300 + fs * 1.6} ${y + fs * 0.1} ${300 + fs * 2.2} ${y + fs * 0.4}" fill="none" stroke="${BONE}" stroke-width="${(fs * 0.09).toFixed(0)}" stroke-linecap="round"/></g></g>`;
+    const r = rng('melt' + d.word);
+    for (let i = 0; i < 7; i++) s += `<circle cx="${(300 + r() * 240).toFixed(0)}" cy="${(y - fs + r() * fs * 1.6).toFixed(0)}" r="${(2 + r() * 6).toFixed(1)}" fill="${i ? BONE : d.acc}"/>`;
+    s += `<text x="${300 - fs * 1.5}" y="${y + fs * 0.55}" font-family="Space Mono, Noto Serif JP" font-size="10" letter-spacing="3" fill="${DUST}">${esc(d.title)} · ${esc(d.glyph)}</text>`;
+    return svg(s, d.word);
+  }
+
+  // ---------- 3 · Marble (t3) ----------
+  function marble(d){
+    const r = rng('marble' + d.word);
+    const marbled = (id, x, y, w, h, seed, scale) => {
+      let st = '';
+      for (let yy = y - 20, k = 0; yy < y + h + 20; k++) { const hh = 6 + r() * 12; st += `<rect x="${x - 30}" y="${yy.toFixed(1)}" width="${w + 60}" height="${hh.toFixed(1)}" fill="${k % 2 ? PANEL : BONE}"/>`; yy += hh; }
+      return `<filter id="${id}" x="-20%" y="-20%" width="140%" height="140%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="3" seed="${seed}">${anim(`<animate attributeName="baseFrequency" values="0.018;0.022;0.018" dur="${14 + seed % 5}s" repeatCount="indefinite"/>`)}</feTurbulence><feDisplacementMap in="SourceGraphic" scale="${scale}" xChannelSelector="R" yChannelSelector="B"/></filter>` + `<g data-st="${id}">${st}</g>`;
+    };
+    // banner 1: flame of marbling on top, solid bone below with the kanji and a hole
+    const bx = 150, bw = 112, by = 170;
+    const m1 = marbled('mb-f1', bx, 10, bw, by, 3, 90);
+    const m2 = marbled('mb-f2', 300, 40, 96, 150, 9, 80);
+    const defs1 = m1.slice(0, m1.indexOf('<g data-st')), st1 = m1.slice(m1.indexOf('<g data-st'));
+    const defs2 = m2.slice(0, m2.indexOf('<g data-st')), st2 = m2.slice(m2.indexOf('<g data-st'));
+    let s = `<defs>${defs1}${defs2}<clipPath id="mb-c1"><rect x="${bx - 40}" y="0" width="${bw + 80}" height="${by + 30}"/></clipPath><clipPath id="mb-c2"><rect x="${300 - 40}" y="0" width="${96 + 80}" height="${190 + 30}"/></clipPath>
+      <clipPath id="mb-o1"><circle cx="476" cy="128" r="62"/></clipPath><clipPath id="mb-o2"><circle cx="476" cy="300" r="56"/></clipPath></defs>`;
+    s += `<g clip-path="url(#mb-c1)"><g filter="url(#mb-f1)">${st1}</g></g>`;
+    s += `<rect x="${bx}" y="${by}" width="${bw}" height="${H - by - 4}" fill="${BONE}"/>`;
+    const g = [...d.glyph];
+    g.forEach((ch, i) => s += `<text x="${bx + bw / 2}" y="${by + 58 + i * 50}" text-anchor="middle" font-family="Noto Serif JP" font-weight="500" font-size="42" fill="${PANEL}">${esc(ch)}</text>`);
+    s += `<circle cx="${bx + bw / 2}" cy="${H - 50}" r="28" fill="${PANEL}"/>`;
+    // banner 2: shorter, the main word stacked
+    s += `<g clip-path="url(#mb-c2)"><g filter="url(#mb-f2)">${st2}</g></g>`;
+    s += `<rect x="300" y="190" width="96" height="${H - 190 - 30}" fill="${BONE}"/>`;
+    const L = [...d.word].slice(0, 9);
+    L.forEach((ch, i) => s += `<text x="348" y="${212 + i * 18}" text-anchor="middle" font-family="Space Mono" font-weight="700" font-size="15" fill="${PANEL}">${esc(ch)}</text>`);
+    // marbled medallions
+    const m3 = marbled('mb-f3', 400, 60, 160, 140, 21, 70), m4 = marbled('mb-f4', 410, 240, 140, 120, 33, 70);
+    s = s.replace('</defs>', m3.slice(0, m3.indexOf('<g data-st')) + m4.slice(0, m4.indexOf('<g data-st')) + '</defs>');
+    s += `<g clip-path="url(#mb-o1)"><g filter="url(#mb-f3)">${m3.slice(m3.indexOf('<g data-st'))}</g></g><circle cx="476" cy="128" r="62" fill="none" stroke="${BONE}" stroke-width="2"/>`;
+    s += `<g clip-path="url(#mb-o2)"><g filter="url(#mb-f4)">${m4.slice(m4.indexOf('<g data-st'))}</g></g><circle cx="476" cy="300" r="56" fill="none" stroke="${BONE}" stroke-width="2"/>`;
+    s += `<text x="476" y="210" text-anchor="middle" font-family="Syncopate" font-weight="700" font-size="9" letter-spacing="2" fill="${BONE}">${esc(d.name.toUpperCase())}</text>`;
+    s += `<text x="476" y="374" text-anchor="middle" font-family="Syncopate" font-weight="700" font-size="9" letter-spacing="2" fill="${BONE}">${esc(d.concept.toUpperCase())}</text>`;
+    s += `<text x="40" y="44" font-family="Rozha One" font-size="30" fill="${d.acc}" transform="rotate(-8 40 44)">${esc(d.name)}</text>`;
+    return svg(s, d.word);
+  }
+
+  // ---------- 4 · Papercut (t4) ----------
+  function papercut(d){
+    const w = d.word.toLowerCase(), n = w.length, fs = Math.min(190, 1000 / Math.max(3, n)), y = 245;
+    let s = `<defs><filter id="pc-b" x="-20%" y="-40%" width="140%" height="180%"><feGaussianBlur stdDeviation="7"/></filter></defs>`;
+    const layer = (sw, dx, dy, col, blur) => `<text x="${300 + dx}" y="${y + dy}" text-anchor="middle" font-family="Rozha One" font-size="${fs.toFixed(1)}" fill="${col}" stroke="${col}" stroke-width="${sw}" stroke-linejoin="round" ${blur ? 'filter="url(#pc-b)"' : ''}>${esc(w)}</text>`;
+    // cut-paper layers: shadow, then a lighter sheet, each lifted up-left
+    [[64, 10, 14, '#000', 1], [64, -6, -10, '#2a2014', 0], [40, 6, 8, '#000', 1], [40, -4, -6, '#3a2d1c', 0], [18, 4, 5, '#000', 1], [18, -2, -3, '#55432a', 0]]
+      .forEach(([sw, dx, dy, col, bl]) => s += layer(sw, dx, dy, col, bl));
+    s += layer(0, 0, 0, BONE, 0);
+    // a drip falling off the last letter
+    const ex = 300 + n * fs * 0.25;
+    s += `<path d="M${ex - 6} ${y - 6} q6 30 2 46 a7 7 0 1 0 8 0 q-4 -16 2 -46z" fill="${BONE}"/><circle cx="${ex + 2}" cy="${y + 66}" r="5" fill="${d.acc}">${anim(`<animate attributeName="cy" values="${y + 56};${y + 120};${y + 56}" dur="3.4s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;0;1" dur="3.4s" repeatCount="indefinite"/>`)}</circle>`;
+    s += `<text x="300" y="${H - 18}" text-anchor="middle" font-family="Space Mono, Noto Serif JP" font-size="10" letter-spacing="4" fill="${DUST}">${esc(d.title)} · ${esc(d.glyph)}</text>`;
+    return svg(s, d.word);
+  }
+
+  // ---------- 5 · Monogram (t5, t6) ----------
+  function monogram(d){
+    const a = d.name[0].toUpperCase();
+    let b = d.concept[0].toUpperCase(); if (b === a) b = (d.concept[1] || d.name[1] || a).toUpperCase();
+    const fs = 300;
+    let s = `<defs><clipPath id="mg-top"><rect x="0" y="0" width="${W}" height="196"/></clipPath>
+      <filter id="mg-glow"><feGaussianBlur stdDeviation="2.5"/></filter></defs>`;
+    const A = (extra = '') => `<text x="250" y="300" text-anchor="middle" font-family="Bodoni Moda" font-style="italic" font-weight="400" font-size="${fs}" fill="${BONE}" ${extra}>${esc(a)}</text>`;
+    const B = (extra = '') => `<text x="352" y="330" text-anchor="middle" font-family="Bodoni Moda" font-weight="500" font-size="${fs * 0.86}" fill="${BONE}" ${extra}>${esc(b)}</text>`;
+    // weave: B over A at the bottom, A over B at the top, each cut by a panel-coloured gap
+    s += A() + B(`stroke="${PANEL}" stroke-width="7" paint-order="stroke"`);
+    s += `<g clip-path="url(#mg-top)">${A(`stroke="${PANEL}" stroke-width="7" paint-order="stroke"`)}</g>`;
+    // the swash: a hairline that loops through both letters
+    s += `<path d="M120 236 C170 200 230 268 290 238 S380 170 420 214 S470 300 520 262" fill="none" stroke="${BONE}" stroke-width="1.6"/>`;
+    s += `<path d="M120 236 C100 252 104 270 128 262" fill="none" stroke="${BONE}" stroke-width="1.2"/>`;
+    s += `<g filter="url(#mg-glow)" opacity=".8">${sparkle(214, 258, 22, d.acc)}</g>${sparkle(214, 258, 18, d.acc)}`;
+    s += `<text x="300" y="${H - 22}" text-anchor="middle" font-family="Bodoni Moda" font-size="13" letter-spacing="6" fill="${DUST}">${esc(d.name.toUpperCase())} · ${esc(d.concept.toUpperCase())}</text>`;
+    return svg(s, d.word);
+  }
+
+  // ---------- 6 · Coil (t7) ----------
+  function coil(d){
+    let s = `<defs><linearGradient id="cl-g" gradientUnits="userSpaceOnUse" x1="120" y1="40" x2="480" y2="380"><stop offset="0" stop-color="#3a3026"/><stop offset=".45" stop-color="${BONE}"/><stop offset=".55" stop-color="#fff"/><stop offset="1" stop-color="#2a221b"/></linearGradient>`;
+    const rings = [[190, 0.86, -20, 30], [146, 0.84, 40, 25], [104, 0.8, 100, 20], [64, 0.78, 160, 15]];
+    rings.forEach(([rx, k, rot], i) => s += `<path id="cl-p${i}" d="${ellPath(300, 205, rx, rx * k)}" transform="rotate(${rot} 300 205)"/>`);
+    s += `</defs>`;
+    rings.forEach(([rx, k, rot, fs], i) => {
+      const circ = Math.PI * (rx + rx * k), reps = Math.ceil(circ / (d.word.length * fs * 0.9 + 30)) + 1;
+      s += `<text font-family="Unbounded" font-weight="800" font-size="${fs}" fill="url(#cl-g)" opacity="${(1 - i * 0.12).toFixed(2)}"><textPath href="#cl-p${i}">${esc(fill(d.word, reps))}${anim(`<animate attributeName="startOffset" from="0%" to="${i % 2 ? '-' : ''}50%" dur="${18 + i * 5}s" repeatCount="indefinite"/>`)}</textPath></text>`;
+    });
+    s += `<circle cx="300" cy="205" r="24" fill="${PANEL}"/><text x="300" y="215" text-anchor="middle" font-family="Noto Serif JP" font-weight="900" font-size="26" fill="${d.acc}">${esc([...d.glyph][0])}</text>`;
+    return svg(s, d.word);
+  }
+
+  // ---------- 7 · Orbit (t8) ----------
+  function orbit(d){
+    const cx = 300, cy = 196, R = 92;
+    let s = `<defs><radialGradient id="ob-s" cx=".66" cy=".28" r=".9"><stop offset="0" stop-color="#8a8378"/><stop offset=".35" stop-color="#3a352f"/><stop offset="1" stop-color="#0b0a08"/></radialGradient>
+      <radialGradient id="ob-h" cx=".5" cy=".5" r=".5"><stop offset=".6" stop-color="${d.acc}" stop-opacity=".35"/><stop offset="1" stop-color="${d.acc}" stop-opacity="0"/></radialGradient>
+      <path id="ob-1" d="${ellPath(cx, cy + 24, 214, 62)}"/><path id="ob-2" d="${ellPath(cx, cy + 24, 268, 84)}"/>
+      <clipPath id="ob-front"><rect x="0" y="${cy + 24}" width="${W}" height="${H}"/></clipPath></defs>`;
+    const big = `${d.name.toUpperCase()} — ${d.word} — `;
+    const small = (d.blurb || d.concept) + ' ' + d.titles.join(' · ') + ' · ';
+    const rings = (k) => `<g transform="rotate(-7 ${cx} ${cy})"><text font-family="Unbounded" font-weight="800" font-size="27" fill="${BONE}"><textPath href="#ob-1">${esc(big.repeat(3))}${anim('<animate attributeName="startOffset" from="0%" to="-50%" dur="40s" repeatCount="indefinite"/>')}</textPath></text>
+      <text font-family="Space Mono, Noto Serif JP" font-size="11" letter-spacing="1.5" fill="${BONE}" opacity=".75"><textPath href="#ob-2">${esc(small.repeat(4))}${anim('<animate attributeName="startOffset" from="-50%" to="0%" dur="70s" repeatCount="indefinite"/>')}</textPath></text></g>`;
+    s += `<circle cx="${cx}" cy="${cy}" r="${R + 30}" fill="url(#ob-h)"/>`;
+    s += rings();
+    s += `<circle cx="${cx}" cy="${cy}" r="${R}" fill="url(#ob-s)"/>`;
+    s += `<g clip-path="url(#ob-front)">${rings()}</g>`;
+    s += `<text x="10" y="${H - 14}" font-family="Unbounded" font-weight="800" font-size="10" letter-spacing="1" fill="${BONE}">SUBJECT DATA</text><text x="${W - 10}" y="${H - 14}" text-anchor="end" font-family="Space Mono, Noto Serif JP" font-size="10" fill="${DUST}">${esc(d.glyph)} · FILE ${esc(d.no)}</text>`;
+    return svg(s, d.word);
+  }
+
+  // ---------- 8 · Gyre (t9) ----------
+  function gyre(d){
+    const cx = 300, cy = 205, r = rng('gyre' + d.word);
+    const phrases = [d.word, (d.titles[0] || d.concept).toUpperCase(), d.name.toUpperCase()];
+    let s = `<defs><radialGradient id="gy-c"><stop offset="0" stop-color="#fff"/><stop offset=".25" stop-color="${d.acc}" stop-opacity=".8"/><stop offset="1" stop-color="${d.acc}" stop-opacity="0"/></radialGradient>`;
+    const orbs = [[236, 64, -8], [214, 58, 58], [200, 52, -64]];
+    orbs.forEach(([rx, ry, rot], i) => s += `<path id="gy-p${i}" d="${ellPath(cx, cy, rx, ry)}" transform="rotate(${rot} ${cx} ${cy})"/>`);
+    s += `</defs>`;
+    orbs.forEach(([rx, ry], i) => {
+      s += `<use href="#gy-p${i}" fill="none" stroke="${BONE}" stroke-width=".5" opacity=".25"/>`;
+      const reps = Math.ceil((Math.PI * (rx + ry)) / (phrases[i].length * 11 + 40)) + 1;
+      s += `<text font-family="Unbounded" font-weight="600" font-size="15" letter-spacing="1" fill="${BONE}"><textPath href="#gy-p${i}">${esc(fill(phrases[i], reps))}${anim(`<animate attributeName="startOffset" from="0%" to="${i === 1 ? '-' : ''}50%" dur="${30 + i * 8}s" repeatCount="indefinite"/>`)}</textPath></text>`;
+    });
+    // the star: spray of grains and a four-point flare
+    for (let i = 0; i < 260; i++) { const a = r() * Math.PI * 2, rad = Math.pow(r(), 2.2) * 70; s += `<circle cx="${(cx + Math.cos(a) * rad * (Math.abs(Math.cos(a)) > 0.9 ? 1.6 : 1)).toFixed(1)}" cy="${(cy + Math.sin(a) * rad * (Math.abs(Math.sin(a)) > 0.9 ? 1.6 : 1)).toFixed(1)}" r="${(0.5 + r() * 0.8).toFixed(1)}" fill="${BONE}" opacity="${(0.3 + r() * 0.7).toFixed(2)}"/>`; }
+    s += `<circle cx="${cx}" cy="${cy}" r="46" fill="url(#gy-c)" opacity=".6"/>${sparkle(cx, cy, 40, BONE)}`;
+    return svg(s, d.word);
+  }
+
+  // ---------- 9 · Focus (t10) ----------
+  function focus(d){
+    const n = d.word.length, fs = Math.min(120, 760 / Math.max(3, n)), y = 222;
+    let s = `<defs>${[2, 4, 7, 10, 14].map((b, i) => `<filter id="fc-b${i}" x="-50%" y="-80%" width="200%" height="260%"><feGaussianBlur stdDeviation="${b} ${b * 0.5}"/></filter>`).join('')}
+      <radialGradient id="fc-g" cx=".5" cy=".5" r=".6"><stop offset="0" stop-color="#ffe9c2"/><stop offset=".45" stop-color="${AMB}"/><stop offset="1" stop-color="${d.acc}"/></radialGradient></defs>`;
+    const word = (extra) => `<text x="300" y="${y}" text-anchor="middle" font-family="Unbounded" font-weight="900" font-size="${fs.toFixed(1)}" ${extra}>${esc(d.word)}</text>`;
+    for (let k = 5; k >= 1; k--) {
+      const sx = 1 + k * 0.16, sy = 1 + k * 0.42;
+      s += `<g transform="translate(300 ${y - fs * 0.36}) scale(${sx.toFixed(2)} ${sy.toFixed(2)}) translate(-300 ${-(y - fs * 0.36)})" opacity="${(0.75 - k * 0.1).toFixed(2)}" filter="url(#fc-b${k - 1})">${word(`fill="${k % 2 ? d.acc : AMB}"`)}</g>`;
+    }
+    s += `<g filter="url(#fc-b0)" opacity=".9">${word('fill="url(#fc-g)"')}</g>${word('fill="#fff3dc" opacity=".85"')}`;
+    s += `<line x1="0" y1="${y - fs * 0.32}" x2="${W}" y2="${y - fs * 0.32}" stroke="#fff" stroke-width=".6" opacity=".35"/>`;
+    s += `<rect width="${W}" height="${H}" fill="#000" opacity=".25" filter="url(#grit)"/>`;
+    s += `<text x="300" y="70" text-anchor="middle" font-family="Space Mono, Noto Serif JP" font-size="11" fill="${BONE}">${esc(d.title.toLowerCase())}</text>`;
+    s += `<text x="10" y="22" font-family="Unbounded" font-weight="600" font-size="9" fill="${BONE}">EPITAPH<tspan x="10" dy="11">DOSSIER</tspan></text><text x="300" y="22" text-anchor="middle" font-family="Unbounded" font-weight="600" font-size="9" fill="${BONE}">Nº ${esc(d.no)}</text><text x="${W - 10}" y="22" text-anchor="end" font-family="Noto Serif JP" font-weight="900" font-size="12" fill="${BONE}">${esc(d.glyph)}</text>`;
+    return svg(s, d.word);
+  }
+
+  // ---------- 10 · Noise (t11) ----------
+  function noise(d){
+    const words = d.title.split(/\s+/).filter(Boolean).slice(0, 3);
+    let lines = words.length && d.title !== d.word ? words.concat([d.word]) : [d.word, d.other];
+    lines = lines.slice(-4);
+    const bw = 380, lh = Math.min(76, 300 / lines.length), fs = lh * 0.96, top = 205 - (lines.length * lh) / 2 + lh * 0.8;
+    let s = `<defs><filter id="nz-s" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="0 22"/></filter><filter id="nz-s2" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="1 7"/></filter></defs>`;
+    const block = (extra) => lines.map((l, i) => `<text x="${300 - bw / 2}" y="${(top + i * lh).toFixed(1)}" font-family="Syncopate" font-weight="700" font-size="${fs.toFixed(1)}" textLength="${bw}" lengthAdjust="spacingAndGlyphs" ${extra}>${esc(l)}</text>`).join('');
+    s += `<g filter="url(#nz-s)" opacity=".95">${block(`fill="${BONE}"`)}</g>`;
+    s += `<g filter="url(#nz-s)" opacity=".5" transform="translate(0 -20)">${block(`fill="${d.acc}"`)}</g>`;
+    s += `<g filter="url(#nz-s2)" opacity=".8">${block(`fill="#fff"`)}</g>`;
+    s += block(`fill="#fffaf0"`);
+    s += `<g filter="url(#grit)"><rect x="${300 - bw / 2 - 30}" y="${top - lh * 1.6}" width="${bw + 60}" height="${lines.length * lh + lh * 2.4}" fill="#000" opacity=".28"/></g>`;
+    s += `<text x="300" y="${H - 14}" text-anchor="middle" font-family="Space Mono, Noto Serif JP" font-size="10" letter-spacing="4" fill="${DUST}">${esc(d.glyph)} · ${esc(d.no)}</text>`;
+    return svg(s, d.word);
+  }
+
+  const OPTS = [
+    { key:'t1', name:'Spire', ref:'t1 · the eternal night', fn: spire, note:'<b>Wide geometric capitals with stems that drip down</b> from some letters (one in the accent colour), hairlines crossing the slot, a faint triangle and a starfield. The second word sits small at the top corner.' },
+    { key:'t2', name:'Melt', ref:'t2 · liquid', fn: melt, note:'<b>Rounded letters that stay solid on the left and turn to liquid on the right,</b> with ribbons and drops pulled out of them. The melt keeps moving slowly.' },
+    { key:'t3', name:'Marble', ref:'t3 · ink banners', fn: marble, note:'<b>Bone banners that burn up into marbled ink,</b> the kanji running down the tall one and the main word down the short one, plus two marbled medallions labelled with the name and concept. The marbling drifts.' },
+    { key:'t4', name:'Papercut', ref:'t4 · aka', fn: papercut, note:'<b>A heavy lowercase serif lifted off the page in layers of cut paper,</b> each layer casting a soft shadow, with a drip falling from the last letter in the accent colour.' },
+    { key:'t5', name:'Monogram', ref:'t5 + t6 · ligatures', fn: monogram, note:'<b>The first letters of the name and the concept woven together</b> in a high-contrast italic serif, with a hairline swash looping through and a four-point star in the accent colour.' },
+    { key:'t7', name:'Coil', ref:'t7 · endless', fn: coil, note:'<b>The word runs around tilted rings that nest into each other,</b> lit across the middle and dark at the edges, with the kanji at the centre. The rings keep turning.' },
+    { key:'t8', name:'Orbit', ref:'t8 · cassini', fn: orbit, note:'<b>A dark planet with two rings of text:</b> the name and word in heavy type, and the blurb and titles in fine print further out. The rings pass behind the planet and in front of it.' },
+    { key:'t9', name:'Gyre', ref:'t9 · written in the stars', fn: gyre, note:'<b>Three crossing orbits carry the word, the first title and the name</b> around a grainy star in the accent colour.' },
+    { key:'t10', name:'Focus', ref:'t10 · focus', fn: focus, note:'<b>The word burns at the centre while blurred echoes of it spread outwards</b> in amber and the accent colour, with grain and a fold line over it like an old print.' },
+    { key:'t11', name:'Noise', ref:'t11 · make some noise', fn: noise, note:'<b>The title and the word stacked into one justified block</b> of wide capitals, smeared with vertical light and grain.' }
+  ];
+
+  const host = document.getElementById('opts');
+  OPTS.forEach((o, i) => {
+    const sec = document.createElement('section'); sec.className = 'opt';
+    sec.innerHTML = `<div class="opt-head"><span class="key">${o.key}</span><h2>${o.name}</h2><span class="ref">${o.ref}</span></div>
+      <div class="hero"><div class="rail"><span class="v" data-r="no"></span><span class="jp" data-r="glyph"></span><span class="v">ERA —</span></div>
+        <div class="poster"><div class="meta"><span>LOCATION <b>UNPLACED</b></span><span>LUNAR AGE <b>2</b></span></div>
+          <div class="slot" id="slot${i}"></div>
+          <div class="nameblock"><span class="tag">UNASSIGNED</span><h3 data-r="name"></h3><p data-r="line"></p></div></div></div>
+      <p class="note">${o.note}</p>`;
+    host.appendChild(sec);
+  });
+
+  const chips = document.getElementById('chips');
+  ORDER.forEach((id) => { const b = document.createElement('button'); b.className = 'chip'; b.dataset.char = id; b.textContent = id === 'own' ? '+ Your own' : CHARS[id].name; chips.appendChild(b); });
+
+  let glitchTimer = 0;
+  function render(){
+    const d = data();
+    try { localStorage.setItem('typeportraits', JSON.stringify(st)); } catch (e) {}
+    document.documentElement.style.setProperty('--acc', d.acc);
+    document.getElementById('own').hidden = st.char !== 'own';
+    document.querySelectorAll('[data-char]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.char === st.char)));
+    document.querySelectorAll('[data-word]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.word === st.word)));
+    document.querySelectorAll('[data-r]').forEach((el) => {
+      const k = el.dataset.r;
+      el.textContent = k === 'no' ? 'EPITAPH / ' + d.no : k === 'glyph' ? d.glyph : k === 'name' ? d.name.toUpperCase() : ((d.titles[0] || '') + ' · CH 1').toUpperCase();
+    });
+    OPTS.forEach((o, i) => { const el = document.getElementById('slot' + i); el.innerHTML = o.fn(d, el.clientWidth || 600); });
+  }
+  // collage slices jump out of line in steps
+  function glitch(){
+    const r = Math.random;
+    document.querySelectorAll('.slice').forEach((t) => t.setAttribute('transform', `translate(${r() < 0.6 ? ((r() - 0.5) * 34).toFixed(0) : 0} 0)`));
+  }
+  if (!reduce) glitchTimer = setInterval(glitch, 420); else setTimeout(glitch, 50);
+
+  document.addEventListener('click', (e) => {
+    const c = e.target.closest('[data-char]'); if (c) { st.char = c.dataset.char; render(); return; }
+    const w = e.target.closest('[data-word]'); if (w) { st.word = w.dataset.word; render(); }
+  });
+  document.getElementById('own').addEventListener('input', render);
+  let rz = 0; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(render, 150); });
+  render();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);
+})();
+</script>

@@ -216,3 +216,14 @@ A 3D version of the map, built in code with three.js (no model files). Opened fr
 - Coastlines: Natural Earth 1:110m (public domain) in `assets/atlas3d/geo.js`. Below 60°S the flat maps squeeze latitude so Antarctica is a strip.
 - Code: `assets/atlas3d/atlas3d.js`. three.js 0.170 is loaded from jsDelivr through the import map in `atlas-3d.html`.
 - Links: `atlas-3d.html?view=globe&theme=paper` opens a given style.
+
+## Hero art: typography and 3D renders replace the animated figures (2026-11-12)
+- The retired full-body figures (`assets/epitaph-figures2d.js`) are gone. Each chapter now has **Hero art** (`snap.heroArt`):
+  `''` = generated portrait (spike figure etc.), `'auto'`, `'3d'`, or a design key.
+- **Sils, Moinera, Antholonious, Universe** (matched by name): a looping Blender render (`assets/renders/`) or one of their flat designs.
+  Chapters that used an old figure (`snap.figure2d`, kept as legacy data) now show the 3D render.
+- **Everyone else**: the Storyborn designs (Gyre, Orbit, Coil) and the Voided designs (Helix, Walls, Timelines).
+- New character field **Race** (`char.race`: `storyborn` | `voided` | ''), separate from faction. *Hero art: auto* picks the race's design.
+  "Voided" means the Era 0 survivors for now; the name may change (vault: Exploratory Ideas/Lore/The Two Voided). Rename it in `RACES`.
+- Designs live in `designs/type-lab` (sources) → `python3 designs/build-type-asset.py` → `assets/epitaph-type.js`.
+  Blender scenes live in `designs/blender` (see its README).

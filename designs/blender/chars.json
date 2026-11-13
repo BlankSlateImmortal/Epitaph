@@ -1,0 +1,65 @@
+{
+ "sils": {
+  "name": "Sils",
+  "concept": "Nothing",
+  "glyph": "虚無",
+  "titles": [
+   "Silence"
+  ],
+  "acc": "#9b7bff",
+  "no": "001"
+ },
+ "moinera": {
+  "name": "Moinera",
+  "concept": "Imagination",
+  "glyph": "夢",
+  "titles": [
+   "Infinite Dream Mother",
+   "Unbound Dream"
+  ],
+  "acc": "#f08fd0",
+  "no": "002"
+ },
+ "universe": {
+  "name": "Universe",
+  "concept": "Chaos",
+  "glyph": "混沌",
+  "titles": [
+   "Building Block"
+  ],
+  "acc": "#c4482b",
+  "no": "003"
+ },
+ "antholonious": {
+  "name": "Antholonious",
+  "concept": "Fate",
+  "glyph": "物語",
+  "titles": [
+   "Author Beyond Pages",
+   "The Hand that Guides Fate"
+  ],
+  "acc": "#d8b25a",
+  "no": "004"
+ },
+ "orin": {
+  "name": "Orin",
+  "concept": "Ruin",
+  "glyph": "封",
+  "titles": [
+   "The Untitled Calamity",
+   "Forsaken"
+  ],
+  "acc": "#c0563a",
+  "no": "006"
+ },
+ "nera": {
+  "name": "Nera",
+  "concept": "Conquest",
+  "glyph": "征",
+  "titles": [
+   "Leader of the Voided"
+  ],
+  "acc": "#7fb0a4",
+  "no": "007"
+ }
+}

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Epitaph — Dossier</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Noto+Serif+JP:wght@500;900&family=Pirata+One&family=VT323&family=Space+Mono:wght@400;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Noto+Serif+JP:wght@500;900&family=Pirata+One&family=VT323&family=Space+Mono:wght@400;700&family=Unbounded:wght@600;700;800;900&family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..700&family=Syncopate:wght@400;700&family=Rozha+One&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
 <style>
   :root{
     --ink:#0c0b09;
@@ -1093,12 +1093,12 @@
   }
   .gen-loc-cascade select:focus{ outline:none; border-color: var(--dust); }
 </style>
-<link rel="stylesheet" href="assets/epitaph-theme.css?v=17">
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=18">
 <link rel="stylesheet" href="assets/epitaph-book.css?v=4">
 <link rel="stylesheet" href="assets/epitaph-codex-views.css?v=2">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="assets/portrait-gen.js?v=8"></script>
-<script src="assets/epitaph-figures2d.js?v=1"></script>
+<script src="assets/epitaph-type.js?v=1"></script>
 <script src="assets/epitaph-muses.js?v=7"></script>
 <script src="assets/archetypes.js?v=1"></script>
 <script src="assets/epitaph-world.js?v=2"></script>
@@ -1253,6 +1253,13 @@ function showToast(message, opts = {}){
 }
 
 const FACTIONS = ['Storyborn', 'Voided', 'Humanity', 'Unaffiliated'];
+// Races (separate from faction: Orin and Nera are Storyborn by community, not by race).
+// 'voided' = the Era 0 survivors. The lore may rename them (vault: Exploratory Ideas/Lore/The Two Voided);
+// change the label here and everything else follows. `design` is what Hero art: Auto picks for that race.
+const RACES = [
+  { id: 'storyborn', label: 'Storyborn', design: '9A' },
+  { id: 'voided', label: 'Voided (Era 0 survivors)', design: 'H1' }
+];
 const FACTION_ABBR = { 'Storyborn':'STRY', 'Voided':'VOID', 'Humanity':'HUMN', 'Unaffiliated':'UNAF' };
 function factionClass(f){
   if(f === 'Storyborn' || f === 'Humanity') return 'ember';
@@ -1276,9 +1283,46 @@ function normalizeFigure2d(fg){
   return { char: fg.char, style: fg.style === 'pixel' ? 'pixel' : 'halftone', seed: typeof fg.seed === 'string' ? fg.seed : '',
     v: fg.v && typeof fg.v === 'object' && !Array.isArray(fg.v) ? { ...fg.v } : {} };
 }
-function figure2dOf(snap){
-  const fg = snap && snap.figure2d;
-  return fg && window.EpitaphFigures && EpitaphFigures.CHARACTERS[fg.char] ? fg : null;
+function normalizeHeroArt(v, legacyFigure){
+  if(typeof v === 'string') return v;
+  // chapters that used the old animated figure (Sils, Moinera, Universe, Antholonious) get their 3D render
+  return legacyFigure && typeof legacyFigure === 'object' && legacyFigure.char ? '3d' : '';
+}
+// What the hero shows for this chapter (an uploaded image still wins over all of this).
+// Returns { kind:'3d', render, owner } | { kind:'flat', key, design } | null (generated portrait).
+function heroArtOf(char, snap){
+  if(!window.EpitaphType || !snap) return null;
+  let key = snap.heroArt || '';
+  const own = EpitaphType.ownerOf(char && char.name);
+  if(key === 'auto'){
+    if(own && EpitaphType.RENDERS[own]) key = '3d';
+    else { const r = RACES.find(x => x.id === (char && char.race)); key = r ? r.design : ''; }
+  }
+  if(key === '3d') return own && EpitaphType.RENDERS[own] ? { kind: '3d', render: EpitaphType.RENDERS[own], owner: own } : null;
+  const d = EpitaphType.byKey[key];
+  if(!d || (d.owner && d.owner !== own)) return null;
+  return { kind: 'flat', key, design: d };
+}
+// The data a typography design is built from: name, concept, kanji, titles, accent.
+function typeInfoFor(char, snap){
+  const own = EpitaphType.ownerOf(char.name), base = own ? EpitaphType.CHARS[own] : null;
+  const titles = (snap.titles || []).slice().sort((a, b) => (b.rankTier || 0) - (a.rankTier || 0)).map(t => t.name).filter(Boolean);
+  const idx = state.characters.findIndex(c => c.id === char.id) + 1;
+  return { name: char.name || 'Unnamed', concept: char.authority || (base && base.concept) || '', glyph: glyphFor(char),
+    titles: titles.length ? titles : (base ? base.titles : []), acc: char.corruptionColor || (base && base.acc) || '#ffb238',
+    blurb: snap.blurb || '', no: String(idx || 0).padStart(3, '0') };
+}
+function heroArtHtml(char, snap, art){
+  if(art.kind === '3d'){
+    const f = 'assets/renders/' + art.render.file;
+    return `<video class="hero-3d" autoplay muted loop playsinline preload="metadata" poster="${f}.jpg" aria-label="${escapeAttr(art.render.name + ', ' + (char.name || ''))}"><source src="${f}.webm" type="video/webm"><source src="${f}.mp4" type="video/mp4"></video>`;
+  }
+  return `<div class="hero-type">${EpitaphType.render(art.key, typeInfoFor(char, snap))}</div>`;
+}
+// A small still of the hero art, for thumbnails (rail, gallery): the poster frame or the SVG as an image.
+function heroArtStill(char, snap, art){
+  if(art.kind === '3d') return 'assets/renders/' + art.render.file + '.jpg';
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(EpitaphType.render(art.key, typeInfoFor(char, snap)));
 }
 function migrateCharacter(c){
   let result = c;
@@ -1307,6 +1351,7 @@ function migrateCharacter(c){
   if(typeof result.portraitStyle !== 'string') result.portraitStyle = '';
   if(typeof result.portraitSeed !== 'string') result.portraitSeed = '';
   if(typeof result.glyph !== 'string') result.glyph = '';
+  if(typeof result.race !== 'string') result.race = '';
   // snapshot-level system-sheet fields
   result.snapshots = result.snapshots.map(s => ({
     ...s,
@@ -1350,8 +1395,10 @@ function migrateCharacter(c){
     portraitFigure: typeof s.portraitFigure === 'string' ? s.portraitFigure : '',
     portraitStyle: typeof s.portraitStyle === 'string' ? s.portraitStyle : '',
     portraitSeed: typeof s.portraitSeed === 'string' ? s.portraitSeed : '',
-    // full-body animated figure (EpitaphFigures), per chapter; null = use the portrait above
+    // legacy: the retired full-body animated figure (kept so no data is lost; no longer drawn)
     figure2d: normalizeFigure2d(s.figure2d),
+    // hero art, per chapter: '' = generated portrait, 'auto', '3d', or a design key from EpitaphType
+    heroArt: normalizeHeroArt(s.heroArt, s.figure2d),
     copiedFrom: typeof s.copiedFrom === 'string' ? s.copiedFrom : '',
     // canon chapters are read-only until reopened
     locked: !!s.locked,
@@ -2012,7 +2059,7 @@ function defaultSnapExtras(){
     portraitPosition: { x: 50, y: 50 }, systemPortrait: '', systemPortraitPosition: { x: 50, y: 50 },
     archetype: '', location: null, objective: '', relationships: [], knowledge: [], secrets: [],
     condition: [], marks: [], notes: '', headingToward: '',
-    portraitFigure: '', portraitStyle: '', portraitSeed: '', figure2d: null,
+    portraitFigure: '', portraitStyle: '', portraitSeed: '', figure2d: null, heroArt: '',
     startChapter: null, presence: 'alive', archetypeReason: ''
   };
 }
@@ -2940,43 +2987,16 @@ function genSourceFor(char, snap){
 function genOptsFor(char, extra){
   return window.EpitaphPortrait ? EpitaphPortrait.forCharacter(genSourceFor(char), extra) : null;
 }
-// A still of a full-body figure, cached as a data URL (used outside the hero).
-const figureStillCache = new Map();
-function figureStill(fg, cut){
-  const key = JSON.stringify([fg, cut]);
-  if(!figureStillCache.has(key)) figureStillCache.set(key, EpitaphFigures.frame({ ...fg, t: 0.15, scale: 1, background: cut ? false : undefined }).then(cv => cv.toDataURL()));
-  return figureStillCache.get(key);
-}
-// The hero's animated figure: idle on a loop; click to play the ability once.
-// Moinera's ability also re-tints the page to the colour of her current dream.
-let heroFigure = null;
-const THEME_TINT_KEYS = ['--amber', '--amber-hi'];
-function tintPage(col){
-  const root = document.documentElement.style;
-  THEME_TINT_KEYS.forEach(k => col ? root.setProperty(k, col) : root.removeProperty(k));
-}
-function mountHeroFigure(char, snap){
-  if(heroFigure){ heroFigure.player.pause(); heroFigure = null; tintPage(''); }
-  const fg = figure2dOf(snap);
-  const cv = posterWrap.querySelector('canvas.fig2d-stage');
-  if(!fg || !cv) return;
-  const ch = EpitaphFigures.CHARACTERS[fg.char];
-  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const opts = { ...fg, anim: 'idle', background: false, scale: innerWidth < 640 ? 1 : 1.5, fps: 11 };
-  const player = new EpitaphFigures.Player(cv, opts);
-  const hf = heroFigure = { player, anim: 'idle' };
-  opts.onFrame = (t) => {
-    if(heroFigure !== hf) return;
-    if(hf.anim === 'ability' && ch.accentAt) tintPage(EpitaphFigures.accentAt({ ...fg, anim: 'ability', t }));
-    if(hf.anim === 'ability' && t === 0){ hf.anim = 'idle'; tintPage(''); player.set({ anim: 'idle' }); if(reduce) player.pause(); }
-  };
-  player.set(opts).then(() => { if(!reduce && heroFigure === hf) player.play(); });
-  cv.title = `Click: ${ch.anims.ability}`;
-  cv.addEventListener('click', () => {
-    if(heroFigure !== hf || hf.anim === 'ability') return;
-    hf.anim = 'ability'; player.i = 0;
-    player.set({ anim: 'ability' }).then(() => { if(heroFigure === hf) player.play(); });
-  });
+// The hero art: plays the 3D loop (or leaves it on its first frame for reduced motion), and lets a
+// full-size design take over the space the sphere and HUD ring normally fill.
+function mountHeroArt(char, snap){
+  const space = posterWrap.querySelector('.sig-space');
+  const art = !snap.portrait && heroArtOf(char, snap);
+  if(space) space.classList.toggle('has-art', !!art);
+  const v = posterWrap.querySelector('video.hero-3d');
+  if(!v) return;
+  if(REDUCED_MOTION){ v.removeAttribute('autoplay'); v.pause(); return; }
+  const p = v.play(); if(p && p.catch) p.catch(() => {});
 }
 // Fills every <img data-gen-char="id"> with that character's generated portrait.
 function hydrateGenPortraits(root){
@@ -2985,11 +3005,8 @@ function hydrateGenPortraits(root){
     const c = state.characters.find(x => x.id === img.dataset.genChar);
     if(!c) return;
     const extra = img.dataset.genBg === 'off' ? { background: false } : {};
-    const fg = figure2dOf(getActiveSnapshot(c));
-    if(fg){
-      figureStill(fg, extra.background === false).then(url => { if(img.isConnected) img.src = url; }).catch(() => {});
-      return;
-    }
+    const cs = getActiveSnapshot(c), art = heroArtOf(c, cs);
+    if(art){ try { img.src = heroArtStill(c, cs, art); } catch(e) {} return; }
     EpitaphPortrait.render(genOptsFor(c, extra)).then(url => { if(img.isConnected) img.src = url; }).catch(() => {});
   });
 }
@@ -3106,8 +3123,8 @@ function renderPoster(){
   const total = state.characters.length;
   const portraitHtml = snap.portrait
     ? `<img src="${snap.portrait}" alt="${escapeHtml(char.name)}" style="object-position:${pPos.x}% ${pPos.y}%;">`
-    : figure2dOf(snap)
-    ? `<canvas class="fig2d-stage" role="img" aria-label="Animated figure of ${escapeAttr(char.name || 'this character')}"></canvas>`
+    : heroArtOf(char, snap)
+    ? heroArtHtml(char, snap, heroArtOf(char, snap))
     : `<img class="gen-portrait" src="${SILHOUETTE_SVG}" data-gen-char="${escapeAttr(char.id)}" data-gen-bg="off" alt="Generated portrait of ${escapeAttr(char.name || 'this character')}">`;
   const titles = (snap.titles || []).slice().sort((a, b) => (b.rankTier || 0) - (a.rankTier || 0));
   const topTitle = titles[0] ? titles[0].name : (snap.blurb || '');
@@ -3214,7 +3231,7 @@ function renderPoster(){
     });
   }
   hydrateGenPortraits(posterWrap);
-  mountHeroFigure(char, snap);
+  mountHeroArt(char, snap);
   playHeroIntro(char);
 }
 
@@ -3377,7 +3394,7 @@ function openCharacterForm(existingChar){
     ${portraitFieldHtml()}
 
     <div class="field">
-      <label>Generated portrait — used whenever no image is uploaded</label>
+      <label>Generated portrait and hero art — used whenever no image is uploaded</label>
       <div class="gen-preview">
         <img id="genPrev" alt="Generated portrait preview" src="${SILHOUETTE_SVG}">
         <div class="gen-rows" style="display:flex;flex-direction:column;gap:10px;min-width:0">
@@ -3393,15 +3410,9 @@ function openCharacterForm(existingChar){
           <button type="button" class="btn ghost" id="genReroll">↻ Reroll</button>
         </div>
         <div class="gen-row">
-          <select id="fFig2d" aria-label="Full-body figure">
-            <option value="">Full-body figure: none</option>
-            ${(window.EpitaphFigures ? Object.values(EpitaphFigures.CHARACTERS) : []).map(f => `<option value="${f.id}" ${(existingSnapFor(existingChar).figure2d || {}).char === f.id ? 'selected' : ''}>${escapeHtml(f.name)}</option>`).join('')}
-          </select>
-          <select id="fFig2dStyle" aria-label="Figure style">
-            ${['halftone', 'pixel'].map(a => `<option value="${a}" ${(existingSnapFor(existingChar).figure2d || {}).style === a ? 'selected' : ''}>${a}</option>`).join('')}
-          </select>
+          <select id="fHeroArt" aria-label="Hero art">${heroArtOptionsHtml(existingChar ? existingChar.name : '', existingSnapFor(existingChar).heroArt || '')}</select>
         </div>
-        <small class="fig2d-hint" id="fig2dHint" style="color:var(--dust)"></small>
+        <small class="fig2d-hint" id="heroArtHint" style="color:var(--dust)"></small>
         </div>
       </div>
     </div>
@@ -3424,6 +3435,13 @@ function openCharacterForm(existingChar){
         <select id="fFaction">
           <option value="">— choose —</option>
           ${FACTIONS.map(f => `<option value="${f}" ${existingChar && existingChar.faction===f ? 'selected':''}>${f}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label>Race</label>
+        <select id="fRace">
+          <option value="">— none / unknown —</option>
+          ${RACES.map(r => `<option value="${r.id}" ${existingChar && existingChar.race === r.id ? 'selected' : ''}>${escapeHtml(r.label)}</option>`).join('')}
         </select>
       </div>
       <div class="field">
@@ -3467,6 +3485,22 @@ function openCharacterForm(existingChar){
   openModal();
 }
 
+// The Hero art menu. Everyone gets the Storyborn and Voided designs; Sils, Moinera, Antholonious and
+// Universe also get their 3D render and their own flat designs.
+function heroArtOptionsHtml(name, current){
+  const o = (v, label) => `<option value="${v}" ${current === v ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+  if(!window.EpitaphType) return o('', 'Hero art: generated portrait');
+  const own = EpitaphType.ownerOf(name);
+  let h = o('', 'Hero art: generated portrait (settings above)') + o('auto', own ? 'Hero art: auto (3D render)' : 'Hero art: auto (by race)');
+  if(own){
+    h += `<optgroup label="${escapeAttr(EpitaphType.CHARS[own].name)}">` + o('3d', EpitaphType.RENDERS[own].name)
+      + EpitaphType.DESIGNS.filter(x => x.owner === own).map(x => o(x.key, x.name + ' (flat)')).join('') + '</optgroup>';
+  }
+  RACES.forEach(r => {
+    h += `<optgroup label="${escapeAttr(r.label)}">` + EpitaphType.DESIGNS.filter(x => x.group === r.id).map(x => o(x.key, x.name)).join('') + '</optgroup>';
+  });
+  return h;
+}
 // Generated-portrait preview + muse guide inside the character form.
 let pendingPortraitSeed = '';
 function existingSnapFor(char){ return (char && getActiveSnapshot(char)) || {}; }
@@ -3475,17 +3509,18 @@ function wireCharacterExtras(existingChar){
   const prev = document.getElementById('genPrev');
   const refresh = () => {
     if(!window.EpitaphPortrait || !prev || !prev.isConnected) return; // form closed before the debounce fired
-    const figSel = document.getElementById('fFig2d'), hint = document.getElementById('fig2dHint');
-    const nameNow = document.getElementById('fName').value.trim().toLowerCase();
-    if(hint && window.EpitaphFigures){
-      const match = Object.values(EpitaphFigures.CHARACTERS).find(f => f.name.toLowerCase() === nameNow);
-      hint.textContent = match && figSel && figSel.value !== match.id ? `Tip: ${match.name} has a full-body figure. Pick it above to use it.` : '';
-    }
-    if(figSel && figSel.value && window.EpitaphFigures){
-      const old = existingSnapFor(existingChar).figure2d || {};
-      EpitaphFigures.frame({ char: figSel.value, style: document.getElementById('fFig2dStyle').value, seed: old.char === figSel.value ? old.seed : '', v: old.char === figSel.value ? old.v : {}, t: 0.15, scale: 1, background: false })
-        .then(cv => { prev.src = cv.toDataURL(); }).catch(() => {});
-      return;
+    const artSel = document.getElementById('fHeroArt'), hint = document.getElementById('heroArtHint');
+    const nameNow = document.getElementById('fName').value.trim();
+    if(artSel && window.EpitaphType){
+      // the menu depends on the name: Sils, Moinera, Antholonious and Universe get their own designs and 3D render
+      const own = EpitaphType.ownerOf(nameNow);
+      if(artSel.dataset.owner !== own){ const keep = artSel.value; artSel.innerHTML = heroArtOptionsHtml(nameNow, keep); artSel.dataset.owner = own; }
+      const draftChar = { ...(existingChar || {}), name: nameNow || 'Unnamed', race: (document.getElementById('fRace') || {}).value || '', authority: (existingChar || {}).authority || '' };
+      const draftSnap = { ...existingSnapFor(existingChar), heroArt: artSel.value };
+      const art = heroArtOf(draftChar, draftSnap);
+      if(hint) hint.textContent = artSel.value === 'auto' && !art ? 'Auto uses the race (Storyborn or Voided) or, for a set character, its 3D render. Pick a race to see it.'
+        : art && art.kind === '3d' ? 'Plays as a looping 3D render in the hero.' : art ? 'Built from the name, concept, kanji, titles and colour.' : '';
+      if(art){ prev.src = heroArtStill(draftChar, draftSnap, art); return; }
     }
     const draft = genSourceFor({
       ...(existingChar || {}),
@@ -3496,7 +3531,7 @@ function wireCharacterExtras(existingChar){
     EpitaphPortrait.render(EpitaphPortrait.forCharacter(draft)).then(u => { prev.src = u; }).catch(() => {});
   };
   let t;
-  ['fName', 'fFaction', 'fFigure', 'fStyle', 'fPrimordial', 'fFig2d', 'fFig2dStyle'].forEach(id => {
+  ['fName', 'fFaction', 'fRace', 'fFigure', 'fStyle', 'fPrimordial', 'fHeroArt'].forEach(id => {
     const el = document.getElementById(id);
     if(el){ el.addEventListener('input', () => { clearTimeout(t); t = setTimeout(refresh, 200); }); el.addEventListener('change', () => { clearTimeout(t); t = setTimeout(refresh, 200); }); }
   });
@@ -3536,29 +3571,26 @@ function reviewCharacterSave(){
     museIds: [...document.querySelectorAll('#musePicker input:checked')].map(i => i.value),
     portraitFigure: (document.getElementById('fFigure') || {}).value || '',
     portraitStyle: (document.getElementById('fStyle') || {}).value || '',
-    figure2d: (() => {
-      const id = (document.getElementById('fFig2d') || {}).value || '';
-      if(!id) return null;
-      const old = existingSnapFor(existingChar).figure2d || {};
-      return normalizeFigure2d({ char: id, style: (document.getElementById('fFig2dStyle') || {}).value, seed: old.char === id ? old.seed : '', v: old.char === id ? old.v : {} });
-    })(),
+    figure2d: normalizeFigure2d(existingSnapFor(existingChar).figure2d),
+    heroArt: (document.getElementById('fHeroArt') || {}).value || '',
+    race: (document.getElementById('fRace') || {}).value || '',
     glyph: ((document.getElementById('fGlyph') || {}).value || '').trim()
   };
 
   const draftChar = migrateCharacter({
     ...(existingChar || {}),
     id: charId,
-    name: fields.name, faction: fields.faction, primordial: fields.primordial,
+    name: fields.name, faction: fields.faction, race: fields.race, primordial: fields.primordial,
     museIds: fields.museIds, glyph: fields.glyph,
     activeSnapshotId: snapId,
     snapshots: existingChar
       ? existingChar.snapshots.map(s => s.id === snapId && !isLocked(s)
           ? { ...s, chapterRange: fields.chapterRange, blurb: fields.blurb, backstory: fields.backstory, portrait: fields.portrait, archetype: fields.archetype,
               startChapter: Number.isInteger(s.startChapter) ? s.startChapter : parseStartChapter(fields.chapterRange),
-              portraitFigure: fields.portraitFigure, portraitStyle: fields.portraitStyle, portraitSeed: pendingPortraitSeed, figure2d: fields.figure2d }
+              portraitFigure: fields.portraitFigure, portraitStyle: fields.portraitStyle, portraitSeed: pendingPortraitSeed, figure2d: fields.figure2d, heroArt: fields.heroArt }
           : s)
       : [{ id: snapId, chapterRange: fields.chapterRange, blurb: fields.blurb, backstory: fields.backstory, portrait: fields.portrait, ...defaultSnapExtras(),
-           archetype: fields.archetype, startChapter: parseStartChapter(fields.chapterRange), portraitFigure: fields.portraitFigure, portraitStyle: fields.portraitStyle, portraitSeed: pendingPortraitSeed, figure2d: fields.figure2d }]
+           archetype: fields.archetype, startChapter: parseStartChapter(fields.chapterRange), portraitFigure: fields.portraitFigure, portraitStyle: fields.portraitStyle, portraitSeed: pendingPortraitSeed, figure2d: fields.figure2d, heroArt: fields.heroArt }]
   });
 
   if(isDivineChar(draftChar)) applyDivineLock(draftChar);
@@ -3671,7 +3703,8 @@ function carryForwardState(prev){
     portraitFigure: prev.portraitFigure || '',
     portraitStyle: prev.portraitStyle || '',
     portraitSeed: prev.portraitSeed || '',
-    figure2d: normalizeFigure2d(prev.figure2d)
+    figure2d: normalizeFigure2d(prev.figure2d),
+    heroArt: normalizeHeroArt(prev.heroArt, prev.figure2d)
   };
 }
 
