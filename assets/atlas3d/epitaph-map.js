@@ -34,7 +34,7 @@ const THEMES = {
     shadow: '#000000', shadowOpacity: 0.55, outlinePx: 1.4,
     seaBands: ['#5a4426', '#46341d', '#372916', '#2b2011'], flood: '#3aa6b0', rock: '#3a2b1a', ice: '#f4e6c8',
     ghost: '#3a2a16', binding: '#ffb238', sunk: '#3aa6b0', edge: '#ffb238',
-    groups: { VOIDED: '#9b8cff', STORYBORN: '#6fb3a3', ANTHOLONIUS: '#e3b95c', FALLEN: '#d4452b', OTHER: '#b5904f' }
+    groups: { VOIDED: '#9b8cff', STORYBORN: '#6fb3a3', FALLEN: '#d4452b', OTHER: '#b5904f' }
   },
   paper: {
     bg: '#f6eddd', sea: '#c9d6e6', seaLine: '#9fb2cc', land: '#9cc27a', landHi: '#f4efe4',
@@ -43,7 +43,7 @@ const THEMES = {
     shadow: '#7a5532', shadowOpacity: 0.3, outlinePx: 1.3,
     seaBands: ['#6a86c4', '#5470b0', '#45609e', '#38508a'], flood: '#1aa39a', rock: '#8a7a66', ice: '#ffffff',
     ghost: '#d9ccb2', binding: '#141a2c', sunk: '#1aa39a', edge: '#141a2c',
-    groups: { VOIDED: '#6a5acd', STORYBORN: '#3fa08a', ANTHOLONIUS: '#e0a02a', FALLEN: '#e8392e', OTHER: '#9c7a4a' }
+    groups: { VOIDED: '#6a5acd', STORYBORN: '#3fa08a', FALLEN: '#e8392e', OTHER: '#9c7a4a' }
   }
 };
 const CHAR_COLORS = ['#d4452b', '#6fb3a3', '#e3b95c', '#9b8cff', '#f1e6cf', '#ff7a45', '#7fc8ff', '#c78bd8'];
@@ -233,7 +233,7 @@ function loadCharacters() {
     demo: true, titles: {}, chapters: [1, 2, 3, 4, 5],
     chars: [
       { id: 'demo-orin', name: 'Orin (demo)', color: CHAR_COLORS[0], stops: [stop(1, 'aurelia'), stop(3, 'cairo'), stop(4, 'voided-settlement-001'), stop(5, 'temple-voided-001')] },
-      { id: 'demo-b', name: 'Second (demo)', color: CHAR_COLORS[1], stops: [stop(1, 'johannesburg'), stop(3, 'storyborn-church-001'), stop(5, 'antholonius-temple-003')] }
+      { id: 'demo-b', name: 'Second (demo)', color: CHAR_COLORS[1], stops: [stop(1, 'johannesburg'), stop(3, 'storyborn-church-001'), stop(5, 'storyborn-settlement-001')] }
     ].map(c => ({ ...c, stops: c.stops.filter(s => s.r) }))
   };
 }
@@ -759,7 +759,7 @@ function rebuildKeepCamera() {
 function renderKeys() {
   const T = THEMES[state.theme], k = [];
   k.push([T.city, 'City']);
-  if (state.era === 1) k.push([T.sunk, 'Sunk city (+60 m)'], [T.groups.STORYBORN, 'Storyborn'], [T.groups.VOIDED, 'Voided (hidden)'], [T.groups.ANTHOLONIUS, 'Antholonius'], [T.groups.FALLEN, 'Fallen (none yet)']);
+  if (state.era === 1) k.push([T.sunk, 'Sunk city (+60 m)'], [T.groups.STORYBORN, 'Storyborn'], [T.groups.VOIDED, 'Voided (hidden)'], [T.groups.FALLEN, 'Fallen (none yet)']);
   $('keys').innerHTML = k.map(([c, t]) => `<span><em style="background:${c}"></em>${t}</span>`).join('');
 }
 function renderLore() {
