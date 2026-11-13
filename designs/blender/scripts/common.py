@@ -21,6 +21,7 @@ def args():
     p.add_argument('--frames', type=int, default=144)
     p.add_argument('--samples', type=int, default=48)
     p.add_argument('--res', type=float, default=1.0, help='resolution scale')
+    p.add_argument('--cut', action='store_true', help='one transparent PNG (no background) for thumbnails')
     a = p.parse_args(argv)
     with open(os.path.join(ROOT, 'chars.json'), encoding='utf-8') as f:
         a.c = json.load(f)[a.char]
@@ -189,6 +190,15 @@ def key_every_frame(ob, frames, fn):
 def render(sc, scene_name, a):
     out = os.path.join(ROOT, 'renders', f'{scene_name}-{a.char}')
     os.makedirs(out, exist_ok=True)
+    if a.cut:
+        # a thumbnail with no background: transparent film, RGBA PNG
+        sc.render.film_transparent = True
+        sc.render.image_settings.color_mode = 'RGBA'
+        sc.frame_set(a.frame)
+        sc.render.filepath = os.path.join(ROOT, 'renders', f'{scene_name}-{a.char}-cut.png')
+        bpy.ops.render.render(write_still=True)
+        print('CUT', sc.render.filepath)
+        return
     if a.still:
         sc.frame_set(a.frame)
         sc.render.filepath = os.path.join(out, f'still-{a.frame:04d}.png')

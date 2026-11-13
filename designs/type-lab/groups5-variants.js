@@ -68,5 +68,5 @@
     b += `<rect x="${gx + 10}" y="${gy + gh - 8}" width="22" height="13" fill="${DUST}"/>` + cap(gx + 21, gy + gh + 2, d.no.slice(-2), 'middle', PANEL, 9, 1);
     b += `<text x="300" y="${gy + gh + 34}" text-anchor="middle" font-family="VT323, monospace" font-size="24" letter-spacing="2" fill="${AMB}">${esc(d.concept.toUpperCase())}</text>` + cap(300, gy + gh + 54, 'BINDING · ' + d.name.toUpperCase(), 'middle', DUST, 8, 2);
     b += cap(14, 22, 'RELIC VAULT', 'start', AMB) + cap(W - 14, 22, d.glyph, 'end', BONE, 16, 0, 'Noto Serif JP', 900);
-    return svg(`<defs>${defs}${vd}</defs><rect width="${W}" height="${H}" fill="#070503"/>${b}`, d.word);
+    return svg(`<defs>${defs}${vd}</defs>${b}`, d.word);
   }
