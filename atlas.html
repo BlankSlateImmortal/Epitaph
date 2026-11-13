@@ -1381,7 +1381,7 @@ function renderLocationRecord(){
     ? items.map(i => `<button type="button" class="idx-row" data-item-id="${escapeHud(i.id)}">${escapeHud(i.name)}</button>`).join('')
     : 'None recorded.';
   itemsEl.querySelectorAll('[data-item-id]').forEach(b => b.addEventListener('click', () => openLibrary('items', { mode: 'itemDetail', id: b.dataset.itemId })));
-  const site = (World.SITES || {})[pl.id], siteBtn = document.getElementById('locOpenSite');
+  const site = (World.SITES || {})[pl.id] || (World.SITES || {})[pl.cityId], siteBtn = document.getElementById('locOpenSite');
   siteBtn.hidden = !site; if (site) siteBtn.href = site;
 }
 

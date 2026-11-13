@@ -325,7 +325,8 @@ function addMarkers(T, markerScale, parent = root) {
     const m = new THREE.Mesh(sunk ? markerGeo.ruin : markerGeo[kind], mat(color, { roughness: 0.5, emissive: p.group ? color : '#000', emissiveIntensity: p.group ? 0.35 : 0, transparent: sunk, opacity: sunk ? 0.75 : 1 }));
     const k = p.lat.toFixed(1) + ',' + p.lng.toFixed(1);
     const n = byKey[k] = (byKey[k] || 0) + 1;
-    placeOn(m, surface(p.lat - (n - 1) * 0.8, p.lng + (n - 1) * 1.2), markerScale * (sunk ? 0.8 : 1));
+    const spread = state.view === 'planet' ? 1.2 : 4.2;   // places sharing a spot (a temple in a city) sit side by side
+    placeOn(m, surface(p.lat - (n - 1) * spread * 0.55, p.lng + (n - 1) * spread), markerScale * (sunk ? 0.8 : 1));
     m.castShadow = true;
     m.userData.place = p; m.userData.sunk = sunk;
     withOutline(m, T);
@@ -342,7 +343,7 @@ function addMarkers(T, markerScale, parent = root) {
     placeOn(t, at, markerScale * 1.15);
     const side = new THREE.Vector3().crossVectors(at.normal, Math.abs(at.normal.y) > 0.9 ? new THREE.Vector3(1, 0, 0) : UP).normalize();
     const fwd = new THREE.Vector3().crossVectors(side, at.normal);
-    const ang = (n - 1) * 2.1, rad = n > 1 ? 0.28 * markerScale : 0;
+    const ang = 2.4 + (n - 1) * 2.1, rad = 0.32 * markerScale;   // tokens stand beside the place marker, not on it
     t.position.addScaledVector(side, Math.cos(ang) * rad).addScaledVector(fwd, Math.sin(ang) * rad).addScaledVector(at.normal, 0.04);
     t.castShadow = true; t.userData.char = c; t.userData.charState = cs;
     withOutline(t, T);
@@ -850,7 +851,7 @@ canvas.addEventListener('pointerup', e => {
   const hit = pick();
   if (!hit) return;
   if (hit.userData.earth) { setView('earth'); return; }      // planet → Earth board
-  const site = hit.userData.place && (World.SITES || {})[hit.userData.place.id];
+  const site = siteOf(hit.userData.place);
   if (site) { location.href = site; return; }                 // a place with a built site opens it
   focusOn(hit);
 });
@@ -860,6 +861,8 @@ function pick() {
   return hits.length ? hits[0].object : null;
 }
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// a place opens a site if it has one, or if it belongs to a city that has one (e.g. a temple in Aurelia)
+const siteOf = p => p ? ((World.SITES || {})[p.id] || (World.SITES || {})[p.cityId] || null) : null;
 function describe(obj) {
   if (obj.userData.earth) return '<b>Earth</b><span>An island on Epitaph. Click to open the board.</span>';
   if (obj.userData.char) {
@@ -872,7 +875,7 @@ function describe(obj) {
   return `<b>${esc(p.name)}</b><span>${esc(World.KIND_LABEL[p.kind] || 'Place')}${co ? ' · ' + esc(co.name) : ''}</span>` +
     (obj.userData.sunk ? '<span>Sunk: the sea rose ~60 m in Era 1.</span>' : '') +
     (p.fictional ? '<span>Era 1 settlement</span>' : '') +
-    ((World.SITES || {})[p.id] ? '<span class="here">Click to open the site</span>' : '') +
+    (siteOf(p) ? '<span class="here">Click to open the site</span>' : '') +
     (p.group ? `<span>${esc((World.SITE_GROUPS.find(g => g.id === p.group) || {}).label || p.group)} site${p.group === 'VOIDED' ? ' · hidden' : ''}</span>` : '') +
     (here.length ? `<span class="here">Here: ${here.map(c => esc(c.name)).join(', ')}</span>` : '');
 }
