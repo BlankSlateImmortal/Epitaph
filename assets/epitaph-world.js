@@ -22,7 +22,6 @@ const SPECIAL_SITE_TYPES = [
   { id: 'STORYBORN', label: 'Storyborn' },
   { id: 'ANGEL', label: 'Angel' },
   { id: 'DEMON', label: 'Demon' },
-  { id: 'ANTHOLONIUS', label: 'Antholonius' },
   { id: 'OTHER', label: 'Other' }
 ];
 
@@ -80,7 +79,6 @@ const ERA_0_CITIES = [
   { id: 'miami', name: 'Miami', countryId: 'united-states', lat: 25.76, lng: -80.19 },
   { id: 'san-francisco', name: 'San Francisco', countryId: 'united-states', lat: 37.77, lng: -122.42 },
   { id: 'aurelia', name: 'Aurelia', countryId: 'united-states', lat: 39.5, lng: -98.0, fictional: true },
-  { id: 'vanth', name: 'Vanth', countryId: 'united-states', lat: 36.0, lng: -95.0, fictional: true },
   { id: 'helios-7', name: 'Helios-7', countryId: 'united-states', lat: 34.0, lng: -117.0, fictional: true },
 
   { id: 'toronto', name: 'Toronto', countryId: 'canada', lat: 43.65, lng: -79.38 },
@@ -146,7 +144,7 @@ const ERA_0_CITIES = [
 
 const ERA_1_SPECIAL_SITES = [
   { id: 'temple-voided-001', type: 'VOIDED', name: 'Temple of the Voided',
-    continentId: 'north-america', countryId: 'united-states', cityId: 'aurelia', lat: 39.5, lng: -98.0, status: 'UNKNOWN' },
+    continentId: 'north-america', countryId: 'united-states', cityId: 'aurelia', lat: 39.515, lng: -98.0, status: 'UNKNOWN' },
   { id: 'voided-settlement-001', type: 'VOIDED', name: 'Voided Settlement — The Hollow Reach',
     continentId: 'europe', countryId: 'germany', cityId: null, lat: 51.5, lng: 9.5, status: 'UNKNOWN' },
   { id: 'storyborn-church-001', type: 'STORYBORN', name: 'Church of the Storyborn',
@@ -156,13 +154,7 @@ const ERA_1_SPECIAL_SITES = [
   { id: 'angel-settlement-001', type: 'ANGEL', name: 'Angel Settlement — Lumendock',
     continentId: 'europe', countryId: 'united-kingdom', cityId: 'lumendock', lat: 55.0, lng: -3.0, status: 'UNKNOWN' },
   { id: 'demon-settlement-001', type: 'DEMON', name: 'Demon Settlement — Sunspire',
-    continentId: 'africa', countryId: 'south-africa', cityId: 'sunspire', lat: -24.0, lng: 22.0, status: 'UNKNOWN' },
-  { id: 'antholonius-temple-001', type: 'ANTHOLONIUS', name: 'Temple of Antholonius — Fragment I',
-    continentId: 'north-america', countryId: 'united-states', cityId: 'aurelia', lat: 39.5, lng: -98.0, status: 'UNKNOWN' },
-  { id: 'antholonius-temple-002', type: 'ANTHOLONIUS', name: 'Temple of Antholonius — Fragment II',
-    continentId: 'europe', countryId: 'germany', cityId: null, lat: 49.0, lng: 11.0, status: 'UNKNOWN' },
-  { id: 'antholonius-temple-003', type: 'ANTHOLONIUS', name: 'Temple of Antholonius — Fragment III',
-    continentId: 'asia', countryId: 'china', cityId: null, lat: 34.0, lng: 108.0, status: 'UNKNOWN' }
+    continentId: 'africa', countryId: 'south-africa', cityId: 'sunspire', lat: -24.0, lng: 22.0, status: 'UNKNOWN' }
 ];
 
   const KINDS = ['city', 'ruin', 'temple', 'settlement', 'other'];
