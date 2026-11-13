@@ -210,7 +210,8 @@ The first site: a 3D diorama of a single place, opened from the maps.
 - **Opening it:** click **Aurelia** on the Epitaph map's Earth board (Era 1), or press **OPEN SITE** in its location record on the Atlas. Places with a site are listed in `EpitaphWorld.SITES` (`assets/epitaph-world.js`).
 - **What's there:** Kansas, on a low limestone bluff above the Solomon River valley. The Cathedral of the Storyborn, the Ruler's Tower (no doors), the Chronicle, Orin's home, the Seminary across a bridge, and Nera's Voided lab cut away in the north slope, with a secret passage to a hatch in the prairie. Below are the river, the wharf, the lower town and a funicular.
 - **Before / After the Calamity:** the city is erased outward from Orin's home, the ground is left smooth and black, and Nera stands at the hatch. Signal / Paper palettes, labels on or off, and **← Map** goes back.
-- Code: `assets/sites/aurelia.js` (three.js 0.170 from jsDelivr). Links: `?view=lab`, `?after=1`, `?theme=paper`.
+- **Temple of the Voided** under the prairie: the lab's secret passage ends at a hatch, and stairs go down into a black gothic hall with violet light seams. Its centre is a **relay station**, a split black pyramid whose beam rises to a small vent in the prairie. The model's base is deeper and cut open on the north side so you can see in. After the Calamity, Nera is safe in the temple.
+- Code: `assets/sites/aurelia.js` (three.js 0.170 from jsDelivr). Links: `?view=lab`, `?view=temple`, `?after=1`, `?theme=paper`.
 
 ## Epitaph map (`atlas-3d.html`, 2026-11-13)
 

@@ -10,7 +10,9 @@
  *                 a trapdoor and a secret passage to a hatch in the prairie
  *   Valley        the river, a wharf and barges, the lower town, prairie fields; a funicular
  * After the Calamity: erased outward from Orin, the ground left smooth and black; Nera at the hatch.
- * ?view=lab aims at the lab; ?after=1, ?theme=paper.
+ *   Temple        under the prairie (base cut open on the north): the Temple of the Voided, reached
+ *                 by the passage hatch, with a relay station (split black pyramid, beam to a vent)
+ * ?view=lab, ?view=temple; ?after=1, ?theme=paper.
  */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -436,7 +438,7 @@ function buildAurelia(kit, quake) {
     kit.add('hatch', xf(box(1.5, 0.45, 1.5), { x: hatch.x, y: FLOOR - 0.05, z: hatch.z }));
     kit.add('hatch', xf(box(1.2, 0.18, 1.2), { x: hatch.x, y: FLOOR + 0.4, z: hatch.z, rx: -0.12 }));
     kit.add('hatchglow', xf(box(1.22, 0.03, 0.05), { x: hatch.x, y: FLOOR + 0.4, z: hatch.z - 0.6 }));
-    L('Secret passage · exit', hatch.clone().add(V(0, 1.6, 0)));
+    L('Hatch · down to the temple', hatch.clone().add(V(0, 1.6, 0)));
     return { light: LP(0, H0 + 1.4, -1.6), tunnel, hatch };
   })();
 
@@ -579,6 +581,7 @@ const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.55, 0.4, 0.9); 
 composer.addPass(new OutputPass());
 
 const state = { theme: 'crt', after: 0, t: 0, showTags: true };
+let templeAt = null;
 let scarLow = null, labLight = null, labLight2 = null, passage = null, runner = null, nera = null;
 let root = null, liftCars = [], scar = null, orin = null, seaMesh = null, magic = null, flags = [], lanterns = null, lanternData = [], rings = [], falls = [];
 
@@ -629,13 +632,93 @@ function build() {
   seaMesh = new THREE.Mesh(new THREE.CylinderGeometry(34, 34, 0.6, 96), new THREE.MeshStandardMaterial({ color: th.grass, roughness: 1, flatShading: true }));
   seaMesh.position.y = FLOOR - 0.3; seaMesh.receiveShadow = true; root.add(seaMesh);
   seaMesh.add(new THREE.Mesh(hullOf(seaMesh.geometry), outlineMaterial(th.ink, th.outlinePx)));
-  for (const [r, y, h] of [[34.6, FLOOR - 1.05, 0.9], [35.4, FLOOR - 1.85, 0.8]]) {
+  // ---- deep ground: strata under the prairie, cut open on the north side to show the Temple of the Voided
+  const DEEP = 6.6, WIN = { x0: -13.2, x1: -0.8, zIn: -26.8, y0: FLOOR - DEEP + 0.55, y1: FLOOR - 0.72 };
+  const holed = (color) => {
+    const m = new THREE.MeshStandardMaterial({ color, roughness: 1, flatShading: true });
+    m.onBeforeCompile = sh => {
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vEW;').replace('#include <project_vertex>', '#include <project_vertex>\nvEW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vEW;')
+        .replace('void main() {', `void main() {\n if (vEW.x > ${WIN.x0.toFixed(2)} && vEW.x < ${WIN.x1.toFixed(2)} && vEW.z < ${WIN.zIn.toFixed(2)} && vEW.y > ${WIN.y0.toFixed(2)} && vEW.y < ${WIN.y1.toFixed(2)}) discard;`);
+    };
+    m.customProgramCacheKey = () => 'holed';
+    return m;
+  };
+  const strata = [th.earth2, th.earth, th.earth2, th.earth];
+  for (let i = 0; i < 4; i++) {
+    const h = DEEP / 4, st = new THREE.Mesh(new THREE.CylinderGeometry(34, 34, h, 96), holed(strata[i]));
+    st.position.y = FLOOR - 0.6 - h * (i + 0.5); st.receiveShadow = true; root.add(st);
+  }
+  for (const [r, y, h] of [[34.6, FLOOR - 0.6 - DEEP - 0.45, 0.9], [35.4, FLOOR - 0.6 - DEEP - 1.25, 0.8]]) {
     const st = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 96), new THREE.MeshStandardMaterial({ color: th.earth2, roughness: 1 }));
     st.position.y = y; st.receiveShadow = true; root.add(st);
     st.add(new THREE.Mesh(hullOf(st.geometry), outlineMaterial(th.ink, th.outlinePx)));
   }
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-PI / 2), new THREE.ShadowMaterial({ opacity: th.shadowOpacity }));
-  ground.position.y = FLOOR - 2.3; ground.receiveShadow = true; root.add(ground);
+  ground.position.y = FLOOR - DEEP - 2.3; ground.receiveShadow = true; root.add(ground);
+
+  // ---- the Temple of the Voided: a black gothic hall under the prairie, a relay station at its heart
+  {
+    const T = new Kit(), cx = (WIN.x0 + WIN.x1) / 2, yF = WIN.y0, yC = WIN.y1, H = yC - yF, zB = WIN.zIn, zF = -34.2, W = WIN.x1 - WIN.x0;
+    const zM = (zB + zF) / 2, D = zB - zF;
+    T.add('rock', xf(box(W + 0.4, 0.3, D), { x: cx, y: yF - 0.3, z: zM }));
+    T.add('void', xf(box(W, 0.04, D - 0.6), { x: cx, y: yF, z: zM - 0.2 }));
+    T.add('vglow', xf(box(0.08, 0.02, D - 1.2), { x: cx, y: yF + 0.05, z: zM - 0.2 }));
+    T.add('rock', xf(box(W + 0.4, H, 0.4), { x: cx, y: yF, z: zB + 0.2 }));
+    for (const x of [WIN.x0 - 0.2, WIN.x1 + 0.2]) T.add('rock', xf(box(0.4, H, D), { x, y: yF, z: zM }));
+    T.add('rock', xf(box(W + 0.4, 0.35, D), { x: cx, y: yC, z: zM }));
+    const lan = (w, h) => { const sh = new THREE.Shape(), sy = h - w * 0.866; sh.moveTo(-w / 2, 0); sh.lineTo(-w / 2, sy); sh.absarc(w / 2, sy, w, PI, PI * 2 / 3, true); sh.absarc(-w / 2, sy, w, PI / 3, 0, true); sh.lineTo(w / 2, 0); sh.closePath(); return sh; };
+    for (let i = 0; i < 6; i++) {
+      const x = WIN.x0 + 1.1 + i * (W - 2.2) / 5;
+      if (Math.abs(x - cx) < 1.3) continue;
+      T.add('stone', xf(new THREE.ExtrudeGeometry(lan(0.9, 3.2), { depth: 0.08, bevelEnabled: false, curveSegments: 6 }), { x, y: yF + 0.6, z: zB, ry: PI }));
+      T.add('vglow', xf(new THREE.ShapeGeometry(lan(0.6, 2.9), 6), { x, y: yF + 0.72, z: zB - 0.1, ry: PI }));
+    }
+    for (const z of [zB - 1.5, zF + 1.8]) {
+      for (let i = 0; i <= 5; i++) {
+        const x = WIN.x0 + 0.6 + i * (W - 1.2) / 5;
+        T.add('rock', xf(box(0.45, H - 0.2, 0.45), { x, y: yF, z }));
+        T.add('vglow', xf(box(0.04, H * 0.6, 0.04), { x, y: yF + H * 0.15, z: z - 0.24 }));
+        if (i < 5) {
+          const span = (W - 1.2) / 5, mx = x + span / 2, arch = new THREE.Shape();
+          arch.moveTo(-span / 2, 0); arch.lineTo(span / 2, 0); arch.lineTo(span / 2, -1.6); arch.lineTo(-span / 2, -1.6); arch.closePath();
+          arch.holes.push(new THREE.Path(lan(span - 0.45, 1.5).getPoints(12).map(p => new THREE.Vector2(p.x, p.y - 1.65))));
+          T.add('rock', xf(new THREE.ExtrudeGeometry(arch, { depth: 0.3, bevelEnabled: false, curveSegments: 6 }).translate(0, 0, -0.15), { x: mx, y: yC - 0.05, z }));
+        }
+      }
+    }
+    for (let i = 0; i <= 5; i++) T.add('rock', xf(box(0.22, 0.28, D - 0.6), { x: WIN.x0 + 0.6 + i * (W - 1.2) / 5, y: yC - 0.28, z: zM }));
+    for (const side of [-1, 1]) for (let r = 0; r < 4; r++) T.add('void', xf(box(1.9, 0.35, 0.4), { x: cx + side * 2.6, y: yF, z: zF + 2.6 + r * 0.75 }));
+    // the relay station: a stepped dais, a black pyramid split by a beam of void light
+    for (let k = 0; k < 3; k++) T.add('rock', xf(box(3.6 - k * 0.8, 0.2, 2.6 - k * 0.6), { x: cx, y: yF + k * 0.2, z: zB - 3.0 }));
+    const pyr = h => new THREE.ConeGeometry(1.4, h, 4).rotateY(PI / 4).translate(0, h / 2, 0);
+    for (const s_ of [-1, 1]) T.add('void', xf(pyr(2.6).scale(0.5, 1, 1).translate(s_ * 0.38, 0, 0), { x: cx, y: yF + 0.6, z: zB - 3.0 }));
+    T.add('vglow', xf(box(0.12, 2.5, 0.9), { x: cx, y: yF + 0.6, z: zB - 3.0 }));
+    T.add('vglow', xf(cyl(0.09, 0.09, yC - yF - 0.6, 8), { x: cx, y: yF + 0.6, z: zB - 3.0 }));
+    // the shaft down from the hatch: an open stair of two flights
+    const hx = -6.5, hz = -31.2;
+    T.add('concrete', xf(box(1.5, 0.15, 1.5), { x: hx, y: yC - 0.15, z: hz }));
+    for (let k = 0; k < 10; k++) T.add('concrete', xf(box(0.7, 0.18, 0.5), { x: hx + 0.4 - k * 0.42, y: yC - 0.35 - k * 0.26, z: hz - 0.55 }));
+    for (let k = 0; k < 9; k++) T.add('concrete', xf(box(0.7, 0.18, 0.5), { x: hx - 3.8 + k * 0.42, y: yC - 3.0 - k * 0.24, z: hz + 0.25 }));
+    for (const x of [WIN.x0, WIN.x1]) T.add('rock', jitter(new THREE.BoxGeometry(0.5, H + 0.4, 0.6, 2, 6, 2), 0.15, x).translate(x, yF + H / 2, -Math.sqrt(34 * 34 - x * x) + 0.1));
+    const tg = T.merge();
+    const tm = {
+      rock: new THREE.MeshStandardMaterial({ color: state.theme === 'crt' ? '#1d1b22' : '#4a4553', roughness: 0.85, flatShading: true }),
+      stone: new THREE.MeshStandardMaterial({ color: state.theme === 'crt' ? '#2b2731' : '#625c6c', roughness: 0.8, flatShading: true }),
+      void: new THREE.MeshStandardMaterial({ color: state.theme === 'crt' ? '#08070b' : '#1d1b26', roughness: 0.25, metalness: 0.35 }),
+      concrete: new THREE.MeshStandardMaterial({ color: state.theme === 'crt' ? '#56544f' : '#a8a59e', roughness: 0.95, flatShading: true }),
+      vglow: new THREE.MeshBasicMaterial({ color: new THREE.Color(state.theme === 'crt' ? '#9b8cff' : '#6a5acd').multiplyScalar(state.theme === 'crt' ? 1.6 : 1) }),
+    };
+    for (const [k, g] of Object.entries(tg)) { const m = new THREE.Mesh(g, tm[k]); if (k !== 'vglow') { m.castShadow = m.receiveShadow = true; m.add(new THREE.Mesh(hullOf(g), outlineMaterial(th.ink, th.outlinePx))); } root.add(m); }
+    const tl = new THREE.PointLight('#7a5cff', state.theme === 'crt' ? 9 : 5, 12, 1.3); tl.position.set(cx, yF + 2.4, zB - 3.4); root.add(tl);
+    const vx = cx, vz = zB - 3.0;
+    const vent = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 0.25, 8), tm.concrete); vent.position.set(vx, FLOOR + 0.1, vz); root.add(vent);
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 30, 6, 1, true), new THREE.MeshBasicMaterial({ color: '#9b8cff', transparent: true, opacity: state.theme === 'crt' ? 0.45 : 0.3, depthWrite: false }));
+    beam.position.set(vx, FLOOR + 15, vz); root.add(beam);
+    templeAt = V(-6.0, yF, zB - 5.0);
+    L('Temple of the Voided · under the prairie', V(cx, yC + 0.4, zF - 0.5), { north: true });
+    L('Relay station', V(cx, yF + 3.4, zB - 3.0), { north: true });
+  }
 
   // ---- magic layer (all of it goes when the city is erased)
   magic = new THREE.Group(); root.add(magic);
@@ -688,8 +771,8 @@ function build() {
   const nm = new THREE.MeshStandardMaterial({ color: '#2a2338', roughness: 0.6 });
   nera.add(new THREE.Mesh(new THREE.CapsuleGeometry(0.2, 0.55, 4, 8).translate(0, 0.48, 0), nm));
   nera.add(new THREE.Mesh(new THREE.SphereGeometry(0.17, 10, 8).translate(0, 1.07, 0), new THREE.MeshStandardMaterial({ color: '#f1e6cf' })));
-  nera.position.copy(info.lab.hatch).add(V(1.3, 0, 0.6)); nera.visible = false; root.add(nera);
-  L('Nera · out through the passage', info.lab.hatch.clone().add(V(1.3, 2.4, 0.6)), { after: true, late: true });
+  nera.position.copy(templeAt); nera.visible = false; root.add(nera);
+  L('Nera · safe in the Temple of the Voided', templeAt.clone().add(V(0, 2.2, -2.5)), { after: true, late: true, north: true });
 
   // lift cars
   liftCars = info.lifts.map(l => { const c = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.55, 0.9), mats.glow); c.position.copy(l.a); c.userData = l; root.add(c); return c; });
@@ -730,7 +813,8 @@ function updateLabels() {
   for (const l of labels) {
     const want = l.after ? (l.late ? state.t > 0.98 : state.t > 0.05) : state.t < 0.02;
     tv.copy(l.pos).project(camera);
-    const vis = state.showTags && want && tv.z < 1 && Math.abs(tv.x) < 1.05 && Math.abs(tv.y) < 1.05;
+    const fromNorth = camera.position.z - controls.target.z < -5;
+    const vis = state.showTags && want && (!l.north || fromNorth) && tv.z < 1 && Math.abs(tv.x) < 1.05 && Math.abs(tv.y) < 1.05;
     l.el.style.opacity = vis ? 1 : 0;
     l.el.style.transform = `translate(${(tv.x * 0.5 + 0.5) * w}px, ${(-tv.y * 0.5 + 0.5) * h}px) translate(-50%, -100%)`;
   }
@@ -738,12 +822,13 @@ function updateLabels() {
 
 // ------------------------------------------------------------------ view
 function resize() {
-  const w = innerWidth, h = innerHeight, a = w / h, half = (a < 1 ? 36 / a : 32);
+  const w = innerWidth, h = innerHeight, a = w / h, half = (a < 1 ? 38 / a : 34);
   camera.left = -half * a; camera.right = half * a; camera.top = half; camera.bottom = -half; camera.updateProjectionMatrix();
   renderer.setSize(w, h, false); composer.setSize(w, h);
   drawRes.set(w, h);
 }
-camera.position.set(60, 52, 70); controls.target.set(4, -1, 2); camera.zoom = 1.05; camera.updateProjectionMatrix();
+camera.position.set(60, 52, 70); controls.target.set(4, -3, 2); camera.zoom = 1.05; camera.updateProjectionMatrix();
+if (new URLSearchParams(location.search).get('view') === 'temple') { camera.position.set(-30, 10, -80); controls.target.set(-7, -7, -30); camera.zoom = 3.4; camera.updateProjectionMatrix(); controls.autoRotate = false; }
 if (new URLSearchParams(location.search).get('view') === 'lab') { camera.position.set(8, 14, -70); controls.target.set(0, -2.4, -20); camera.zoom = 3.0; camera.updateProjectionMatrix(); controls.autoRotate = false; }
 addEventListener('resize', resize);
 
