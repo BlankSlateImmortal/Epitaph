@@ -374,7 +374,7 @@
 <link rel="stylesheet" href="assets/epitaph-theme.css?v=17">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="assets/terrain.js?v=7"></script>
-<script src="assets/epitaph-world.js?v=2"></script>
+<script src="assets/epitaph-world.js?v=3"></script>
 <script src="assets/epitaph-library.js?v=3"></script>
 <script src="assets/epitaph-marks.js?v=3"></script>
 <script src="assets/epitaph-states.js?v=1"></script>
@@ -517,6 +517,7 @@
         <div class="r-proj" id="locCharsPresent">—</div>
         <div class="r-block-label">ITEMS FROM HERE</div>
         <div class="r-proj" id="locItems">—</div>
+        <a class="r-open-btn" id="locOpenSite" href="#" hidden>OPEN SITE</a>
       </div>
     </div>
   </div>
@@ -1380,6 +1381,8 @@ function renderLocationRecord(){
     ? items.map(i => `<button type="button" class="idx-row" data-item-id="${escapeHud(i.id)}">${escapeHud(i.name)}</button>`).join('')
     : 'None recorded.';
   itemsEl.querySelectorAll('[data-item-id]').forEach(b => b.addEventListener('click', () => openLibrary('items', { mode: 'itemDetail', id: b.dataset.itemId })));
+  const site = (World.SITES || {})[pl.id], siteBtn = document.getElementById('locOpenSite');
+  siteBtn.hidden = !site; if (site) siteBtn.href = site;
 }
 
 function backToIndex(){

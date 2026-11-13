@@ -850,6 +850,8 @@ canvas.addEventListener('pointerup', e => {
   const hit = pick();
   if (!hit) return;
   if (hit.userData.earth) { setView('earth'); return; }      // planet → Earth board
+  const site = hit.userData.place && (World.SITES || {})[hit.userData.place.id];
+  if (site) { location.href = site; return; }                 // a place with a built site opens it
   focusOn(hit);
 });
 function pick() {
@@ -870,6 +872,7 @@ function describe(obj) {
   return `<b>${esc(p.name)}</b><span>${esc(World.KIND_LABEL[p.kind] || 'Place')}${co ? ' · ' + esc(co.name) : ''}</span>` +
     (obj.userData.sunk ? '<span>Sunk: the sea rose ~60 m in Era 1.</span>' : '') +
     (p.fictional ? '<span>Era 1 settlement</span>' : '') +
+    ((World.SITES || {})[p.id] ? '<span class="here">Click to open the site</span>' : '') +
     (p.group ? `<span>${esc((World.SITE_GROUPS.find(g => g.id === p.group) || {}).label || p.group)} site${p.group === 'VOIDED' ? ' · hidden' : ''}</span>` : '') +
     (here.length ? `<span class="here">Here: ${here.map(c => esc(c.name)).join(', ')}</span>` : '');
 }
