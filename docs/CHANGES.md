@@ -234,3 +234,13 @@ Replaces the old Atlas 3D (Relief / Globe / Shattered). Same address, so the Atl
   "Voided" means the Era 0 survivors for now; the name may change (vault: Exploratory Ideas/Lore/The Two Voided). Rename it in `RACES`.
 - Designs live in `designs/type-lab` (sources) → `python3 designs/build-type-asset.py` → `assets/epitaph-type.js`.
   Blender scenes live in `designs/blender` (see its README).
+
+## Aurelia: first-person walk-throughs (13 Nov 2026)
+
+- **Walk inside** (Aurelia header) starts a first-person story walk: drag to look, scroll or W/S to walk, Space/→ for the next stop. Chapters: Archive, Galleries, Way down, Lab, Quarters, Bunker, Passage, Temple, Prairie.
+- Interiors are **bigger on the inside**: the diorama stays as it was; going through a door fades into a full-size interior built away from the model (same scene, far off-map).
+  - **The Archive** (built by Nera's family): rotunda, three galleries round a well, radial stacks, desks, timber booths, the winged Storyborn statue, feat-script fronts, giant faces, an orrery, weapon caches, and the statue's pedestal as the secret door with the void detector in its frame.
+  - **Nera's lab**: machine arm over a Storyborn specimen arm, relay and panel, quarters, vault hall, bunker; the Archive's spiral comes down through the ceiling.
+  - **Passage and Temple of the Voided** (also Nera's greater lab): the station, six relays, console, surgical bay, tanks, data stacks, two void gates, spiral up to the hatch.
+- Diorama changes: bigger lab slice, the Archive rotunda on the north ring, temple rebuilt, hatch over the temple's spiral stair.
+- Debug: `?walk=<chapter>&stop=<n>` or `#walk-<chapter>`; `window.__walk`.
