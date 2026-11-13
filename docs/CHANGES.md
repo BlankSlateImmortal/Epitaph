@@ -204,6 +204,14 @@ Animated, front-view figures in the Spike style for Sils, Moinera, Universe and 
 - **Knowledge tab**: the character at the root; branches Facts / Secrets known / Kept from them; each entry under its branch; other people who know a secret under the secret (from “known by”; a name that matches a character offers “Open … dossier”). Facts amber, known secrets teal, kept secrets red and blacked out (click to reveal in the readout). Readout shows “since CH n” (the first chapter version containing the entry) and who else knows. Gauge under the left column: secrets known / total.
 - **The book** (`opl`, `ops`): picking a tile or skill glides the board so it lands in the middle; in the skill tree the arrow keys pick the nearest skill in that direction.
 
+## Sites: Aurelia (`sites/aurelia.html`, 2026-11-13)
+
+The first site: a 3D diorama of a single place, opened from the maps.
+- **Opening it:** click **Aurelia** on the Epitaph map's Earth board (Era 1), or press **OPEN SITE** in its location record on the Atlas. Places with a site are listed in `EpitaphWorld.SITES` (`assets/epitaph-world.js`).
+- **What's there:** Kansas, on a low limestone bluff above the Solomon River valley. The Cathedral of the Storyborn, the Ruler's Tower (no doors), the Chronicle, Orin's home, the Seminary across a bridge, and Nera's Voided lab cut away in the north slope, with a secret passage to a hatch in the prairie. Below are the river, the wharf, the lower town and a funicular.
+- **Before / After the Calamity:** the city is erased outward from Orin's home, the ground is left smooth and black, and Nera stands at the hatch. Signal / Paper palettes, labels on or off, and **← Map** goes back.
+- Code: `assets/sites/aurelia.js` (three.js 0.170 from jsDelivr). Links: `?view=lab`, `?after=1`, `?theme=paper`.
+
 ## Epitaph map (`atlas-3d.html`, 2026-11-13)
 
 Replaces the old Atlas 3D (Relief / Globe / Shattered). Same address, so the Atlas's **3D** button still opens it. Lore it follows: vault `Exploratory Ideas/Lore/Epitaph Map.md`.

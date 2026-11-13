@@ -260,6 +260,8 @@ const ERA_1_SPECIAL_SITES = [
 
   global.EpitaphWorld = {
     ERAS: WORLD_DB_ERAS, KINDS, KIND_LABEL, SITE_GROUPS: SPECIAL_SITE_TYPES,
+    // places that have a built 3D site page (path from the site root)
+    SITES: { aurelia: 'sites/aurelia.html' },
     continents, countries, places, continent, country, place, placesIn, childPlaces,
     countryCentroid, resolve, sameRef, makeRef, continentAt,
     setExtras(fn) { extrasFn = typeof fn === 'function' ? fn : extrasFn; }
