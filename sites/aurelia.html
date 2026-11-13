@@ -31,6 +31,31 @@
   #note b{ color:var(--ink); }
   .hint{ position:fixed; right:16px; bottom:16px; font-size:10px; letter-spacing:.12em; color:var(--dim); text-transform:uppercase; z-index:3; }
   #boot{ position:fixed; inset:0; display:grid; place-items:center; color:var(--accent); letter-spacing:.2em; font-size:12px; background:var(--bg); z-index:9; }
+  .seg button.walk{ color:var(--ink); }
+  .cityLink{ font-family:'Bebas Neue',sans-serif; letter-spacing:.1em; font-size:14px; padding:6px 12px 5px; color:var(--accent); text-decoration:none; display:inline-block; }
+  .cityLink:hover{ background:var(--accent); color:var(--bg); }
+  #fade{ position:fixed; inset:0; background:#000; opacity:0; pointer-events:none; transition:opacity .35s; z-index:8; display:grid; place-items:center; }
+  #fade b{ font-family:'Bebas Neue',sans-serif; font-weight:400; letter-spacing:.3em; font-size:30px; color:var(--accent); text-align:center; padding:0 16px; }
+  #fp{ display:none; }
+  body.walking #fp{ display:block; }
+  body.walking #labels, body.walking #note, body.walking .hint{ display:none; }
+  body.walking #stage{ cursor:grab; }
+  #fpChap{ position:fixed; top:66px; left:16px; display:flex; border:1px solid var(--line); background:var(--panel); z-index:3; }
+  #fpChap button{ font-family:'Bebas Neue',sans-serif; letter-spacing:.1em; font-size:14px; padding:6px 12px 5px; background:none; border:0; color:var(--dim); cursor:pointer; }
+  #fpChap button + button{ border-left:1px solid var(--line); }
+  #fpChap button.on{ background:var(--accent); color:var(--bg); }
+  #fpCard{ position:fixed; left:50%; bottom:72px; transform:translateX(-50%); width:min(480px, calc(100% - 32px)); padding:12px 14px; background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--accent); font-size:12px; line-height:1.6; color:var(--dim); opacity:0; transition:opacity .35s; z-index:3; pointer-events:none; }
+  #fpCard.on{ opacity:1; }
+  #fpCard h3{ margin:0 0 4px; font-family:'Bebas Neue',sans-serif; font-weight:400; letter-spacing:.1em; font-size:19px; color:var(--ink); }
+  #fpCard p{ margin:0; }
+  #fpBar{ position:fixed; left:16px; right:16px; bottom:16px; display:flex; gap:8px; align-items:center; z-index:3; }
+  #fpBar button{ font-family:'Bebas Neue',sans-serif; letter-spacing:.1em; font-size:15px; padding:7px 14px 6px; background:var(--panel); border:1px solid var(--line); color:var(--ink); cursor:pointer; }
+  #fpBar button:hover{ border-color:var(--accent); color:var(--accent); }
+  #fpTrack{ position:relative; flex:1; height:4px; background:var(--line); }
+  #fpFill{ position:absolute; left:0; top:0; bottom:0; background:var(--accent); width:0; }
+  #fpTrack .tick{ position:absolute; top:-4px; width:2px; height:12px; margin-left:-1px; background:var(--ink); opacity:.55; }
+  #fpHint{ position:fixed; right:16px; top:66px; font-size:10px; letter-spacing:.12em; color:var(--dim); text-transform:uppercase; z-index:3; text-align:right; line-height:1.7; }
+  @media (max-width:640px){ #fpHint{ display:none; } #fpCard{ font-size:11px; } #fpChap{ top:auto; bottom:60px; left:16px; } #fpCard{ bottom:104px; } }
   @media (max-width:640px){ .hint{ display:none; } #note{ font-size:10px; } }
 </style>
 <script type="importmap">
@@ -48,12 +73,21 @@
   <div class="ctrls">
     <div class="seg" id="stateSeg"><button data-v="0" class="on">Before</button><button data-v="1" class="after">After the Calamity</button></div>
     <div class="seg" id="themeSeg"><button data-v="crt" class="on">Signal</button><button data-v="paper">Paper</button></div>
+    <div class="seg"><button id="walkBtn" class="walk">Walk inside</button></div>
     <div class="seg" id="tagSeg"><button data-v="on" class="on">Names</button><button data-v="off">Off</button></div>
   </div>
 </header>
 <aside id="note"></aside>
-<span class="hint">drag to turn · scroll to zoom</span>
+<div id="fade"><b></b></div>
+<div id="fp">
+  <nav id="fpChap"></nav>
+  <span id="fpHint">drag to look<br>scroll or W / S to walk<br>space / → next stop · ← back<br>esc to leave</span>
+  <div id="fpCard"><h3></h3><p></p></div>
+  <div id="fpBar"><button id="fpPrev">‹ Back</button><div id="fpTrack"><i id="fpFill"></i></div><button id="fpNext">Next ›</button><button id="fpExit">Leave</button></div>
+</div>
+
+<span class="hint">drag to turn · scroll to zoom · walk inside: top right</span>
 <div id="boot">RAISING AURELIA…</div>
-<script type="module" src="../assets/sites/aurelia.js?v=1"></script>
+<script type="module" src="../assets/sites/aurelia.js?v=2"></script>
 </body>
 </html>
