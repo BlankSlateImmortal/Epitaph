@@ -257,3 +257,22 @@ Replaces the old Atlas 3D (Relief / Globe / Shattered). Same address, so the Atl
   - **Palace**: the Hall of Monarchs (ten portraits, the same face, more blackened each generation), then the window hall, where Val stands at the window.
   - **Below**: the ribbed tunnel, the gifting chamber and the gate hall.
 - Debug: `?style=blocks`, `?view=below|palace`, `?walk=<chapter>&stop=<n>`; `window.__walk`.
+
+## The Hollow Reach, draft 2 (13 Nov 2026)
+
+- **Much bigger city.** The Hollow is a pit about 84 across, stepping down through four black walls to a floor 24 below the forest:
+  - brutalist housing blocks (the hives) on every step
+  - four colossal ribbed towers (the Spines) with bridges to the rim
+  - a monumental stair (the Descent) from a gatehouse in the forest
+  - on the floor: the Assembly, the arena, a drill yard, and the lake with the station on its island
+- **Below**, cut open on the south-east in four levels: the gate hall, the gifting chamber, barracks and mess, and the station's conduits.
+- **Val's palace** has three floors (5 bedrooms, 4 baths), all furnished:
+  - **Ground floor:** grand hall, Hall of Monarchs, throne room, war room, the Ledgers of Intervals (library), kitchen, dining
+  - **First floor:** the dressing room, master bath and bedroom; Vale's room, the nursery, guest rooms
+  - **Top floor:** the clocks stair, the study with two chairs, the regression chamber, the window hall
+- **Below** is furnished too: barracks, mess, armoury, gifting chamber, gate hall.
+- The walk has six chapters: Descent, Palace, Master's rooms, Bedrooms, Top floor, Below.
+- **Blocks is now the Narrative view**: the place as the Scribe sees it, with the same rules on every site.
+  - **Colours:** Nothing is purple, Story gold, Reality red, Imagination pink.
+  - **Height:** the place itself, raised by how much story is written there.
+  - **Black** means erased; **blank** means unwritten (the Fallen).
