@@ -6,7 +6,7 @@
  *   The floor        Val's palace (three floors), the lake with the station on its island, the Assembly, the arena, the yard
  *   The Descent      a monumental stair cut down from a gatehouse in the forest, under leaning fins
  *   Surface          forest, obelisks round the rim, relay masts, air shafts, great barracks pods
- *   Below            cut open on the south-east: gate hall, gifting chamber, barracks and mess, the station's conduits
+ *   Below            cut open on the south-east: gate hall, blessing chamber, barracks and mess, the station's conduits
  * Walk inside: Descent, Palace (ground floor), Master's rooms, Bedrooms, Top floor, Below.
  * Two looks: Model and Blocks (columns from a top-down height pass, bevelled, white outlines, a blurred gradient).
  */
@@ -355,11 +355,10 @@ function buildReach(K, extra) {
   for (const cx of [-3.8, 3.8]) { K.add('stone2', xf(cyl(0.14, 0.16, 1.0, 8), { x: cx, y: py, z: pz + 6.2 })); K.add('glow', xf(box(0.3, 0.34, 0.3), { x: cx, y: py + 1.0, z: pz + 6.2 })); }
   L('Val\'s palace', V(0, py + 15.2, pz));
   const valP = V(0.3, py + 7.7, pz + 5.4);
-  figure(K, 'figure', valP, 0, 1.0, 'val');
-  K.add('val', xf(box(0.13, 0.42, 0.13), { x: valP.x + 0.26, y: valP.y + 0.35, z: valP.z }));
+  // no one ever sees Val: only the frost where he stood
   K.add('frost', new THREE.CircleGeometry(0.85, 24).rotateX(-PI / 2).translate(valP.x, valP.y + 0.012, valP.z - 0.1));
   extra.valP = valP; extraState.valP = valP;
-  L('Val', V(valP.x, valP.y + 1.8, valP.z), { small: 1 });
+  L('Frost', V(valP.x, valP.y + 1.2, valP.z), { small: 1 });
 
   // ---- the Assembly: a colossal brutalist hall on piers, east of the lake, its stair facing the water
   { const p = ASSEMBLY, y0 = PF;
@@ -439,7 +438,7 @@ function buildReach(K, extra) {
   for (const tau of [-11, 11]) { K.add('metal', xf(box(1.2, 1.1, 0.6), { ...S(47, LV[0], tau), ry: sRy })); K.add('vglow', xf(box(1.0, 0.6, 0.04), { ...S(47, LV[0] + 1.2, tau + 0.01), ry: sRy, rx: -0.3 })); }
   { const r = rng(13); for (let i = 0; i < 14; i++) K.add('wood', xf(box(0.8, 0.7, 0.8), { ...S(55 + r() * 5, LV[0], -16 + r() * 8), ry: sRy + r() })); for (let i = 0; i < 9; i++) figure(K, r() < 0.5 ? 'robe' : 'figure', S(46 + r() * 9, LV[0], -9 + r() * 18), sRy + PI + (r() - 0.5), 0.9); }
   L('Gate hall', S(50, 0.8, 0));
-  // level 2: the gifting chamber, banded with light, a black eye hanging from its half-dome, cut open toward you
+  // level 2: the blessing chamber, banded with light, a black eye hanging from its half-dome, cut open toward you
   { const C = S(52, LV[1], 0), RC = 6.2, yF = LV[1], NT = 56, rho0 = 52;
     const P = (th, r, y) => S(rho0 + Math.cos(th) * r, y, Math.sin(th) * r);
     for (let i = 0; i < NT; i++) { const th0 = i / NT * 2 * PI, th1 = (i + 1) / NT * 2 * PI, tm = (th0 + th1) / 2; if (Math.cos(tm) > 0.3) continue;
@@ -456,7 +455,7 @@ function buildReach(K, extra) {
     figure(K, 'figure', V(C.x, yF + 0.4 - 0.35, C.z), sRy + PI, 0.8);
     for (const th of [PI - 1.0, PI - 0.35, PI + 0.35, PI + 1.0]) figure(K, 'robe', P(th, 3.6, yF), sRy + PI / 2 - th, 0.95);
     for (let k = 0; k < 9; k++) { const th = PI - 1.4 + k * 0.35; K.add('wood', xf(box(1.0, 0.45, 0.45), { ...P(th, RC - 0.6, yF), ry: sRy + PI / 2 - th })); }
-    L('Gifting chamber', S(52, LV[1] + 9, 0)); }
+    L('Blessing chamber', S(52, LV[1] + 9, 0)); }
   // level 3: barracks and the mess
   { const y = LV[2];
     for (let i = 0; i < 6; i++) for (const tau of [-16, -12.5, 12.5, 16]) { const p = S(45 + i * 2.4, y, tau); bunkAt(K, p, sRy + PI / 2); }
@@ -752,8 +751,8 @@ function buildPalace(K, ex) {
   PR.plant(at(-7.5, Y2, -1.2), true); PR.plant(at(7.5, Y2, -11.8), true);
   lt(-7.4, Y2 + 1.4, -6.5, '#ff9a4a', 5, 10, 'top'); lt(0, Y2 + 7, -7, COLD, 6, 22, 'top');
   const vp = P(0.4, Y2, -1.6);
-  figure(K, 'figure', vp, 0, 1.0, 'val');
-  K.add('val', xf(box(0.13, 0.3, 0.13), { x: vp.x - 0.27, y: vp.y + 0.42, z: vp.z })); K.add('val', xf(box(0.12, 0.25, 0.12), { x: vp.x + 0.27, y: vp.y + 0.5, z: vp.z }));
+  // nobody here: the frost and a little black dust where he stood (his presence kills; no one sees him)
+  for (let k = 0; k < 7; k++) K.add('val', xf(box(0.05, 0.05, 0.05), { x: vp.x + Math.cos(k * 0.9) * (0.3 + k * 0.08), y: vp.y + 0.05 + k * 0.12, z: vp.z + Math.sin(k * 0.9) * (0.3 + k * 0.08) }));
   K.add('frost', new THREE.CircleGeometry(1.4, 32).rotateX(-PI / 2).translate(vp.x, vp.y + 0.01, vp.z));
   ex.valIn = vp;
   // the study (x -16..-9, z 0..-13): two chairs facing each other; one is for Vale
@@ -806,13 +805,12 @@ function buildBelow(K, ex) {
   for (const [x, z, ry] of [[-5.35, -31.4, PI / 2], [-3.45, -33.2, -PI / 2], [-5.35, -36, PI / 2], [3.45, -32, PI / 2], [5.35, -35.4, -PI / 2], [3.45, -37.2, PI / 2]]) PR.seated(at(x, 0, z, ry));
   PR.counter(at(-5.4, 0, -39.4, PI), 4.0, 0.8, 'metal'); for (let k = 0; k < 3; k++) at(-6.6 + k * 1.1, 0.92, -39.4).g('metal', new THREE.CylinderGeometry(0.22, 0.18, 0.3, 12)); PR.figureAt(at(-5.4, 0, -39.9, 0), 'cream', 1, 'figure');
   bx('glow', -7.86, -7.84, 1.0, 3.0, -30, -38); lt(0, 3.6, -34, '#ffc890', 6, 14);
-  // the armoury (x -6..6, z -40..-50)
+  // the drill hall (x -6..6, z -40..-50)
   bx('concrete', -6, 6, -0.3, 0, -40, -50); bx('concreteD', -6, 6, 4.0, 4.3, -40, -50);
   wallX('concrete', -40, -8, 8, 0, 4.5, [[0, 2.4, 3.0]]); wallZ('concrete', -6, -40, -50, 0, 4.0); wallZ('concrete', 6, -40, -50, 0, 4.0); wallX('concrete', -50, -6, 6, 0, 4.0, [[0, 2.4, 3.0]]);
-  for (let i = 0; i < 3; i++) { PR.weaponRack(at(-5.86, 0, -41.8 - i * 2.9, PI / 2), 2.6); PR.weaponRack(at(5.86, 0, -41.8 - i * 2.9, -PI / 2), 2.6); }
+  // no weapons (the Voided are the weapon): sparring mats and pairs drilling close
+  for (let i = 0; i < 3; i++) for (const sx of [-1, 1]) { at(sx * 3.2, 0, -41.9 - i * 2.6).b('robe', -1.1, 1.1, 0, 0.05, -1.0, 1.0); PR.figureAt(at(sx * 3.2 - 0.35, 0.05, -41.9 - i * 2.6, PI / 2), 'robe', 1, 'black'); PR.figureAt(at(sx * 3.2 + 0.35, 0.05, -41.9 - i * 2.6, -PI / 2), 'robe', 1, 'figure'); }
   for (let i = 0; i < 6; i++) PR.cells(at(-3.6 + (i % 3) * 1.0, 0, -46.5 - Math.floor(i / 3) * 1.0, r()));
-  PR.table(at(2.4, 0, -44, 0), 2.4, 1.0, 0.9, 'metal'); for (let k = 0; k < 4; k++) at(1.6 + k * 0.5, 0.9, -44).b(k % 2 ? 'black' : 'metal', -0.15, 0.15, 0, 0.05, -0.2, 0.2);
-  PR.figureAt(at(2.4, 0, -45, 0), 'figure', 1, 'figure'); at(2.6, 0.95, -44.7).b('val', -0.08, 0.08, 0, 0.06, -0.1, 0.1);
   lt(0, 3.4, -45, '#c8c4ff', 5, 10);
   // the corridor and the gifting chamber (centre z -60, radius 8)
   bx('concrete', -1.6, 1.6, -0.3, 0, -50, -52.4); wallZ('concrete', -1.6, -50, -52.2, 0, 3.4); wallZ('concrete', 1.6, -50, -52.2, 0, 3.4); bx('concreteD', -1.6, 1.6, 3.4, 3.6, -50, -52.2);
@@ -1115,7 +1113,7 @@ addEventListener('resize', resize);
 function note() {
   if (state.style === 'blocks') { const C = CONCEPTS[state.theme], sw = c => `<i style="display:inline-block;width:10px;height:10px;margin-right:6px;vertical-align:-1px;background:${c}"></i>`;
     $('note').innerHTML = `<h2>The Narrative view</h2>The place as it is <b>written</b>, the way the Scribe sees it. The same rules hold on every site.<br>${sw(C.nothing)}<b>Nothing</b> (Sils) · ${sw(C.story)}<b>Story</b> (Antholonious)<br>${sw(C.reality)}<b>Reality</b> (Lithia) · ${sw(C.imagination)}<b>Imagination</b> (Moinera)<br><b>Height</b>: how much story is written there. <b>Black</b>: erased. <b>Blank</b>: unwritten (the Fallen).<br>Here: the Hollow is soaked in Nothing; a thread of Story runs through Val's palace, and half of Val is missing from the page.`; return; }
-  $('note').innerHTML = '<h2>The Hollow Reach · capital of the Voided</h2>Central Germany, deep in the forested uplands. A round pit with <b>smooth black walls</b>, open to the sky: the city is built down into it and dug in behind it. On its floor, beside a still lake, the black palace of <b>Val</b>, the Monarch, the first Voided. The capital\'s <b>station</b> stands on an island in the lake. Under the forest: the <b>gate hall</b> and the <b>gifting chamber</b>, where Val seals erasure into the people who will serve him.';
+  $('note').innerHTML = '<h2>The Hollow Reach · capital of the Voided</h2>Central Germany, deep in the forested uplands. A round pit with <b>smooth black walls</b>, open to the sky: the city is built down into it and dug in behind it. On its floor, beside a still lake, the black palace. The people see a <b>Monarch</b> there, the First Switcher, whom they believe is the void Godling. The one he serves without knowing is <b>Val</b>, whom no one has ever seen: his presence kills. The capital\'s <b>station</b> stands on an island in the lake. Under the forest: the <b>gate hall</b> and the <b>blessing chamber</b>, where a piece of Val is bound into each of his warriors.';
 }
 function seg(id, fn) { $(id).addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; [...$(id).children].forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset.v); }); }
 seg('styleSeg', v => { state.style = v; applyStyle(); note(); });
@@ -1143,36 +1141,36 @@ const STOPS = {
   gate: { t: 'The gatehouse', d: 'A concrete portal in the middle of the forest, over a stair going down. From here you can see the far side of the Hollow, and nothing else gives it away.' },
   descent: { t: 'The Descent', d: 'The stair cuts straight down through every step of the Hollow, under tall fins that lean out over it. The light comes in between them in slices.' },
   hives: { t: 'The hives', d: 'On every step, housing blocks stand against the black wall, floor on floor, lit windows in rows. Tens of thousands of Voided live down here, below the treetops.' },
-  yard: { t: 'The yard', d: 'Ranks drilling on the floor of the Hollow. The ones with blackened hands have been given erasure. It doesn\'t hurt them; it doesn\'t feel at all.' },
-  station: { t: 'The station', d: 'The capital\'s station, on an island in the lake: a split black pyramid that draws power out of the air. Six relays round the shore store it. The stations answer only to the thread of Val\'s curse that every Voided carries.' },
-  palace: { t: 'Val\'s palace', d: 'Black stone on three floors beside the water. High up on the balcony, a man stands looking out over the lake. Where he stands, the stone is frosted white.' },
+  yard: { t: 'The yard', d: 'Ranks drilling hand to hand on the floor of the Hollow. The ones with black hands carry Val\'s blessing: the Black Hand. They train close. The Voided carry no weapons; they are the weapon.' },
+  station: { t: 'The station', d: 'The capital\'s station, on an island in the lake: a split black pyramid that draws power out of the air. Six relays round the shore store it. The stations answer only to Val\'s blessing, and they keep it steady: every blessed Voided in range holds their stasis without Val lifting a finger.' },
+  palace: { t: 'Val\'s palace', d: 'Black stone on three floors beside the water. High up on the balcony the stone is frosted white, as if someone stood there a moment ago. No one saw who.' },
   hall: { t: 'The grand hall', d: 'Two storeys of black stone, twin stairs, a chandelier, a piano no one has heard played. Over the far door, a portrait of the Monarch.' },
-  monarchs: { t: 'The Hall of Monarchs', d: 'The Monarchs of the Hollow Reach, generation after generation, father to son. Valen, Valerius, Valdis, Valarious…' },
-  faces: { t: 'The same face', d: 'Look closer. It\'s the same face in every frame, only the hair and the clothes change. And the newer the portrait, the more of it is painted black.' },
-  last: { t: 'Val', d: 'At the end of the hall, the current Monarch: the most black of all. Val, who was once called Interval.' },
-  throne: { t: 'The throne room', d: 'Where the upper ranks kneel. The throne is cold black stone, and the floor round it is frosted: he has sat here today. Behind it, his sign: two brackets round a line, an interval.' },
+  monarchs: { t: 'The Hall of Monarchs', d: 'The Monarchs of the Hollow Reach, father to son, back to the founding. Valen, Valerius, Valdis…' },
+  faces: { t: 'The same face', d: 'Look closer. It\'s the same face in every frame, only the hair and the clothes change. In some he is painted black, in others the painter left the face clear.' },
+  last: { t: 'The Monarch', d: 'The current Monarch: the First Switcher, the \'void Godling\' the people flock to. Stasis has kept him young since the founding. He believes the power is his. It is Val\'s, who was once called Interval.' },
+  throne: { t: 'The throne room', d: 'Where the upper ranks kneel before the Monarch. Behind the throne, the sign of the one he serves without knowing: two brackets round a line, an interval.' },
   war: { t: 'The war room', d: 'A table carved into the world as the Voided know it: the island and its sea, every station, every gate, the Storyborn settlements marked in gold. Along the wall, ledgers.' },
   ledgers: { t: 'The Ledgers of Intervals', d: 'Histories, shelf on shelf. Foresight let him reach back and change what happened, and he wrote down every version. Whole pages are crossed out, and some of them are in a younger hand.' },
-  kitchen: { t: 'The kitchen', d: 'It works like any great house\'s kitchen. The cooks never touch his plate barehanded; it comes back cold.' },
+  kitchen: { t: 'The kitchen', d: 'It works like any great house\'s kitchen, except for one plate. The cooks leave it at a hatch in the wall and walk away. Nobody has ever seen who takes it. It comes back cold.' },
   dining: { t: 'A table for twenty', d: 'Set for two: one place at the head, one at the far end. Nobody sits in the second chair. The candles are lit anyway.' },
-  dressing: { t: 'The dressing room', d: 'How one man passes for ten generations. A coat for every Monarch, wigs on stands, faces moulded to look older. Every time he regresses too far, a new "son" comes out of this room.' },
+  dressing: { t: 'The dressing room', d: 'How one man passes for three generations. A coat for every Monarch, wigs on stands, faces moulded to look older. Stasis keeps the First Switcher young, so every few decades a new \'son\' comes out of this room.' },
   bath: { t: 'The covered mirror', d: 'Ice in a black tub; he runs cold. The mirror over the basins is covered with a cloth.' },
   bedroom: { t: 'His bed', d: 'Stone, made up with heavy cloth, frosted where he lies. The hearth is cold and has been for years.' },
   vale: { t: 'Kept for Vale', d: 'A bedroom made up for someone who hasn\'t arrived. Letters on the desk, every one addressed to Vale. A chair turned to face the window.' },
-  nursery: { t: 'The nursery', d: 'A crib, a mobile, a child\'s coat on a stand, for the next Monarch. There\'s never been a child here. When the time comes, Val will be young enough to fill it.' },
+  nursery: { t: 'The nursery', d: 'A crib, a mobile, a child\'s coat on a stand, for the next Monarch. There has never been a child here. When the act needs one, the First Switcher will \'have\' a son.' },
   clocks: { t: 'The clocks', d: 'Every clock on this stair is set to a different time. He was the god of foresight; he still reads time as if it runs more than one way.' },
   study: { t: 'Two chairs', d: 'His study. Two chairs face each other across a small table, two cups. One chair is frosted. The other is where Vale sits when Val reaches him, a hundred years back, through who he used to be.' },
   regress: { t: 'The regression chamber', d: 'A round room eaten black, a steel chair bolted to the floor. Here he pushes the curse back into his past self, and comes out a little younger every time.' },
   window: { t: 'The window hall', d: 'The top of the palace: a great arched window onto the lake, the station and the lit steps of the Hollow. Low seats, a fire, a brass scope pointed at the sky.' },
-  val: { t: 'The Monarch', d: 'He doesn\'t turn round. Black spreads over his hands and the back of his neck, and it\'s cold to the touch. Black dust lifts off him and disappears.' },
+  val: { t: 'Where he stood', d: 'Nobody. A frosted circle on the floor, and black dust settling where someone stood. No one ever sees Val: his presence would kill them.' },
   tunnel: { t: 'Below', d: 'A lift down out of the palace, then a tunnel ribbed like the inside of something alive. Thin violet light between the ribs.' },
   barracks: { t: 'The barracks', d: 'Bunks in rows, a locker each, a crate at every foot. People off watch sit on their bunks. Most of the city lives like this.' },
-  mess: { t: 'The mess', d: 'Long tables, benches, bowls. The food is plain. Those with gifted hands eat with spoons, carefully.' },
-  armoury: { t: 'The armoury', d: 'Racks of black blades edged with void light, spears, power cells in crates. A smith is fitting a blade for someone whose hands can\'t feel it.' },
-  chamber: { t: 'The gifting chamber', d: 'A round room banded with light, benches for witnesses, a black eye hanging from the dome. Here Val seals erasure into the people who will serve him.' },
-  gifted: { t: 'Gifted', d: 'Their hands go black and stop feeling pain. They can\'t wield erasure: to destroy something they have to touch it and move their hands across it. But now the stations answer them.' },
+  mess: { t: 'The mess', d: 'Long tables, benches, bowls. The food is plain. Those with blessed hands eat with spoons, carefully.' },
+  armoury: { t: 'The drill hall', d: 'No racks, no blades: the Voided are the weapon. Pairs drill on mats, close and quiet: grips, throws, the touch that erases. Power cells for the stations are stacked by the far wall.' },
+  chamber: { t: 'The blessing chamber', d: 'A round room banded with light, benches for witnesses, a black eye hanging from the dome. Here the blessing is bound: a binding mark, a light piece of Val himself, sealed into a person through the station\'s light. Val is never in the room.' },
+  gifted: { t: 'Blessed', d: 'The Black Hand. Their hands go black and stop feeling. Erasure works only by touch: to destroy something they lay a hand on it. Now the stations answer them, and Val holds the final say over every one.' },
   gates: { t: 'The gate hall', d: 'Void gates held open in concrete frames, a keeper at a desk, travellers waiting with packs. Through each crack, somewhere very far away.' },
-  lastgate: { t: 'The great gate', d: 'The widest crack, at the end of the hall. The Voided cross without harm. For anyone else, it hurts.' }
+  lastgate: { t: 'The great gate', d: 'The widest crack, at the end of the hall. Crossing hurts anyone who isn\'t true void spawn, the gods descended from Sils. The Voided are used to it.' }
 };
 function makeScenes() {
   const E = EYE, SY = z => stairY(z) + E;
