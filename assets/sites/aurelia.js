@@ -18,6 +18,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -1983,20 +1984,44 @@ function buildNarr() {
   };
   const storyAt = (x, z) => 3.6 * g(x, z, 0, 0, 6) + 1.6 * g(x, z, 7.8, -4.2, 3) + 1.2 * g(x, z, ARC.x, ARC.z, 2) + 0.8 * (1 - THREE.MathUtils.smoothstep(Math.hypot(x, z), PLATEAU_R - 3, PLATEAU_R + 2));
   // after the Calamity: the city is erased (black, flat); Orin, who did it, is unwritten (a blank where he stands)
-  const erasedAt = (x, z) => after && Math.hypot(x, z) < PLATEAU_R + 15 && x > -24;
+  const erasedAt = (x, z) => after && (Math.hypot(x, z) < 27 || Math.hypot(x - SEM.x, z - SEM.z) < 6.5);   // the model's black disc; the grass ring beyond stays (prairie, untouched)
   const OC = ERASE.uC.value;
   const list = narrCells.map(c => {
     let col, h = c.y - NBASE;
-    if (erasedAt(c.x, c.z)) { const orin = Math.hypot(c.x - OC.x, c.z - OC.y) < 1.1; col = new THREE.Color(orin ? CC.blank : CC.erased); h = orin ? (FLOOR - NBASE) + 1.4 : (FLOOR - NBASE) * 0.55; }
+    if (erasedAt(c.x, c.z)) { const orin = Math.hypot(c.x - OC.x, c.z - OC.y) < 1.1; col = new THREE.Color(orin ? CC.blank : CC.erased); h = orin ? (FLOOR - NBASE) + 1.4 : (FLOOR - NBASE) * 0.55; return { ...c, col, glowy: orin, h: Math.max(0.1, Math.round(h / 0.2) * 0.2) }; }
     else { col = conceptAt(c.x, c.z); h += storyAt(c.x, c.z); }
     return { ...c, col, h: Math.max(0.1, Math.round(h / 0.2) * 0.2) };
   });
-  const geo = new THREE.BoxGeometry(NCELL * 0.92, 1, NCELL * 0.92).translate(0, 0.5, 0);
-  const ramp = new Uint8Array([90, 175, 255]), gm = new THREE.DataTexture(ramp, 3, 1, THREE.RedFormat); gm.minFilter = gm.magFilter = THREE.NearestFilter; gm.needsUpdate = true;
-  const mesh = new THREE.InstancedMesh(geo, new THREE.MeshToonMaterial({ color: '#ffffff', gradientMap: gm }), list.length);
+  const H0 = NCELL * 0.34, geo = new RoundedBoxGeometry(NCELL * 0.93, H0, NCELL * 0.93, 1, NCELL * 0.16);
+  const aH = new Float32Array(list.length), colors = new Float32Array(list.length * 3);
+  const stretch = `float hh = max(aH, ${H0.toFixed(4)}); vec3 sp = position; if (sp.y > 0.0) sp.y += hh - ${H0.toFixed(4)}; sp.y += ${(H0 / 2).toFixed(4)};`;
+  const ramp = new Uint8Array([90, 175, 255]); const gm = new THREE.DataTexture(ramp, 3, 1, THREE.RedFormat); gm.minFilter = gm.magFilter = THREE.NearestFilter; gm.needsUpdate = true;
+  const mat = new THREE.MeshToonMaterial({ color: '#ffffff', gradientMap: gm });
+  mat.onBeforeCompile = sh => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aH; varying float vF;')
+      .replace('#include <begin_vertex>', `${stretch}\nvec3 transformed = sp; vF = sp.y / max(hh, 0.001);`);
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vF;')
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        float up = smoothstep(0.0, 1.0, vF);
+        vec3 deep = ${crt ? 'vec3(0.10, 0.05, 0.22)' : 'vec3(0.42, 0.36, 0.62)'};
+        diffuseColor.rgb = mix(deep, diffuseColor.rgb, 0.45 + 0.55 * up);
+        diffuseColor.rgb += ${crt ? '0.10' : '0.06'} * smoothstep(0.92, 1.0, vF) * vec3(1.0, 0.95, 1.1);`);
+  };
+  mat.customProgramCacheKey = () => 'narr' + state.theme;
+  const mesh = new THREE.InstancedMesh(geo, mat, list.length);
   const m4 = new THREE.Matrix4();
-  list.forEach((c, k) => { m4.makeScale(1, c.h, 1).setPosition(c.x, NBASE, c.z); mesh.setMatrixAt(k, m4); mesh.setColorAt(k, crt ? c.col.clone().multiplyScalar(1.05) : c.col); });
-  const grp = new THREE.Group(); grp.add(mesh); return grp;
+  list.forEach((c, k) => { m4.makeTranslation(c.x, NBASE, c.z); mesh.setMatrixAt(k, m4); aH[k] = Math.max(c.h, 0.05); const col = c.glowy ? c.col.clone().multiplyScalar(crt ? 1.7 : 1.1) : c.col; colors.set([col.r, col.g, col.b], k * 3); });
+  geo.setAttribute('aH', new THREE.InstancedBufferAttribute(aH, 1));
+  mesh.instanceColor = new THREE.InstancedBufferAttribute(colors, 3);
+  // the white outline: the same columns, pushed out in screen space, back faces only
+  const line = new THREE.ShaderMaterial({ side: THREE.BackSide, uniforms: { uColor: { value: new THREE.Color(crt ? '#f4f0ff' : '#141a2c') }, uPx: { value: crt ? 1.5 : 1.3 }, uRes: { value: drawRes } },
+    vertexShader: `attribute float aH; uniform float uPx; uniform vec2 uRes;
+      void main(){ ${stretch} vec4 wp = modelMatrix * instanceMatrix * vec4(sp, 1.0); vec3 wn = normalize(mat3(modelMatrix * instanceMatrix) * normal);
+        vec4 c0 = projectionMatrix * viewMatrix * wp; vec4 c1 = projectionMatrix * viewMatrix * vec4(wp.xyz + wn * 0.05, 1.0);
+        vec2 d = c1.xy / c1.w - c0.xy / c0.w; float l = length(d); if (l > 1e-6) c0.xy += (d / l) * uPx * 2.0 / uRes * c0.w; c0.z += 0.0004 * c0.w; gl_Position = c0; }`,
+    fragmentShader: 'uniform vec3 uColor; void main(){ gl_FragColor = vec4(uColor, 1.0); }' });
+  const outl = new THREE.InstancedMesh(geo, line, list.length); outl.instanceMatrix = mesh.instanceMatrix; outl.frustumCulled = mesh.frustumCulled = false;
+  const grp = new THREE.Group(); grp.add(mesh, outl); return grp;
 }
 function applyStyle() {
   const narr = state.style === 'blocks';
