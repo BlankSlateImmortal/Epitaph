@@ -370,6 +370,22 @@
     transition: border-color 0.2s ease;
   }
   .subject-record .r-open-btn:hover{ border-color:var(--dust); }
+
+  /* ---- phone width: stack the panels, let the page scroll ---- */
+  @media (max-width:760px){
+    html,body{ overflow-x:hidden; overflow-y:auto; height:auto; }
+    .hud{ height:auto; min-height:100vh; width:100%; }
+    .top-bar{ flex-direction:column; align-items:flex-start; gap:10px; padding:14px 16px; }
+    .top-icons{ flex-wrap:wrap; gap:8px; }
+    .hud-body{ flex-direction:column; padding:0 16px 28px; gap:22px; }
+    .stage{ order:1; width:100%; }
+    .dial-wrap{ width:min(86vw, 420px); height:min(86vw, 420px); }
+    .map-glyph{ width:81%; height:81%; }
+    .panel-left{ order:2; width:auto; flex-direction:row; flex-wrap:wrap; gap:18px 28px; }
+    .panel-right{ order:3; width:auto; }
+    .chapter-ctl{ width:100%; }
+    .bottom-bar{ position:static; padding:8px 16px 20px; }
+  }
 </style>
 <link rel="stylesheet" href="assets/epitaph-theme.css?v=17">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
