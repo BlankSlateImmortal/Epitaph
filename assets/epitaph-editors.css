@@ -326,3 +326,15 @@
 .st-trial span{ font-family:var(--f-mono); font-size:10px; letter-spacing:.14em; color:var(--amber); text-transform:uppercase; }
 .st-trial input{ background:rgba(0,0,0,.35); border:1px solid var(--amber-dim); color:var(--bone); font:13px/1.3 var(--f-body, serif); padding:5px 8px; border-radius:3px; }
 .st-trial input:focus{ outline:none; border-color:var(--amber); }
+
+/* crowded forge: smaller derivative orbs; names tucked away except the picked branch */
+.fg-node.deriv.small{ width:3.7%; font-size:clamp(10px,1.2vw,14px); }
+.fg-label.tuck{ opacity:0; transition:opacity .15s; }
+.fg-node:hover + .fg-label.tuck, .fg-node:focus-visible + .fg-label.tuck{ opacity:1; z-index:5; background:rgba(10,7,4,.92); padding:2px 6px; }
+.fg-label{ text-shadow:0 0 3px #0a0704, 0 0 6px #0a0704, 0 0 10px #0a0704; z-index:3; }
+.fg-key{ display:flex; flex-wrap:wrap; gap:4px 6px; align-items:center; max-width:760px; margin:8px auto 0; padding:8px 10px; border:1px solid rgba(255,178,56,.25); background:rgba(10,7,4,.6); }
+.fg-key-h{ width:100%; font-family:var(--f-mono); font-size:10px; letter-spacing:.18em; color:var(--amber); text-transform:uppercase; }
+.fg-key-empty{ font-size:12px; color:var(--dust); }
+.fg-key-i{ font-family:'Pirata One', serif; font-size:16px; background:none; border:1px solid rgba(201,194,180,.25); color:var(--bone); padding:2px 8px; cursor:pointer; }
+.fg-key-i:hover{ border-color:var(--amber); color:var(--amber); }
+.fg-key-i.sel{ border-color:#7fd6c2; color:#bff0e3; }
