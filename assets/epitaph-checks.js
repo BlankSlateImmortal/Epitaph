@@ -79,6 +79,32 @@
           }
         });
       }
+      // lore checks (2026-11-16): gifts, Heralds, ties to the dead, Threat vs stats
+      if (t || snaps.some(s => s.power)) {
+        const byName = n => chars.find(o => (o.name || '').trim().toLowerCase() === String(n || '').trim().toLowerCase());
+        const start = s => Number.isInteger(s.startChapter) ? s.startChapter : 0;
+        const vAt = (o, n) => { const v = (o.snapshots || []).filter(s => start(s) <= n).sort((a, b) => start(a) - start(b)); return v[v.length - 1] || null; };
+        snaps.forEach(s => {
+          const p = s.power || {};
+          String(p.gift || '').split('\n').map(l => l.split('|')[0].trim()).filter(Boolean).forEach(from => {
+            const g = byName(from);
+            if (!g) out.push({ level: 'info', rule: 'lore', ...at(c, s), text: `${name(c)}'s gift in ${label(s)} comes from ${from}, who has no file yet.` });
+            else if (g.race && g.race !== 'storyborn') out.push({ level: 'warn', rule: 'lore', ...at(c, s), text: `${name(c)}'s gift in ${label(s)} comes from ${from}, who isn't a Storyborn.` });
+          });
+          if (p.herald) {
+            const h = byName(p.herald);
+            if (h && c.race !== 'storyborn' && h.race && h.race !== 'storyborn') out.push({ level: 'warn', rule: 'lore', ...at(c, s), text: `${name(c)} is Herald of ${p.herald} in ${label(s)}, but ${p.herald} isn't a Storyborn.` });
+            const hv = h && vAt(h, start(s));
+            if (hv && hv.presence === 'dead') out.push({ level: 'warn', rule: 'lore', ...at(c, s), text: `${name(c)}'s Herald link to ${p.herald} in ${label(s)}: ${p.herald} is dead by then.` });
+          }
+          (s.relationships || []).forEach(r => {
+            const o = r.charId && chars.find(x => x.id === r.charId), ov = o && vAt(o, start(s));
+            if (ov && ov.presence === 'dead' && !/dead|late|former|mourn|lost/i.test(r.relation || '')) out.push({ level: 'info', rule: 'lore', ...at(c, s), text: `${name(c)} lists ${o.name} in ${label(s)}, but ${o.name} is dead by then.` });
+          });
+          const th = parseFloat(p.threat), sum = Object.values(s.stats || {}).reduce((a, v) => a + (Number(v) || 0), 0);
+          if (th >= 4 && c.race !== 'primordial' && c.race !== 'unbound' && sum < 10) out.push({ level: 'info', rule: 'lore', ...at(c, s), text: `${name(c)} is Threat ${p.threat} in ${label(s)} but their stats add up to only ${sum}.` });
+        });
+      }
       // one-sided relationships (information)
       const listed = new Map();
       snaps.forEach(s => (s.relationships || []).forEach(r => { if (r.charId && r.charId !== c.id && !listed.has(r.charId)) listed.set(r.charId, { s, r }); }));
