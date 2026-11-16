@@ -958,4 +958,101 @@
     openModal({ wide: true });
   };
 
+
+  // =====================================================================
+  // IDENTITY — the true name (or titles / plane-name) as a ladder of refinements
+  // =====================================================================
+  openIdentityForm = function (char, snap) {
+    if (blockIfLocked(snap)) return;
+    const t = typeOf(char), lineName = t === 'godling' ? 'Plane-name' : hasTrueName(char) ? 'True name' : 'Titles';
+    const showConcept = isGodType(char) || hasArchetype(char) || !t;
+    let rows = (snap.titles || []).map(x => ({ name: x.name || '', tier: x.rankTier || 0, blurb: x.blurb || '' }));
+    let emo = snap.emotionalState || '', concept = char.authority || '';
+    const sync = () => {
+      rows = [...modalContent.querySelectorAll('.id-row')].map(r => ({ name: r.querySelector('[data-i=name]').value, tier: +r.dataset.tier || 0, blurb: r.querySelector('[data-i=blurb]').value }));
+      const e = document.getElementById('idEmo'); if (e) emo = e.value;
+      const c = document.getElementById('idConcept'); if (c) concept = c.value;
+    };
+    const draw = () => {
+      const top = rows.reduce((m, r) => Math.max(m, r.tier), 0);
+      const order = rows.map((r, i) => ({ r, i })).sort((a, b) => a.r.tier - b.r.tier);
+      const need = skillsCapped(char) ? skillCounts(snap.skills || []).branches : 0;
+      const list = order.map(({ r, i }) => {
+        const cur = r.tier === top && r.tier > 0 && order.filter(x => x.r.tier === top).pop().i === i;
+        return `<div class="id-row${cur ? ' cur' : ''}" data-tier="${r.tier}" data-idx="${i}">
+          <div class="id-tier">${Array.from({ length: 7 }, (_, n) => `<button type="button" class="ed-pip${n < r.tier ? ' on' : ''}" data-id-tier="${i}:${n + 1}" aria-label="Tier ${n + 1}"></button>`).join('')}<span>${r.tier ? ROMAN[r.tier - 1] : '—'}</span></div>
+          <label class="ed-field">${cur ? `Current ${esc(lineName.toLowerCase())}` : 'Name'}<input type="text" data-i="name" value="${attr(r.name)}" placeholder="${t === 'godling' ? 'e.g. Young Dreamling' : 'e.g. Benevolent Thief'}"></label>
+          <label class="ed-field">How it was earned<input type="text" data-i="blurb" value="${attr(r.blurb)}" placeholder="One line"></label>
+          <button type="button" class="pw-x" style="position:static" data-id-x="${i}" aria-label="Remove">×</button></div>`;
+      }).reverse().join('');
+      modalContent.innerHTML = head('EDIT IDENTITY', subFor(char, snap), 'idSave', 'Save identity') + `<div class="ed-cols">
+        <div class="ed-side"><div><div class="ed-kicker">${esc(lineName)}</div><div class="ed-big">${esc(char.name || 'Unnamed')}</div><div class="bf-line" style="margin-top:6px">${esc(archetypeLabel(snap, char))}</div></div>
+          <label class="ed-field">Emotional state (this chapter)<input type="text" id="idEmo" value="${attr(emo)}" placeholder="e.g. Numb, Resolved, Afraid"></label>
+          ${showConcept ? `<label class="ed-field">Concept (the character as a whole)<input type="text" id="idConcept" value="${attr(concept)}" placeholder="e.g. Nothing, Reality"></label>` : ''}
+          ${skillsCapped(char) ? `<div class="ed-box thin ed-readout">&gt; TIER ${top || 0} OPENS ${top || 0} BRANCH SPOKE${top === 1 ? '' : 'S'}<br>&gt; ${need} BRANCH${need === 1 ? '' : 'ES'} GROWN — THE NAME CAN'T DROP BELOW ${need}</div>` : ''}</div>
+        <div class="ed-main" style="display:flex;flex-direction:column;gap:8px">
+          <div class="ed-kicker">${esc(lineName)} — each refinement on its own row, newest on top${hasTrueName(char) ? ' · every rewrite is painful' : ''}</div>
+          ${list || `<div class="iv-empty">&gt; ${hasTrueName(char) ? 'The dormant name hasn’t woken yet.' : 'No titles yet.'}</div>`}
+          <button type="button" class="ed-chip" id="idAdd" style="min-height:46px;transform:none;border-style:dashed;color:var(--amber);align-self:flex-start;padding:0 18px">${hasTrueName(char) ? (top ? `+ REFINE THE NAME (TIER ${Math.min(7, top + 1)})` : '+ THE NAME WAKES (TIER I)') : '+ ADD A TITLE'}</button></div></div>`;
+      wireCancel();
+      modalContent.querySelectorAll('[data-id-tier]').forEach(b => b.addEventListener('click', () => { sync(); const [i, n] = b.dataset.idTier.split(':').map(Number); rows[i].tier = rows[i].tier === n ? n - 1 : n; draw(); }));
+      modalContent.querySelectorAll('[data-id-x]').forEach(b => b.addEventListener('click', () => { sync(); rows.splice(+b.dataset.idX, 1); draw(); }));
+      document.getElementById('idAdd').addEventListener('click', () => { sync(); const top2 = rows.reduce((m, r) => Math.max(m, r.tier), 0); rows.push({ name: '', tier: hasTrueName(char) ? Math.min(7, top2 + 1) : 0, blurb: '' }); draw(); const ins = modalContent.querySelectorAll('[data-i=name]'); if (ins.length) ins[0].focus(); });
+      document.getElementById('idSave').addEventListener('click', async () => {
+        sync();
+        const titles = rows.filter(r => r.name.trim()).map(r => ({ name: r.name.trim(), rankTier: Math.max(0, Math.min(7, r.tier)), blurb: r.blurb.trim() }));
+        const problem = skillsProblem(char, snap.skills || [], titles);
+        if (problem) { showToast('This name tier is too low for the skills they already hold. ' + problem, { duration: 7000 }); return; }
+        snap.titles = titles; snap.emotionalState = emo.trim();
+        if (showConcept) char.authority = concept.trim();
+        await persistState(); renderAll(); closeModal();
+      });
+    };
+    draw(); openModal({ wide: true });
+  };
+
+  // =====================================================================
+  // SYSTEM SHEET — a hub: every part of this chapter at a glance, one tap to its editor
+  // =====================================================================
+  let hubReturn = null;
+  const baseClose = closeModal;
+  closeModal = function () {
+    baseClose.apply(this, arguments);
+    if (hubReturn && !hubReturn.inHub) { const h = hubReturn; setTimeout(() => { if (hubReturn === h && !modalBackdrop.classList.contains('visible')) openSystemForm(h.char, h.snap); }, 260); }
+  };
+  openSystemForm = function (char, snap) {
+    if (blockIfLocked(snap)) return;
+    char = state.characters.find(c => c.id === char.id) || char;
+    snap = char.snapshots.find(s => s.id === snap.id) || snap;
+    hubReturn = { char, snap, inHub: true };
+    const p = snap.power || {}, sc = skillCounts(snap.skills || []), ms = markSummary(snap);
+    const tile = (key, title, jp, body, open, ok = true) => ok ? `<button type="button" class="hub-tile" data-hub="${key}"><span class="hub-h"><b>${esc(title)}</b><small lang="ja">${jp}</small></span><span class="hub-b">${body}</span><span class="hub-go">EDIT ▸</span></button>` : '';
+    const stat = hasStats(char) ? `<span class="hub-stats">${STAT_SLOTS.map((k, i) => { const v = +(snap.stats || {})[k] || 0; return `<i title="${attr(statNames(char)[i])} ${v}"><em style="height:${v / 7 * 100}%" class="${statDanger(char, snap, k, v) ? 'hot' : ''}"></em></i>`; }).join('')}</span>` : '<span class="hub-dim">Beyond the scale</span>';
+    const tiles = [
+      tile('identity', 'Identity', '身元', `<span class="hub-big">${esc(archetypeLabel(snap, char))}</span><span class="hub-dim">${esc(snap.emotionalState || 'no emotional state')}</span>`),
+      tile('chapter', 'Chapter', '章', `<span class="hub-big">${esc((placeOf2(snap.location)) || 'Unplaced')}</span><span class="hub-dim">${esc(snap.objective || 'wants: not set')}</span>`),
+      tile('stats', 'Stats', '能力', stat, true, hasStats(char)),
+      tile('skills', isGodType(char) ? 'Authorities' : 'Skills', '技', `<span class="hub-big">${(snap.skills || []).length} skill${(snap.skills || []).length === 1 ? '' : 's'}</span><span class="hub-dim">${skillsCapped(char) ? `${sc.branches}/${nameTier(snap)} branches · depth ${sc.deepest}` : 'the forge'}</span>`, true, canHaveSkills(char)),
+      tile('power', 'Power', '力', `<span class="hub-big">${esc(threatLabel(p.threat) || 'Unrated')}</span><span class="hub-dim">${(p.cuts || []).length} Cut${(p.cuts || []).length === 1 ? '' : 's'} · ${parseGifts(p.gift).length} gift${parseGifts(p.gift).length === 1 ? '' : 's'}${p.herald ? ' · Herald' : ''}</span>`),
+      tile('inventory', 'Inventory', '荷', `<span class="hub-big">${(snap.inventory || []).length} carried</span><span class="hub-dim">${esc((snap.inventory || []).slice(0, 3).map(i => invView(i).name).join(' · ') || 'nothing')}</span>`),
+      tile('marks', 'Marks', '印', `<span class="hub-big">${esc(ms.text || 'Unmarked')}</span>`),
+      tile('ties', 'Ties', '絆', `<span class="hub-big">${(snap.relationships || []).length} bond${(snap.relationships || []).length === 1 ? '' : 's'}</span><span class="hub-dim">${esc((snap.relationships || []).slice(0, 3).map(r => relationshipDisplayName(r)).join(' · '))}</span>`),
+      tile('arc', 'Arc', '道', `<span class="hub-big">${esc(snap.headingToward || 'heading: not set')}</span>`),
+      tile('knowledge', 'Knowledge', '知', `<span class="hub-big">${(snap.knowledge || []).length} known · ${(snap.secrets || []).length} secret${(snap.secrets || []).length === 1 ? '' : 's'}</span>`)
+    ].join('');
+    modalContent.innerHTML = `<div class="ed-head"><div class="ed-title"><span class="ed-crt">EPITAPH // SYSTEM SHEET</span><span class="ed-sub">${esc(subFor(char, snap))}</span></div>
+        <div class="ed-acts"><button type="button" class="ed-slant primary" id="hubDone">Done</button></div></div>
+      <div class="ed-kicker" style="margin-bottom:10px">Everything in this chapter version · pick a part to edit it · you come back here after</div>
+      <div class="hub-grid">${tiles}</div>`;
+    const go = {
+      identity: () => openIdentityForm(char, snap), chapter: () => openChapterStateForm(char, snap), stats: () => openStatsOnlyForm(char, snap),
+      skills: () => openSkillsOnlyForm(char, snap), power: () => openPowerForm(char, snap), inventory: () => openInventoryOnlyForm(char, snap),
+      marks: () => openMarksForm(char, snap), ties: () => openRelationshipsOnlyForm(char, snap), arc: () => openArcOnlyForm(char, snap), knowledge: () => openKnowledgeOnlyForm(char, snap)
+    };
+    modalContent.querySelectorAll('[data-hub]').forEach(b => b.addEventListener('click', () => { hubReturn = { char, snap, inHub: false }; go[b.dataset.hub](); }));
+    document.getElementById('hubDone').addEventListener('click', () => { hubReturn = null; baseClose(); });
+    openModal({ wide: true });
+  };
+  function placeOf2(ref) { const r = ref && window.EpitaphWorld && EpitaphWorld.resolve(ref); return r ? r.name || r.label : ''; }
+
 })();
