@@ -1114,6 +1114,7 @@
   .rec-detail{ max-height:calc(100% - 104px); overflow-y:auto; scrollbar-width:thin; }
 </style>
 <link rel="stylesheet" href="assets/epitaph-theme.css?v=18">
+<link rel="stylesheet" href="assets/epitaph-editors.css?v=1">
 <link rel="stylesheet" href="assets/epitaph-book.css?v=4">
 <link rel="stylesheet" href="assets/epitaph-codex-views.css?v=2">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
@@ -1610,7 +1611,7 @@ function migrateCharacter(c){
       if(it.itemId) return { ...base, itemId: it.itemId, stateId: typeof it.stateId === 'string' ? it.stateId : '', note: typeof it.note === 'string' ? it.note : '', name: it.name || '' };
       return { ...base, name: it.name || '', desc: it.desc || '', icon: it.icon || '', image: it.image || '' };
     }),
-    skills: (s.skills || []).map(sk => ({ name: sk.name, desc: sk.desc || '', level: sk.level != null ? sk.level : 0, corrupted: !!sk.corrupted, parent: sk.parent || '' })),
+    skills: (s.skills || []).map(sk => ({ name: sk.name, desc: sk.desc || '', level: sk.level != null ? sk.level : 0, corrupted: !!sk.corrupted, parent: sk.parent || '', glyph: typeof sk.glyph === 'string' ? sk.glyph : '' })),
     titles: (s.titles || []).map(t => {
       if(typeof t === 'string') return { name: t, rankTier: 0, blurb: '' };
       return { name: t.name || '', rankTier: t.rankTier || 0, blurb: t.blurb || '' };
@@ -5004,7 +5005,7 @@ function readTypeSection(type, char){
 // Branch slots and derivative depth come from the true name tier (read live from the titles box when the form has one).
 let pendingSkills = [], skillCtx = null;
 function startSkillEditor(char, snap, titlesInputId){
-  pendingSkills = (snap.skills || []).map(sk => ({ name: sk.name || '', level: sk.level || 0, corrupted: !!sk.corrupted, desc: sk.desc || '', parent: sk.parent || '' }));
+  pendingSkills = (snap.skills || []).map(sk => ({ name: sk.name || '', level: sk.level || 0, corrupted: !!sk.corrupted, desc: sk.desc || '', parent: sk.parent || '', glyph: sk.glyph || '' }));
   skillCtx = { char, snap, titlesInputId };
 }
 function skillEditorTier(){
@@ -6067,5 +6068,6 @@ function restoreLeftPage(){
 </script>
 <script src="assets/epitaph-book.js?v=6"></script>
 
+<script src="assets/epitaph-editors.js?v=1"></script>
 </body>
 </html>
