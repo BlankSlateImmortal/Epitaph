@@ -321,3 +321,8 @@
 .hub-stats em{ display:block; width:100%; background:var(--amber); }
 .hub-stats em.hot{ background:var(--ember); }
 @media (max-width:760px){ .id-row{ grid-template-columns:1fr 40px; } .id-row .ed-field{ grid-column:1 / -1; } .id-tier{ grid-column:1; } }
+
+.st-trial{ display:flex; flex-direction:column; gap:3px; margin-top:6px; }
+.st-trial span{ font-family:var(--f-mono); font-size:10px; letter-spacing:.14em; color:var(--amber); text-transform:uppercase; }
+.st-trial input{ background:rgba(0,0,0,.35); border:1px solid var(--amber-dim); color:var(--bone); font:13px/1.3 var(--f-body, serif); padding:5px 8px; border-radius:3px; }
+.st-trial input:focus{ outline:none; border-color:var(--amber); }

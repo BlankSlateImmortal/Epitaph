@@ -57,8 +57,8 @@
       <polygon points="${poly(R * 3 / 7)}" fill="none" stroke="rgba(255,178,56,.1)"></polygon>
       <polygon points="${data}" fill="rgba(255,178,56,.18)" stroke="#ffb238" stroke-width="2"></polygon>${dots}${labels}</svg>`;
   }
-  function statsHtml(char, snap, vals) {
-    const names = statNames(char), t = typeOf(char);
+  function statsHtml(char, snap, vals, trials) {
+    const names = statNames(char), t = typeOf(char), prev = previousSnapshot(char, snap), pv = prev ? normalizeStats(prev.stats) : null;
     const rows = STAT_SLOTS.map((k, i) => {
       const cap = statCap(char, snap, k), v = Math.min(cap, vals[k] || 0), danger = statDanger(char, snap, k, v);
       const reason = cap < 7 ? `max ${cap}${(CAP_REASON[t] || {})[k] ? ' (' + CAP_REASON[t][k] + ')' : ''}` : '';
@@ -72,7 +72,7 @@
       return `<div class="st-row${danger ? ' danger' : ''}">
         <div class="st-num">${String(i + 1).padStart(2, '0')}</div>
         <div><div class="st-name">${esc(names[i])}</div><div class="st-tag">${esc(SLOT_GENERIC[i])}${reason ? ' · ' + esc(reason) : ''}${danger ? ' · ⚠ ' + danger : ''}</div></div>
-        <div class="st-body"><div class="st-pips">${pips}</div>${scale || `<div class="st-help">${esc(statHelp(char, k) || '')}</div>`}</div>
+        <div class="st-body"><div class="st-pips">${pips}</div>${scale || `<div class="st-help">${esc(statHelp(char, k) || '')}</div>`}${pv && (pv[k] || 0) !== v ? `<label class="st-trial"><span>${v > (pv[k] || 0) ? '▲ ' + (pv[k] || 0) + ' → ' + v + ' · what carved it?' : '▼ ' + (pv[k] || 0) + ' → ' + v + ' · what took it?'}</span><input type="text" data-trial="${k}" maxlength="200" value="${attr(trials[k] || '')}" placeholder="${v > (pv[k] || 0) ? 'The trial they survived' : 'A Cut, an injury, breaking, being forgotten…'}"></label>` : ''}</div>
         <div class="st-val">${v || '—'}<small class="st-lvl${v >= 7 ? ' mastered' : ''}">${esc(statLevelName(char, k, v))}</small></div></div>`;
     }).join('');
     return head('EDIT STATS', subFor(char, snap), 'stSave', 'Save stats') + `<div class="ed-cols">
@@ -87,9 +87,11 @@
   openStatsOnlyForm = function (char, snap) {
     if (blockIfLocked(snap)) return;
     if (!hasStats(char)) { showToast(`${char.name || 'This character'} is beyond the scale: gods are unrated.`); return; }
-    const vals = normalizeStats(snap.stats);
+    const vals = normalizeStats(snap.stats), trials = { ...(snap.statTrials || {}) };
+    const keepTrials = () => modalContent.querySelectorAll('[data-trial]').forEach(i => { trials[i.dataset.trial] = i.value; });
     const draw = () => {
-      modalContent.innerHTML = statsHtml(char, snap, vals);
+      if (modalContent.querySelector('[data-trial]')) keepTrials();
+      modalContent.innerHTML = statsHtml(char, snap, vals, trials);
       wireCancel();
       modalContent.querySelectorAll('.ed-pip[data-slot]').forEach(b => b.addEventListener('click', () => {
         const k = b.dataset.slot, n = +b.dataset.n;
@@ -99,6 +101,9 @@
       document.getElementById('stSave').addEventListener('click', async () => {
         STAT_SLOTS.forEach(k => { vals[k] = Math.min(statCap(char, snap, k), vals[k] || 0); });
         snap.stats = normalizeStats(vals);
+        keepTrials();
+        const prev = previousSnapshot(char, snap), pv = prev ? normalizeStats(prev.stats) : null;
+        snap.statTrials = normalizeTrials(Object.fromEntries(Object.entries(trials).filter(([k]) => pv && (pv[k] || 0) !== (snap.stats[k] || 0))));
         await persistState(); renderAll(); closeModal();
       });
     };

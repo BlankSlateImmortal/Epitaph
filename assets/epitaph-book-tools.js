@@ -61,7 +61,7 @@
     s.push(sec('Identity', [...val(0, 0, archetypeLabel(B, c) && hasArchetype(c) ? 'Archetype' : 'Headline', v => archetypeLabel(v, c)), ...val(0, 0, 'Presence', v => PRESENCE_LABEL[v.presence] || 'Alive')]));
     s.push(sec('State', [...val(0, 0, 'Where', v => (placeOf(v.location) || {}).name || ''), ...val(0, 0, 'Wants', v => v.objective || ''), ...val(0, 0, 'Heading', v => v.headingToward || ''),
       ...(() => { const d = setDiff(A.condition || [], B.condition || [], x => lc(x)); return [...d.added.map(x => line('+', esc(x))), ...d.removed.map(x => line('−', esc(x)))]; })()]));
-    if (hasStats(c)) s.push(sec('Stats', STAT_SLOTS.map((k, i) => { const p = +(A.stats || {})[k] || 0, q = +(B.stats || {})[k] || 0; return p !== q ? line(q > p ? '+' : '−', `${esc(statNames(c)[i])}: ${esc(statLevelName(c, k, p) || p)} → <b>${esc(statLevelName(c, k, q) || q)}</b> <small>(${p} → ${q})</small>`) : ''; }).filter(Boolean)));
+    if (hasStats(c)) s.push(sec('Stats', STAT_SLOTS.map((k, i) => { const p = +(A.stats || {})[k] || 0, q = +(B.stats || {})[k] || 0; return p !== q ? line(q > p ? '+' : '−', `${esc(statNames(c)[i])}: ${esc(statLevelName(c, k, p) || p)} → <b>${esc(statLevelName(c, k, q) || q)}</b> <small>(${p} → ${q})</small>${(B.statTrials || {})[k] ? ` <i>· ${esc(B.statTrials[k])}</i>` : ''}`) : ''; }).filter(Boolean)));
     const pa = A.power || {}, pb = B.power || {};
     s.push(sec('Power', [
       ...(pa.threat !== pb.threat ? [line('~', `Threat ${esc(threatLabel(pa.threat) || '—')} → <b>${esc(threatLabel(pb.threat) || '—')}</b>`)] : []),
