@@ -1169,7 +1169,7 @@
   .rec-detail{ max-height:calc(100% - 104px); overflow-y:auto; scrollbar-width:thin; }
 </style>
 <link rel="stylesheet" href="assets/epitaph-theme.css?v=20">
-<link rel="stylesheet" href="assets/epitaph-editors.css?v=6">
+<link rel="stylesheet" href="assets/epitaph-editors.css?v=7">
 <link rel="stylesheet" href="assets/epitaph-book.css?v=4">
 <link rel="stylesheet" href="assets/epitaph-codex-views.css?v=2">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
@@ -1752,7 +1752,9 @@ function migrateCharacter(c){
     presence: PRESENCE.includes(s.presence) ? s.presence : 'alive',
     archetypeReason: typeof s.archetypeReason === 'string' ? s.archetypeReason : '',
     // schema v7: power under the new systems (threat, heart rings, Cuts, plane, Voided rank, grafts)
-    power: normalizePower(s.power)
+    power: normalizePower(s.power),
+    // why each stat moved since the previous chapter: { slot: 'Survived the Calamity's epicentre' }
+    statTrials: normalizeTrials(s.statTrials)
   }));
   return result;
 }
@@ -1922,6 +1924,7 @@ function stateAtChapter(character, n){
   return best;
 }
 
+function normalizeTrials(t){ const o = {}; if(t && typeof t === 'object' && !Array.isArray(t)) STAT_SLOTS.forEach(k => { if(typeof t[k] === 'string' && t[k].trim()) o[k] = t[k].trim().slice(0, 200); }); return o; }
 // ---- Changed since last chapter ----
 // The previous chapter is the one this chapter was copied from, else the one
 // before it in the list. Lists are compared by content (ids are fresh per
@@ -6233,7 +6236,7 @@ function restoreLeftPage(){
 </script>
 <script src="assets/epitaph-book.js?v=6"></script>
 
-<script src="assets/epitaph-editors.js?v=10"></script>
-<script src="assets/epitaph-book-tools.js?v=2"></script>
+<script src="assets/epitaph-editors.js?v=11"></script>
+<script src="assets/epitaph-book-tools.js?v=3"></script>
 </body>
 </html>
