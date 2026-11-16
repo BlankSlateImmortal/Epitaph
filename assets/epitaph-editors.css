@@ -272,3 +272,24 @@
 .bt-table.help b{ font-weight:400; }
 .wc-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:8px; }
 .bf-changes{ background:transparent; border-style:dashed; color:var(--amber); }
+
+/* ---- phone width: profile plates become a grid above the sigil; forge labels shrink, a skill list helps ---- */
+@media (max-width:760px){
+  .pf-stage{ flex-direction:column; min-height:0; }
+  .pf-cmds{ position:static; order:-1; display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; padding:12px; pointer-events:auto; }
+  .pf-cmds .ed-plate{ position:static !important; transform:none; box-shadow:none; min-height:44px; padding:0 10px; font-size:11px; letter-spacing:.08em; border:1px solid var(--amber-dim); }
+  .pf-cmds .ed-plate.on{ font-size:16px; letter-spacing:.06em; min-height:44px; padding:0 10px; box-shadow:0 0 0 2px var(--pf-accent, var(--verdigris)); }
+  .pf-sigil{ position:relative; height:min(86vw, 380px); flex:none; }
+  .pf-sigil svg{ width:94%; top:50%; }
+  .pf-line{ position:static; padding:0 12px 14px; font-size:17px; }
+  .pf-kanji{ display:none; }
+  .fg-label{ font-size:11px; }
+  .fg-label small{ display:none; }
+  .fg-corner{ display:none; }
+}
+.fg-list{ display:none; }
+@media (max-width:760px){
+  .fg-list{ display:flex; flex-wrap:wrap; gap:6px; padding:10px 4px 2px; }
+  .fg-list .ed-chip{ transform:none; min-height:40px; font-size:15px; }
+  .fg-list .ed-chip.sel{ background:var(--verdigris); border-color:var(--verdigris); color:#071512; }
+}

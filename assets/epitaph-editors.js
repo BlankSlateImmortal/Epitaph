@@ -334,6 +334,7 @@
         <div class="ed-box thin"><div class="ed-kicker">Name spin · heart heat</div><div style="font-size:12px;line-height:1.5;color:var(--dust)">Each skill used nudges the name. Chain too many and it spins; the heart takes the heat.</div></div>
       </div>
       <div class="ed-main fg-wrap"><div class="fg-stage">${svg}${locks}${L.nodes.map(node).join('')}${coreBtn}</div>
+        <div class="fg-list" aria-label="Skills">${L.nodes.filter(n => n.kind !== 'open').map(n => { const sk = list[n.i]; return `<button type="button" class="ed-chip${fgSel === n.i ? ' sel' : ''}" data-fg-sel="${n.i}">${esc(n.kind === 'core' ? '✦ ' : n.kind === 'deriv' ? '↳ ' : '')}${esc(sk.name)}</button>`; }).join('')}</div>
         <div class="fg-corner" style="left:14px;top:10px"><div><b>◆ Spokes</b> 7 · ${L.branches.length} grown</div><div><b>◆ Hint</b> pick an orb to edit it</div></div></div>
       <div class="ed-panel">${detail}</div></div>`;
   }
