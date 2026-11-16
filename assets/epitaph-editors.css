@@ -67,7 +67,10 @@
 .st-row.danger .st-help{ color:#f3c2b6; }
 .st-scale{ display:flex; justify-content:space-between; font-family:var(--f-crt); font-size:16px; color:var(--dust); margin-top:4px; }
 .st-scale .on{ color:var(--amber); }
-.st-val{ font-family:var(--f-display); font-size:42px; text-align:right; color:var(--amber); }
+.st-row{ grid-template-columns:44px minmax(130px,200px) minmax(0,1fr) 120px; }
+.st-val{ font-family:var(--f-display); font-size:42px; text-align:right; color:var(--amber); line-height:1; }
+.st-lvl{ display:block; font-family:'Pirata One', serif; font-size:16px; color:var(--bone); margin-top:2px; }
+.st-lvl.mastered{ color:var(--gold); text-shadow:0 0 8px rgba(227,185,92,.6); }
 
 /* ---- Power: threat ruler + Cut tablets ---- */
 .pw-ruler{ display:grid; grid-template-columns:repeat(9, minmax(0,1fr)); gap:4px; }

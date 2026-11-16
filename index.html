@@ -1041,6 +1041,22 @@
   .brief-row{ display:grid; grid-template-columns:170px minmax(0,1fr); gap:12px; border-top:1px dashed rgba(255,178,56,.18); padding-top:8px; }
   .brief-k{ color:var(--amber-dim); letter-spacing:.08em; }
   .brief-v p{ margin:0 0 4px; overflow-wrap:anywhere; }
+  /* wrist engraving (Subject File) and level names */
+  .wrist{ padding:10px 0 4px; }
+  .wrist-k{ font-family:var(--f-mono); font-size:10px; letter-spacing:.22em; color:var(--dust); margin-bottom:8px; }
+  .wrist-band{ display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:4px; padding:8px 10px; border-top:1px solid var(--amber-dim); border-bottom:1px solid var(--amber-dim);
+    background:repeating-linear-gradient(90deg, rgba(255,178,56,.04) 0 2px, transparent 2px 6px); border-radius:14px / 40%; }
+  .wrist-n{ font-family:var(--f-display); font-size:26px; line-height:1.1; text-align:center; color:var(--bone); text-shadow:0 1px 0 #000, 0 -1px 0 rgba(255,220,170,.25); cursor:default; outline:none; border-radius:4px; }
+  .wrist-n:hover, .wrist-n:focus-visible{ color:var(--amber); text-shadow:var(--phosphor-glow); background:rgba(255,178,56,.08); }
+  .wrist-n.hot{ color:#f08a74; }
+  .wrist-n.mastered{ color:var(--gold); text-shadow:0 0 8px rgba(227,185,92,.6); }
+  .wrist-n.blank{ background:linear-gradient(180deg, transparent 40%, rgba(255,178,56,.12) 40% 60%, transparent 60%); }
+  .wrist-read{ font-family:var(--f-crt); font-size:17px; color:var(--amber); min-height:22px; margin-top:6px; text-transform:uppercase; }
+  .wrist.none .wrist-read{ color:var(--dust); }
+  .gauge .g-name{ display:block; font-family:'Pirata One', serif; font-weight:400; font-size:17px; color:var(--bone); text-shadow:none; letter-spacing:0; line-height:1.1; margin-bottom:2px; }
+  .gauge .g-name.mastered{ color:var(--gold); text-shadow:0 0 8px rgba(227,185,92,.6); }
+  .gauge span{ font-size:12px; color:var(--amber-dim); }
+  .bf-stat span small{ display:block; font-family:'Pirata One', serif; font-size:13px; letter-spacing:0; text-transform:none; color:var(--bone); }
   /* Chapter brief: grouped panels */
   .bf{ gap:16px; padding:20px 22px 22px; }
   .bf-head{ display:flex; flex-wrap:wrap; justify-content:space-between; align-items:flex-end; gap:14px; padding-bottom:14px; border-bottom:1px solid var(--line); }
@@ -1066,7 +1082,7 @@
   .bf-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:3px; }
   .bf-list li{ font-size:14.5px; line-height:1.45; padding-left:14px; position:relative; overflow-wrap:anywhere; }
   .bf-list li::before{ content:'›'; position:absolute; left:0; color:var(--amber); font-family:var(--f-crt); }
-  .bf-stat{ display:grid; grid-template-columns:96px minmax(0,1fr) 22px; gap:10px; align-items:center; font-family:var(--f-mono); font-size:11px; letter-spacing:.1em; color:var(--dust); text-transform:uppercase; }
+  .bf-stat{ display:grid; grid-template-columns:150px minmax(0,1fr) 22px; gap:10px; align-items:center; font-family:var(--f-mono); font-size:11px; letter-spacing:.1em; color:var(--dust); text-transform:uppercase; }
   .bf-stat i{ display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:3px; }
   .bf-stat b{ height:10px; border:1px solid var(--amber-dim); }
   .bf-stat b.on{ background:var(--amber); border-color:var(--amber); }
@@ -1153,7 +1169,7 @@
   .rec-detail{ max-height:calc(100% - 104px); overflow-y:auto; scrollbar-width:thin; }
 </style>
 <link rel="stylesheet" href="assets/epitaph-theme.css?v=20">
-<link rel="stylesheet" href="assets/epitaph-editors.css?v=5">
+<link rel="stylesheet" href="assets/epitaph-editors.css?v=6">
 <link rel="stylesheet" href="assets/epitaph-book.css?v=4">
 <link rel="stylesheet" href="assets/epitaph-codex-views.css?v=2">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
@@ -1493,6 +1509,36 @@ const STAT_HELP = {
   voided: ['Takes the strain of the Black.', 'Holds stasis through pain. Low = the erasure consumes them.', 'Skill tank, only with the Black down.', 'Fine erasure and switching. Clear needs 5, Switcher needs 7.', 'Bad for assassins. Low while the Black is up.', 'Bad for assassins.', 'Knows Val’s truth. Dangerous.'],
   fallen: ['Toughness.', 'Holds under fire.', 'Tech and charge carried. No heart.', 'Safer grafts. Low = unstable graft.', '0 until they graft; each graft raises it.', 'Trust among the Fallen.', 'Unlocks grafts. High = a Storyborn target.']
 };
+// Every level of every stat has its own name (vault Stats.md, 2026-11-16). 1 → 7; 7 is mastery, not a rank.
+const L_ = s => s.split(' · ');
+const PERSON_LADDERS = {
+  body: L_('Frail · Hale · Hardy · Tempered · Ironblood · Unbroken · Undying'), will: L_('Wavering · Steady · Firm · Resolute · Steel-willed · Unyielding · Unshakeable'),
+  reserve: L_('Faint Pulse · Steady Beat · Strong Heart · Deep Well · Great Heart · Furnace · Unfailing Heart'), control: L_('Clumsy · Practiced · Deft · Precise · Exacting · Flawless · Silent Hand'),
+  weight: L_('Unnoticed · Glimpsed · Noticed · Watched · Followed · Underlined · Written in Bold'), renown: L_('Nobody · Known Face · Local Name · Spoken Of · Renowned · Famed · Legend'),
+  insight: L_('Unaware · Observant · Perceptive · Discerning · Insightful · Clear-sighted · True Perception')
+};
+const STAT_LADDERS = {
+  person: PERSON_LADDERS, '': PERSON_LADDERS,
+  storyborn: { body: L_('Ill-fitting · Settling · Bound · Woven · Fused · Perfect Vessel · Living Altar'), will: L_('Echo · Fading · Divided · Holding · Present · Whole · Unbowed Self'),
+    reserve: L_('Trickle · Seep · Stream · Current · Torrent · Deluge · Wellspring'), control: L_('Whim · Sway · Hold · Command · Rule · Sovereignty · Absolute Domain'),
+    weight: L_('Unheeded · Heard · Considered · Weighed · Approved · Favoured · Co-Author'), renown: L_('Lone · Handful · Circle · Congregation · Flock · Faith · Creed'),
+    insight: L_('Blank · Fragments · Echoes · Recollection · Remembrance · Recall · Godmemory') },
+  godling: { body: L_('Fragile Shell · Seed-body · Hardened · Tempered · Forged · Bearing Frame · Divine Vessel'), will: L_('Adrift · Tethered · Moored · Grounded · Rooted · Keel · Unmoving Star'),
+    reserve: L_('Drop · Cup · Basin · Pool · Lake · Sea · Whole Plane'), control: L_('Static · Hum · Resonance · Harmony · Chord · Concord · One with the Plane'),
+    weight: L_('Still Water · Ripple · Wake · Swell · Wave · Tide · Tsunami'), renown: L_('Unknown · Whisper · Murmur · Rumour · Tale · Myth · Prophecy'),
+    insight: L_('Silence · Faint Voice · Whisper · Murmur · Counsel · Chorus · The Retainer Speaks') },
+  voided: { body: L_('Raw · Hardened · Scarred · Weathered · Ironclad · Unfeeling · Unkillable'), will: L_('Trembling · Steadied · Calm · Still · Frozen · Stasis-bound · Perfect Stillness'),
+    reserve: PERSON_LADDERS.reserve, control: L_('Blunt · Keen · Sharp · Honed · Razor · Clean Cut · Erasure\'s Edge'),
+    weight: L_('Shadow · Veiled · Glimpsed · Seen · Marked · Exposed · Laid Bare'), renown: L_('Nameless · Rumoured · Whispered · Feared · Dreaded · Infamous · Nightmare'),
+    insight: L_('Blind Faith · Doubt · Questions · Glimpses · Understanding · Clear Sight · Val\'s Truth') },
+  fallen: { body: L_('Soft · Tough · Gritty · Hard · Weathered · Iron · Unbreakable'), will: L_('Shaky · Steady · Cool · Bold · Fearless · Iron Nerve · Unflinching'),
+    reserve: L_('Bare Hands · Sidearm · Kit · Armed · Loaded · Arsenal · War Engine'), control: L_('Tinkerer · Mechanic · Engineer · Artificer · Grafter · Magician · Magic-Smith'),
+    weight: L_('Faint Line · Smudge · Mark · Line · Paragraph · Page · Written Whole'), renown: L_('Stray · Hand · Trusted · Respected · Leader · Commander · Banner'),
+    insight: L_('Curious · Student · Scholar · Researcher · Expert · Master · Revelation') },
+  twisted: { ...PERSON_LADDERS, reserve: L_('Hollow · Cavity · Pit · Chasm · Abyss · Void-deep · Bottomless'), weight: [] }
+};
+// the name for a stat at a level ('' at 0 or where nothing can be engraved)
+function statLevelName(c, slot, v){ v = Math.round(Number(v) || 0); if(v < 1) return ''; const L = (STAT_LADDERS[typeOf(c)] || PERSON_LADDERS)[slot] || []; return L[Math.min(7, v) - 1] || ''; }
 function statNames(c){ return STAT_NAMES[typeOf(c)] || STAT_NAMES['']; }
 function statName(c, slot){ return statNames(c)[STAT_SLOTS.indexOf(slot)]; }
 function statHelp(c, slot){ const h = STAT_HELP[typeOf(c)]; return h ? h[STAT_SLOTS.indexOf(slot)] : ''; }
@@ -2861,7 +2907,7 @@ function renderCodexPage(char, snap, animate){
           <circle class="g-arc" cx="60" cy="60" r="${r}" fill="none" stroke="${danger ? 'var(--ember)' : 'var(--amber)'}" stroke-width="6" stroke-dasharray="${(c * v / 7).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 60 60)"/>
           <text x="60" y="66" text-anchor="middle" class="g-val">${v || '—'}</text>
           <text x="60" y="84" text-anchor="middle" class="g-lv">${danger === 'high' ? '⚠ HIGH' : danger === 'low' ? '⚠ LOW' : cap < 7 ? 'MAX ' + cap : '/ 7'}</text>
-        </svg><span>${escapeHtml(statNames(char)[i].toUpperCase())}</span></div>`;
+        </svg><b class="g-name${v >= 7 ? ' mastered' : ''}">${escapeHtml(statLevelName(char, k, v) || '—')}</b><span>${escapeHtml(statNames(char)[i].toUpperCase())}</span></div>`;
       }).join('')}</div></div>`;
   } else if(sysTab === 'skills'){
     const sc = skillCounts(snap.skills);
@@ -3234,7 +3280,7 @@ function buildBrief(char, snap){
       { label: 'Marks', items: (snap.marks || []).map(m => ({ text: markText(m), tag: chg.isNew('marks', m) ? 'new' : '' })) },
       { label: 'Abilities', items: (snap.skills || []).map(sk => ({ text: `${sk.name} LV${levelInfo(sk.level).lvl}${sk.corrupted ? ' (corrupted)' : ''}` })) },
       { label: 'Power', items: powerIsEmpty(snap.power) ? [] : powerFieldsFor(char).map(k => ({ k, t: powerValueText(k, snap.power, char) })).filter(x => x.t).map(x => ({ text: `${POWER_FIELD_LABEL[x.k]}: ${x.t}` })) },
-      { label: 'Stats', text: hasStats(char) ? STAT_SLOTS.map((k, i) => `${statNames(char)[i]} ${Number((snap.stats || {})[k]) || 0}/7`).join(' · ') : 'Unrated (beyond the scale)' },
+      { label: 'Stats', text: hasStats(char) ? STAT_SLOTS.map((k, i) => { const v = Number((snap.stats || {})[k]) || 0; return `${statNames(char)[i]} ${v}${statLevelName(char, k, v) ? ' (' + statLevelName(char, k, v) + ')' : ''}`; }).join(' · ') : 'Unrated (beyond the scale)' },
       { label: 'Last chapter', text: prev ? (prev.notes || '—') : '— (first chapter)' }
     ]
   };
@@ -3288,7 +3334,7 @@ function briefPanelsHtml(char, snap, b, tagHtml){
   }).join('');
   const stats = hasStats(char) ? `<section class="bf-panel bf-stats"><h4><span>STATS</span><small lang="ja">能力</small></h4>${STAT_SLOTS.map((k, i) => {
       const v = Math.max(0, Math.min(7, Number((snap.stats || {})[k]) || 0)), d = statDanger(char, snap, k, v);
-      return `<div class="bf-stat${d ? ' hot' : ''}"><span>${escapeHtml(statNames(char)[i])}</span><i>${Array.from({ length: 7 }, (_, n) => `<b class="${n < v ? 'on' : ''}"></b>`).join('')}</i><em>${v || '—'}</em></div>`;
+      return `<div class="bf-stat${d ? ' hot' : ''}"><span>${escapeHtml(statNames(char)[i])}<small>${escapeHtml(statLevelName(char, k, v))}</small></span><i>${Array.from({ length: 7 }, (_, n) => `<b class="${n < v ? 'on' : ''}"></b>`).join('')}</i><em>${v || '—'}</em></div>`;
     }).join('')}</section>` : '';
   const last = row('Last chapter');
   return head + `<div class="bf-grid">${panels}${stats}</div>` + (last ? `<blockquote class="bf-last"><span>LAST CHAPTER</span>${escapeHtml(last.text)}</blockquote>` : '');
@@ -3362,6 +3408,9 @@ function renderGenerationSection(){
   renderGenerationSection._lastSnap = snap.id;
 }
 
+// the wrist band: hovering or focusing a number reads its name
+document.addEventListener('mouseover', e => { const n = e.target.closest && e.target.closest('.wrist-n'); if(n){ const r = n.closest('.wrist').querySelector('.wrist-read'); if(r) r.textContent = n.dataset.read; } });
+document.addEventListener('focusin', e => { const n = e.target.closest && e.target.closest('.wrist-n'); if(n){ const r = n.closest('.wrist').querySelector('.wrist-read'); if(r) r.textContent = n.dataset.read; } });
 function renderAll(){
   updateChecksBadge();
   renderPoster();
@@ -3542,10 +3591,16 @@ function renderPoster(){
   const coordHtml = loc && typeof loc.lat === 'number'
     ? `<span>${fmtCoord(loc.lat, 'N', 'S')} · ${fmtCoord(loc.lng, 'E', 'W')}</span>`
     : `<span>${loc && loc.name ? escapeHtml(loc.name) : 'Location <b>unplaced</b>'}</span>`;
-  const statRows = hasStats(char) ? STAT_SLOTS.map((k, i) => {
-    const v = Math.max(0, Math.min(7, Number((snap.stats || {})[k]) || 0));
-    return `<div class="sig-meter"><span>${escapeHtml(statNames(char)[i].toUpperCase())}</span><i class="${statDanger(char, snap, k, v) ? 'low' : ''}" style="width:${(v / 7 * 100).toFixed(0)}%"></i><span>${v}</span></div>`;
-  }).join('') : `<div class="sig-meter"><span>BEYOND THE SCALE</span><i style="width:100%"></i><span>∞</span></div>`;
+  // the wrist engraving: what the world sees (numbers); hovering reads the name, as thinking about it does in-world
+  const statRows = hasStats(char) ? `<div class="wrist" id="wristBand"><div class="wrist-k">ENGRAVED · AROUND THE WRISTS</div>
+      <div class="wrist-band">${STAT_SLOTS.map((k, i) => {
+        const v = Math.max(0, Math.min(7, Number((snap.stats || {})[k]) || 0));
+        const blank = typeOf(char) === 'twisted' && k === 'weight';
+        const nm = statLevelName(char, k, v);
+        return `<span class="wrist-n${statDanger(char, snap, k, v) ? ' hot' : ''}${v >= 7 ? ' mastered' : ''}${blank ? ' blank' : ''}" tabindex="0" data-read="${escapeAttr(blank ? statNames(char)[i] + ' · nothing is written here' : statNames(char)[i] + ' ' + (v || '—') + (nm ? ' · ' + nm : ''))}">${blank ? '' : (v || '·')}</span>`;
+      }).join('')}</div>
+      <div class="wrist-read" aria-live="polite">Hover a number to read it</div></div>`
+    : `<div class="wrist none"><div class="wrist-k">NO ENGRAVING</div><div class="wrist-read">Beyond the scale: true gods carry no numbers.</div></div>`;
   const museList = loadMuseList();
   const muses = (char.museIds || []).map(id => museList.find(m => m.id === id)).filter(Boolean);
   const chapters = char.snapshots.map((s, i) => `
@@ -6163,7 +6218,7 @@ function restoreLeftPage(){
 </script>
 <script src="assets/epitaph-book.js?v=6"></script>
 
-<script src="assets/epitaph-editors.js?v=5"></script>
-<script src="assets/epitaph-book-tools.js?v=1"></script>
+<script src="assets/epitaph-editors.js?v=6"></script>
+<script src="assets/epitaph-book-tools.js?v=2"></script>
 </body>
 </html>
