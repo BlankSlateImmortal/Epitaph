@@ -11,7 +11,7 @@
  *   start-chapter   a version's start chapter is missing or not in the chapter list
  *   missing-place   a location or an item's origin points at a place that no longer exists
  *   one-sided       a relationship is set from one side only (information)
- *   divine          a divine (locked) character's archetype differs between chapters
+ *   progression     saved data breaks the type rules (faction, skills, Cuts, branch cap)
  *   item-state      an inventory entry points at a state the Library item no longer has
  *   state-back      an item goes back to an earlier state in a character's later chapter
  *                   (a warning only: going back can be deliberate)
@@ -57,12 +57,27 @@
             out.push({ level: 'warn', rule: 'missing-place', ...at(c, s), text: `${name(c)}'s location in ${label(s)} points at a place that no longer exists.` });
         }
       });
-      // divine archetype
-      if (c.divineStatus || c.primordial) {
-        const seen = new Map();
-        snaps.forEach(s => { const a = s.archetype || 'UNASSIGNED'; if (!seen.has(a)) seen.set(a, s); });
-        if (seen.size > 1) out.push({ level: 'warn', rule: 'divine', ...at(c, snaps[0]),
-          text: `${name(c)} is divine but has different archetypes: ${[...seen].map(([a, s]) => `${a} (${label(s)})`).join(', ')}.` });
+      // progression (the type rules, vault Power Systems): flags saved data from before the locks
+      const t = c.race || '';
+      if (t) {
+        const lore = c.lore || {};
+        const named = t === 'person' || t === 'godling' || (t === 'voided' && lore.origin !== 'hollow' && lore.origin !== 'fallen') || (t === 'storyborn' && lore.hostBond !== 'possession');
+        const allowed = { primordial: ['Unaffiliated'], unbound: ['Unaffiliated', 'Voided'], storyborn: ['Storyborn'], person: ['Storyborn', 'Voided', 'The Fallen', 'Humanity', 'Unaffiliated'], godling: ['Storyborn', 'Voided', 'The Fallen', 'Humanity', 'Unaffiliated'], voided: ['Voided'], fallen: ['The Fallen', 'Voided'] }[t];
+        if (allowed && c.faction && !allowed.includes(c.faction))
+          out.push({ level: 'warn', rule: 'progression', ...at(c, snaps[0]), text: `${name(c)}'s faction (${c.faction}) isn't open to their type. Allowed: ${allowed.join(', ')}.` });
+        snaps.forEach(s => {
+          const skills = s.skills || [], cuts = ((s.power || {}).cuts) || [];
+          if (skills.length && (t === 'godling' || t === 'fallen' || ((t === 'voided' || t === 'storyborn') && !named)))
+            out.push({ level: 'warn', rule: 'progression', ...at(c, s), text: `${name(c)} holds skills in ${label(s)}, but their type can't.` });
+          if (cuts.length && (t === 'godling' || t === 'fallen' || t === 'primordial' || t === 'unbound' || (t === 'voided' && !named)))
+            out.push({ level: 'warn', rule: 'progression', ...at(c, s), text: `${name(c)} has a Cut in ${label(s)}, but their type can't make one.` });
+          if ((t === 'person' || (t === 'voided' && named)) && skills.length) {
+            const tier = Math.max(0, ...(s.titles || []).map(x => x.rankTier || 0));
+            const depth = (sk, seen = new Set()) => { if (!sk.parent || seen.has(sk.name)) return 0; seen.add(sk.name); const p = skills.find(x => x.name === sk.parent); return p ? 1 + depth(p, seen) : 0; };
+            const branches = skills.filter(sk => depth(sk) === 1).length;
+            if (branches > tier) out.push({ level: 'warn', rule: 'progression', ...at(c, s), text: `${name(c)} has ${branches} branches in ${label(s)}, but true name tier ${tier} allows ${tier}.` });
+          }
+        });
       }
       // one-sided relationships (information)
       const listed = new Map();

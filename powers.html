@@ -68,7 +68,7 @@
   </header>
 
   <nav class="toc" aria-label="Sections">
-    <a href="#foundation">Foundation</a><a href="#scale">Scale</a><a href="#storyborn">Storyborn</a><a href="#people">Era 1 people</a><a href="#cut">The Cut</a><a href="#godlings">Godlings</a><a href="#voided">Voided</a><a href="#fallen">The Fallen</a><a href="#stacking">Stacking</a><a href="#balance">Balance</a>
+    <a href="#foundation">Foundation</a><a href="#types">Types</a><a href="#scale">Scale</a><a href="#stats">Stats</a><a href="#storyborn">Storyborn</a><a href="#people">Era 1 people</a><a href="#cut">The Cut</a><a href="#godlings">Godlings</a><a href="#voided">Voided</a><a href="#fallen">The Fallen</a><a href="#stacking">Stacking</a><a href="#balance">Balance</a>
   </nav>
 
   <section id="foundation">
@@ -94,6 +94,24 @@
     </ul>
   </section>
 
+  <section id="types">
+    <h2>Types<small lang="ja">種</small></h2>
+    <p class="lede">In the Dossier, a character's type comes first. It decides their faction options, whether they have an archetype or a true name, their stats, and which powers they can hold. Anything the progression doesn't allow simply isn't offered.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Type</th><th>Factions</th><th>Their line</th><th>Can hold</th></tr></thead>
+      <tbody>
+        <tr><td class="n">Primordial</td><td>Unaffiliated</td><td>Their concept only</td><td>Authorities. Unrated, beyond the scale</td></tr>
+        <tr><td class="n">Unbound god</td><td>Unaffiliated, Voided</td><td>Their concept only</td><td>Authorities. Unrated, beyond the scale</td></tr>
+        <tr><td class="n">Storyborn</td><td>Storyborn</td><td>Archetype (the only type with one)</td><td>Skills if merge / parasite host; rare Cuts; gives gifts; has a Herald</td></tr>
+        <tr><td class="n">Era 1 person</td><td>Storyborn, Voided, The Fallen, Humanity, Unaffiliated</td><td>True name, tier 1–7</td><td>Skills (branches ≤ name tier), Cuts, gifts</td></tr>
+        <tr><td class="n">Godling</td><td>Same as a person</td><td>Plane-name</td><td>Their plane. No skills, gifts or Cuts</td></tr>
+        <tr><td class="n">Voided</td><td>Voided</td><td>True name if Era 1-born</td><td>Val's blessing; skills and Cuts only with a dormant name; gifts rarely</td></tr>
+        <tr><td class="n">The Fallen</td><td>The Fallen, Voided</td><td>Unwritten</td><td>Tech, grafts, gifts. No skills or Cuts</td></tr>
+      </tbody>
+    </table></div>
+    <p><b>Humanity</b> is for people who aren't sure where they belong yet.</p>
+  </section>
+
   <section id="scale">
     <h2>The Scale<small lang="ja">尺度</small></h2>
     <p class="lede">One shared Threat rank answers one question: how much of the world can this person hurt or change in one fight? Each system keeps its own 7 steps underneath.</p>
@@ -112,6 +130,31 @@
       </tbody>
     </table></div>
     <p>Only Godlings can reach the planet. That's why the Storyborn fear them.</p>
+  </section>
+
+  <section id="stats">
+    <h2>Stats<small lang="ja">能力</small></h2>
+    <p class="lede">Always seven, each 1 to 7. The slots are the same for everyone; the name and what high or low means change with the type. Caps follow progression, and danger stats glow when they're risky. Gods are unrated.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Slot</th><th>Era 1 person</th><th>Storyborn</th><th>Godling</th><th>Voided</th><th>The Fallen</th></tr></thead>
+      <tbody>
+        <tr><td class="n">Body</td><td>Vitality</td><td>Host</td><td>Vessel</td><td>Endurance</td><td>Grit</td></tr>
+        <tr><td class="n">Will</td><td>Resolve</td><td>Selfhood</td><td>Anchor</td><td>Stillness</td><td>Nerve</td></tr>
+        <tr><td class="n">Reserve</td><td>Heart</td><td>Draw</td><td>Capacity</td><td>Heart</td><td>Arsenal</td></tr>
+        <tr><td class="n">Control</td><td>Precision</td><td>Dominion</td><td>Attunement</td><td>Edge</td><td>Craft</td></tr>
+        <tr><td class="n">Story weight</td><td>Gaze</td><td>Witness</td><td>Ripple</td><td>Exposure</td><td>Exposure</td></tr>
+        <tr><td class="n">Renown</td><td>Renown</td><td>Following</td><td>Rumour</td><td>Notoriety</td><td>Standing</td></tr>
+        <tr><td class="n">Insight</td><td>Insight</td><td>Memory</td><td>Whispers</td><td>Clarity</td><td>Research</td></tr>
+      </tbody>
+    </table></div>
+    <h3>Caps and dangers</h3>
+    <ul>
+      <li><b>Every Cut lowers Vitality's maximum for good.</b> It carves the heart.</li>
+      <li><b>Precision</b> is capped by the true name tier. <b>Selfhood</b> falls as a Storyborn climbs (max = 8 − tier); <b>Draw</b> and <b>Dominion</b> are capped by tier.</li>
+      <li>A Godling's <b>Vessel</b> and <b>Capacity</b> are capped by level. High <b>Rumour</b> early is deadly; high <b>Ripple</b> gets them found; high <b>Whispers</b> means the retainer is close to moving in.</li>
+      <li>A Voided's <b>Edge</b> gates rank: Clear needs 5, Switcher needs 7. Low <b>Stillness</b> means the erasure can consume them. Hollow-born have no <b>Heart</b>.</li>
+      <li>A Fallen's <b>Exposure</b> is 0 until they graft; each graft raises its maximum.</li>
+    </ul>
   </section>
 
   <section id="storyborn">
