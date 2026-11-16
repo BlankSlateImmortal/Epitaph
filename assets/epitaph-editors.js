@@ -66,14 +66,14 @@
         const n = j + 1;
         if (n > cap) return `<span class="ed-pip lock ed-hatch" title="Locked by progression"></span>`;
         const hot = n <= v && statDanger(char, snap, k, n) === 'high';
-        return `<button type="button" class="ed-pip${n <= v ? (hot ? ' hot' : ' on') : ''}" data-slot="${k}" data-n="${n}" aria-label="${attr(names[i])} ${n}" aria-pressed="${n === v}"></button>`;
+        return `<button type="button" class="ed-pip${n <= v ? (hot ? ' hot' : ' on') : ''}" data-slot="${k}" data-n="${n}" title="${attr(n + ' · ' + statLevelName(char, k, n))}" aria-label="${attr(names[i])} ${n}: ${attr(statLevelName(char, k, n))}" aria-pressed="${n === v}"></button>`;
       }).join('');
       const scale = t === 'person' && k === 'control' ? `<div class="st-scale"><span class="${v <= 2 ? 'on' : ''}">1–2 RECITE</span><span class="${v >= 3 && v <= 5 ? 'on' : ''}">3–5 HAND SIGNS</span><span class="${v >= 6 ? 'on' : ''}">6–7 SILENT</span></div>` : '';
       return `<div class="st-row${danger ? ' danger' : ''}">
         <div class="st-num">${String(i + 1).padStart(2, '0')}</div>
         <div><div class="st-name">${esc(names[i])}</div><div class="st-tag">${esc(SLOT_GENERIC[i])}${reason ? ' · ' + esc(reason) : ''}${danger ? ' · ⚠ ' + danger : ''}</div></div>
         <div class="st-body"><div class="st-pips">${pips}</div>${scale || `<div class="st-help">${esc(statHelp(char, k) || '')}</div>`}</div>
-        <div class="st-val">${v || '—'}</div></div>`;
+        <div class="st-val">${v || '—'}<small class="st-lvl${v >= 7 ? ' mastered' : ''}">${esc(statLevelName(char, k, v))}</small></div></div>`;
     }).join('');
     return head('EDIT STATS', subFor(char, snap), 'stSave', 'Save stats') + `<div class="ed-cols">
       <div class="ed-main"><div style="display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap;margin-bottom:10px">
