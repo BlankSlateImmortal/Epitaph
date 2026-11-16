@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Epitaph — Chapters</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Noto+Serif+JP:wght@500;900&family=VT323&family=Space+Mono:wght@400;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Cinzel:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=18">
+<style>
+  /* The chapter reader. Chapters are written in the Obsidian vault (Chapters/) and copied here by
+     tools/sync-chapters.py into chapters/*.md + chapters/index.json. */
+  :root{ --ink:#080603; --bone:#f1e6cf; --dust:#b5904f; --line:rgba(255,178,56,.17); --panel:#0e0a05; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; background:var(--ink); color:var(--bone); }
+  body{ font-family:'Source Serif 4',Georgia,serif; min-height:100vh; }
+  .progress{ position:fixed; top:0; left:0; height:3px; width:0; background:var(--amber); box-shadow:0 0 8px rgba(255,178,56,.6); z-index:20; }
+  .app{ max-width:1320px; margin:0 auto; padding:24px max(16px,3vw) 80px; }
+  .top-nav{ display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; padding-bottom:16px; border-bottom:1px solid var(--line); }
+  .top-nav .actions{ display:flex; flex-wrap:wrap; gap:6px; }
+  .layout{ display:flex; flex-wrap:wrap; gap:36px; padding-top:28px; align-items:flex-start; }
+  .toc{ flex:1 1 240px; max-width:280px; position:sticky; top:16px; display:flex; flex-direction:column; gap:14px; max-height:calc(100vh - 32px); overflow-y:auto; }
+  .toc h2{ font-family:var(--f-display); font-weight:400; font-size:44px; line-height:.9; margin:0; text-transform:uppercase; }
+  .toc .kicker, .kicker{ font-family:var(--f-mono); font-size:11px; letter-spacing:.22em; color:var(--dust); text-transform:uppercase; }
+  .arc-label{ font-family:var(--f-crt); font-size:18px; color:var(--amber); margin-top:6px; }
+  .toc ol{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:4px; }
+  .toc a{ display:grid; grid-template-columns:44px minmax(0,1fr); gap:8px; align-items:baseline; padding:8px 10px; border:1px solid var(--line); background:var(--panel); color:var(--bone); text-decoration:none; min-height:44px; }
+  .toc a:hover, .toc a:focus-visible{ border-color:var(--amber); outline:none; }
+  .toc a.on{ background:var(--amber); border-color:var(--amber); color:var(--ink); }
+  .toc a b{ font-family:var(--f-crt); font-weight:400; font-size:20px; color:var(--dust); }
+  .toc a.on b{ color:var(--ink); }
+  .toc a span{ font-family:'Cinzel',serif; font-size:14px; line-height:1.25; overflow-wrap:anywhere; }
+  .toc a small{ grid-column:2; font-family:var(--f-mono); font-size:10px; letter-spacing:.12em; color:var(--dust); text-transform:uppercase; }
+  .toc a.on small{ color:var(--ink); }
+  .draft-tag{ font-family:var(--f-mono); font-size:9px; letter-spacing:.14em; padding:1px 5px; border:1px dashed currentColor; margin-left:6px; vertical-align:middle; }
+  main{ flex:999 1 620px; min-width:0; }
+  .ch-head{ border-bottom:1px solid var(--line); padding-bottom:22px; margin-bottom:34px; }
+  .ch-num{ font-family:var(--f-display); font-size:clamp(80px,12vw,150px); line-height:.82; letter-spacing:.02em; color:var(--bone); margin:6px 0 0; }
+  .ch-title{ font-family:'Cinzel',serif; font-weight:700; font-size:clamp(26px,3.4vw,40px); letter-spacing:.04em; color:var(--amber); margin:10px 0 0; text-shadow:var(--phosphor-glow); }
+  .meta{ display:flex; flex-wrap:wrap; gap:6px; margin-top:16px; align-items:center; }
+  .chip{ font-family:var(--f-crt); font-size:17px; padding:2px 10px; border:1px solid var(--amber-dim); color:var(--bone); transform:skewX(-10deg); text-decoration:none; }
+  a.chip:hover, a.chip:focus-visible{ background:var(--amber); color:var(--ink); outline:none; }
+  .chip.k{ border:0; color:var(--dust); padding-left:0; transform:none; font-family:var(--f-mono); font-size:10px; letter-spacing:.18em; text-transform:uppercase; }
+  .prose{ max-width:68ch; font-size:19px; line-height:1.78; color:#efe3c8; }
+  .prose p{ margin:0 0 1.15em; }
+  .prose > p:first-of-type::first-letter{ font-family:'Cinzel',serif; font-weight:700; float:left; font-size:3.6em; line-height:.86; padding:6px 10px 0 0; color:var(--amber); }
+  .prose h1, .prose h2, .prose h3{ font-family:var(--f-display); font-weight:400; letter-spacing:.03em; text-transform:uppercase; line-height:1; margin:1.6em 0 .6em; }
+  .prose h1{ font-size:44px; } .prose h2{ font-size:34px; } .prose h3{ font-size:26px; color:var(--amber); }
+  .prose blockquote{ margin:1.2em 0; padding:4px 0 4px 18px; border-left:3px solid var(--amber); font-style:italic; color:#d9cbb0; }
+  .prose em{ color:#fff3dc; }
+  .prose strong{ color:#fff3dc; }
+  .prose code{ font-family:var(--f-mono); font-size:.85em; background:var(--panel); padding:1px 5px; }
+  .prose mark{ background:rgba(255,178,56,.25); color:inherit; }
+  .prose ul, .prose ol{ padding-left:1.4em; margin:0 0 1.15em; }
+  .scene{ display:flex; align-items:center; gap:14px; margin:2.2em 0 1.8em; font-family:var(--f-mono); font-size:11px; letter-spacing:.28em; color:var(--dust); text-transform:uppercase; }
+  .scene::before, .scene::after{ content:''; flex:1; height:1px; background:linear-gradient(90deg, transparent, var(--amber-dim), transparent); }
+  .scene b{ font-weight:400; color:var(--amber); }
+  .break{ text-align:center; margin:2em 0; color:var(--amber); font-family:var(--f-crt); letter-spacing:1em; }
+  .pager{ display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-top:48px; padding-top:22px; border-top:1px solid var(--line); max-width:68ch; }
+  .pager a{ flex:1 1 220px; display:flex; flex-direction:column; gap:4px; padding:14px 18px; border:1px solid var(--amber-dim); background:var(--panel); color:var(--bone); text-decoration:none; min-height:64px; }
+  .pager a:hover, .pager a:focus-visible{ border-color:var(--amber); outline:none; }
+  .pager a.next{ text-align:right; }
+  .pager span{ font-family:var(--f-mono); font-size:10px; letter-spacing:.2em; color:var(--dust); }
+  .pager b{ font-family:'Cinzel',serif; font-size:18px; font-weight:700; }
+  .empty{ border:1px solid var(--line); background:var(--panel); padding:40px 32px; max-width:68ch; }
+  .empty h2{ font-family:var(--f-display); font-weight:400; font-size:56px; line-height:.9; margin:0 0 14px; text-transform:uppercase; }
+  .empty p{ font-size:16px; line-height:1.6; margin:0 0 10px; }
+  .empty code{ font-family:var(--f-mono); font-size:13px; color:var(--amber); }
+  @media (max-width:760px){ .toc{ position:static; max-width:none; max-height:none; } .prose{ font-size:18px; } }
+</style>
+</head>
+<body>
+<div class="progress" id="progress" aria-hidden="true"></div>
+<div class="app">
+  <div class="top-nav">
+    <div class="brand">EPITAPH // CHAPTERS</div>
+    <div class="actions">
+      <a class="btn ghost" href="index.html">Dossier</a>
+      <a class="btn ghost" href="atlas.html">Atlas</a>
+      <a class="btn ghost" href="muses.html">Muses</a>
+      <a class="btn ghost" href="powers.html">Powers</a>
+    </div>
+  </div>
+  <div class="layout">
+    <nav class="toc" id="toc" aria-label="Chapters"></nav>
+    <main id="main" aria-live="polite"></main>
+  </div>
+</div>
+<script>
+(function(){
+  'use strict';
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  const toc = document.getElementById('toc'), main = document.getElementById('main');
+  let list = [], cache = {};
+  // Dossier characters by name, so chips can open their file (same browser = same data)
+  let people = {};
+  try{ const st = JSON.parse(localStorage.getItem('epitaph-character-profiles') || '{}'); (st.characters || []).forEach(c => { if(c.name) people[c.name.trim().toLowerCase()] = c.id; }); }catch(e){}
+  const personChip = name => { const id = people[String(name).trim().toLowerCase()]; return id ? `<a class="chip" href="index.html?char=${encodeURIComponent(id)}">${esc(name)}</a>` : `<span class="chip">${esc(name)}</span>`; };
+
+  // Markdown for prose: headings, paragraphs, emphasis, quotes, lists, rules. Obsidian bits:
+  // [[links]] become plain names, ![[embeds]] are dropped, ==highlights== become <mark>,
+  // %% at: Place %% becomes a scene break, every other %% marker %% stays hidden.
+  function inline(s){
+    s = esc(s);
+    s = s.replace(/!\[\[[^\]]*\]\]/g, '');
+    s = s.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '$2').replace(/\[\[([^\]]+)\]\]/g, '$1');
+    s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/__([^_]+)__/g, '<strong>$1</strong>');
+    s = s.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>').replace(/(^|[^\w_])_([^_\n]+)_(?=[^\w]|$)/g, '$1<em>$2</em>');
+    s = s.replace(/==([^=]+)==/g, '<mark>$1</mark>');
+    return s;
+  }
+  function render(md){
+    md = md.replace(/\r/g, '');
+    // scene markers first (they may sit on their own line or inline)
+    md = md.replace(/%%\s*at:\s*([^%]+?)\s*%%/g, (m, place) => place.trim() ? `\n\n@@SCENE ${place.trim()}@@\n\n` : '');
+    md = md.replace(/%%[\s\S]*?%%/g, '');
+    const blocks = md.split(/\n{2,}/), out = [];
+    let firstHeading = true;
+    blocks.forEach(b => {
+      const t = b.trim(); if(!t) return;
+      let m;
+      if((m = t.match(/^@@SCENE (.+)@@$/))) return out.push(`<div class="scene"><b>${esc(m[1])}</b></div>`);
+      if(/^(-{3,}|\*{3,}|_{3,})$/.test(t)) return out.push('<div class="break" aria-hidden="true">✦ ✦ ✦</div>');
+      if((m = t.match(/^(#{1,3})\s+(.+)$/)) && !t.includes('\n')){
+        // the template's "# Chapter N — Title" repeats the header: skip it
+        if(firstHeading && m[1] === '#' && /^chapter\b/i.test(m[2])){ firstHeading = false; return; }
+        firstHeading = false;
+        return out.push(`<h${m[1].length}>${inline(m[2])}</h${m[1].length}>`);
+      }
+      if(t.split('\n').every(l => /^>\s?/.test(l))) return out.push(`<blockquote>${t.split('\n').map(l => inline(l.replace(/^>\s?/, ''))).join('<br>')}</blockquote>`);
+      if(t.split('\n').every(l => /^\s*[-*]\s+/.test(l))) return out.push(`<ul>${t.split('\n').map(l => `<li>${inline(l.replace(/^\s*[-*]\s+/, ''))}</li>`).join('')}</ul>`);
+      if(t.split('\n').every(l => /^\s*\d+\.\s+/.test(l))) return out.push(`<ol>${t.split('\n').map(l => `<li>${inline(l.replace(/^\s*\d+\.\s+/, ''))}</li>`).join('')}</ol>`);
+      firstHeading = false;
+      out.push(`<p>${t.split('\n').map(inline).join('<br>')}</p>`);
+    });
+    return out.join('\n');
+  }
+  function drawToc(cur){
+    const arcs = [];
+    list.forEach(c => { const a = c.arc || 0; if(!arcs.includes(a)) arcs.push(a); });
+    toc.innerHTML = `<div><div class="kicker">Epitaph</div><h2>Chapters</h2></div>` + arcs.map(a => `
+      ${a ? `<div class="arc-label">ARC ${esc(a)}</div>` : ''}
+      <ol>${list.filter(c => (c.arc || 0) === a).map(c => `<li><a href="#ch-${c.chapter}" class="${c.chapter === cur ? 'on' : ''}" ${c.chapter === cur ? 'aria-current="page"' : ''}><b>${String(c.chapter).padStart(2, '0')}</b><span>${esc(c.title || 'Untitled')}${c.status !== 'canon' ? '<span class="draft-tag">DRAFT</span>' : ''}</span>${c.pov ? `<small>${esc(c.pov)}</small>` : ''}</a></li>`).join('')}</ol>`).join('');
+  }
+  async function show(n){
+    const i = list.findIndex(c => c.chapter === n), c = list[i];
+    if(!c) return;
+    drawToc(n);
+    try{ localStorage.setItem('epitaph-reader-last', String(n)); }catch(e){}
+    if(!(c.file in cache)){
+      try{ const r = await fetch('chapters/' + encodeURIComponent(c.file), { cache: 'no-cache' }); cache[c.file] = r.ok ? await r.text() : null; }
+      catch(e){ cache[c.file] = null; }
+    }
+    const text = cache[c.file];
+    const prev = list[i - 1], next = list[i + 1];
+    const mins = Math.max(1, Math.round((c.words || 0) / 230));
+    main.innerHTML = `<article>
+      <header class="ch-head">
+        <div class="kicker">${c.arc ? 'Arc ' + esc(c.arc) + ' · ' : ''}Chapter ${esc(c.chapter)} · ${esc(c.words || 0)} words · ${mins} min${c.status !== 'canon' ? ' · <span style="color:var(--amber)">draft</span>' : ''}</div>
+        <div class="ch-num">CH ${esc(c.chapter)}</div>
+        ${c.title ? `<h1 class="ch-title">${esc(c.title)}</h1>` : ''}
+        <div class="meta">
+          ${c.pov ? `<span class="chip k">POV</span>${personChip(c.pov)}` : ''}
+          ${c.location ? `<span class="chip k">Where</span><span class="chip">${esc(c.location)}</span>` : ''}
+          ${(c.characters || []).length ? `<span class="chip k">Present</span>${c.characters.map(personChip).join('')}` : ''}
+        </div>
+      </header>
+      <div class="prose">${text == null ? '<p>This chapter could not be loaded.</p>' : render(text)}</div>
+      <nav class="pager" aria-label="Chapter navigation">
+        ${prev ? `<a class="prev" href="#ch-${prev.chapter}"><span>◂ CHAPTER ${esc(prev.chapter)}</span><b>${esc(prev.title || 'Untitled')}</b></a>` : '<span></span>'}
+        ${next ? `<a class="next" href="#ch-${next.chapter}"><span>CHAPTER ${esc(next.chapter)} ▸</span><b>${esc(next.title || 'Untitled')}</b></a>` : ''}
+      </nav></article>`;
+    document.title = `Epitaph — CH ${c.chapter}${c.title ? ' · ' + c.title : ''}`;
+    window.scrollTo(0, 0);
+    progress();
+  }
+  function empty(){
+    toc.innerHTML = `<div><div class="kicker">Epitaph</div><h2>Chapters</h2></div>`;
+    main.innerHTML = `<div class="empty"><div class="kicker">Nothing published yet</div><h2>The first page is blank</h2>
+      <p>Chapters are written in the Obsidian vault, in <code>Chapters/</code> (copy the Chapter Template).</p>
+      <p>When one is ready, set <code>status: canon</code> in its properties and ask Claude to publish it. It runs <code>tools/sync-chapters.py</code>, which copies it here, and the chapter goes live when the pull request is merged.</p></div>`;
+  }
+  function route(){
+    const m = location.hash.match(/^#ch-(\d+)/);
+    let n = m ? +m[1] : null;
+    if(n == null || !list.some(c => c.chapter === n)){
+      let last = null; try{ last = +localStorage.getItem('epitaph-reader-last'); }catch(e){}
+      n = list.some(c => c.chapter === last) ? last : list[0].chapter;
+    }
+    show(n);
+  }
+  function progress(){
+    const h = document.documentElement, max = h.scrollHeight - h.clientHeight;
+    document.getElementById('progress').style.width = (max > 0 ? Math.min(100, h.scrollTop / max * 100) : 0) + '%';
+  }
+  window.addEventListener('scroll', progress, { passive: true });
+  window.addEventListener('hashchange', () => list.length && route());
+  fetch('chapters/index.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : []).catch(() => []).then(data => {
+    list = (Array.isArray(data) ? data : []).filter(c => Number.isInteger(c.chapter)).sort((a, b) => a.chapter - b.chapter);
+    if(!list.length) return empty();
+    route();
+  });
+})();
+</script>
+</body>
+</html>

@@ -1037,6 +1037,41 @@
   .brief-row{ display:grid; grid-template-columns:170px minmax(0,1fr); gap:12px; border-top:1px dashed rgba(255,178,56,.18); padding-top:8px; }
   .brief-k{ color:var(--amber-dim); letter-spacing:.08em; }
   .brief-v p{ margin:0 0 4px; overflow-wrap:anywhere; }
+  /* Chapter brief: grouped panels */
+  .bf{ gap:16px; padding:20px 22px 22px; }
+  .bf-head{ display:flex; flex-wrap:wrap; justify-content:space-between; align-items:flex-end; gap:14px; padding-bottom:14px; border-bottom:1px solid var(--line); }
+  .bf-kicker{ font-family:var(--f-mono); font-size:11px; letter-spacing:.22em; color:var(--dust); text-transform:uppercase; }
+  .bf-name{ font-family:var(--f-display); font-size:clamp(40px,5vw,64px); line-height:.9; color:var(--bone); text-transform:uppercase; }
+  .bf-line{ font-family:var(--f-crt); font-size:21px; color:var(--amber); text-shadow:var(--phosphor-glow); }
+  .bf-chips{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .bf-chip{ font-family:var(--f-crt); font-size:17px; padding:2px 10px; border:1px solid var(--amber-dim); color:var(--bone); transform:skewX(-10deg); text-decoration:none; }
+  .bf-chip.presence-alive{ background:var(--amber); color:var(--ink); border-color:var(--amber); }
+  .bf-chip.presence-dead{ background:var(--ember); color:#fff4ef; border-color:var(--ember); }
+  .bf-chip.presence-missing{ border-style:dashed; }
+  .bf-chip.threat{ color:var(--amber); }
+  .bf-read{ background:var(--verdigris); color:#071512; border-color:var(--verdigris); }
+  .bf-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap:12px; }
+  .bf-panel{ border:1px solid var(--line); background:var(--panel); padding:12px 14px; display:flex; flex-direction:column; gap:8px; }
+  .bf-panel h4{ margin:0 0 2px; display:flex; justify-content:space-between; align-items:baseline; font-family:var(--f-mono); font-size:12px; font-weight:700; letter-spacing:.24em; color:var(--ink); background:var(--bone); padding:4px 10px; }
+  .bf-panel h4 small{ font-family:var(--f-jp); font-size:11px; letter-spacing:0; }
+  .bf-row{ display:flex; flex-direction:column; gap:2px; border-top:1px dashed rgba(255,178,56,.15); padding-top:7px; }
+  .bf-row:first-of-type{ border-top:0; padding-top:0; }
+  .bf-k{ font-family:var(--f-mono); font-size:10px; letter-spacing:.18em; color:var(--dust); text-transform:uppercase; }
+  .bf-v p{ margin:0; font-size:14.5px; line-height:1.5; overflow-wrap:anywhere; }
+  .bf-dim{ color:var(--amber-dim); }
+  .bf-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:3px; }
+  .bf-list li{ font-size:14.5px; line-height:1.45; padding-left:14px; position:relative; overflow-wrap:anywhere; }
+  .bf-list li::before{ content:'›'; position:absolute; left:0; color:var(--amber); font-family:var(--f-crt); }
+  .bf-stat{ display:grid; grid-template-columns:96px minmax(0,1fr) 22px; gap:10px; align-items:center; font-family:var(--f-mono); font-size:11px; letter-spacing:.1em; color:var(--dust); text-transform:uppercase; }
+  .bf-stat i{ display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:3px; }
+  .bf-stat b{ height:10px; border:1px solid var(--amber-dim); }
+  .bf-stat b.on{ background:var(--amber); border-color:var(--amber); }
+  .bf-stat.hot b.on{ background:var(--ember); border-color:var(--ember); }
+  .bf-stat em{ font-style:normal; font-family:var(--f-crt); font-size:18px; color:var(--amber); text-align:right; }
+  .bf-stat.hot em, .bf-stat.hot span{ color:#f08a74; }
+  .bf-last{ margin:0; border-left:3px solid var(--amber); padding:8px 14px; font-family:'Source Serif 4', serif; font-style:italic; font-size:15px; line-height:1.55; color:#d9cbb0; background:rgba(255,178,56,.04); }
+  .bf-last span{ display:block; font-style:normal; font-family:var(--f-mono); font-size:10px; letter-spacing:.22em; color:var(--dust); margin-bottom:4px; }
+  @media (max-width:600px){ .bf{ padding:14px 12px; } }
   .chg-tag.ended{ color:var(--dust); border-color:var(--dust); }
   .brief .gen2-actions{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
   .brief .gen2-actions .slant-btn{ min-height:44px; }
@@ -1146,6 +1181,7 @@
       <a class="btn ghost" id="atlasLink" href="atlas.html">Atlas</a>
       <a class="btn ghost" id="musesLink" href="muses.html">Muses</a>
       <a class="btn ghost" id="powersLink" href="powers.html">Powers</a>
+      <a class="btn ghost" id="readLink" href="read.html">Read</a>
       <button class="btn ghost" id="chaptersBtn" type="button">Chapters</button>
       <button class="btn ghost checks-btn" id="checksBtn" type="button">Checks <span class="checks-badge" id="checksBadge" hidden></span></button>
       <details class="nav-menu" id="dataMenu">
@@ -1209,6 +1245,7 @@
           <li><a href="atlas.html">World Map</a></li>
           <li><a href="muses.html">Muses</a></li>
           <li><a href="powers.html">Power systems</a></li>
+          <li><a href="read.html">Read the chapters</a></li>
         </ul>
         <p class="book-hint">Type <b>opl</b> for the Library, <b>ops</b> for the skill tree, <b>help</b> for everything.</p>
       </div>
@@ -1337,7 +1374,7 @@ function canHaveSkills(c){
 }
 function skillsCapped(c){ const t = typeOf(c); return (t === 'person' || t === 'voided') && hasDormantName(c); }
 function canHaveCuts(c){ const t = typeOf(c); return t === 'storyborn' || ((t === 'person' || t === 'voided') && hasDormantName(c)) || !t; }
-function canHaveGift(c){ const t = typeOf(c); return !t || t === 'person' || t === 'voided' || t === 'fallen'; }
+function canHaveGift(c){ const t = typeOf(c); return !t || t === 'person' || t === 'voided' || t === 'fallen' || t === 'twisted'; } // twisted: Orin carries Gaia's gift
 function hasStats(c){ return !isGodType(c); }
 // current true name tier: the highest tier in the name history
 function nameTier(snap){ return Math.max(0, ...((snap && snap.titles) || []).map(t => t.rankTier || 0)); }
@@ -3206,6 +3243,48 @@ async function copyText(text){
   return ok;
 }
 
+// The brief on screen: grouped panels (the copied text still uses briefPlainText).
+const BRIEF_GROUPS = [
+  { title: 'State', jp: '状態', rows: ['Where', 'Wants', 'Heading toward', 'Condition'] },
+  { title: 'Bonds & mind', jp: '心', rows: ['Relationships', 'Knows', 'Secrets'] },
+  { title: 'Carried', jp: '荷', rows: ['Carrying', 'Marks'] },
+  { title: 'Power', jp: '力', rows: ['Abilities', 'Power'] }
+];
+function briefPanelsHtml(char, snap, b, tagHtml){
+  const row = l => b.rows.find(r => r.label === l);
+  const val = r => r.items
+    ? (r.items.length ? `<ul class="bf-list">${r.items.map(x => `<li>${escapeHtml(x.text)}${tagHtml(x.tag)}</li>`).join('')}</ul>` : '<p class="bf-dim">—</p>')
+    : `<p class="${/^(not set|—)/.test(r.text) ? 'bf-dim' : ''}">${escapeHtml(r.text)}</p>`;
+  const arch = row('Archetype');
+  const type = (RACES.find(r => r.id === char.race) || {}).label || '';
+  const p = snap.power || {};
+  const chip = (t, cls) => t ? `<span class="bf-chip ${cls || ''}">${escapeHtml(t)}</span>` : '';
+  const head = `<div class="bf-head">
+      <div><div class="bf-kicker">Character brief · ${escapeHtml(snap.chapterRange || 'this chapter')}</div>
+        <div class="bf-name">${escapeHtml(char.name || 'Unnamed')}</div>
+        <div class="bf-line">${escapeHtml(arch ? arch.text : '')}</div></div>
+      <div class="bf-chips">${chip(PRESENCE_LABEL[snap.presence] || 'Alive', 'presence-' + (snap.presence || 'alive'))}${chip(type)}${chip(p.threat ? 'Threat ' + threatLabel(p.threat) : '', 'threat')}${chip(char.faction)}
+        <a class="bf-chip bf-read" id="briefReadLink" href="read.html" hidden>Read this chapter ▸</a></div></div>`;
+  const panels = BRIEF_GROUPS.map(g => {
+    const rows = g.rows.map(row).filter(Boolean);
+    return `<section class="bf-panel"><h4><span>${escapeHtml(g.title.toUpperCase())}</span><small lang="ja">${g.jp}</small></h4>
+      ${rows.map(r => `<div class="bf-row"><span class="bf-k">${escapeHtml(r.label)}</span><div class="bf-v">${val(r)}</div></div>`).join('')}</section>`;
+  }).join('');
+  const stats = hasStats(char) ? `<section class="bf-panel bf-stats"><h4><span>STATS</span><small lang="ja">能力</small></h4>${STAT_SLOTS.map((k, i) => {
+      const v = Math.max(0, Math.min(7, Number((snap.stats || {})[k]) || 0)), d = statDanger(char, snap, k, v);
+      return `<div class="bf-stat${d ? ' hot' : ''}"><span>${escapeHtml(statNames(char)[i])}</span><i>${Array.from({ length: 7 }, (_, n) => `<b class="${n < v ? 'on' : ''}"></b>`).join('')}</i><em>${v || '—'}</em></div>`;
+    }).join('')}</section>` : '';
+  const last = row('Last chapter');
+  return head + `<div class="bf-grid">${panels}${stats}</div>` + (last ? `<blockquote class="bf-last"><span>LAST CHAPTER</span>${escapeHtml(last.text)}</blockquote>` : '');
+}
+// Shows "Read this chapter" when the reader has a published chapter at this version's start
+let READ_INDEX = null;
+function wireBriefReadLink(snap){
+  const a = document.getElementById('briefReadLink'); if(!a) return;
+  const apply = list => { const ch = Number.isInteger(snap.startChapter) && (list || []).find(c => c.chapter === snap.startChapter); if(ch){ a.href = 'read.html#ch-' + ch.chapter; a.hidden = false; } };
+  if(READ_INDEX) return apply(READ_INDEX);
+  fetch('chapters/index.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : []).then(list => { READ_INDEX = Array.isArray(list) ? list : []; apply(READ_INDEX); }).catch(() => { READ_INDEX = []; });
+}
 function renderGenerationSection(){
   const char = getActiveCharacter();
   const container = document.getElementById('generationSection');
@@ -3232,13 +3311,7 @@ function renderGenerationSection(){
             <small>${escapeHtml(x.where)}</small><i></i><span>${escapeHtml(x.s.chapterRange || 'CH ' + (x.i + 1))}</span></button>`).join('')}
         </div>
       </div>
-      <div class="brief-body crt-log" id="briefBody">
-        <p class="brief-title">${escapeHtml(b.title)}</p>
-        ${b.rows.map(r => `<div class="brief-row"><span class="brief-k">${escapeHtml(r.label.toUpperCase())}</span><div class="brief-v">${
-          r.items ? (r.items.length ? r.items.map(x => `<p>&gt; ${escapeHtml(x.text)}${tagHtml(x.tag)}</p>`).join('') : '<p class="dim">—</p>')
-            : `<p class="${/^(not set|—)/.test(r.text) ? 'dim' : ''}">${escapeHtml(r.text)}</p>`
-        }</div></div>`).join('')}
-      </div>
+      <div class="brief-body bf" id="briefBody">${briefPanelsHtml(char, snap, b, tagHtml)}</div>
       <div class="gen2-foot">
         <span class="crt">${locked ? '&gt; canon · locked — reopen to edit this chapter' : '&gt; draft · edit this chapter in the System sheet above'}</span>
         <span class="gen2-actions">
@@ -3251,6 +3324,7 @@ function renderGenerationSection(){
   `;
 
   container.querySelectorAll('.gen2-stop').forEach(btn => btn.addEventListener('click', () => { if(btn.dataset.snap !== char.activeSnapshotId) switchSnapshot(char.id, btn.dataset.snap); }));
+  wireBriefReadLink(snap);
   document.getElementById('briefCopyBtn').addEventListener('click', async () => {
     const ok = await copyText(briefPlainText(char, snap));
     showToast(ok ? 'Brief copied.' : 'Could not copy — your browser blocked the clipboard.');
@@ -3266,7 +3340,7 @@ function renderGenerationSection(){
     const fill = document.getElementById('gen2Fill');
     if(renderGenerationSection._lastSnap !== snap.id){
       gsap.fromTo(fill, { width: 0 }, { width: fill.style.width, duration: 0.8, ease: 'power3.inOut' });
-      gsap.fromTo(container.querySelectorAll('.brief-row'), { opacity: 0 }, { opacity: 1, duration: 0.05, stagger: 0.04 });
+      gsap.fromTo(container.querySelectorAll('.bf-panel, .bf-head'), { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.25, stagger: 0.05 });
     }
   }
   renderGenerationSection._lastSnap = snap.id;
@@ -6058,6 +6132,7 @@ const LEFT_PAGE_DEFAULT_HTML = `
           <li><a href="atlas.html">World Map</a></li>
           <li><a href="muses.html">Muses</a></li>
           <li><a href="powers.html">Power systems</a></li>
+          <li><a href="read.html">Read the chapters</a></li>
         </ul>
         <p class="book-hint">Type <b>opl</b> for the Library, <b>ops</b> for the skill tree, <b>help</b> for everything.</p>
       `;
