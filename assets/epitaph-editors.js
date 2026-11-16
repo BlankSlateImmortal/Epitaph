@@ -238,23 +238,28 @@
         const [x, y] = at(a, SPOKE_R);
         lines.push({ x1: sx, y1: sy, x2: x, y2: y, cls: 'grown' });
         nodes.push({ i: b.i, kind: 'branch', x, y, spoke: k });
-        // derivatives straight out along this spoke
-        let frontier = [{ name: b.s.name, x, y }], depth = 0;
-        while (frontier.length && depth < 6) {
-          const kids = [];
-          frontier.forEach(f => list.forEach((s, i) => { if (s.name && s.parent === f.name) kids.push({ s, i, from: f }); }));
-          if (!kids.length) break;
-          const r = DEPTH_R[depth] || 345 + (depth - 2) * 40;
-          kids.forEach((kd, j) => {
-            const off = (j - (kids.length - 1) / 2) * 0.14;
-            const [kx, ky] = at(a + off, Math.min(r, 360));
-            lines.push({ x1: kd.from.x, y1: kd.from.y, x2: kx, y2: ky, cls: 'deriv' });
-            nodes.push({ i: kd.i, kind: 'deriv', x: kx, y: ky, depth: depth + 1 });
-            kd.x = kx; kd.y = ky;
+        // derivatives fan out inside this spoke's wedge: each one gets a share of the angle
+        // in proportion to the leaves under it, so siblings never sit on top of each other
+        const kidsOf = name => list.map((s, i) => ({ s, i })).filter(x => x.s.name && x.s.parent === name && x.i !== b.i);
+        const leaves = (name, d) => { if (d >= 6) return 1; const k = kidsOf(name); return k.length ? k.reduce((t, x) => t + leaves(x.s.name, d + 1), 0) : 1; };
+        const WEDGE = 0.82; // of the 2π/7 between spokes
+        let depth = 0;
+        const place = (name, px, py, a0, a1, d) => {
+          const k = kidsOf(name); if (!k.length || d >= 6) return;
+          depth = Math.max(depth, d + 1);
+          const tot = k.reduce((t, x) => t + leaves(x.s.name, d + 1), 0); let cur = a0;
+          k.forEach(x => {
+            const span = (a1 - a0) * leaves(x.s.name, d + 1) / tot, mid = cur + span / 2;
+            const r = d < 3 ? DEPTH_R[d] : 345 + (d - 2) * 12;
+            const [kx, ky] = at(mid, Math.min(r, 362));
+            lines.push({ x1: px, y1: py, x2: kx, y2: ky, cls: 'deriv' });
+            nodes.push({ i: x.i, kind: 'deriv', x: kx, y: ky, depth: d + 1, branch: b.i, span: span * Math.min(r, 362) });
+            place(x.s.name, kx, ky, cur, cur + span, d + 1);
+            cur += span;
           });
-          frontier = kids.map(kd => ({ name: kd.s.name, x: kd.x, y: kd.y }));
-          depth++;
-        }
+        };
+        const half = Math.PI * 2 / 7 * WEDGE / 2;
+        place(b.s.name, x, y, a - half, a + half, 0);
         const maxDepth = capped ? Math.min(tier, 3) : 3;
         for (let dd = depth; dd < maxDepth; dd++) { const [px, py] = at(a, DEPTH_R[dd]); slots.push({ x: px, y: py }); }
         lines.push({ x1: x, y1: y, x2: ex, y2: ey, cls: 'guide' });
@@ -268,7 +273,12 @@
       }
     }
     const overflow = branches.slice(7).map(b => b.s.name);
-    return { capped, tier, core, coreIdx, branches, nodes, lines, slots, locks, overflow };
+    // crowded: any two derivatives of one branch closer than a full label allows
+    const crowded = nodes.some(n => n.kind === 'deriv' && n.span < 70) || nodes.filter(n => n.kind === 'deriv').length > 8;
+    // the branch being worked on: the picked skill's branch (walk up its parents)
+    let focus = null;
+    if (fgSel != null && list[fgSel]) { let cur = list[fgSel], guard = 0; while (cur && guard++ < 10) { const bi = branches.find(x => x.s.name === cur.name); if (bi) { focus = bi.i; break; } cur = list.find(x => x.name === cur.parent); } }
+    return { capped, tier, core, coreIdx, branches, nodes, lines, slots, locks, overflow, crowded, focus };
   }
   function forgeHtml(char, snap) {
     const L = forgeLayout(char, snap), list = pendingSkills, named = list.filter(s => s.name);
@@ -281,18 +291,20 @@
       <circle cx="${C}" cy="${C}" r="${SPOKE_R}" fill="none" stroke="#8a5a14" stroke-width="2" stroke-dasharray="1 7"></circle>
       ${L.lines.map(l => `<line x1="${l.x1.toFixed(1)}" y1="${l.y1.toFixed(1)}" x2="${l.x2.toFixed(1)}" y2="${l.y2.toFixed(1)}" ${lineStyle[l.cls]}></line>`).join('')}
       ${L.slots.map(s => `<circle cx="${s.x.toFixed(1)}" cy="${s.y.toFixed(1)}" r="10" fill="#0a0704" stroke="rgba(255,178,56,.6)" stroke-dasharray="3 3"></circle>`).join('')}
-      ${L.nodes.filter(n => n.kind === 'branch' || n.kind === 'deriv').map(n => { const r = n.kind === 'branch' ? 38 : 28; return `<circle cx="${n.x.toFixed(1)}" cy="${n.y.toFixed(1)}" r="${r}" fill="none" stroke="#8a5a14" stroke-dasharray="2 5"></circle>`; }).join('')}
+      ${L.nodes.filter(n => n.kind === 'branch' || n.kind === 'deriv').map(n => { const r = n.kind === 'branch' ? 38 : L.crowded ? 17 : 28; return `<circle cx="${n.x.toFixed(1)}" cy="${n.y.toFixed(1)}" r="${r}" fill="none" stroke="#8a5a14" stroke-dasharray="2 5"></circle>`; }).join('')}
     </svg>`;
     const node = n => {
       if (n.kind === 'open') return `<button type="button" class="fg-node open" style="left:${pct(n.x)};top:${pct(n.y)}" data-fg-add="branch" aria-label="Grow a branch on spoke ${ROMAN[n.spoke]}">+</button><div class="fg-label" style="left:${pct(n.x >= C - 1 ? n.x + 38 : n.x - 38)};top:${pct(n.y)};transform:translate(${n.x >= C - 1 ? '0' : '-100%'},-50%);font-family:var(--f-crt);color:var(--amber)">SPOKE ${ROMAN[n.spoke]} · OPEN</div>`;
       const s = list[n.i], sel = fgSel === n.i;
       if (n.kind === 'core') return `<button type="button" class="fg-node core${sel ? ' sel' : ''}" style="left:${pct(n.x)};top:${pct(n.y)}" data-fg-sel="${n.i}" aria-label="${attr(s.name)}, core skill">${esc(coreGlyph(char, s))}</button><div class="fg-label" style="left:${pct(n.x)};top:${pct(n.y + 98)}"><small>${esc((s.name || '').toUpperCase())} · CORE · LV ${levelInfo(s.level).lvl}</small></div>`;
-      const cls = `${n.kind}${s.corrupted ? ' corrupt' : ''}${sel ? ' sel' : ''}`;
+      const cls = `${n.kind}${s.corrupted ? ' corrupt' : ''}${sel ? ' sel' : ''}${n.kind === 'deriv' && L.crowded ? ' small' : ''}`;
+      // crowded trees: derivative names show only for the picked branch (and on hover)
+      const hidden = n.kind === 'deriv' && L.crowded;
       const sub = n.kind === 'branch' ? `SPOKE ${ROMAN[n.spoke]} · LV ${levelInfo(s.level).lvl}` : `DERIVATIVE · DEPTH ${n.depth}`;
       // labels sit beside the orb (outside the spoke line), so stacked derivatives never cover each other
-      const off = n.kind === 'branch' ? 40 : 30, right = n.x >= C - 1;
+      const off = n.kind === 'branch' ? 40 : L.crowded ? 20 : 30, right = n.x >= C - 1;
       const lab = `left:${pct(right ? n.x + off : n.x - off)};top:${pct(n.y)};transform:translate(${right ? '0' : '-100%'},-50%);text-align:${right ? 'left' : 'right'}`;
-      return `<button type="button" class="fg-node ${cls}" style="left:${pct(n.x)};top:${pct(n.y)}" data-fg-sel="${n.i}" aria-label="${attr(s.name)}">${esc((s.name || '?').charAt(0).toUpperCase())}</button><div class="fg-label${sel ? ' sel' : ''}" style="${lab}">${esc(s.name)}<small>${esc(sub)}</small></div>`;
+      return `<button type="button" class="fg-node ${cls}" style="left:${pct(n.x)};top:${pct(n.y)}" data-fg-sel="${n.i}" aria-label="${attr(s.name)}">${esc((s.name || '?').charAt(0).toUpperCase())}</button><div class="fg-label${sel ? ' sel' : ''}${hidden ? ' tuck' : ''}" style="${lab}">${esc(s.name)}<small>${esc(sub)}</small></div>`;
     };
     const locks = L.locks.map(l => `<span class="fg-node lock" style="left:${pct(l.x)};top:${pct(l.y)}">${ROMAN[l.k]}</span>`).join('');
     const coreBtn = L.core ? '' : `<button type="button" class="fg-node core" style="left:50%;top:50%;font-family:var(--f-display);font-size:clamp(20px,3vw,34px)" data-fg-add="core" aria-label="Add the core skill">+ CORE</button>`;
@@ -340,8 +352,15 @@
         <div class="ed-box thin"><div class="ed-kicker">Name spin · heart heat</div><div style="font-size:12px;line-height:1.5;color:var(--dust)">Each skill used nudges the name. Chain too many and it spins; the heart takes the heat.</div></div>
       </div>
       <div class="ed-main fg-wrap"><div class="fg-stage">${svg}${locks}${L.nodes.map(node).join('')}${coreBtn}</div>
+${L.crowded ? (() => {
+          const fb = L.focus != null ? list[L.focus] : null;
+          if (!fb) return `<div class="fg-key"><span class="fg-key-h">Derivatives</span><span class="fg-key-empty">Pick a branch to list what grows from it. Hover any small orb for its name.</span></div>`;
+          const rows = []; const walk = (name, d) => list.forEach((sk, i) => { if (sk.name && sk.parent === name && i !== L.focus) { rows.push(`<button type="button" class="fg-key-i${fgSel === i ? ' sel' : ''}" data-fg-sel="${i}" style="padding-left:${6 + (d - 1) * 16}px">${d > 1 ? '↳ ' : ''}${esc(sk.name)}</button>`); if (d < 6) walk(sk.name, d + 1); } });
+          walk(fb.name, 1);
+          return `<div class="fg-key"><span class="fg-key-h">${esc(fb.name)} · ${rows.length} derivative${rows.length === 1 ? '' : 's'}</span>${rows.join('') || '<span class="fg-key-empty">Nothing grows from it yet.</span>'}</div>`;
+        })() : ''}
         <div class="fg-list" aria-label="Skills">${L.nodes.filter(n => n.kind !== 'open').map(n => { const sk = list[n.i]; return `<button type="button" class="ed-chip${fgSel === n.i ? ' sel' : ''}" data-fg-sel="${n.i}">${esc(n.kind === 'core' ? '✦ ' : n.kind === 'deriv' ? '↳ ' : '')}${esc(sk.name)}</button>`; }).join('')}</div>
-        <div class="fg-corner" style="left:14px;top:10px"><div><b>◆ Spokes</b> 7 · ${L.branches.length} grown</div><div><b>◆ Hint</b> pick an orb to edit it</div></div></div>
+        <div class="fg-corner" style="left:14px;top:10px"><div><b>◆ Spokes</b> 7 · ${L.branches.length} grown</div><div><b>◆ Hint</b> ${L.crowded ? 'pick a branch to read its derivatives' : 'pick an orb to edit it'}</div></div></div>
       <div class="ed-panel">${detail}</div></div>`;
   }
   openSkillsOnlyForm = function (char, snap) {
