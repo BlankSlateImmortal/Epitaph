@@ -69,6 +69,10 @@
   .nav-menu-panel small{ font-family:var(--f-mono, monospace); font-size:11px; letter-spacing:.02em; text-transform:none; color:var(--dust); }
   .nav-menu-panel > *:hover, .nav-menu-panel > *:focus-visible{ background:rgba(255,178,56,.12); color:var(--amber); outline:none; }
   .nav-menu-panel > .warn{ color:var(--ember); }
+  .nav-menu-panel > a{ text-decoration:none; }
+  .nav-menu-panel > .nav-menu-sep{ min-height:0; padding:8px 14px 4px; cursor:default; font-family:var(--f-mono, monospace); font-size:10px; letter-spacing:.22em; color:var(--dust); background:none !important; }
+  .nav-menu > summary .checks-badge{ margin-left:4px; }
+  .checks-badge[hidden]{ display:none !important; }
   /* character row: Delete sits apart at the end */
   .sig-menu > .sig-delete{ --sb-bg:var(--ember); --sb-fg:var(--bone); margin-left:auto; }
   .btn{
@@ -1178,15 +1182,18 @@
   <div class="top-nav">
     <div class="brand">EPITAPH // DOSSIER</div>
     <div class="actions">
-      <a class="btn ghost" id="atlasLink" href="atlas.html">Atlas</a>
-      <a class="btn ghost" id="musesLink" href="muses.html">Muses</a>
-      <a class="btn ghost" id="powersLink" href="powers.html">Powers</a>
+      <button class="btn primary" id="newChapterTopBtn" type="button">New chapter</button>
       <a class="btn ghost" id="readLink" href="read.html">Read</a>
-      <button class="btn ghost" id="chaptersBtn" type="button">Chapters</button>
-      <button class="btn ghost checks-btn" id="checksBtn" type="button">Checks <span class="checks-badge" id="checksBadge" hidden></span></button>
+      <a class="btn ghost" id="atlasLink" href="atlas.html">Atlas</a>
       <details class="nav-menu" id="dataMenu">
-        <summary class="btn ghost">Data ▾</summary>
+        <summary class="btn ghost">Data <span class="checks-badge" id="checksBadge" hidden></span> ▾</summary>
         <div class="nav-menu-panel">
+          <button type="button" id="newBtn">New profile<small>Add a character</small></button>
+          <button type="button" id="chaptersBtn">Chapters<small>The chapter list and titles</small></button>
+          <button type="button" class="checks-btn" id="checksBtn">Checks<small>Continuity warnings</small></button>
+          <a href="powers.html">Powers<small>How the power systems work</small></a>
+          <a href="muses.html">Muses<small>Reference characters</small></a>
+          <span class="nav-menu-sep" aria-hidden="true">— Data —</span>
           <button type="button" id="exportBtn">Export<small>Save everything to a backup file</small></button>
           <label for="mergeFileInput" id="mergeBtn">Merge<small>Add from a file; keeps what you have</small></label>
           <label for="importFileInput" id="importBtn" class="warn">Import<small>Replace everything with a file</small></label>
@@ -1194,7 +1201,6 @@
       </details>
       <input type="file" id="importFileInput" accept=".json,application/json" class="visually-hidden-input">
       <input type="file" id="mergeFileInput" accept=".json,application/json" class="visually-hidden-input">
-      <button class="btn primary" id="newBtn">New profile</button>
     </div>
   </div>
 
@@ -5787,6 +5793,8 @@ function openChaptersForm(){
   openModal();
 }
 document.getElementById('chaptersBtn').addEventListener('click', openChaptersForm);
+// top bar: New chapter = a new version of the selected character (or a new profile when there's none)
+document.getElementById('newChapterTopBtn').addEventListener('click', () => openSnapshotForm());
 
 // ---- Another tab (the Atlas) changed shared data ----
 // The Dossier re-reads its own data so a later save can't overwrite what the
