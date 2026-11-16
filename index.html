@@ -1092,6 +1092,8 @@
     font-family:'Source Serif 4', serif; font-size:12.5px; padding:6px 8px; border-radius:2px;
   }
   .gen-loc-cascade select:focus{ outline:none; border-color: var(--dust); }
+  /* links inside forms and the record follow the theme */
+  #modalContent a, .rec-detail a{ color:var(--amber); }
   /* the Power panel can list many rows: scroll inside the record instead of spilling out */
   .rec-detail{ max-height:calc(100% - 104px); overflow-y:auto; scrollbar-width:thin; }
 </style>
@@ -1102,12 +1104,12 @@
 <script src="assets/portrait-gen.js?v=8"></script>
 <script src="assets/epitaph-type.js?v=2"></script>
 <script src="assets/epitaph-muses.js?v=7"></script>
-<script src="assets/archetypes.js?v=1"></script>
+<script src="assets/archetypes.js?v=2"></script>
 <script src="assets/epitaph-world.js?v=2"></script>
 <script src="assets/epitaph-library.js?v=3"></script>
 <script src="assets/epitaph-marks.js?v=3"></script>
 <script src="assets/epitaph-states.js?v=1"></script>
-<script src="assets/epitaph-checks.js?v=2"></script>
+<script src="assets/epitaph-checks.js?v=3"></script>
 <script src="assets/epitaph-codex-views.js?v=2"></script>
 </head>
 <body>
@@ -1256,21 +1258,86 @@ function showToast(message, opts = {}){
   }, duration);
 }
 
+// Humanity = people who aren't sure where they belong yet.
 const FACTIONS = ['Storyborn', 'Voided', 'The Fallen', 'Humanity', 'Unaffiliated'];
 // Divine status (gods only): Bound = caught by The Binding (a Storyborn's god), Unbound = escaped it
 // (Val, Syicale, the gods outside), Split = Antholonious only. Schema v7 migrated Fallen → Bound, Outer → Unbound.
 const DIVINE_STATUSES = ['Bound', 'Unbound', 'Split'];
-// Type (stored as char.race; separate from faction: Orin and Nera are Storyborn by community, not by type).
-// Matches the vault's Power Systems notes. `design` is what Hero art: Auto picks; `group` is the
-// EpitaphType design group listed for it (the old 'voided' lettering belongs to the Fallen now).
-// Schema v7 migrated the old race 'voided' (= Era 0 survivors) to 'fallen'.
+// Type (stored as char.race) drives the whole profile: faction options, divine status, archetype,
+// true name, stats, skills and power. Matches the vault's Power Systems notes (2026-11-16).
+// `design` is what Hero art: Auto picks; `group` is the EpitaphType design group listed for it.
+// Schema v7 migrated the old race 'voided' (= Era 0 survivors) to 'fallen'; v8 added primordial/unbound.
 const RACES = [
-  { id: 'storyborn', label: 'Storyborn (bound god in a host)', design: '9A', group: 'storyborn' },
-  { id: 'person', label: 'Era 1-born person', design: '', group: '' },
-  { id: 'godling', label: 'Godling', design: '', group: '' },
-  { id: 'voided', label: 'Voided (the Hollow Reach)', design: '', group: '' },
-  { id: 'fallen', label: 'The Fallen (no dormant name)', design: 'H1', group: 'voided' }
+  { id: 'primordial', label: 'Primordial', design: '', group: 'primordial', hint: 'Swayed only by their concept. Beyond the scale: no archetype, no stats.' },
+  { id: 'unbound', label: 'Unbound god', design: '', group: '', hint: 'A god outside The Binding (Val, Syicale). Swayed only by their concept. Beyond the scale.' },
+  { id: 'storyborn', label: 'Storyborn (bound god in a host)', design: '9A', group: 'storyborn', hint: 'A bound god in a human host. The only type with an archetype.' },
+  { id: 'person', label: 'Era 1-born person', design: '', group: '', hint: 'Has a dormant name. The Voice may wake it, and their true name refines up to tier 7.' },
+  { id: 'godling', label: 'Godling', design: '', group: '', hint: 'Claimed by a plane at birth. No skills, gifts or Cuts; 7 levels.' },
+  { id: 'voided', label: 'Voided (the Hollow Reach)', design: '', group: '', hint: 'Carries Val’s blessing: Black Hand → Clear → Switcher.' },
+  { id: 'fallen', label: 'The Fallen (no dormant name)', design: 'H1', group: 'voided', hint: 'Unwritten: no skills, no Cuts. Tech and grafts.' }
 ];
+const FACTIONS_BY_TYPE = {
+  primordial: ['Unaffiliated'],
+  unbound: ['Unaffiliated', 'Voided'],
+  storyborn: ['Storyborn'],
+  person: ['Storyborn', 'Voided', 'The Fallen', 'Humanity', 'Unaffiliated'],
+  godling: ['Storyborn', 'Voided', 'The Fallen', 'Humanity', 'Unaffiliated'],
+  voided: ['Voided'],
+  fallen: ['The Fallen', 'Voided']
+};
+function factionsFor(type){ return FACTIONS_BY_TYPE[type] || FACTIONS; }
+const VOIDED_ORIGINS = [{ v: 'era1', label: 'Era 1-born (has a dormant name)' }, { v: 'hollow', label: 'Born in the Hollow Reach (no dormant name)' }, { v: 'fallen', label: 'A Fallen who joined (no dormant name)' }];
+const HOST_BONDS = [{ v: 'possession', label: 'Possession (the host is gone)' }, { v: 'merge', label: 'Merge (two minds as one)' }, { v: 'parasite', label: 'Parasite (living alongside the host)' }];
+function normalizeLore(l){
+  l = l && typeof l === 'object' && !Array.isArray(l) ? l : {};
+  const str = v => typeof v === 'string' ? v : '';
+  return {
+    origin: VOIDED_ORIGINS.some(o => o.v === l.origin) ? l.origin : '',
+    plane: str(l.plane), god: str(l.god), divinity: str(l.divinity),
+    hostBond: HOST_BONDS.some(o => o.v === l.hostBond) ? l.hostBond : ''
+  };
+}
+// ---- What each type is allowed (the progression charts). Locked options never appear. ----
+function typeOf(c){ return (c && c.race) || ''; }
+function isGodType(c){ return typeOf(c) === 'primordial' || typeOf(c) === 'unbound'; }
+function hasArchetype(c){ return typeOf(c) === 'storyborn'; }
+function hasDormantName(c){
+  const t = typeOf(c), lore = (c && c.lore) || {};
+  if(t === 'person' || t === 'godling') return true;
+  if(t === 'voided') return lore.origin !== 'hollow' && lore.origin !== 'fallen';
+  if(t === 'storyborn') return lore.hostBond !== 'possession';
+  return false;
+}
+// the true name system (titles = name history) applies to people, Voided with a name, and Godlings (plane-name)
+function hasTrueName(c){ const t = typeOf(c); return (t === 'person' || t === 'voided' || t === 'godling') && hasDormantName(c); }
+function canHaveSkills(c){
+  const t = typeOf(c);
+  if(!t || isGodType(c)) return true;             // gods: their authorities live in the tree, uncapped
+  if(t === 'godling' || t === 'fallen') return false;
+  return hasDormantName(c);
+}
+function skillsCapped(c){ const t = typeOf(c); return (t === 'person' || t === 'voided') && hasDormantName(c); }
+function canHaveCuts(c){ const t = typeOf(c); return t === 'storyborn' || ((t === 'person' || t === 'voided') && hasDormantName(c)) || !t; }
+function canHaveGift(c){ const t = typeOf(c); return !t || t === 'person' || t === 'voided' || t === 'fallen'; }
+function hasStats(c){ return !isGodType(c); }
+// current true name tier: the highest tier in the name history
+function nameTier(snap){ return Math.max(0, ...((snap && snap.titles) || []).map(t => t.rankTier || 0)); }
+function currentName(snap){
+  const ts = (snap && snap.titles) || [];
+  let best = null;
+  ts.forEach(t => { if(!best || (t.rankTier || 0) >= (best.rankTier || 0)) best = t; });
+  return best ? best.name : '';
+}
+// derived fields: divine status and the primordial flag follow the type; old archetypes are kept aside
+function syncTypeDerived(c){
+  const t = typeOf(c);
+  if(!t) return c;
+  c.primordial = t === 'primordial';
+  c.divineStatus = t === 'storyborn' ? 'Bound' : t === 'unbound' ? 'Unbound' : t === 'primordial' ? (c.divineStatus === 'Split' ? 'Split' : '') : '';
+  if(!factionsFor(t).includes(c.faction)) c.faction = factionsFor(t)[0];
+  if(!hasArchetype(c)) (c.snapshots || []).forEach(sn => { if(sn.archetype){ sn.legacyArchetype = sn.legacyArchetype || sn.archetype; sn.archetype = ''; } });
+  return c;
+}
 const FACTION_ABBR = { 'Storyborn':'STRY', 'Voided':'VOID', 'The Fallen':'FALN', 'Humanity':'HUMN', 'Unaffiliated':'UNAF' };
 function factionClass(f){
   if(f === 'Storyborn' || f === 'Humanity') return 'ember';
@@ -1305,21 +1372,115 @@ function normalizePower(p){
     voidedRank: VOIDED_RANKS.includes(p.voidedRank) ? p.voidedRank : '',
     black: str(p.black),           // how far the Black covers them
     grafts: str(p.grafts),         // Fallen magic-tech: grafted god-words
+    herald: str(p.herald),         // whose Herald they are / a Storyborn's Herald
     notes: str(p.notes)
   };
 }
 function powerIsEmpty(p){
-  return !p || (!p.threat && !p.name && !p.rings && !p.cuts.length && !p.gift && !p.domain && !p.plane && !p.planeLevel && !p.planeName && !p.voidedRank && !p.black && !p.grafts && !p.notes);
+  return !p || (!p.threat && !p.name && !p.rings && !p.cuts.length && !p.gift && !p.domain && !p.plane && !p.planeLevel && !p.planeName && !p.voidedRank && !p.black && !p.grafts && !p.herald && !p.notes);
 }
-// Which power fields a type cares about (gods use the Storyborn set; no type shows everything).
+// Which power fields a type has (the progression charts decide; the rest never appear).
 function powerFieldsFor(char){
-  const r = char && char.race;
-  if(r === 'storyborn' || isDivineChar(char)) return ['threat', 'domain', 'name', 'rings', 'cuts', 'notes'];
-  if(r === 'godling') return ['threat', 'plane', 'planeLevel', 'planeName', 'notes'];
-  if(r === 'voided') return ['threat', 'voidedRank', 'black', 'name', 'rings', 'cuts', 'gift', 'notes'];
-  if(r === 'fallen') return ['threat', 'grafts', 'gift', 'notes'];
-  return ['threat', 'name', 'rings', 'cuts', 'gift', 'notes'];
+  const r = typeOf(char);
+  if(isGodType(char)) return ['threat', 'notes'];
+  const f = ['threat'];
+  if(r === 'storyborn') f.push('domain', 'herald');
+  if(r === 'godling') f.push('planeLevel');
+  if(r === 'voided') f.push('voidedRank', 'black');
+  if(r === 'fallen') f.push('grafts');
+  if(skillsCapped(char)) f.push('rings');
+  if(canHaveCuts(char)) f.push('cuts');
+  if(canHaveGift(char)) f.push('gift');
+  if(r && r !== 'storyborn' && r !== 'godling') f.push('herald');
+  f.push('notes');
+  return f;
 }
+// Threat caps (vault Scale.md): Storyborn a face; people several regions (a face only with a Cut);
+// Voided a region; Fallen a settlement; Godlings the planet; gods beyond the scale.
+const THREAT_ORDER = ['1', '2', '3', '4', '5', '5.5', '6', '7'];
+function threatOptionsFor(char, snap){
+  const t = typeOf(char), p = (snap && snap.power) || {};
+  if(isGodType(char)) return THREAT_LEVELS.filter(x => x.v === 'beyond');
+  const cap = { storyborn: '6', person: (p.cuts || []).length ? '6' : '5.5', voided: '5', fallen: '4', godling: '7' }[t];
+  if(!cap) return THREAT_LEVELS;
+  return THREAT_LEVELS.filter(x => x.v !== 'beyond' && THREAT_ORDER.indexOf(x.v) <= THREAT_ORDER.indexOf(cap));
+}
+// Voided rank is a ladder gated by Edge (stat 4): Clear needs 5, Switcher needs 7.
+function voidedRanksFor(snap){
+  const edge = Number(((snap && snap.stats) || {}).control) || 0;
+  return VOIDED_RANKS.filter(r => r === 'Black Hand' || (r === 'Clear' && edge >= 5) || (r === 'Switcher' && edge >= 7));
+}
+// Gifts: one per Storyborn (lines "Storyborn | what it does").
+function parseGifts(text){ return String(text || '').split('\n').map(x => x.trim()).filter(Boolean).map(line => { const [from = '', what = ''] = line.split('|').map(x => x.trim()); return { from, what }; }); }
+
+// ---- Stats: always 7, each 1–7 (vault Stats.md). Same slots, a name per type. Gods are unrated. ----
+const STAT_SLOTS = ['body', 'will', 'reserve', 'control', 'weight', 'renown', 'insight'];
+const STAT_NAMES = {
+  '': ['Body', 'Will', 'Reserve', 'Control', 'Story weight', 'Renown', 'Insight'],
+  person: ['Vitality', 'Resolve', 'Heart', 'Precision', 'Gaze', 'Renown', 'Insight'],
+  storyborn: ['Host', 'Selfhood', 'Draw', 'Dominion', 'Witness', 'Following', 'Memory'],
+  godling: ['Vessel', 'Anchor', 'Capacity', 'Attunement', 'Ripple', 'Rumour', 'Whispers'],
+  voided: ['Endurance', 'Stillness', 'Heart', 'Edge', 'Exposure', 'Notoriety', 'Clarity'],
+  fallen: ['Grit', 'Nerve', 'Arsenal', 'Craft', 'Exposure', 'Standing', 'Research']
+};
+const STAT_HELP = {
+  person: ['Survives Cuts and heart heat. Each Cut lowers the max for good.', 'Bears the pain of the name refining.', 'The tank. Heart scars lower it.', 'Chaining safely. 1–2 recite, 3–5 hand signs, 6–7 silent. Capped by name tier.', 'How closely the Voice watches. The Voice likes tragedy.', 'Known and trusted (enemies know them too).', 'Sees how the world really works. Knowing too much gets you hunted.'],
+  storyborn: ['The host body holds up.', 'How much of themselves is left. Falls as tier rises.', 'Pull from the concept. Capped by tier.', 'Command of the domain. Capped by tier.', 'The Voice approves archetype upgrades more readily.', 'Followers and belief.', 'Remembers being a god.'],
+  godling: ['Survives Descension and overclocking. Capped by level.', 'Stays grounded in the plane. Low = swept away.', 'How much plane they carry. Capped by level.', 'Precise plane work.', 'How much their acts give them away. High = found.', 'High early is deadly.', 'What the retainer tells them. High = it is close to moving in.'],
+  voided: ['Takes the strain of the Black.', 'Holds stasis through pain. Low = the erasure consumes them.', 'Skill tank, only with the Black down.', 'Fine erasure and switching. Clear needs 5, Switcher needs 7.', 'Bad for assassins. Low while the Black is up.', 'Bad for assassins.', 'Knows Val’s truth. Dangerous.'],
+  fallen: ['Toughness.', 'Holds under fire.', 'Tech and charge carried. No heart.', 'Safer grafts. Low = unstable graft.', '0 until they graft; each graft raises it.', 'Trust among the Fallen.', 'Unlocks grafts. High = a Storyborn target.']
+};
+function statNames(c){ return STAT_NAMES[typeOf(c)] || STAT_NAMES['']; }
+function statName(c, slot){ return statNames(c)[STAT_SLOTS.indexOf(slot)]; }
+function statHelp(c, slot){ const h = STAT_HELP[typeOf(c)]; return h ? h[STAT_SLOTS.indexOf(slot)] : ''; }
+function graftCount(snap){ return String(((snap && snap.power) || {}).grafts || '').split(/\n|;/).map(x => x.trim()).filter(Boolean).length; }
+// the highest value the progression allows (locks)
+function statCap(c, snap, slot){
+  const t = typeOf(c), p = (snap && snap.power) || {}, cuts = (p.cuts || []).length;
+  let cap = 7;
+  if((t === 'person' || t === 'voided' || t === 'storyborn') && slot === 'body') cap = 7 - cuts;   // every Cut carves the heart
+  if(t === 'person' && slot === 'control') cap = Math.max(1, nameTier(snap));
+  if(t === 'storyborn'){ const d = p.domain || 1; if(slot === 'reserve' || slot === 'control') cap = d; if(slot === 'will') cap = 8 - d; }
+  if(t === 'godling'){ const l = p.planeLevel || 1; if(slot === 'body' || slot === 'reserve') cap = l; }
+  if(t === 'voided' && slot === 'reserve' && !hasDormantName(c)) cap = 0;
+  if(t === 'fallen' && slot === 'weight') cap = Math.min(7, graftCount(snap));
+  return Math.max(0, Math.min(7, cap));
+}
+// '' | 'high' | 'low': danger stats show a warning colour
+function statDanger(c, snap, slot, v){
+  const t = typeOf(c), p = (snap && snap.power) || {};
+  if(!v) return '';
+  if(t === 'person' && ((slot === 'insight' && v >= 5) || (slot === 'weight' && v >= 6))) return 'high';
+  if(t === 'storyborn' && slot === 'will' && v <= 2) return 'low';
+  if(t === 'godling'){
+    if((slot === 'weight' && v >= 4) || (slot === 'insight' && v >= 5) || (slot === 'renown' && v >= 3 && (p.planeLevel || 1) < 5)) return 'high';
+    if(slot === 'will' && v <= 2) return 'low';
+  }
+  if(t === 'voided'){
+    if((slot === 'weight' || slot === 'renown') && v >= 4 || (slot === 'insight' && v >= 5)) return 'high';
+    if(slot === 'will' && v <= 2) return 'low';
+  }
+  if(t === 'fallen'){
+    if((slot === 'weight' && v >= 3) || (slot === 'insight' && v >= 5)) return 'high';
+    if(slot === 'control' && v <= 2 && graftCount(snap)) return 'low';
+  }
+  return '';
+}
+// old 0–100 stats (Power/Will/Cunning/Faith/Corruption/Renown) → the 7 slots; the old object is kept as legacyStats
+const OLD_STAT_LABELS = ['Power', 'Will', 'Cunning', 'Faith', 'Corruption', 'Renown'];
+function normalizeStats(st){
+  st = st && typeof st === 'object' && !Array.isArray(st) ? st : {};
+  const out = {};
+  const isNew = STAT_SLOTS.some(k => k in st);
+  if(isNew) STAT_SLOTS.forEach(k => { const n = Math.round(Number(st[k]) || 0); out[k] = Math.max(0, Math.min(7, n)); });
+  else {
+    const scale = v => Math.max(0, Math.min(7, Math.round((Number(v) || 0) / 100 * 7)));
+    STAT_SLOTS.forEach(k => { out[k] = 0; });
+    out.will = scale(st.Will); out.renown = scale(st.Renown);
+  }
+  return out;
+}
+function hasOldStats(st){ return !!st && typeof st === 'object' && OLD_STAT_LABELS.some(k => k in st) && !STAT_SLOTS.some(k => k in st); }
 function factionLabel(f){
   return FACTION_ABBR[f] || (f || '').toUpperCase();
 }
@@ -1407,10 +1568,14 @@ function migrateCharacter(c){
   if(typeof result.portraitSeed !== 'string') result.portraitSeed = '';
   if(typeof result.glyph !== 'string') result.glyph = '';
   if(typeof result.race !== 'string') result.race = '';
+  result.lore = normalizeLore(result.lore);
   // snapshot-level system-sheet fields
   result.snapshots = result.snapshots.map(s => ({
     ...s,
-    stats: s.stats || {},
+    // schema v8: 7 stats, 1–7 (old 0–100 stats kept in legacyStats)
+    stats: normalizeStats(s.stats),
+    legacyStats: s.legacyStats && typeof s.legacyStats === 'object' ? s.legacyStats : (hasOldStats(s.stats) ? { ...s.stats } : null),
+    legacyArchetype: typeof s.legacyArchetype === 'string' ? s.legacyArchetype : '',
     inventory: (s.inventory || []).map(it => {
       if(typeof it === 'string'){
         return { id: 'inv_' + Math.random().toString(36).slice(2), name: it, desc: '', icon: '', image: '' };
@@ -1490,15 +1655,29 @@ function normalizeMark(m){
 // ---- Archetypes ----
 // Gods / primordials (divine status, or the God / primordial box) use the
 // divine list and share one archetype across every chapter.
-function isDivineChar(c){ return !!(c && (c.divineStatus || c.primordial)); }
-function archetypeGroups(divine){
+// "Divine" = gods and the bound gods inside Storyborn. Untyped characters fall back to the old flags.
+function isDivineChar(c){ return !!c && (isGodType(c) || typeOf(c) === 'storyborn' || (!typeOf(c) && !!(c.divineStatus || c.primordial))); }
+// Archetypes exist only for Storyborn (the Binding's script). Gods are swayed only by their concept.
+function archetypeGroups(){
   const A = window.EpitaphArchetypes;
-  return A ? (divine ? A.DIVINE : A.MORTAL) : [];
+  return A ? A.STORYBORN : [];
 }
-function archetypeLabel(snap){ return (snap && snap.archetype) || 'UNASSIGNED'; }
+function ownerOfSnap(snap){ return snap && typeof state !== 'undefined' && state && state.characters ? state.characters.find(c => c.snapshots && c.snapshots.includes(snap)) : null; }
+// The headline under a character's name: a Storyborn's archetype, a person's current true name,
+// a god's concept, or "Unwritten" for those with no dormant name.
+function archetypeLabel(snap, char){
+  const c = char || ownerOfSnap(snap);
+  const t = typeOf(c);
+  if(!c || !t || t === 'storyborn') return (snap && snap.archetype) || 'UNASSIGNED';
+  if(isGodType(c)) return c.authority ? c.authority.toUpperCase() : 'BEYOND THE SCALE';
+  if(!hasDormantName(c)) return 'UNWRITTEN';
+  return currentName(snap) || (t === 'godling' ? 'CLAIMED' : 'DORMANT');
+}
 // Divine lock: every chapter takes the active chapter's archetype (or the
 // latest one that is set).
-function applyDivineLock(c){
+// (retired in v8: archetypes are per chapter and Storyborn-only; kept as a no-op for old callers)
+function applyDivineLock(c){ return; }
+function applyDivineLockLegacy(c){
   // canon chapters win, so locking never rewrites them
   const canon = c.snapshots.find(s => s.locked && s.archetype);
   if(canon){ c.snapshots.forEach(s => { s.archetype = canon.archetype; }); return; }
@@ -1507,32 +1686,26 @@ function applyDivineLock(c){
   c.snapshots.forEach(s => { s.archetype = value; });
 }
 function setArchetype(c, snap, value){
-  if(isLocked(snap)) return;
-  if(isDivineChar(c)){
-    // one archetype for every chapter: canon chapters would change too
-    if(value !== snap.archetype && c.snapshots.some(s => isLocked(s))){
-      showToast('A god keeps one archetype across chapters, and some chapters are locked as canon. Reopen them to change it.', { duration: 6500 });
-      return;
-    }
-    c.snapshots.forEach(s => { s.archetype = value; });
-  } else snap.archetype = value;
+  if(isLocked(snap) || value === undefined) return;
+  if(hasArchetype(c) || !typeOf(c)) snap.archetype = value;
 }
 function archetypeOptionsHtml(divine, current){
-  const groups = archetypeGroups(divine);
+  const groups = archetypeGroups();
   const inList = groups.some(g => g.items.includes(current));
   return `<option value="">— unassigned —</option>`
     + groups.map(g => `<optgroup label="${escapeAttr(g.group)}">${g.items.map(n => `<option value="${escapeAttr(n)}"${n === current ? ' selected' : ''}>${escapeHtml(n)}</option>`).join('')}</optgroup>`).join('')
     + `<option value="__custom"${current && !inList ? ' selected' : ''}>Write your own…</option>`;
 }
+// Storyborn only: returns an empty wrapper for every other type (so the form can swap it in).
 function archetypeFieldHtml(prefix, char, current){
-  const divine = isDivineChar(char);
-  const inList = archetypeGroups(divine).some(g => g.items.includes(current));
+  if(!hasArchetype(char)) return `<div id="${prefix}ArchWrap"></div>`;
+  const inList = archetypeGroups().some(g => g.items.includes(current));
   const custom = !!current && !inList;
-  return `<div class="field">
-    <label id="${prefix}ArchLabel">${divine ? 'Archetype — locked: one archetype for every chapter' : 'Archetype (this chapter)'}</label>
-    <select id="${prefix}Arch">${archetypeOptionsHtml(divine, current)}</select>
+  return `<div id="${prefix}ArchWrap"><div class="field">
+    <label id="${prefix}ArchLabel">Archetype — the Binding's script (this chapter; upgrades need the Voice's approval)</label>
+    <select id="${prefix}Arch">${archetypeOptionsHtml(true, current)}</select>
     <input type="text" id="${prefix}ArchCustom" value="${custom ? escapeAttr(current) : ''}" placeholder="Write your own archetype"${custom ? '' : ' hidden'} style="margin-top:8px;">
-  </div>`;
+  </div></div>`;
 }
 // isDivineNow: optional fn reading the form's divine inputs, so the list
 // switches between mortal and divine while the form is open.
@@ -1542,14 +1715,7 @@ function wireArchetypeField(prefix, isDivineNow){
   if(!sel) return;
   const sync = () => { custom.hidden = sel.value !== '__custom'; if(!custom.hidden) custom.focus(); };
   sel.addEventListener('change', sync);
-  if(isDivineNow) return () => {
-    const cur = readArchetypeField(prefix), divine = isDivineNow();
-    sel.innerHTML = archetypeOptionsHtml(divine, cur);
-    const inList = archetypeGroups(divine).some(g => g.items.includes(cur));
-    if(cur && !inList){ sel.value = '__custom'; custom.value = cur; }
-    custom.hidden = sel.value !== '__custom';
-    document.getElementById(prefix + 'ArchLabel').textContent = divine ? 'Archetype — locked: one archetype for every chapter' : 'Archetype (this chapter)';
-  };
+  return () => {};
 }
 function readArchetypeField(prefix){
   const sel = document.getElementById(prefix + 'Arch');
@@ -1582,7 +1748,7 @@ function relationshipArc(char, rel){
 function archetypeTimeline(char){
   const steps = [];
   char.snapshots.forEach(s => {
-    const name = archetypeLabel(s), last = steps[steps.length - 1];
+    const name = archetypeLabel(s, char), last = steps[steps.length - 1];
     if(last && last.name === name){ last.to = s; last.ids.push(s.id); }
     else steps.push({ name, from: s, to: s, ids: [s.id] });
   });
@@ -1652,7 +1818,7 @@ function stripIds(v){
 }
 // stats: a missing stat and 0 are the same value
 function comparable(snap, f){
-  if(f === 'stats'){ const st = snap.stats || {}; return STAT_LABELS.map(l => Number(st[l]) || 0); }
+  if(f === 'stats'){ const st = snap.stats || {}; return STAT_SLOTS.map(k => Number(st[k]) || 0); }
   return snap[f] ?? null;
 }
 const sameContent = (a, b) => JSON.stringify(stripIds(a)) === JSON.stringify(stripIds(b));
@@ -1726,10 +1892,11 @@ const linesOf = (text) => String(text || '').split('\n').map(x => x.trim()).filt
 // ---- One-time state migration to per-chapter state (schema v2) ----
 // Additive only: every replaced value is copied to a legacy* property and the
 // original fields stay in place until the UI stops reading them.
-const STATE_SCHEMA_VERSION = 7;
+const STATE_SCHEMA_VERSION = 8;
 const BACKUP_STORAGE_KEY = 'epitaph-character-profiles-backup-v1';    // before the chapter-state upgrade
 const BACKUP_STORAGE_KEY_V2 = 'epitaph-character-profiles-backup-v2'; // before the atlas-tracker upgrade
 const BACKUP_STORAGE_KEY_V7 = 'epitaph-character-profiles-backup-v7'; // before the power-systems upgrade
+const BACKUP_STORAGE_KEY_V8 = 'epitaph-character-profiles-backup-v8'; // before the type-driven profile upgrade
 const GEN_NOTE_FIELDS = ['currentAffiliations', 'recentEvents', 'characterDevelopment', 'politicalSocialStatus', 'possessions', 'currentRelationships', 'currentKnowledge', 'knownSecrets'];
 function migrateStateV2(st){
   if((st.schemaVersion || 1) >= 2) return st;
@@ -1876,7 +2043,29 @@ function migrateStateV7(st){
   st.schemaVersion = 7;
   return st;
 }
-function migrateState(st){ return migrateStateV7(migrateStateV6(migrateStateV5(migrateStateV4(migrateStateV3(migrateStateV2(st)))))); }
+// v8: type drives the profile (vault Power Systems + Stats, 2026-11-16). Gods get their own types,
+// "Unaligned" becomes Unaffiliated, archetypes stay only on Storyborn (others keep it as legacyArchetype),
+// a Godling's plane moves to the character. Stats were converted by migrateCharacter.
+function migrateStateV8(st){
+  if((st.schemaVersion || 1) >= 8) return st;
+  st.characters.forEach(c => {
+    if(!c.race){
+      if(c.divineStatus === 'Bound') c.race = 'storyborn';
+      else if(c.divineStatus === 'Unbound') c.race = 'unbound';
+      else if(c.primordial || c.divineStatus === 'Split') c.race = 'primordial';
+    }
+    if(c.faction === 'Unaligned') c.faction = 'Unaffiliated';
+    if(c.race === 'godling' && !c.lore.plane){ const sp = c.snapshots.find(s => s.power && s.power.plane); if(sp) c.lore.plane = sp.power.plane; }
+    if(c.race){
+      const keepFaction = c.faction;
+      syncTypeDerived(c);
+      if(keepFaction && !factionsFor(c.race).includes(keepFaction)) c.faction = keepFaction; // never silently move saved data; the form will offer the allowed list
+    }
+  });
+  st.schemaVersion = 8;
+  return st;
+}
+function migrateState(st){ return migrateStateV8(migrateStateV7(migrateStateV6(migrateStateV5(migrateStateV4(migrateStateV3(migrateStateV2(st))))))); }
 
 // ---- Relationships ----
 // Stored as {name, relation, note, charId}. charId links to another Dossier
@@ -1958,7 +2147,7 @@ async function loadState(){
 // browser has no room for a second copy, the migration still runs (it only
 // adds fields) and the user is told to Export a file backup.
 function backupBeforeMigration(raw, fromVersion){
-  const key = fromVersion < 2 ? BACKUP_STORAGE_KEY : fromVersion < 7 && fromVersion >= 6 ? BACKUP_STORAGE_KEY_V7 : BACKUP_STORAGE_KEY_V2;
+  const key = fromVersion < 2 ? BACKUP_STORAGE_KEY : fromVersion === 6 ? BACKUP_STORAGE_KEY_V7 : fromVersion === 7 ? BACKUP_STORAGE_KEY_V8 : BACKUP_STORAGE_KEY_V2;
   try{
     if(localStorage.getItem(key)) return;
     localStorage.setItem(key, raw);
@@ -2117,14 +2306,35 @@ function renderRankFrameCircle(tier, color){
   return `<svg class="rank-frame-svg" viewBox="0 0 ${size} ${size}" preserveAspectRatio="none">${shapes}</svg>`;
 }
 
+// ---- Stats editor (7 stats, 1–7, capped by progression) ----
+function statsFieldsHtml(cls, char, snap){
+  if(!hasStats(char)) return `<p class="gen-empty-hint">${escapeHtml(char.name || 'This character')} is beyond the scale: gods are unrated.</p>`;
+  const names = statNames(char);
+  return `<div class="field-row" style="flex-wrap:wrap;">${STAT_SLOTS.map((k, i) => {
+    const cap = statCap(char, snap, k), v = Math.min(cap, Number((snap.stats || {})[k]) || 0);
+    const help = statHelp(char, k);
+    return `<div class="field" style="min-width:120px; flex:1;">
+      <label title="${escapeAttr(help)}">${escapeHtml(names[i])}${cap < 7 ? ` <small style="color:var(--dust)">(max ${cap})</small>` : ''}</label>
+      <select class="${cls}" data-slot="${k}">${Array.from({ length: cap + 1 }, (_, n) => `<option value="${n}" ${n === v ? 'selected' : ''}>${n || '—'}</option>`).join('')}</select>
+      ${help ? `<small style="display:block;color:var(--dust);font-size:11px;line-height:1.3;margin-top:4px">${escapeHtml(help)}</small>` : ''}
+    </div>`;
+  }).join('')}</div>`;
+}
+function readStatsFields(cls, char, snap){
+  const out = { ...(snap.stats || {}) };
+  document.querySelectorAll('.' + cls).forEach(sel => { const k = sel.dataset.slot; out[k] = Math.min(statCap(char, snap, k), Number(sel.value) || 0); });
+  return normalizeStats(out);
+}
+
 // ---- Stats radar chart (SVG) ----
+// (legacy: the old six stats, only used by the unused renderRadar; see STAT_SLOTS for the live seven)
 const STAT_LABELS = ['Power', 'Will', 'Cunning', 'Faith', 'Corruption', 'Renown'];
 // Shared defaults for a brand-new snapshot's non-identity fields (stats/inventory/etc.),
 // used both for a character's very first snapshot and as a fallback when a chapter
 // version has no prior snapshot to carry forward from.
 function defaultSnapExtras(){
   const stats = {};
-  STAT_LABELS.forEach(l => { stats[l] = 0; });
+  STAT_SLOTS.forEach(k => { stats[k] = 0; });
   return {
     stats, inventory: [], skills: [], titles: [], emotionalState: '',
     portraitPosition: { x: 50, y: 50 }, systemPortrait: '', systemPortraitPosition: { x: 50, y: 50 },
@@ -2356,6 +2566,11 @@ const CODEX_TABS = [
   ['chapter', 'Chapter'], ['marks', 'Marks'], ['stats', 'Stats'], ['skills', 'Skills'], ['inventory', 'Inventory'],
   ['ties', 'Ties'], ['arc', 'Arc'], ['knowledge', 'Knowledge']
 ];
+// Tabs a type can't have never appear (Godlings and the Fallen have no skills; gods are unrated).
+function codexTabsFor(char){
+  return CODEX_TABS.filter(([k]) => !(k === 'skills' && !canHaveSkills(char)) && !(k === 'stats' && !hasStats(char)))
+    .map(([k, l]) => [k, k === 'skills' && isGodType(char) ? 'Authorities' : k === 'arc' && hasTrueName(char) ? (typeOf(char) === 'godling' ? 'Plane-name' : 'True name') : l]);
+}
 
 function renderSystemSection(){
   const container = document.getElementById('systemSection');
@@ -2377,7 +2592,7 @@ function renderSystemSection(){
     <div class="codex">
       <div class="codex-tabs" role="tablist" aria-label="System sheet pages">
         <div class="menu-slant">
-          ${CODEX_TABS.map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${sysTab === k}" class="${sysTab === k ? 'on' : ''}${chg.section[k] ? ' chg' : ''}"${chg.section[k] ? ' title="Changed since the last chapter"' : ''}>${l}</button>`).join('')}
+          ${codexTabsFor(char).map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${sysTab === k}" class="${sysTab === k ? 'on' : ''}${chg.section[k] ? ' chg' : ''}"${chg.section[k] ? ' title="Changed since the last chapter"' : ''}>${l}</button>`).join('')}
         </div>
         ${isLocked(snap) ? `<span class="locked-note">CANON · LOCKED — reopen in the Chapter Brief to edit</span>` : `<button class="slant-btn primary" id="editSystemBtn" type="button">Edit whole sheet</button>`}
       </div>
@@ -2442,15 +2657,15 @@ function recDetailHtml(cmd, char, snap, sortedTitles){
   const head = (t, jp) => `<div class="rec-detail-head"><span>${t}</span><small lang="ja">${jp}</small></div>`;
   const it = REC_ITEMS.find(i => i.k === cmd);
   switch(cmd){
-    case 'identity': return head('IDENTITY', it.jp) + row('Name', char.name) + row('Archetype', archetypeLabel(snap)) + row('Glyph', glyphFor(char)) + row('Chapter', snap.chapterRange, 'No chapter set') + row('Starts at', chapterLabel(snap.startChapter), '⚠ Not set') + row('Presence', PRESENCE_LABEL[snap.presence]);
+    case 'identity': return head('IDENTITY', it.jp) + row('Name', char.name) + row('Type', (RACES.find(r => r.id === char.race) || {}).label || '', 'Unset') + row(hasArchetype(char) ? 'Archetype' : hasTrueName(char) ? (typeOf(char) === 'godling' ? 'Plane-name' : 'True name') : isGodType(char) ? 'Concept' : 'Name', archetypeLabel(snap, char)) + row('Glyph', glyphFor(char)) + row('Chapter', snap.chapterRange, 'No chapter set') + row('Starts at', chapterLabel(snap.startChapter), '⚠ Not set') + row('Presence', PRESENCE_LABEL[snap.presence]);
     case 'titles': return head('TITLES', it.jp) + (sortedTitles.length ? `<div class="titles-row">${sortedTitles.map((t, idx) => renderTitleChip(t, idx)).join('')}</div>` : `<p class="rec-empty">No titles yet.</p>`);
-    case 'status': return head('STATUS', it.jp) + row('Marks', markSummary(snap).text, 'None') + row('Marked / bound items', String(markedItems(snap).length)) + row('God / primordial', char.primordial ? 'Yes' : '', 'No') + `<div class="rec-marks">${divineStatuses.map(ds => `<span class="${char.divineStatus === ds ? 'on' : ''}">[${char.divineStatus === ds ? '●' : '○'} ${ds.toUpperCase()}]</span>`).join('')}</div>`;
+    case 'status': return head('STATUS', it.jp) + row('Marks', markSummary(snap).text, 'None') + row('Marked / bound items', String(markedItems(snap).length)) + row('Type', (RACES.find(r => r.id === char.race) || {}).label || '', 'Unset') + `<div class="rec-marks">${divineStatuses.map(ds => `<span class="${char.divineStatus === ds ? 'on' : ''}">[${char.divineStatus === ds ? '●' : '○'} ${ds.toUpperCase()}]</span>`).join('')}</div>`;
     case 'authority': return head('AUTHORITY', it.jp) + row('Concept', char.authority) + row('Skills', String((snap.skills || []).length));
     case 'faction': return head('FACTION', it.jp) + row('Faction', char.faction, 'Unassigned') + row('Type', (RACES.find(r => r.id === char.race) || {}).label || '', 'Unset');
     case 'power': return head('POWER', it.jp) + powerRowsHtml(char, snap, row) + `<p class="rec-empty"><a href="powers.html" target="_blank" rel="noopener">How the power systems work ↗</a></p><button type="button" class="slant-btn primary" id="recPowerBtn">Edit power</button>`;
     case 'state': return head('STATE', it.jp) + row('Emotional state', snap.emotionalState);
     case 'portrait': return head('PORTRAIT', it.jp) + `<p class="rec-empty">${snap.systemPortrait || snap.portrait ? 'Uses your uploaded image.' : 'Uses the generated figure.'}</p><button type="button" class="slant-btn" id="recPortraitBtn">Change or reposition</button>`;
-    case 'edit': return head('EDIT', it.jp) + `<p class="rec-empty">Name, archetype, faction, divine status, titles and emotional state.</p><button type="button" class="slant-btn primary" id="recEditBtn">Edit identity</button>`;
+    case 'edit': return head('EDIT', it.jp) + `<p class="rec-empty">${hasTrueName(char) ? 'True name history' : 'Titles'}, concept and emotional state. Type, faction and lore are in the profile.</p><button type="button" class="slant-btn primary" id="recEditBtn">Edit identity</button>`;
   }
   return '';
 }
@@ -2523,7 +2738,8 @@ function codexLeft(n, eyebrow, big, meta, editId, editLabel, changed){
 function renderCodexPage(char, snap, animate){
   const page = document.getElementById('codexPage');
   if(!page) return;
-  const n = CODEX_TABS.findIndex(t => t[0] === sysTab) + 1;
+  if(!codexTabsFor(char).some(t => t[0] === sysTab)) sysTab = 'chapter';
+  const n = codexTabsFor(char).findIndex(t => t[0] === sysTab) + 1;
   const chg = changesFor(char, snap);
   const ch = chg.section[sysTab];
   codexLocked = isLocked(snap);
@@ -2560,21 +2776,24 @@ function renderCodexPage(char, snap, animate){
     const r = 44, c = 2 * Math.PI * r;
     const ranked = (snap.titles || []).slice().sort((a, b) => (b.rankTier || 0) - (a.rankTier || 0))[0];
     html = codexLeft(n, 'Stats', char.name || 'Unnamed',
-      `${escapeHtml([archetypeLabel(snap), markSummary(snap).text, char.authority ? 'Concept: ' + char.authority : ''].filter(Boolean).join(' · '))}${ranked ? `<br><span class="crt">&gt; Rank: ${escapeHtml(ranked.name)}${ranked.rankTier ? ' (' + escapeHtml(tierLabel(ranked.rankTier)) + ')' : ''}</span>` : ''}`,
+      `${escapeHtml([archetypeLabel(snap), markSummary(snap).text, char.authority ? 'Concept: ' + char.authority : ''].filter(Boolean).join(' · '))}${ranked ? `<br><span class="crt">&gt; ${hasTrueName(char) ? 'True name' : 'Rank'}: ${escapeHtml(ranked.name)}${ranked.rankTier ? ' (' + escapeHtml(tierLabel(ranked.rankTier)) + ')' : ''}</span>` : ''}`,
       'mwOpenStats', 'Edit stats', ch) +
-      `<div class="codex-right"><div class="gauges">${STAT_LABELS.map(label => {
-        const v = Math.max(0, Math.min(100, Number((snap.stats || {})[label]) || 0));
-        const hot = label === 'Corruption';
-        return `<div class="gauge"><svg viewBox="0 0 120 120" aria-hidden="true">
+      `<div class="codex-right"><div class="gauges">${STAT_SLOTS.map((k, i) => {
+        const v = Math.max(0, Math.min(7, Number((snap.stats || {})[k]) || 0));
+        const cap = statCap(char, snap, k), danger = statDanger(char, snap, k, v);
+        return `<div class="gauge" title="${escapeAttr(statHelp(char, k))}"><svg viewBox="0 0 120 120" aria-hidden="true">
           <circle cx="60" cy="60" r="${r}" fill="none" stroke="var(--amber-dim)" stroke-width="6" stroke-dasharray="3 3"/>
-          <circle class="g-arc" cx="60" cy="60" r="${r}" fill="none" stroke="${hot ? 'var(--ember)' : 'var(--amber)'}" stroke-width="6" stroke-dasharray="${(c * v / 100).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 60 60)"/>
-          <text x="60" y="66" text-anchor="middle" class="g-val">${v}</text>
-          <text x="60" y="84" text-anchor="middle" class="g-lv">LV${levelInfo(v).lvl}</text>
-        </svg><span>${escapeHtml(label.toUpperCase())}</span></div>`;
+          <circle class="g-arc" cx="60" cy="60" r="${r}" fill="none" stroke="${danger ? 'var(--ember)' : 'var(--amber)'}" stroke-width="6" stroke-dasharray="${(c * v / 7).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 60 60)"/>
+          <text x="60" y="66" text-anchor="middle" class="g-val">${v || '—'}</text>
+          <text x="60" y="84" text-anchor="middle" class="g-lv">${danger === 'high' ? '⚠ HIGH' : danger === 'low' ? '⚠ LOW' : cap < 7 ? 'MAX ' + cap : '/ 7'}</text>
+        </svg><span>${escapeHtml(statNames(char)[i].toUpperCase())}</span></div>`;
       }).join('')}</div></div>`;
   } else if(sysTab === 'skills'){
-    html = codexLeft(n, 'Skills', char.authority || 'Authorities',
-      snap.skills.length ? `${snap.skills.length} skill${snap.skills.length === 1 ? '' : 's'} · use ← → to move along a branch, ↑ ↓ for siblings` : 'No skills recorded yet.',
+    const sc = skillCounts(snap.skills);
+    const capLine = skillsCapped(char) ? `<br><span class="crt">&gt; Core ${sc.cores}/1 · Branches ${sc.branches}/${nameTier(snap)} · Derivative depth ${sc.deepest}/${nameTier(snap)} (true name tier ${nameTier(snap) || 0})</span>` : '';
+    const cutLine = ((snap.power || {}).cuts || []).length ? `<br><span class="crt">&gt; Cuts: ${escapeHtml(snap.power.cuts.map(c => c.boon || c.desire || 'unnamed').join(' · '))}</span>` : '';
+    html = codexLeft(n, isGodType(char) ? 'Authorities' : 'Skills', char.authority || (isGodType(char) ? 'Authorities' : 'Skills'),
+      (snap.skills.length ? `${snap.skills.length} skill${snap.skills.length === 1 ? '' : 's'} · use ← → to move along a branch, ↑ ↓ for siblings` : 'No skills recorded yet.') + capLine + cutLine,
       'mwOpenSkills', 'Edit skills', ch) +
       `<div class="codex-right">${snap.skills.length ? `<div class="atree" id="atree" tabindex="0" aria-label="Authority tree. Arrow keys move between skills."></div><div class="atree-detail" id="atreeDetail" aria-live="polite"></div>` : `<div class="sys-empty">Add skills with “Edit skills”. Give a skill a fifth column naming the skill it branches from to grow the tree.</div>`}</div>`;
   } else if(sysTab === 'inventory'){
@@ -2606,7 +2825,7 @@ function renderCodexPage(char, snap, animate){
   } else if(sysTab === 'arc'){
     const steps = archetypeTimeline(char);
     html = codexLeft(n, 'Arc', archetypeLabel(snap),
-      `${isDivineChar(char) ? 'Divine: one archetype for every chapter.' : 'Each chapter has its own archetype.'}<br><span class="crt">&gt; ${escapeHtml(steps.map(st => st.name).join(' → '))}</span>`,
+      `${hasArchetype(char) ? 'The Binding\'s script. It can be upgraded, with the Voice\'s approval.' : hasTrueName(char) ? 'The true name, refining chapter by chapter. Edit it in Identity.' : isGodType(char) ? 'Swayed only by their concept.' : !typeOf(char) ? 'Set a type to see this character\'s line.' : 'Unwritten: no dormant name.'}<br><span class="crt">&gt; ${escapeHtml(steps.map(st => st.name).join(' → '))}</span>`,
       'mwOpenArc', 'Edit arc', ch) +
       `<div class="codex-right">
         <ol class="arc-steps" aria-label="Archetype timeline">${steps.map((st, i) => `${i ? '<li class="arc-arrow" aria-hidden="true">→</li>' : ''}<li class="arc-step${st.ids.includes(snap.id) ? ' on' : ''}${st.name === 'UNASSIGNED' ? ' unset' : ''}"><b>${escapeHtml(st.name)}</b><small>${escapeHtml(st.range)}</small>${i && st.from.archetypeReason ? `<em class="arc-reason">${escapeHtml(st.from.archetypeReason)}</em>` : ''}</li>`).join('')}</ol>
@@ -2939,8 +3158,8 @@ function buildBrief(char, snap){
       { label: 'Carrying', items: carrying },
       { label: 'Marks', items: (snap.marks || []).map(m => ({ text: markText(m), tag: chg.isNew('marks', m) ? 'new' : '' })) },
       { label: 'Abilities', items: (snap.skills || []).map(sk => ({ text: `${sk.name} LV${levelInfo(sk.level).lvl}${sk.corrupted ? ' (corrupted)' : ''}` })) },
-      { label: 'Power', items: powerIsEmpty(snap.power) ? [] : powerFieldsFor(char).map(k => ({ k, t: powerValueText(k, snap.power) })).filter(x => x.t).map(x => ({ text: `${POWER_FIELD_LABEL[x.k]}: ${x.t}` })) },
-      { label: 'Stats', text: STAT_LABELS.map(l => `${l} ${Number((snap.stats || {})[l]) || 0}`).join(' · ') },
+      { label: 'Power', items: powerIsEmpty(snap.power) ? [] : powerFieldsFor(char).map(k => ({ k, t: powerValueText(k, snap.power, char) })).filter(x => x.t).map(x => ({ text: `${POWER_FIELD_LABEL[x.k]}: ${x.t}` })) },
+      { label: 'Stats', text: hasStats(char) ? STAT_SLOTS.map((k, i) => `${statNames(char)[i]} ${Number((snap.stats || {})[k]) || 0}/7`).join(' · ') : 'Unrated (beyond the scale)' },
       { label: 'Last chapter', text: prev ? (prev.notes || '—') : '— (first chapter)' }
     ]
   };
@@ -3206,15 +3425,15 @@ function renderPoster(){
   const ms = markSummary(snap);
   const rankWord = archetypeLabel(snap);
   const rankClass = isDivineChar(char) ? 'divine' : (ms.curses ? 'cursed' : '');
-  const statusWord = [ms.label === 'UNMARKED' ? '' : ms.label.charAt(0) + ms.label.slice(1).toLowerCase(), char.divineStatus ? char.divineStatus + ' divine' : (char.primordial ? 'God / primordial' : '')].filter(Boolean).join(' · ') || 'Unmarked';
+  const statusWord = [ms.label === 'UNMARKED' ? '' : ms.label.charAt(0) + ms.label.slice(1).toLowerCase(), (RACES.find(r => r.id === char.race) || {}).label || '', char.divineStatus ? char.divineStatus : ''].filter(Boolean).join(' · ') || 'Unmarked';
   const loc = heroLocation(char);
   const coordHtml = loc && typeof loc.lat === 'number'
     ? `<span>${fmtCoord(loc.lat, 'N', 'S')} · ${fmtCoord(loc.lng, 'E', 'W')}</span>`
     : `<span>${loc && loc.name ? escapeHtml(loc.name) : 'Location <b>unplaced</b>'}</span>`;
-  const statRows = STAT_LABELS.map(l => {
-    const v = Math.max(0, Math.min(100, Number((snap.stats || {})[l]) || 0));
-    return `<div class="sig-meter"><span>${escapeHtml(l.toUpperCase())}</span><i class="${v < 35 ? 'low' : ''}" style="width:${v}%"></i><span>${v}</span></div>`;
-  }).join('');
+  const statRows = hasStats(char) ? STAT_SLOTS.map((k, i) => {
+    const v = Math.max(0, Math.min(7, Number((snap.stats || {})[k]) || 0));
+    return `<div class="sig-meter"><span>${escapeHtml(statNames(char)[i].toUpperCase())}</span><i class="${statDanger(char, snap, k, v) ? 'low' : ''}" style="width:${(v / 7 * 100).toFixed(0)}%"></i><span>${v}</span></div>`;
+  }).join('') : `<div class="sig-meter"><span>BEYOND THE SCALE</span><i style="width:100%"></i><span>∞</span></div>`;
   const museList = loadMuseList();
   const muses = (char.museIds || []).map(id => museList.find(m => m.id === id)).filter(Boolean);
   const chapters = char.snapshots.map((s, i) => `
@@ -3383,7 +3602,7 @@ function renderRail(){
     const img = (snap && snap.portrait)
       ? `<img src="${snap.portrait}" alt="">`
       : `<img src="${SILHOUETTE_SVG}" data-gen-char="${escapeAttr(c.id)}" data-gen-bg="off" alt="">`;
-    thumb.innerHTML = `<span class="thumb-fig">${img}</span><span class="thumb-name">${escapeHtml(c.name || 'Unnamed')}</span><span class="thumb-sub">${escapeHtml((getActiveSnapshot(c) || {}).archetype || c.authority || 'UNASSIGNED')}</span>`;
+    thumb.innerHTML = `<span class="thumb-fig">${img}</span><span class="thumb-name">${escapeHtml(c.name || 'Unnamed')}</span><span class="thumb-sub">${escapeHtml(archetypeLabel(getActiveSnapshot(c), c))}</span>`;
     thumb.addEventListener('keydown', (e) => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); switchActiveCharacter(c.id); } });
     thumb.addEventListener('click', () => switchActiveCharacter(c.id));
     rail.appendChild(thumb);
@@ -3462,62 +3681,30 @@ function openCharacterForm(existingChar){
   const snap = existingChar ? getActiveSnapshot(existingChar) : null;
   pendingPortrait = snap ? snap.portrait : null;
 
+  const curType = existingChar ? existingChar.race || '' : '';
   modalContent.innerHTML = `
     <h2>${existingChar ? 'Edit profile' : 'New character profile'}</h2>
-    <p class="sub">${snap && isLocked(snap) ? 'This chapter is locked as canon: name, faction, muses and glyph can change, but its chapter range, blurb, backstory, portrait and archetype stay as they are until you reopen it.' : 'Fill in what you know. You can always come back and change it later.'}</p>
-
-    ${portraitFieldHtml()}
-
-    <div class="field">
-      <label>Generated portrait and hero art — used whenever no image is uploaded</label>
-      <div class="gen-preview">
-        <img id="genPrev" alt="Generated portrait preview" src="${SILHOUETTE_SVG}">
-        <div class="gen-rows" style="display:flex;flex-direction:column;gap:10px;min-width:0">
-        <div class="gen-row">
-          <select id="fFigure" aria-label="Figure">
-            <option value="">Figure: auto</option>
-            ${(window.EpitaphPortrait ? EpitaphPortrait.ARCHETYPES : []).map(a => `<option value="${a}" ${existingSnapFor(existingChar).portraitFigure === a ? 'selected' : ''}>${a}</option>`).join('')}
-          </select>
-          <select id="fStyle" aria-label="Style">
-            <option value="">Style: auto</option>
-            ${(window.EpitaphPortrait ? EpitaphPortrait.STYLES : []).map(a => `<option value="${a}" ${existingSnapFor(existingChar).portraitStyle === a ? 'selected' : ''}>${a}</option>`).join('')}
-          </select>
-          <button type="button" class="btn ghost" id="genReroll">↻ Reroll</button>
-        </div>
-        <div class="gen-row">
-          <select id="fHeroArt" aria-label="Hero art">${heroArtOptionsHtml(existingChar ? existingChar.name : '', existingSnapFor(existingChar).heroArt || '')}</select>
-        </div>
-        <small class="fig2d-hint" id="heroArtHint" style="color:var(--dust)"></small>
-        </div>
-      </div>
-    </div>
+    <p class="sub">${snap && isLocked(snap) ? 'This chapter is locked as canon: name, type, faction, muses and glyph can change, but its chapter range, summary, backstory, portrait and archetype stay as they are until you reopen it.' : 'Pick a type first: it decides the faction options, the archetype, the true name, stats, skills and power.'}</p>
 
     <div class="field-row">
+      <div class="field">
+        <label>Type — decides everything below</label>
+        <select id="fRace">
+          <option value="">— choose a type —</option>
+          ${RACES.map(r => `<option value="${r.id}" ${curType === r.id ? 'selected' : ''}>${escapeHtml(r.label)}</option>`).join('')}
+        </select>
+        <small id="fTypeHint" class="gen-empty-hint" style="display:block;margin-top:6px"></small>
+      </div>
       <div class="field">
         <label>Name</label>
         <input type="text" id="fName" value="${existingChar ? escapeAttr(existingChar.name) : ''}" placeholder="Character name">
       </div>
-      <div class="field">
-        <label class="check-label"><input type="checkbox" id="fPrimordial" ${existingChar && existingChar.primordial ? 'checked' : ''}> God / primordial</label>
-        <p class="gen-empty-hint">Gods and primordials use the divine archetypes, locked across chapters.</p>
-      </div>
     </div>
-    ${archetypeFieldHtml('f', existingChar || { primordial: false }, snap ? snap.archetype : '')}
 
     <div class="field-row">
       <div class="field">
         <label>Faction</label>
-        <select id="fFaction">
-          <option value="">— choose —</option>
-          ${FACTIONS.map(f => `<option value="${f}" ${existingChar && existingChar.faction===f ? 'selected':''}>${f}</option>`).join('')}
-        </select>
-      </div>
-      <div class="field">
-        <label>Type (power system)</label>
-        <select id="fRace">
-          <option value="">— none / unknown —</option>
-          ${RACES.map(r => `<option value="${r.id}" ${existingChar && existingChar.race === r.id ? 'selected' : ''}>${escapeHtml(r.label)}</option>`).join('')}
-        </select>
+        <select id="fFaction"></select>
       </div>
       <div class="field">
         <label>Chapter range</label>
@@ -3525,9 +3712,12 @@ function openCharacterForm(existingChar){
       </div>
     </div>
 
+    <div id="fTypeSection"></div>
+    ${archetypeFieldHtml('f', existingChar || { race: '' }, snap ? snap.archetype : '')}
+
     <div class="field">
-      <label>Blurb — why they joined, in one line</label>
-      <input type="text" id="fBlurb" value="${snap ? escapeAttr(snap.blurb) : ''}" placeholder="A short line about their reason for joining">
+      <label>One-line summary</label>
+      <input type="text" id="fBlurb" value="${snap ? escapeAttr(snap.blurb) : ''}" placeholder="Who they are, in one line">
     </div>
 
     <div class="field">
@@ -3535,28 +3725,73 @@ function openCharacterForm(existingChar){
       <textarea id="fBackstory" placeholder="A bit more about their past">${snap ? (snap.backstory||'') : ''}</textarea>
     </div>
 
-    <div class="field">
-      <label>Muses — reference characters to build from (pick any number)</label>
-      <div class="muse-picker" id="musePicker">
-        ${loadMuseList().map(m => `<label><input type="checkbox" value="${escapeAttr(m.id)}" ${existingChar && (existingChar.museIds || []).includes(m.id) ? 'checked' : ''}> ${escapeHtml(m.name)}</label>`).join('') || '<span class="gen-empty-hint">No muses yet — add some on the Muses page.</span>'}
-      </div>
-      <div class="muse-guide" id="museGuide"></div>
-    </div>
+    <details class="look-section field">
+      <summary style="cursor:pointer;font-family:var(--f-crt);font-size:19px;color:var(--amber)">Look — portrait, hero art, muses, glyph</summary>
+      ${portraitFieldHtml()}
 
-    <div class="field">
-      <label>Vertical glyph (optional, shown beside the portrait)</label>
-      <input type="text" id="fGlyph" maxlength="6" value="${existingChar ? escapeAttr(existingChar.glyph || '') : ''}" placeholder="e.g. 夢母 — leave blank to pick one from the archetype">
-    </div>
+      <div class="field">
+        <label>Generated portrait and hero art — used whenever no image is uploaded</label>
+        <div class="gen-preview">
+          <img id="genPrev" alt="Generated portrait preview" src="${SILHOUETTE_SVG}">
+          <div class="gen-rows" style="display:flex;flex-direction:column;gap:10px;min-width:0">
+          <div class="gen-row">
+            <select id="fFigure" aria-label="Figure">
+              <option value="">Figure: auto</option>
+              ${(window.EpitaphPortrait ? EpitaphPortrait.ARCHETYPES : []).map(a => `<option value="${a}" ${existingSnapFor(existingChar).portraitFigure === a ? 'selected' : ''}>${a}</option>`).join('')}
+            </select>
+            <select id="fStyle" aria-label="Style">
+              <option value="">Style: auto</option>
+              ${(window.EpitaphPortrait ? EpitaphPortrait.STYLES : []).map(a => `<option value="${a}" ${existingSnapFor(existingChar).portraitStyle === a ? 'selected' : ''}>${a}</option>`).join('')}
+            </select>
+            <button type="button" class="btn ghost" id="genReroll">↻ Reroll</button>
+          </div>
+          <div class="gen-row">
+            <select id="fHeroArt" aria-label="Hero art">${heroArtOptionsHtml(existingChar ? existingChar.name : '', existingSnapFor(existingChar).heroArt || '')}</select>
+          </div>
+          <small class="fig2d-hint" id="heroArtHint" style="color:var(--dust)"></small>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Muses — reference characters to build from (pick any number)</label>
+        <div class="muse-picker" id="musePicker">
+          ${loadMuseList().map(m => `<label><input type="checkbox" value="${escapeAttr(m.id)}" ${existingChar && (existingChar.museIds || []).includes(m.id) ? 'checked' : ''}> ${escapeHtml(m.name)}</label>`).join('') || '<span class="gen-empty-hint">No muses yet — add some on the Muses page.</span>'}
+        </div>
+        <div class="muse-guide" id="museGuide"></div>
+      </div>
+
+      <div class="field">
+        <label>Vertical glyph (optional, shown beside the portrait)</label>
+        <input type="text" id="fGlyph" maxlength="6" value="${existingChar ? escapeAttr(existingChar.glyph || '') : ''}" placeholder="e.g. 夢母 — leave blank to pick one from the archetype">
+      </div>
+    </details>
 
     <div class="modal-actions">
       <button class="btn ghost" onclick="closeModal()">Cancel</button>
       <button class="btn primary" onclick="reviewCharacterSave()">Save profile</button>
     </div>
   `;
+  // the type drives faction options, the type section and the archetype field
+  const typeSel = document.getElementById('fRace');
+  let typeDraft = existingChar ? { ...existingChar, lore: normalizeLore(existingChar.lore) } : { race: '', lore: normalizeLore(null), authority: '' };
+  const applyType = () => {
+    const t = typeSel.value;
+    if(document.getElementById('fTypeSection').innerHTML){ const r = readTypeSection(typeDraft.race, typeDraft); typeDraft = { ...typeDraft, lore: r.lore, authority: r.authority, divineStatus: r.split ? 'Split' : typeDraft.divineStatus }; }
+    typeDraft.race = t;
+    const fac = document.getElementById('fFaction'), cur = fac.value || (existingChar ? existingChar.faction : '');
+    const opts = t ? factionsFor(t) : FACTIONS;
+    fac.innerHTML = (t ? '' : '<option value="">— choose —</option>') + opts.map(f => `<option value="${f}" ${cur === f ? 'selected' : ''}>${f}${f === 'Humanity' ? ' (not sure where they belong yet)' : ''}</option>`).join('');
+    document.getElementById('fTypeHint').textContent = (RACES.find(r => r.id === t) || {}).hint || '';
+    document.getElementById('fTypeSection').innerHTML = typeSectionHtml(t, typeDraft);
+    const curArch = readArchetypeField('f');
+    document.getElementById('fArchWrap').outerHTML = archetypeFieldHtml('f', { race: t }, curArch !== undefined ? curArch : (snap ? snap.archetype : ''));
+    wireArchetypeField('f');
+  };
+  typeSel.addEventListener('change', applyType);
+  applyType();
   wireDropzone();
   wireCharacterExtras(existingChar);
-  const refreshArch = wireArchetypeField('f', () => !!(existingChar && existingChar.divineStatus) || document.getElementById('fPrimordial').checked);
-  document.getElementById('fPrimordial').addEventListener('change', refreshArch);
   openModal();
 }
 
@@ -3594,7 +3829,7 @@ function wireCharacterExtras(existingChar){
       const draftChar = { ...(existingChar || {}), name: nameNow || 'Unnamed', race: (document.getElementById('fRace') || {}).value || '', authority: (existingChar || {}).authority || '' };
       const draftSnap = { ...existingSnapFor(existingChar), heroArt: artSel.value };
       const art = heroArtOf(draftChar, draftSnap);
-      if(hint) hint.textContent = artSel.value === 'auto' && !art ? 'Auto uses the race (Storyborn or Voided) or, for a set character, its 3D render. Pick a race to see it.'
+      if(hint) hint.textContent = artSel.value === 'auto' && !art ? 'Auto uses the type (Storyborn or the Fallen) or, for a set character, its 3D render. Pick a type to see it.'
         : art && art.kind === '3d' ? 'Plays as a looping 3D render in the hero.' : art ? 'Built from the name, concept, kanji, titles and colour.' : '';
       if(art){ prev.src = heroArtStill(draftChar, draftSnap, art); return; }
     }
@@ -3602,12 +3837,12 @@ function wireCharacterExtras(existingChar){
       ...(existingChar || {}),
       name: document.getElementById('fName').value.trim() || 'Unnamed',
       faction: document.getElementById('fFaction').value,
-      primordial: document.getElementById('fPrimordial').checked
+      primordial: (document.getElementById('fRace') || {}).value === 'primordial'
     }, { ...existingSnapFor(existingChar), portraitFigure: document.getElementById('fFigure').value, portraitStyle: document.getElementById('fStyle').value, portraitSeed: pendingPortraitSeed });
     EpitaphPortrait.render(EpitaphPortrait.forCharacter(draft)).then(u => { prev.src = u; }).catch(() => {});
   };
   let t;
-  ['fName', 'fFaction', 'fRace', 'fFigure', 'fStyle', 'fPrimordial', 'fHeroArt'].forEach(id => {
+  ['fName', 'fFaction', 'fRace', 'fFigure', 'fStyle', 'fHeroArt'].forEach(id => {
     const el = document.getElementById(id);
     if(el){ el.addEventListener('input', () => { clearTimeout(t); t = setTimeout(refresh, 200); }); el.addEventListener('change', () => { clearTimeout(t); t = setTimeout(refresh, 200); }); }
   });
@@ -3637,8 +3872,7 @@ function reviewCharacterSave(){
 
   const fields = {
     name: document.getElementById('fName').value.trim(),
-    archetype: readArchetypeField('f') || '',
-    primordial: document.getElementById('fPrimordial').checked,
+    archetype: readArchetypeField('f'),
     faction: document.getElementById('fFaction').value,
     chapterRange: document.getElementById('fChapterRange').value.trim(),
     blurb: document.getElementById('fBlurb').value.trim(),
@@ -3653,23 +3887,25 @@ function reviewCharacterSave(){
     glyph: ((document.getElementById('fGlyph') || {}).value || '').trim()
   };
 
+  const typeData = readTypeSection(fields.race, existingChar);
   const draftChar = migrateCharacter({
     ...(existingChar || {}),
     id: charId,
-    name: fields.name, faction: fields.faction, race: fields.race, primordial: fields.primordial,
+    name: fields.name, faction: fields.faction, race: fields.race, lore: typeData.lore, authority: typeData.authority,
+    divineStatus: fields.race === 'primordial' ? (typeData.split ? 'Split' : '') : (existingChar ? existingChar.divineStatus : ''),
     museIds: fields.museIds, glyph: fields.glyph,
     activeSnapshotId: snapId,
     snapshots: existingChar
       ? existingChar.snapshots.map(s => s.id === snapId && !isLocked(s)
-          ? { ...s, chapterRange: fields.chapterRange, blurb: fields.blurb, backstory: fields.backstory, portrait: fields.portrait, archetype: fields.archetype,
+          ? { ...s, chapterRange: fields.chapterRange, blurb: fields.blurb, backstory: fields.backstory, portrait: fields.portrait, archetype: fields.archetype !== undefined ? fields.archetype : s.archetype,
               startChapter: Number.isInteger(s.startChapter) ? s.startChapter : parseStartChapter(fields.chapterRange),
               portraitFigure: fields.portraitFigure, portraitStyle: fields.portraitStyle, portraitSeed: pendingPortraitSeed, figure2d: fields.figure2d, heroArt: fields.heroArt }
           : s)
       : [{ id: snapId, chapterRange: fields.chapterRange, blurb: fields.blurb, backstory: fields.backstory, portrait: fields.portrait, ...defaultSnapExtras(),
-           archetype: fields.archetype, startChapter: parseStartChapter(fields.chapterRange), portraitFigure: fields.portraitFigure, portraitStyle: fields.portraitStyle, portraitSeed: pendingPortraitSeed, figure2d: fields.figure2d, heroArt: fields.heroArt }]
+           archetype: fields.archetype || '', startChapter: parseStartChapter(fields.chapterRange), portraitFigure: fields.portraitFigure, portraitStyle: fields.portraitStyle, portraitSeed: pendingPortraitSeed, figure2d: fields.figure2d, heroArt: fields.heroArt }]
   });
 
-  if(isDivineChar(draftChar)) applyDivineLock(draftChar);
+  syncTypeDerived(draftChar);
 
   modalContent.innerHTML = `
     <div class="confirm-box">
@@ -4000,53 +4236,33 @@ function openChapterStateForm(char, snap){
 
 function openSystemForm(char, snap){
   if(blockIfLocked(snap)) return;
-  const statsVals = STAT_LABELS.map(l => (snap.stats && snap.stats[l] != null) ? snap.stats[l] : 0);
   pendingInventoryItems = (snap.inventory || []).map(it => JSON.parse(JSON.stringify(it)));
   pendingInventoryChar = { char, snap };
+  const showConcept = isGodType(char) || hasArchetype(char) || !typeOf(char);
 
   modalContent.innerHTML = `
     <h2>Edit system sheet — ${escapeHtml(char.name || 'Unnamed')}</h2>
-    <p class="sub">Everything here belongs to this chapter version, except divine status, God / primordial and authority, which belong to the character as a whole.</p>
+    <p class="sub">Everything here belongs to this chapter version, except the concept, which belongs to the character. Type, faction and lore are in the profile.</p>
 
     <div class="field-row">
-      <div class="field">
-        <label class="check-label"><input type="checkbox" id="sysPrimordial" ${char.primordial ? 'checked' : ''}> God / primordial</label>
-      </div>
       <div class="field">
         <label>Emotional state (this version)</label>
         <input type="text" id="sysEmotional" value="${escapeAttr(snap.emotionalState)}" placeholder="e.g. Numb, Resolved, Afraid">
       </div>
-    </div>
-
-    <div class="field-row">
-      <div class="field">
-        <label>Divine status</label>
-        <select id="sysDivineStatus">
-          <option value="">— not divine —</option>
-          ${DIVINE_STATUSES.map(ds => `<option value="${ds}" ${char.divineStatus === ds ? 'selected' : ''}>${ds}</option>`).join('')}
-        </select>
-      </div>
-      <div class="field">
-        <label>Authority (gods only — shown in place of Nature on the record)</label>
-        <input type="text" id="sysAuthority" value="${escapeAttr(char.authority || '')}" placeholder="e.g. Void, Nothing, Erasure">
-      </div>
+      ${showConcept ? `<div class="field">
+        <label>Concept (the character as a whole)</label>
+        <input type="text" id="sysAuthority" value="${escapeAttr(char.authority || '')}" placeholder="e.g. Nothing, Reality">
+      </div>` : ''}
     </div>
 
     <div class="field">
-      <label>Titles (this version) — one per line, as Name | Tier (1-7, 0 = none) | How they earned it</label>
-      <textarea id="sysTitles" placeholder="The Hollow Blade | 3 | Forged from the fragment's own bone">${(snap.titles || []).map(t => `${t.name} | ${t.rankTier || 0} | ${t.blurb || ''}`).join('\n')}</textarea>
+      <label>${escapeHtml(titlesLabel(char))}</label>
+      <textarea id="sysTitles" placeholder="Thief | 1 | Woke stealing bread for her brother">${(snap.titles || []).map(t => `${t.name} | ${t.rankTier || 0} | ${t.blurb || ''}`).join('\n')}</textarea>
     </div>
 
     <div class="field">
-      <label>Stats (this version) — 0 to 100</label>
-      <div class="field-row" style="flex-wrap:wrap;">
-        ${STAT_LABELS.map((label, i) => `
-          <div class="field" style="min-width:100px; flex:1;">
-            <label>${label}</label>
-            <input type="text" inputmode="numeric" class="statInput" data-label="${label}" value="${statsVals[i]}">
-          </div>
-        `).join('')}
-      </div>
+      <label>Stats (this version) — 1 to 7, capped by their progression</label>
+      ${statsFieldsHtml('statInput', char, snap)}
     </div>
 
     <div class="field">
@@ -4055,10 +4271,10 @@ function openSystemForm(char, snap){
       <input type="file" id="invFileInput" accept="image/*" class="visually-hidden-input">
     </div>
 
-    <div class="field">
-      <label>Skills (this version) — one per line, as Name | Level (0-100) | Corrupted (yes/no) | Description | Branches from (optional skill name)</label>
-      <textarea id="sysSkills" placeholder="Ashbind | 60 | no | Can silence sound in a small radius">${(snap.skills || []).map(s => `${s.name} | ${s.level || 0} | ${s.corrupted ? 'yes' : 'no'} | ${s.desc || ''}${s.parent ? ' | ' + s.parent : ''}`).join('\n')}</textarea>
-    </div>
+    ${canHaveSkills(char) ? `<div class="field">
+      <label>Skills (this version) — Name | Level (0-100) | Corrupted (yes/no) | Description | Branches from. ${escapeHtml(skillsHelp(char, snap))}</label>
+      ${skillsTextareaHtml('sysSkills', snap)}
+    </div>` : ''}
 
     <div class="field">
       <label>Relationships (this chapter) — one per line, as Name | Relation | Note</label>
@@ -4082,8 +4298,7 @@ function openSystemForm(char, snap){
   `;
 
   wireLocationPicker('sys', snap.location);
-  const refreshArch = wireArchetypeField('sys', () => !!document.getElementById('sysDivineStatus').value || document.getElementById('sysPrimordial').checked);
-  ['sysDivineStatus', 'sysPrimordial'].forEach(id => document.getElementById(id).addEventListener('change', refreshArch));
+  wireArchetypeField('sys');
   document.getElementById('sysSaveBtn').addEventListener('click', () => reviewSystemSave(char.id, snap.id));
   document.getElementById('invFileInput').addEventListener('change', handleInventoryFileInput);
   renderInventoryEditor();
@@ -4626,36 +4841,25 @@ function reviewSystemSave(charId, snapId){
   const snap = char.snapshots.find(s => s.id === snapId);
   if(!char || !snap) return;
 
-  const stats = {};
-  document.querySelectorAll('.statInput').forEach(inp => {
-    const v = parseFloat(inp.value);
-    stats[inp.dataset.label] = isNaN(v) ? 0 : Math.max(0, Math.min(100, v));
-  });
+  const titles = parseTitleLines(document.getElementById('sysTitles').value);
+  const stats = hasStats(char) ? readStatsFields('statInput', char, { ...snap, titles }) : snap.stats;
+  const skEl = document.getElementById('sysSkills');
+  const skills = skEl ? parseSkillLines(skEl.value) : (snap.skills || []);
+  const problem = skEl ? skillsProblemNoTier(char, skills, titles) : '';
+  if(problem){ showToast(problem, { duration: 7000 }); return; }
   syncInventoryFromDOM();
   const inventory = finalizeInventory(pendingInventoryItems);
-  const skills = document.getElementById('sysSkills').value.split('\n').map(s => s.trim()).filter(Boolean).map(line => {
-    const parts = line.split('|').map(p => p.trim());
-    const lvl = parseFloat(parts[1]);
-    const corrupted = /^(yes|true|1)$/i.test(parts[2] || '');
-    return { name: parts[0] || '', level: isNaN(lvl) ? 0 : Math.max(0, Math.min(100, lvl)), corrupted, desc: parts[3] || '', parent: parts[4] || '' };
-  });
-  const titles = document.getElementById('sysTitles').value.split('\n').map(s => s.trim()).filter(Boolean).map(line => {
-    const parts = line.split('|').map(p => p.trim());
-    const tier = parseInt(parts[1]);
-    return { name: parts[0] || '', rankTier: isNaN(tier) ? 0 : Math.max(0, Math.min(7, tier)), blurb: parts[2] || '' };
-  });
   const relationships = parseRelationshipLines(document.getElementById('sysRelationships').value, char.id);
   const emotionalState = document.getElementById('sysEmotional').value.trim();
   const { archetype, ...chapterState } = readChapterStateFields('sys');
-  const primordial = document.getElementById('sysPrimordial').checked;
   const knowledgeAndSecrets = readKnowledgeFields('sys');
-  const divineStatus = document.getElementById('sysDivineStatus').value;
-  const authority = document.getElementById('sysAuthority').value.trim();
+  const authEl = document.getElementById('sysAuthority');
+  const authority = authEl ? authEl.value.trim() : char.authority;
 
   modalContent.innerHTML = `
     <div class="confirm-box">
       <div class="display">Save this system sheet?</div>
-      <p>Updates this chapter version of ${escapeHtml(char.name || 'this character')}. Other chapters are not changed, except a god's archetype, which is shared by every chapter. Divine status, God / primordial and authority apply to the whole character.</p>
+      <p>Updates this chapter version of ${escapeHtml(char.name || 'this character')}. Other chapters are not changed. The concept applies to the whole character.</p>
       <div class="confirm-actions">
         <button class="btn ghost" id="backToSysEdit">Keep editing</button>
         <button class="btn primary" id="confirmSysSave">Save</button>
@@ -4673,8 +4877,6 @@ function reviewSystemSave(charId, snapId){
     snap.knowledge = knowledgeAndSecrets.knowledge;
     snap.secrets = knowledgeAndSecrets.secrets;
     Object.assign(snap, chapterState);
-    char.divineStatus = divineStatus;
-    char.primordial = primordial;
     char.authority = authority;
     setArchetype(char, snap, archetype);
     await persistState();
@@ -4684,52 +4886,148 @@ function reviewSystemSave(charId, snapId){
   document.getElementById('backToSysEdit').addEventListener('click', () => openSystemForm(char, snap));
 }
 
+// ---- Titles / true name, skills validation (the progression locks) ----
+function titlesLabel(char){
+  if(typeOf(char) === 'godling') return 'Plane-name history (this version) — one per line, as Name | Level-tier (1-7) | How it grew. The highest is the current plane-name';
+  if(hasTrueName(char)) return 'True name history (this version) — one per line, as Name | Tier (1-7) | How it was earned. The highest tier is the current name; it caps branches';
+  return 'Titles (this version) — one per line, as Name | Tier (1-7, 0 = none) | How they earned it';
+}
+function parseTitleLines(text){
+  return String(text || '').split('\n').map(s => s.trim()).filter(Boolean).map(line => {
+    const parts = line.split('|').map(p => p.trim());
+    const tier = parseInt(parts[1]);
+    return { name: parts[0] || '', rankTier: isNaN(tier) ? 0 : Math.max(0, Math.min(7, tier)), blurb: parts[2] || '' };
+  });
+}
+function parseSkillLines(text){
+  return String(text || '').split('\n').map(s => s.trim()).filter(Boolean).map(line => {
+    const parts = line.split('|').map(p => p.trim());
+    const lvl = parseFloat(parts[1]);
+    const corrupted = /^(yes|true|1)$/i.test(parts[2] || '');
+    return { name: parts[0] || '', level: isNaN(lvl) ? 0 : Math.max(0, Math.min(100, lvl)), corrupted, desc: parts[3] || '', parent: parts[4] || '' };
+  });
+}
+// depth 0 = core, 1 = branch, 2+ = derivative (derivative depth = depth - 1)
+function skillDepth(skills, sk, seen){
+  seen = seen || new Set();
+  if(!sk.parent || seen.has(sk.name)) return 0;
+  seen.add(sk.name);
+  const par = skills.find(x => x.name === sk.parent);
+  return par ? 1 + skillDepth(skills, par, seen) : 0;
+}
+function skillRole(skills, sk){ const d = skillDepth(skills, sk); return d === 0 ? 'core' : d === 1 ? 'branch' : 'derivative'; }
+function skillCounts(skills){
+  skills = skills || [];
+  const d = skills.map(sk => skillDepth(skills, sk));
+  return { cores: d.filter(x => x === 0).length, branches: d.filter(x => x === 1).length, deepest: Math.max(0, ...d.map(x => x - 1)) };
+}
+// '' when allowed, otherwise the reason (the save is refused)
+function skillsProblem(char, skills, titles){
+  if(!skills.length) return '';
+  if(!canHaveSkills(char)) return `${(RACES.find(r => r.id === char.race) || {}).label || 'This type'} can't hold skills.`;
+  if(!skillsCapped(char)) return '';
+  const tier = nameTier({ titles }), c = skillCounts(skills);
+  if(c.cores > 1) return 'Only one core skill: give every other skill a parent (the fifth column).';
+  if(c.branches > tier) return tier ? `True name tier ${tier} allows ${tier} branch${tier === 1 ? '' : 'es'}; there are ${c.branches}. Refine the name first.` : 'Their true name has no tier yet, so they can only hold the core skill.';
+  if(c.deepest > tier) return `Derivatives can go ${tier} deep at tier ${tier}; one goes ${c.deepest} deep.`;
+  return '';
+}
+const skillsProblemNoTier = skillsProblem;
+function skillsTextareaHtml(id, snap, style){
+  return `<textarea id="${id}"${style ? ` style="${style}"` : ''} placeholder="Ashbind | 60 | no | Can silence sound in a small radius">${(snap.skills || []).map(s => `${s.name} | ${s.level || 0} | ${s.corrupted ? 'yes' : 'no'} | ${s.desc || ''}${s.parent ? ' | ' + s.parent : ''}`).join('\n')}</textarea>`;
+}
+function skillsHelp(char, snap){
+  if(!skillsCapped(char)) return isGodType(char) ? 'Authorities: one per line. Uncapped.' : 'One per line.';
+  const t = nameTier(snap);
+  return `One core, then branches (parent = the core) and derivatives (parent = a branch or derivative). True name tier ${t || 0}: up to ${t} branch${t === 1 ? '' : 'es'}, derivatives up to ${t} deep.`;
+}
+// Type-specific lore fields in the profile form
+const PRIMORDIAL_CONCEPTS = ['Nothing', 'Fate', 'Imagination', 'Reality', 'Chaos'];
+function typeSectionHtml(type, char){
+  const lore = normalizeLore(char && char.lore), concept = (char && char.authority) || '';
+  const sel = (id, opts, cur, blank) => `<select id="${id}"><option value="">${blank}</option>${opts.map(o => { const v = typeof o === 'string' ? o : o.v, l = typeof o === 'string' ? o : o.label; return `<option value="${escapeAttr(v)}" ${cur === v ? 'selected' : ''}>${escapeHtml(l)}</option>`; }).join('')}</select>`;
+  const txt = (id, label, v, ph) => `<div class="field"><label>${label}</label><input type="text" id="${id}" value="${escapeAttr(v)}" placeholder="${escapeAttr(ph)}"></div>`;
+  switch(type){
+    case 'primordial': return `<div class="field-row"><div class="field"><label>Concept</label>${sel('fConcept', PRIMORDIAL_CONCEPTS, concept, '— choose —')}</div>
+      <div class="field"><label class="check-label"><input type="checkbox" id="fSplit" ${char && char.divineStatus === 'Split' ? 'checked' : ''}> Split (Antholonious only)</label></div></div>`;
+    case 'unbound': return `<div class="field-row">${txt('fConcept', 'Concept they descend from', concept, 'e.g. Fate')}${txt('fDivinity', 'Divinity — what this god is', lore.divinity, 'e.g. Foresight')}</div>`;
+    case 'storyborn': return `<div class="field-row">${txt('fGod', 'The bound god', lore.god, 'e.g. Gaia, once god of the earth')}${txt('fConcept', 'Concept', concept, 'e.g. Reality')}
+      <div class="field"><label>How the god holds the host</label>${sel('fHostBond', HOST_BONDS, lore.hostBond, '— choose —')}</div></div>`;
+    case 'godling': return `<div class="field"><label>Plane that claimed them</label>${sel('fPlane', PLANES, lore.plane, '— choose —')}</div>`;
+    case 'voided': return `<div class="field"><label>Origin</label>${sel('fOrigin', VOIDED_ORIGINS, lore.origin, '— choose —')}</div>`;
+    default: return '';
+  }
+}
+function readTypeSection(type, char){
+  const v = id => { const el = document.getElementById(id); return el ? el.value.trim() : undefined; };
+  const lore = normalizeLore(char && char.lore);
+  let authority = char ? char.authority || '' : '';
+  if(v('fConcept') !== undefined) authority = v('fConcept');
+  if(v('fGod') !== undefined) lore.god = v('fGod');
+  if(v('fHostBond') !== undefined) lore.hostBond = v('fHostBond');
+  if(v('fPlane') !== undefined) lore.plane = v('fPlane');
+  if(v('fOrigin') !== undefined) lore.origin = v('fOrigin');
+  if(v('fDivinity') !== undefined) lore.divinity = v('fDivinity');
+  const split = document.getElementById('fSplit');
+  return { lore: normalizeLore(lore), authority, split: split ? split.checked : false };
+}
+
 // ---- Power (schema v7) ----
 const POWER_FIELD_LABEL = {
   threat: 'Threat', domain: 'Storyborn tier (domain)', name: 'Name on the heart', rings: 'Heart rings',
-  cuts: 'Cuts', gift: 'Gift', plane: 'Plane', planeLevel: 'Godling level', planeName: 'Plane-name',
-  voidedRank: 'Voided rank', black: 'The Black', grafts: 'Grafts', notes: 'Notes'
+  cuts: 'Cuts', gift: 'Gifts', plane: 'Plane', planeLevel: 'Godling level', planeName: 'Plane-name',
+  voidedRank: 'Voided rank', black: 'The Black', grafts: 'Grafts', herald: 'Herald', notes: 'Notes'
 };
 const DOMAIN_SIZES = ['', 'Their own body', 'A few people', 'A district', 'A settlement', 'A region', 'Several regions', 'A whole face'];
-function powerValueText(k, p){
+function powerValueText(k, p, char){
   switch(k){
     case 'threat': return threatLabel(p.threat);
     case 'domain': return p.domain ? `Tier ${p.domain} · ${DOMAIN_SIZES[p.domain]}` : '';
     case 'planeLevel': return p.planeLevel ? `Level ${p.planeLevel} / 7` : '';
     case 'cuts': return p.cuts.length ? p.cuts.map(c => [c.desire && 'for ' + c.desire, c.cost && 'gave ' + c.cost, c.boon && '→ ' + c.boon].filter(Boolean).join(', ')).join(' · ') : '';
+    case 'gift': return parseGifts(p.gift).map(g => g.from + (g.what ? ': ' + g.what : '')).join(' · ');
+    case 'herald': return p.herald ? (typeOf(char) === 'storyborn' ? 'Their Herald: ' : 'Herald of ') + p.herald : '';
     default: return p[k] || '';
   }
 }
 function powerRowsHtml(char, snap, row){
   const p = snap.power || normalizePower(null);
-  return powerFieldsFor(char).map(k => row(POWER_FIELD_LABEL[k], powerValueText(k, p), k === 'cuts' ? 'None' : 'Unrecorded')).join('');
+  const lore = char.lore || {};
+  const loreRows = [
+    typeOf(char) === 'storyborn' && row('Bound god', lore.god),
+    typeOf(char) === 'storyborn' && row('Host bond', (HOST_BONDS.find(h => h.v === lore.hostBond) || {}).label || ''),
+    typeOf(char) === 'godling' && row('Plane', lore.plane),
+    typeOf(char) === 'voided' && row('Origin', (VOIDED_ORIGINS.find(o => o.v === lore.origin) || {}).label || ''),
+    typeOf(char) === 'unbound' && row('Divinity', lore.divinity)
+  ].filter(Boolean).join('');
+  return loreRows + powerFieldsFor(char).map(k => row(POWER_FIELD_LABEL[k], powerValueText(k, p, char), k === 'cuts' ? 'None' : 'Unrecorded')).join('');
 }
 function openPowerForm(char, snap){
   if(blockIfLocked(snap)) return;
   const p = snap.power || normalizePower(null);
   const fields = powerFieldsFor(char);
   const has = k => fields.includes(k);
-  const typeLabel = (RACES.find(r => r.id === char.race) || {}).label || 'no type set (set it in the character form)';
-  const sel = (id, opts, cur, blank) => `<select id="${id}"><option value="">${blank}</option>${opts.map(o => typeof o === 'string' ? `<option value="${escapeAttr(o)}" ${cur === o ? 'selected' : ''}>${escapeHtml(o)}</option>` : `<option value="${escapeAttr(o.v)}" ${cur === o.v ? 'selected' : ''}>${escapeHtml(o.label)}</option>`).join('')}</select>`;
+  const t = typeOf(char);
+  const typeLabel = (RACES.find(r => r.id === char.race) || {}).label || 'no type set (set it in the profile)';
+  const sel = (id, opts, cur, blank) => `<select id="${id}">${blank !== null ? `<option value="">${blank}</option>` : ''}${opts.map(o => typeof o === 'string' ? `<option value="${escapeAttr(o)}" ${cur === o ? 'selected' : ''}>${escapeHtml(o)}</option>` : `<option value="${escapeAttr(o.v)}" ${cur === o.v ? 'selected' : ''}>${escapeHtml(o.label)}</option>`).join('')}</select>`;
   const lvlOpts = n => Array.from({ length: n }, (_, i) => ({ v: String(i + 1), label: String(i + 1) }));
   const text = (id, label, val, ph) => `<div class="field"><label>${label}</label><input type="text" id="${id}" value="${escapeAttr(val)}" placeholder="${escapeAttr(ph)}"></div>`;
+  const threats = threatOptionsFor(char, snap), ranks = voidedRanksFor(snap);
   modalContent.innerHTML = `
     <h2>Power — ${escapeHtml(char.name || 'Unnamed')}</h2>
-    <p class="sub">This chapter version only. Type: ${escapeHtml(typeLabel)}. Fields follow the type. <a href="powers.html" target="_blank" rel="noopener">How the systems work ↗</a></p>
+    <p class="sub">This chapter version only. Type: ${escapeHtml(typeLabel)}. Only what this type's progression allows is offered. <a href="powers.html" target="_blank" rel="noopener">How the systems work ↗</a></p>
     <div class="field-row">
-      <div class="field"><label>Threat (shared scale)</label>${sel('pwThreat', THREAT_LEVELS, p.threat, '— unrated —')}</div>
+      <div class="field"><label>Threat (shared scale)</label>${sel('pwThreat', threats, p.threat, '— unrated —')}</div>
       ${has('domain') ? `<div class="field"><label>Storyborn tier (domain size)</label>${sel('pwDomain', DOMAIN_SIZES.slice(1).map((d, i) => ({ v: String(i + 1), label: `${i + 1} · ${d}` })), p.domain ? String(p.domain) : '', '—')}</div>` : ''}
-      ${has('voidedRank') ? `<div class="field"><label>Voided rank</label>${sel('pwVoidedRank', VOIDED_RANKS, p.voidedRank, '— none —')}</div>` : ''}
-      ${has('plane') ? `<div class="field"><label>Plane</label>${sel('pwPlane', PLANES, p.plane, '— none —')}</div>` : ''}
+      ${has('voidedRank') ? `<div class="field"><label>Voided rank${ranks.length < 3 ? ` <small style="color:var(--dust)">(${ranks.length === 1 ? 'Clear needs Edge 5' : 'Switcher needs Edge 7'})</small>` : ''}</label>${sel('pwVoidedRank', ranks, p.voidedRank, '— none —')}</div>` : ''}
       ${has('planeLevel') ? `<div class="field"><label>Godling level</label>${sel('pwPlaneLevel', lvlOpts(7), p.planeLevel ? String(p.planeLevel) : '', '—')}</div>` : ''}
     </div>
-    ${has('planeName') ? text('pwPlaneName', 'Plane-name (grows with their level)', p.planeName, 'e.g. Young Dreamling') : ''}
     ${has('black') ? text('pwBlack', 'The Black (how far it covers them)', p.black, 'e.g. Hands only · full Black, face spared') : ''}
-    ${has('name') ? text('pwName', 'Name on the heart (woken dormant name / title)', p.name, 'e.g. Benevolent Thief') : ''}
     ${has('rings') ? text('pwRings', 'Heart rings (skills lifted off the heart, heart condition)', p.rings, 'e.g. 3 rings lifted; scarred from chaining') : ''}
-    ${has('gift') ? text('pwGift', 'Gift (one per Storyborn)', p.gift, 'e.g. from Gaia: …') : ''}
-    ${has('grafts') ? text('pwGrafts', 'Grafts (god-words grafted onto weapons, armour or skin)', p.grafts, 'e.g. Reality seal on the left gauntlet') : ''}
-    ${has('cuts') ? `<div class="field"><label>Cuts — one per line, as Desire | What they gave | The boon</label><textarea id="pwCuts" placeholder="Protect my sister | my fear | Unbroken Wall">${p.cuts.map(c => `${c.desire} | ${c.cost} | ${c.boon}`).join('\n')}</textarea></div>` : ''}
+    ${has('herald') ? text('pwHerald', t === 'storyborn' ? 'Their Herald (one per Storyborn)' : 'Herald of (which Storyborn)', p.herald, t === 'storyborn' ? 'e.g. Orin' : 'e.g. Gaia') : ''}
+    ${has('gift') ? `<div class="field"><label>Gifts — one per Storyborn, as Storyborn | What it does</label><textarea id="pwGift" placeholder="Gaia | Wither (tainted by Niro)">${escapeHtml(p.gift)}</textarea></div>` : ''}
+    ${has('grafts') ? `<div class="field"><label>Grafts — one per line (each raises Exposure's maximum)</label><textarea id="pwGrafts" placeholder="Reality seal | left gauntlet">${escapeHtml(p.grafts)}</textarea></div>` : ''}
+    ${has('cuts') ? `<div class="field"><label>Cuts — one per line, as Desire | What they gave | The boon (each lowers Vitality's maximum for good)</label><textarea id="pwCuts" placeholder="Protect my sister | my fear | Unbroken Wall">${p.cuts.map(c => `${c.desire} | ${c.cost} | ${c.boon}`).join('\n')}</textarea></div>` : ''}
     <div class="field"><label>Notes</label><textarea id="pwNotes" placeholder="Anything else about their power this chapter">${escapeHtml(p.notes)}</textarea></div>
     <div class="modal-actions">
       <button class="btn ghost" onclick="closeModal()">Cancel</button>
@@ -4741,11 +5039,19 @@ function openPowerForm(char, snap){
     const next = { ...p };
     next.threat = v('pwThreat') || '';
     [['pwDomain', 'domain'], ['pwPlaneLevel', 'planeLevel']].forEach(([id, k]) => { const x = v(id); if(x !== undefined) next[k] = parseInt(x) || 0; });
-    [['pwVoidedRank', 'voidedRank'], ['pwPlane', 'plane'], ['pwPlaneName', 'planeName'], ['pwBlack', 'black'], ['pwName', 'name'], ['pwRings', 'rings'], ['pwGift', 'gift'], ['pwGrafts', 'grafts'], ['pwNotes', 'notes']]
+    [['pwVoidedRank', 'voidedRank'], ['pwBlack', 'black'], ['pwRings', 'rings'], ['pwGift', 'gift'], ['pwGrafts', 'grafts'], ['pwHerald', 'herald'], ['pwNotes', 'notes']]
       .forEach(([id, k]) => { const x = v(id); if(x !== undefined) next[k] = x; });
     const cutsRaw = v('pwCuts');
     if(cutsRaw !== undefined) next.cuts = cutsRaw.split('\n').map(s => s.trim()).filter(Boolean).map(line => { const [desire = '', cost = '', boon = ''] = line.split('|').map(x => x.trim()); return { desire, cost, boon }; });
+    // the hard rule: one gift per Storyborn
+    const froms = parseGifts(next.gift).map(g => g.from.toLowerCase()).filter(Boolean);
+    const dupe = froms.find((f, i) => froms.indexOf(f) !== i);
+    if(dupe){ showToast(`One gift per Storyborn: ${dupe} is listed twice.`, { duration: 6000 }); return; }
+    // Threat must stay inside this type's cap (it can drop if Cuts were removed)
+    if(next.threat && !threatOptionsFor(char, { power: next }).some(x => x.v === next.threat)) next.threat = '';
     snap.power = normalizePower(next);
+    // stats follow their new maximums (Cuts lower Vitality, grafts raise Exposure, tiers and levels cap others)
+    STAT_SLOTS.forEach(k => { snap.stats[k] = Math.min(statCap(char, snap, k), Number(snap.stats[k]) || 0); });
     await persistState();
     renderAll();
     closeModal();
@@ -4756,34 +5062,23 @@ function openPowerForm(char, snap){
 // ---- Mini-window quick-edit forms (one system piece at a time) ----
 function openIdentityForm(char, snap){
   if(blockIfLocked(snap)) return;
+  const showConcept = isGodType(char) || hasArchetype(char) || !typeOf(char);
   modalContent.innerHTML = `
     <h2>Identity — ${escapeHtml(char.name || 'Unnamed')}</h2>
-    <p class="sub">Divine status, God / primordial and authority belong to the character. Emotional state and titles belong to this chapter version.</p>
+    <p class="sub">The concept belongs to the character. Emotional state and the ${hasTrueName(char) ? 'true name history' : 'titles'} belong to this chapter version. Type and faction are in the profile.</p>
     <div class="field-row">
-      <div class="field">
-        <label class="check-label"><input type="checkbox" id="mwPrimordial" ${char.primordial ? 'checked' : ''}> God / primordial</label>
-      </div>
       <div class="field">
         <label>Emotional state (this version)</label>
         <input type="text" id="mwEmotional" value="${escapeAttr(snap.emotionalState)}" placeholder="e.g. Numb, Resolved, Afraid">
       </div>
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label>Divine status</label>
-        <select id="mwDivineStatus">
-          <option value="">— not divine —</option>
-          ${DIVINE_STATUSES.map(ds => `<option value="${ds}" ${char.divineStatus === ds ? 'selected' : ''}>${ds}</option>`).join('')}
-        </select>
-      </div>
-      <div class="field">
-        <label>Authority (gods only)</label>
-        <input type="text" id="mwAuthority" value="${escapeAttr(char.authority || '')}" placeholder="e.g. Void, Nothing, Erasure">
-      </div>
+      ${showConcept ? `<div class="field">
+        <label>Concept</label>
+        <input type="text" id="mwAuthority" value="${escapeAttr(char.authority || '')}" placeholder="e.g. Nothing, Reality">
+      </div>` : ''}
     </div>
     <div class="field">
-      <label>Titles (this version) — one per line, as Name | Tier (1-7, 0 = none) | How they earned it</label>
-      <textarea id="mwTitles" placeholder="The Hollow Blade | 3 | Forged from the fragment's own bone">${(snap.titles || []).map(t => `${t.name} | ${t.rankTier || 0} | ${t.blurb || ''}`).join('\n')}</textarea>
+      <label>${escapeHtml(titlesLabel(char))}</label>
+      <textarea id="mwTitles" placeholder="Thief | 1 | Woke stealing bread for her brother">${(snap.titles || []).map(t => `${t.name} | ${t.rankTier || 0} | ${t.blurb || ''}`).join('\n')}</textarea>
     </div>
     <div class="modal-actions">
       <button class="btn ghost" onclick="closeModal()">Cancel</button>
@@ -4791,16 +5086,14 @@ function openIdentityForm(char, snap){
     </div>
   `;
   document.getElementById('mwIdentitySave').addEventListener('click', async () => {
-    char.primordial = document.getElementById('mwPrimordial').checked;
-    char.divineStatus = document.getElementById('mwDivineStatus').value;
-    if(isDivineChar(char)) applyDivineLock(char);
-    char.authority = document.getElementById('mwAuthority').value.trim();
+    const titles = parseTitleLines(document.getElementById('mwTitles').value);
+    // a name only refines: it can't drop below what its branches already need
+    const problem = skillsProblemNoTier(char, snap.skills || [], titles);
+    if(problem){ showToast('This name tier is too low for the skills they already hold. ' + problem, { duration: 7000 }); return; }
+    const authEl = document.getElementById('mwAuthority');
+    if(authEl) char.authority = authEl.value.trim();
     snap.emotionalState = document.getElementById('mwEmotional').value.trim();
-    snap.titles = document.getElementById('mwTitles').value.split('\n').map(s => s.trim()).filter(Boolean).map(line => {
-      const parts = line.split('|').map(p => p.trim());
-      const tier = parseInt(parts[1]);
-      return { name: parts[0] || '', rankTier: isNaN(tier) ? 0 : Math.max(0, Math.min(7, tier)), blurb: parts[2] || '' };
-    });
+    snap.titles = titles;
     await persistState();
     renderAll();
     closeModal();
@@ -4810,30 +5103,17 @@ function openIdentityForm(char, snap){
 
 function openStatsOnlyForm(char, snap){
   if(blockIfLocked(snap)) return;
-  const statsVals = STAT_LABELS.map(l => (snap.stats && snap.stats[l] != null) ? snap.stats[l] : 0);
   modalContent.innerHTML = `
     <h2>Stats — ${escapeHtml(char.name || 'Unnamed')}</h2>
-    <p class="sub">0 to 100, this chapter version.</p>
-    <div class="field-row" style="flex-wrap:wrap;">
-      ${STAT_LABELS.map((label, i) => `
-        <div class="field" style="min-width:100px; flex:1;">
-          <label>${label}</label>
-          <input type="text" inputmode="numeric" class="mwStatInput" data-label="${label}" value="${statsVals[i]}">
-        </div>
-      `).join('')}
-    </div>
+    <p class="sub">1 to 7, this chapter version. Each stat's maximum follows their progression (name tier, Storyborn tier, Godling level, Cuts, grafts).</p>
+    ${statsFieldsHtml('mwStatInput', char, snap)}
     <div class="modal-actions">
       <button class="btn ghost" onclick="closeModal()">Cancel</button>
       <button class="btn primary" id="mwStatsSave">Save</button>
     </div>
   `;
   document.getElementById('mwStatsSave').addEventListener('click', async () => {
-    const stats = {};
-    document.querySelectorAll('.mwStatInput').forEach(inp => {
-      const v = parseFloat(inp.value);
-      stats[inp.dataset.label] = isNaN(v) ? 0 : Math.max(0, Math.min(100, v));
-    });
-    snap.stats = stats;
+    snap.stats = readStatsFields('mwStatInput', char, snap);
     await persistState();
     renderAll();
     closeModal();
@@ -4845,9 +5125,9 @@ function openSkillsOnlyForm(char, snap){
   if(blockIfLocked(snap)) return;
   modalContent.innerHTML = `
     <h2>Skills — ${escapeHtml(char.name || 'Unnamed')}</h2>
-    <p class="sub">One per line, as Name | Level (0-100) | Corrupted (yes/no) | Description | Branches from. The last part is optional: name another skill to grow the authority tree from it.</p>
+    <p class="sub">One per line, as Name | Level (0-100) | Corrupted (yes/no) | Description | Branches from. ${escapeHtml(skillsHelp(char, snap))}</p>
     <div class="field">
-      <textarea id="mwSkills" style="min-height:160px;" placeholder="Ashbind | 60 | no | Can silence sound in a small radius">${(snap.skills || []).map(s => `${s.name} | ${s.level || 0} | ${s.corrupted ? 'yes' : 'no'} | ${s.desc || ''}${s.parent ? ' | ' + s.parent : ''}`).join('\n')}</textarea>
+      ${skillsTextareaHtml('mwSkills', snap, 'min-height:160px;')}
     </div>
     <div class="modal-actions">
       <button class="btn ghost" onclick="closeModal()">Cancel</button>
@@ -4855,12 +5135,9 @@ function openSkillsOnlyForm(char, snap){
     </div>
   `;
   document.getElementById('mwSkillsSave').addEventListener('click', async () => {
-    const skills = document.getElementById('mwSkills').value.split('\n').map(s => s.trim()).filter(Boolean).map(line => {
-      const parts = line.split('|').map(p => p.trim());
-      const lvl = parseFloat(parts[1]);
-      const corrupted = /^(yes|true|1)$/i.test(parts[2] || '');
-      return { name: parts[0] || '', level: isNaN(lvl) ? 0 : Math.max(0, Math.min(100, lvl)), corrupted, desc: parts[3] || '', parent: parts[4] || '' };
-    });
+    const skills = parseSkillLines(document.getElementById('mwSkills').value);
+    const problem = skillsProblemNoTier(char, skills, snap.titles || []);
+    if(problem){ showToast(problem, { duration: 7000 }); return; }
     snap.skills = skills;
     await persistState();
     renderAll();
@@ -4923,10 +5200,10 @@ function openArcOnlyForm(char, snap){
   if(blockIfLocked(snap)) return;
   modalContent.innerHTML = `
     <h2>Arc — ${escapeHtml(char.name || 'Unnamed')}${snap.chapterRange ? ' · ' + escapeHtml(snap.chapterRange) : ''}</h2>
-    <p class="sub">${isDivineChar(char) ? 'A god keeps one archetype: changing it here changes every chapter.' : 'Archetype and heading belong to this chapter. The timeline is built from every chapter’s archetype.'}</p>
+    <p class="sub">${hasArchetype(char) ? 'The archetype and heading belong to this chapter. The timeline is built from every chapter’s archetype.' : hasTrueName(char) ? 'Their line is the true name history (edit it in Identity). The heading belongs to this chapter.' : 'The heading belongs to this chapter.'}</p>
     ${archetypeFieldHtml('mwArc', char, snap.archetype)}
     <div class="field">
-      <label>Why the archetype changed here (optional, one line)</label>
+      <label>Why it changed here (optional, one line)</label>
       <input type="text" id="mwArcReason" value="${escapeAttr(snap.archetypeReason || '')}" placeholder="e.g. Yona's betrayal broke him">
     </div>
     ${headingFieldHtml('mwArc', snap)}
@@ -5240,7 +5517,7 @@ function openChecks(){
         await persistState(); renderAll(); closeModal();
         if(i.rule === 'held-twice') sysTab = 'inventory';
         else if(i.rule === 'one-sided') sysTab = 'ties';
-        else if(i.rule === 'divine') sysTab = 'arc';
+        else if(i.rule === 'progression') sysTab = 'chapter';
         else sysTab = 'chapter';
         renderSystemSection();
         document.getElementById('systemSection').scrollIntoView({ behavior: 'smooth', block: 'start' });

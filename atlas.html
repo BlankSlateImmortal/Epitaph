@@ -378,7 +378,7 @@
 <script src="assets/epitaph-library.js?v=3"></script>
 <script src="assets/epitaph-marks.js?v=3"></script>
 <script src="assets/epitaph-states.js?v=1"></script>
-<script src="assets/epitaph-checks.js?v=2"></script>
+<script src="assets/epitaph-checks.js?v=3"></script>
 </head>
 <body>
 
@@ -494,7 +494,7 @@
         <button class="r-back" id="recordBack">← BACK TO INDEX</button>
         <div class="r-id" id="recId">SUBJECT // 001</div>
         <div class="r-name" id="recName">—</div>
-        <div class="r-row"><span>ARCHETYPE</span><span id="recArchetype">—</span></div>
+        <div class="r-row"><span>ARCHETYPE / NAME</span><span id="recArchetype">—</span></div>
         <div class="r-row"><span>CHAPTER</span><span id="recChapter">—</span></div>
         <div class="r-row"><span>PRESENCE</span><span id="recStatus">—</span></div>
         <div class="r-row"><span>LOCATION</span><span id="recLocation">—</span></div>
@@ -1325,7 +1325,13 @@ function renderSubjectRecord(c){
     ['recArchetype', 'recStatus', 'recChapter', 'recCameFrom', 'recObjective', 'recHeading'].forEach(id => set(id, '—'));
     set('recLocation', `Not in the story yet at CH ${selChapter}`);
   } else {
-    set('recArchetype', s.snap.archetype || 'UNASSIGNED');
+    // headline: a Storyborn's archetype, a god's concept, otherwise the current true name (highest title)
+    const top = (s.snap.titles || []).reduce((b, t) => !b || (t.rankTier || 0) >= (b.rankTier || 0) ? t : b, null);
+    const t = c.race || '', lore = c.lore || {};
+    set('recArchetype', !t || t === 'storyborn' ? (s.snap.archetype || 'UNASSIGNED')
+      : (t === 'primordial' || t === 'unbound') ? ((c.authority || 'Beyond the scale').toUpperCase())
+      : (t === 'fallen' || (t === 'voided' && (lore.origin === 'hollow' || lore.origin === 'fallen'))) ? 'UNWRITTEN'
+      : (top ? top.name : 'DORMANT'));
     set('recStatus', PRESENCE_LABEL[s.presence] + (s.presence === 'dead' && s.snap.startChapter < selChapter ? ` (since CH ${s.snap.startChapter})` : ''));
     set('recChapter', (selChapter != null ? `CH ${selChapter}` : 'Active version') + ` · version ${s.snap.chapterRange || 'CH ' + s.snap.startChapter}`);
     set('recObjective', dossierCurrentObjective(c.id));
