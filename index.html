@@ -1152,8 +1152,8 @@
   /* the Power panel can list many rows: scroll inside the record instead of spilling out */
   .rec-detail{ max-height:calc(100% - 104px); overflow-y:auto; scrollbar-width:thin; }
 </style>
-<link rel="stylesheet" href="assets/epitaph-theme.css?v=19">
-<link rel="stylesheet" href="assets/epitaph-editors.css?v=4">
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=20">
+<link rel="stylesheet" href="assets/epitaph-editors.css?v=5">
 <link rel="stylesheet" href="assets/epitaph-book.css?v=4">
 <link rel="stylesheet" href="assets/epitaph-codex-views.css?v=2">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
@@ -2725,7 +2725,7 @@ function recDetailHtml(cmd, char, snap, sortedTitles){
     case 'status': return head('STATUS', it.jp) + row('Marks', markSummary(snap).text, 'None') + row('Marked / bound items', String(markedItems(snap).length)) + row('Type', (RACES.find(r => r.id === char.race) || {}).label || '', 'Unset') + `<div class="rec-marks">${divineStatuses.map(ds => `<span class="${char.divineStatus === ds ? 'on' : ''}">[${char.divineStatus === ds ? '●' : '○'} ${ds.toUpperCase()}]</span>`).join('')}</div>`;
     case 'authority': return head('AUTHORITY', it.jp) + row('Concept', char.authority) + row('Skills', String((snap.skills || []).length));
     case 'faction': return head('FACTION', it.jp) + row('Faction', char.faction, 'Unassigned') + row('Type', (RACES.find(r => r.id === char.race) || {}).label || '', 'Unset');
-    case 'power': return head('POWER', it.jp) + powerRowsHtml(char, snap, row) + `<p class="rec-empty"><a href="powers.html" target="_blank" rel="noopener">How the power systems work ↗</a></p><button type="button" class="slant-btn primary" id="recPowerBtn">Edit power</button>`;
+    case 'power': return head('POWER', it.jp) + `<button type="button" class="slant-btn primary" id="recPowerBtn" style="margin:0 0 8px">Edit power</button>` + powerRowsHtml(char, snap, row) + `<p class="rec-empty"><a href="powers.html" target="_blank" rel="noopener">How the power systems work ↗</a></p>`;
     case 'state': return head('STATE', it.jp) + row('Emotional state', snap.emotionalState);
     case 'portrait': return head('PORTRAIT', it.jp) + `<p class="rec-empty">${snap.systemPortrait || snap.portrait ? 'Uses your uploaded image.' : 'Uses the generated figure.'}</p><button type="button" class="slant-btn" id="recPortraitBtn">Change or reposition</button>`;
     case 'edit': return head('EDIT', it.jp) + `<p class="rec-empty">${hasTrueName(char) ? 'True name history' : 'Titles'}, concept and emotional state. Type, faction and lore are in the profile.</p><button type="button" class="slant-btn primary" id="recEditBtn">Edit identity</button>`;
@@ -6163,7 +6163,7 @@ function restoreLeftPage(){
 </script>
 <script src="assets/epitaph-book.js?v=6"></script>
 
-<script src="assets/epitaph-editors.js?v=4"></script>
+<script src="assets/epitaph-editors.js?v=5"></script>
 <script src="assets/epitaph-book-tools.js?v=1"></script>
 </body>
 </html>
