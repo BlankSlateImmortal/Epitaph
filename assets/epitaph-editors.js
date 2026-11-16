@@ -108,23 +108,23 @@
   // =====================================================================
   // POWER — threat ruler, type ladders, Cut tablets, gifts
   // =====================================================================
-  const THREAT_SHORT = { '1': 'Soul', '2': 'Host', '3': 'Ward', '4': 'City', '5': 'Realm', '5.5': 'Dominion', '6': 'Face', '7': 'Planet', beyond: 'Gods' };
+  const THREAT_SHORT = { '1': 'Soul', '2': 'Host', '3': 'Ward', '4': 'City', '5': 'Realm', '5.5': 'Dominion', '6': 'Face', '7': 'Planet', worlds: 'Worlds', chaos: 'Chaos', beyond: 'Beyond' };
   function lockedThreatLabel(char, v) {
-    if (v === 'beyond') return 'Gods';
+    if (GOD_THREATS.includes(v)) return isGodType(char) ? ({ worlds: 'True gods', chaos: 'Primordials', beyond: 'The four' })[v] : 'Gods only';
     if (v === '7') return 'Godlings';
     if (typeOf(char) === 'person' && v === '6') return 'Cut only';
     return 'Locked';
   }
   function powerHtml(char, snap, d) {
     const fields = powerFieldsFor(char), has = k => fields.includes(k), t = typeOf(char);
-    const allowed = threatOptionsFor(char, { power: d }).map(x => x.v);
+    const allowed = threatOptionsFor(char, { power: d, stats: snap.stats }).map(x => x.v);
     const order = THREAT_LEVELS.map(x => x.v), selIdx = order.indexOf(d.threat);
     const ruler = THREAT_LEVELS.map((x, i) => {
       const ok = allowed.includes(x.v), on = x.v === d.threat;
-      if (!ok) { const need = rankForThreat(x.v), lab = x.v !== 'beyond' && need > statRank(snap) ? 'Needs rank ' + ROMAN[need - 1] : lockedThreatLabel(char, x.v); return `<button type="button" class="ed-cell ${lab === 'Cut only' ? 'cut' : 'ed-hatch'}" disabled><b>${x.v === '5.5' ? '5½' : x.v === 'beyond' ? '∞' : esc(x.v)}</b><small>${esc(lab)}</small></button>`; }
-      return `<button type="button" class="ed-cell${on ? ' on' : (selIdx > -1 && i < selIdx ? ' past' : '')}" data-threat="${attr(x.v)}" aria-pressed="${on}"><b>${x.v === '5.5' ? '5½' : x.v === 'beyond' ? '∞' : esc(x.v)}</b><small>${esc(THREAT_SHORT[x.v])}${on ? ' ◂' : ''}</small></button>`;
+      if (!ok) { const need = rankForThreat(x.v), lab = !GOD_THREATS.includes(x.v) && need > statRank(snap) ? 'Needs rank ' + ROMAN[need - 1] : lockedThreatLabel(char, x.v); return `<button type="button" class="ed-cell ${lab === 'Cut only' ? 'cut' : 'ed-hatch'}" disabled><b>${x.v === '5.5' ? '5½' : x.v === 'worlds' ? '∞' : x.v === 'chaos' ? '∞²' : x.v === 'beyond' ? '∞³' : esc(x.v)}</b><small>${esc(lab)}</small></button>`; }
+      return `<button type="button" class="ed-cell${on ? ' on' : (selIdx > -1 && i < selIdx ? ' past' : '')}" data-threat="${attr(x.v)}" aria-pressed="${on}"><b>${x.v === '5.5' ? '5½' : x.v === 'worlds' ? '∞' : x.v === 'chaos' ? '∞²' : x.v === 'beyond' ? '∞³' : esc(x.v)}</b><small>${esc(THREAT_SHORT[x.v])}${on ? ' ◂' : ''}</small></button>`;
     }).join('');
-    const capText = { storyborn: 'cap for a Storyborn: Face', person: 'cap for a person: Dominion · Face opens with a Cut', voided: 'cap for the Voided: Realm', fallen: 'cap for the Fallen: City', godling: 'cap for a Godling: Planet', twisted: 'one of a kind: uncapped' }[t] || (isGodType(char) ? 'gods are beyond the scale' : '');
+    const capText = { storyborn: 'cap for a Storyborn: Face', person: 'cap for a person: Dominion · Face opens with a Cut', voided: 'cap for the Voided: Realm', fallen: 'cap for the Fallen: City', godling: 'cap for a Godling: Planet', twisted: 'one of a kind: uncapped' }[t] || (isGodType(char) ? 'cap for this god: ' + THREAT_SHORT[godThreatCap(char)] : '');
     const rank = statRank(snap), rankText = isGodType(char) ? '' : `rank ${ROMAN[rank - 1]} (highest stat) caps Threat at ${threatLabel(RANK_THREAT[rank]).replace(/^\S+ · /, '').toLowerCase()}`;
     const ladder = (key, n, labels, cur) => `<div class="pw-mini" style="grid-template-columns:repeat(${n},minmax(0,1fr))">${Array.from({ length: n }, (_, i) => `<button type="button" class="ed-cell${cur === i + 1 ? ' on' : (cur > i + 1 ? ' past' : '')}" data-ladder="${key}" data-n="${i + 1}" style="min-height:58px"><b>${i + 1}</b><small>${esc(labels[i] || '')}</small></button>`).join('')}</div>`;
     const ranks = voidedRanksFor(snap);

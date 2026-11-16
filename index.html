@@ -1181,7 +1181,7 @@
 <script src="assets/epitaph-library.js?v=3"></script>
 <script src="assets/epitaph-marks.js?v=3"></script>
 <script src="assets/epitaph-states.js?v=1"></script>
-<script src="assets/epitaph-checks.js?v=5"></script>
+<script src="assets/epitaph-checks.js?v=6"></script>
 <script src="assets/epitaph-codex-views.js?v=2"></script>
 </head>
 <body>
@@ -1428,7 +1428,9 @@ function factionClass(f){
 const THREAT_LEVELS = [
   { v: '1', label: '1 · Soul' }, { v: '2', label: '2 · Host' }, { v: '3', label: '3 · Ward' },
   { v: '4', label: '4 · City' }, { v: '5', label: '5 · Realm' }, { v: '5.5', label: '5½ · Dominion' },
-  { v: '6', label: '6 · Face' }, { v: '7', label: '7 · Planet' }, { v: 'beyond', label: 'Beyond the scale' }
+  { v: '6', label: '6 · Face' }, { v: '7', label: '7 · Planet' },
+  // above the mortal scale: gods only
+  { v: 'worlds', label: 'Worlds · many planets' }, { v: 'chaos', label: 'Chaos · the observable universe' }, { v: 'beyond', label: 'Beyond · past all of Chaos' }
 ];
 const VOIDED_RANKS = ['Black Hand', 'Clear', 'Switcher'];
 const PLANES = ['Dreams (Moinera)', 'Thought (Gorid)', 'Time (Signalious)'];
@@ -1476,22 +1478,26 @@ function powerFieldsFor(char){
 }
 // Threat caps (vault Scale.md): Storyborn a face; people several regions (a face only with a Cut);
 // Voided a region; Fallen a settlement; Godlings the planet; gods beyond the scale.
-const THREAT_ORDER = ['1', '2', '3', '4', '5', '5.5', '6', '7'];
+const THREAT_ORDER = ['1', '2', '3', '4', '5', '5.5', '6', '7', 'worlds', 'chaos', 'beyond'];
+const GOD_THREATS = ['worlds', 'chaos', 'beyond'];
+// gods scale past the planet: true gods reach Worlds, Primordials all of Chaos, and these four reach beyond it
+const BEYOND_CHAOS = ['moinera', 'lithia', 'antholonious', 'sils'];
+function godThreatCap(c){ const n = String((c && c.name) || '').trim().toLowerCase(); return BEYOND_CHAOS.some(x => n === x || n.startsWith(x + ' ')) ? 'beyond' : typeOf(c) === 'primordial' ? 'chaos' : 'worlds'; }
 function threatOptionsFor(char, snap){
   const t = typeOf(char), p = (snap && snap.power) || {};
-  if(isGodType(char)) return THREAT_LEVELS.filter(x => x.v === 'beyond');
+  if(isGodType(char)) return THREAT_LEVELS.filter(x => GOD_THREATS.includes(x.v) && THREAT_ORDER.indexOf(x.v) <= THREAT_ORDER.indexOf(godThreatCap(char)));
   const typeCap = { storyborn: '6', person: (p.cuts || []).length ? '6' : '5.5', voided: '5', fallen: '4', godling: '7', twisted: '7' }[t];
   // the stat rank is a second ceiling (vault Stats.md): rank 6 reaches a face, 7 the planet (godhood)
   const rCap = RANK_THREAT[statRank(snap)] || '1';
   const caps = [typeCap, rCap].filter(Boolean).map(v => THREAT_ORDER.indexOf(v));
   const cap = Math.min(...caps);
-  return THREAT_LEVELS.filter(x => x.v !== 'beyond' && THREAT_ORDER.indexOf(x.v) <= cap);
+  return THREAT_LEVELS.filter(x => !GOD_THREATS.includes(x.v) && THREAT_ORDER.indexOf(x.v) <= cap);
 }
 // A character's rank = their highest engraved stat (1–7). It caps Threat alongside the type's own cap.
 // Rarity (vault Stats.md): 1 everyone · 2 most adults · 3 ~1 in 100 · 4 ~1 in 10,000 · 5 a few hundred · 6 ~5–6 alive (a face each) · 7 none living (godhood).
 const RANK_THREAT = { 1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7' };
 // the lowest rank whose ceiling reaches a Threat level (5½ needs a Sovereign: rank 6)
-function rankForThreat(v){ return v === '5.5' ? 6 : Math.max(1, Math.ceil(Number(v) || 1)); }
+function rankForThreat(v){ if(GOD_THREATS.includes(v)) return 8; return v === '5.5' ? 6 : Math.max(1, Math.ceil(Number(v) || 1)); }
 function statRank(snap){ const st = (snap && snap.stats) || {}; return Math.max(1, ...STAT_SLOTS.map(k => Math.round(Number(st[k]) || 0))); }
 // Voided rank is a ladder gated by Edge (stat 4): Clear needs 5, Switcher needs 7.
 function voidedRanksFor(snap){
@@ -6227,7 +6233,7 @@ function restoreLeftPage(){
 </script>
 <script src="assets/epitaph-book.js?v=6"></script>
 
-<script src="assets/epitaph-editors.js?v=8"></script>
+<script src="assets/epitaph-editors.js?v=9"></script>
 <script src="assets/epitaph-book-tools.js?v=2"></script>
 </body>
 </html>

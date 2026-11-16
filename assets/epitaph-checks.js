@@ -101,7 +101,8 @@
             const o = r.charId && chars.find(x => x.id === r.charId), ov = o && vAt(o, start(s));
             if (ov && ov.presence === 'dead' && !/dead|late|former|mourn|lost/i.test(r.relation || '')) out.push({ level: 'info', rule: 'lore', ...at(c, s), text: `${name(c)} lists ${o.name} in ${label(s)}, but ${o.name} is dead by then.` });
           });
-          if (p.threat && p.threat !== 'beyond' && c.race !== 'primordial' && c.race !== 'unbound' && typeof statRank === 'function') {
+          if (p.threat && (c.race === 'primordial' || c.race === 'unbound') && typeof godThreatCap === 'function' && THREAT_ORDER.indexOf(p.threat) > THREAT_ORDER.indexOf(godThreatCap(c))) out.push({ level: 'warn', rule: 'lore', ...at(c, s), text: `${name(c)} is set to ${threatLabel(p.threat)}, past what ${c.race === 'primordial' ? 'a Primordial' : 'a true god'} reaches (${threatLabel(godThreatCap(c))}).` });
+          if (p.threat && !GOD_THREATS.includes(p.threat) && c.race !== 'primordial' && c.race !== 'unbound' && typeof statRank === 'function') {
             const rank = statRank(s), need = rankForThreat(p.threat);
             if (need > rank) out.push({ level: 'warn', rule: 'lore', ...at(c, s), text: `${name(c)} is Threat ${p.threat === '5.5' ? '5½' : p.threat} in ${label(s)}, but their highest stat is ${rank}. That reach needs rank ${need}.` });
           }
