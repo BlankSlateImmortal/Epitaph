@@ -1152,7 +1152,7 @@
   /* the Power panel can list many rows: scroll inside the record instead of spilling out */
   .rec-detail{ max-height:calc(100% - 104px); overflow-y:auto; scrollbar-width:thin; }
 </style>
-<link rel="stylesheet" href="assets/epitaph-theme.css?v=18">
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=19">
 <link rel="stylesheet" href="assets/epitaph-editors.css?v=4">
 <link rel="stylesheet" href="assets/epitaph-book.css?v=4">
 <link rel="stylesheet" href="assets/epitaph-codex-views.css?v=2">
@@ -2678,17 +2678,14 @@ function renderSystemSection(){
 }
 
 // ---- Character record: glass panel, figure stepping out of it, Persona-style command menu ----
+// Persona-style: a slanted column off to the right of the figure, each step a little further out.
 const REC_ITEMS = [
-  { k: 'identity', label: 'Identity', jp: '身元', x: 45, y: 13 },
-  { k: 'titles', label: 'Titles', jp: '称号', x: 64, y: 8 },
-  { k: 'status', label: 'Status', jp: '状態', x: 79, y: 26 },
-  { k: 'authority', label: 'Authority', jp: '権能', x: 44, y: 40 },
-  { k: 'faction', label: 'Faction', jp: '勢力', x: 82, y: 49 },
-  { k: 'power', label: 'Power', jp: '力', x: 64, y: 57 },
-  { k: 'state', label: 'State', jp: '感情', x: 46, y: 66 },
-  { k: 'portrait', label: 'Portrait', jp: '肖像', x: 77, y: 73 },
-  { k: 'edit', label: 'Edit', jp: '編集', x: 60, y: 90 }
-];
+  { k: 'identity', label: 'Identity', jp: '身元' }, { k: 'titles', label: 'Titles', jp: '称号' },
+  { k: 'status', label: 'Status', jp: '状態' }, { k: 'authority', label: 'Authority', jp: '権能' },
+  { k: 'faction', label: 'Faction', jp: '勢力' }, { k: 'power', label: 'Power', jp: '力' },
+  { k: 'state', label: 'State', jp: '感情' }, { k: 'portrait', label: 'Portrait', jp: '肖像' },
+  { k: 'edit', label: 'Edit', jp: '編集' }
+].map((it, i) => ({ ...it, x: 70 + i * 1.6, y: 21 + i * 9 }));
 let recOpen = false, recCmd = 'identity';
 function renderCharacterRecord(char, snap, portraitSrc, sPos, recordIndex, statusLabel){
   const isGen = portraitSrc === SILHOUETTE_SVG;
@@ -2712,8 +2709,9 @@ function renderCharacterRecord(char, snap, portraitSrc, sPos, recordIndex, statu
       <svg class="rec-lines" id="recLines" aria-hidden="true"></svg>
       <nav class="rec-menu" id="recMenu" aria-label="Record commands">
         <span class="rec-cmd-title">COMMAND</span>
-        ${REC_ITEMS.map(it => `<button type="button" class="rec-cmd${recCmd === it.k ? ' on' : ''}" data-cmd="${it.k}" style="left:${it.x}%;top:${it.y}%"><span>${it.label}</span><small lang="ja">${it.jp}</small></button>`).join('')}
+        ${REC_ITEMS.map((it, i) => `<button type="button" class="rec-cmd${recCmd === it.k ? ' on' : ''}" data-cmd="${it.k}" style="left:${it.x}%;top:${it.y}%;--i:${i}"><span>${it.label}</span><small lang="ja">${it.jp}</small></button>`).join('')}
       </nav>
+      <button type="button" class="rec-close" id="recClose" aria-label="Close the record">✕ CLOSE</button>
     </section>`;
 }
 function recDetailHtml(cmd, char, snap, sortedTitles){
@@ -2753,7 +2751,7 @@ function wireCharacterRecord(char, snap, sortedTitles){
   function showCmd(k){
     recCmd = k;
     rec.querySelectorAll('.rec-cmd').forEach(b => b.classList.toggle('on', b.dataset.cmd === k));
-    detail.innerHTML = recDetailHtml(k, char, snap, sortedTitles);
+    detail.innerHTML = `<button type="button" class="rec-sheet-x" aria-label="Close this panel">✕ CLOSE</button>` + recDetailHtml(k, char, snap, sortedTitles);
     if(k === 'titles' && sortedTitles.some(t => t.rankTier > 0)) wireTitleChipTooltips(sortedTitles);
     const pb = document.getElementById('recPortraitBtn'); if(pb) pb.addEventListener('click', () => openAvatarImageModal(char, snap));
     const eb = document.getElementById('recEditBtn'); if(eb) eb.addEventListener('click', () => openIdentityForm(char, snap));
@@ -2771,20 +2769,32 @@ function wireCharacterRecord(char, snap, sortedTitles){
     if(anim){
       gsap.fromTo(fig, { y: 0 }, { y: -14, duration: 0.18, yoyo: true, repeat: 1, ease: 'power2.out' });
       if(open){
-        gsap.fromTo(cmds, { opacity: 0, scale: 0.6, rotation: () => gsap.utils.random(-8, 8) }, { opacity: 1, scale: 1, rotation: 0, duration: 0.45, ease: 'back.out(2.2)', stagger: { each: 0.04, from: 'random' } });
+        gsap.fromTo(cmds, { opacity: 0, x: 40 }, { opacity: 1, x: 0, duration: 0.35, ease: 'power3.out', stagger: 0.045 });
         gsap.fromTo('.rec-name-block', { opacity: 1 }, { opacity: 0, x: -20, duration: 0.25 });
       } else {
-        gsap.to(cmds, { opacity: 0, scale: 0.7, duration: 0.2, stagger: 0.02 });
+        gsap.to(cmds, { opacity: 0, x: 30, duration: 0.18, stagger: 0.015 });
         gsap.fromTo('.rec-name-block', { opacity: 0, x: -20 }, { opacity: 1, x: 0, duration: 0.35, delay: 0.1 });
       }
     }
   }
   fig.addEventListener('click', () => setOpen(!recOpen));
+  const phone = () => window.matchMedia('(max-width:760px)').matches;
+  const closeSheet = () => rec.classList.remove('sheet');
+  document.getElementById('recClose').addEventListener('click', () => { closeSheet(); setOpen(false); fig.focus(); });
+  detail.addEventListener('click', e => { if(e.target.closest('.rec-sheet-x')){ closeSheet(); } });
+  // a click anywhere outside the record closes it (and the phone sheet)
+  if(window.__recOutside) document.removeEventListener('click', window.__recOutside, true);
+  window.__recOutside = (e) => {
+    const r = document.getElementById('charRecord'); if(!r || !r.classList.contains('open')) return;
+    if(r.contains(e.target) || e.target.closest('.modal-backdrop, .toast-stack')) return;
+    r.classList.remove('sheet'); setOpen(false);
+  };
+  document.addEventListener('click', window.__recOutside, true);
   rec.querySelectorAll('.rec-cmd').forEach(b => {
-    b.addEventListener('click', () => showCmd(b.dataset.cmd));
+    b.addEventListener('click', () => { showCmd(b.dataset.cmd); if(phone()) rec.classList.add('sheet'); });
     b.addEventListener('mouseenter', () => { if(anim) gsap.fromTo(b, { x: 0 }, { x: 4, duration: 0.15, yoyo: true, repeat: 1 }); });
   });
-  rec.addEventListener('keydown', (e) => { if(e.key === 'Escape' && recOpen){ setOpen(false); fig.focus(); } });
+  rec.addEventListener('keydown', (e) => { if(e.key === 'Escape' && recOpen){ if(rec.classList.contains('sheet')) closeSheet(); else { setOpen(false); fig.focus(); } } });
   window.__recDraw = drawLine;
   if(!window.__recResizeBound){ window.__recResizeBound = true; window.addEventListener('resize', () => window.__recDraw && window.__recDraw()); }
   if(recOpen) showCmd(recCmd);
