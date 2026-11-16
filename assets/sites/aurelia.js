@@ -1156,7 +1156,8 @@ const renderPass = new RenderPass(scene, camera); composer.addPass(renderPass);
 const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.55, 0.4, 0.9); composer.addPass(bloom);
 composer.addPass(new OutputPass());
 
-const state = { theme: 'crt', after: 0, t: 0, showTags: true };
+const state = { theme: 'crt', after: 0, t: 0, showTags: true, style: 'model' };
+let narrRoot = null, narrCells = null, narrKey = '';
 let templeAt = null;
 let fpGroup = null, trapLid = null, hatchLid = null, dustPts = null, dripFx = [], roomLights = [];
 const WALK = {};
@@ -1166,6 +1167,7 @@ let root = null, liftCars = [], scar = null, orin = null, seaMesh = null, magic 
 function build() {
   if (root) { scene.remove(root); root.traverse(o => { o.geometry?.dispose(); [].concat(o.material || []).forEach(m => m.dispose()); }); }
   root = new THREE.Group(); scene.add(root);
+  if (narrRoot) { scene.remove(narrRoot); narrRoot = null; } narrCells = null; narrKey = '';
   fpGroup = new THREE.Group(); fpGroup.visible = fp.on; root.add(fpGroup);
   labels.length = 0;
   const th = THEMES[state.theme];
@@ -1934,6 +1936,77 @@ function build() {
 
 // ------------------------------------------------------------------ labels
 const layer = $('labels');
+
+// ------------------------------------------------------------------ THE NARRATIVE VIEW (same rules as the Hollow Reach): the place as the Scribe sees it
+//   colour = which concept soaks the place: Nothing (Sils) purple, Story (Antholonious) gold, Reality (Lithia) red, Imagination (Moinera) pink
+//   height = the place itself, raised by how much story is written there; black = erased; blank = unwritten
+const NCONCEPTS = { crt: { nothing: '#8a5cff', story: '#f2b53a', reality: '#e0402e', imagination: '#ff7ac8', erased: '#221c2b', blank: '#efece4' },
+  paper: { nothing: '#6a4ad8', story: '#d99a1e', reality: '#c8321f', imagination: '#e65aa8', erased: '#1a1626', blank: '#ffffff' } };
+const NCELLS = 112, NR = 42, NCELL = 2 * NR / NCELLS, NBASE = FLOOR - 0.6;
+function narrHeights() {
+  const N = NCELLS, rt = new THREE.WebGLRenderTarget(N, N, { type: THREE.FloatType, format: THREE.RGBAFormat, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
+  const hs = new THREE.Scene(), cam = new THREE.OrthographicCamera(-NR, NR, NR, -NR, 1, 400);
+  cam.position.set(0, 150, 0); cam.up.set(0, 0, -1); cam.lookAt(0, 0, 0);
+  const hm = new THREE.ShaderMaterial({ side: THREE.DoubleSide,
+    vertexShader: 'varying float vY; void main(){ vec4 wp = modelMatrix * vec4(position,1.0); vY = wp.y; gl_Position = projectionMatrix * viewMatrix * wp; }',
+    fragmentShader: 'varying float vY; void main(){ gl_FragColor = vec4(vY + 100.0, 0.0, 0.0, 1.0); }' });
+  root.updateMatrixWorld(true);
+  const skip = new Set(); fpGroup.traverse(o => skip.add(o));
+  root.traverse(o => {
+    if (!o.isMesh || skip.has(o) || !o.visible) return;
+    const m = [].concat(o.material)[0]; if (!m || m.transparent || m.type === 'ShaderMaterial' && !m.onBeforeCompile) return;
+    const c = new THREE.Mesh(o.geometry, hm); c.matrixAutoUpdate = false; c.matrix.copy(o.matrixWorld); hs.add(c);
+  });
+  const cc = renderer.getClearColor(new THREE.Color()), ca = renderer.getClearAlpha();
+  renderer.setRenderTarget(rt); renderer.setClearColor(0x000000, 0); renderer.clear(); renderer.render(hs, cam);
+  const buf = new Float32Array(N * N * 4); renderer.readRenderTargetPixels(rt, 0, 0, N, N, buf);
+  renderer.setRenderTarget(null); renderer.setClearColor(cc, ca); rt.dispose(); hm.dispose();
+  const cells = [];
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const o = (j * N + i) * 4; if (buf[o] < 1) continue;
+    cells.push({ i, j, x: -NR + (i + 0.5) * NCELL, z: NR - (j + 0.5) * NCELL, y: buf[o] - 100 });
+  }
+  return cells;
+}
+function buildNarr() {
+  const crt = state.theme === 'crt', CC = NCONCEPTS[state.theme], after = state.after === 1;
+  const g = (x, z, cx, cz, r) => Math.exp(-((x - cx) ** 2 + (z - cz) ** 2) / (2 * r * r));
+  // Aurelia is a Storyborn settlement: Story soaks the bluff, strongest at the cathedral and the Archive's monument.
+  // The prairie and the river are Reality. Nera's Voided works (the hatch, the station's beam, the temple below) are Nothing.
+  const at = (re, d) => { for (const l of labels) if (re.test(l.text)) return l.pos; return d; };
+  const HATCH = at(/^Hatch/, V(-6, 0, -26)), SEM = at(/^Seminary/, V(24, 0, 6)), ARC = at(/^The Archive/, V(-6, 0, -8));
+  const conceptAt = (x, z) => {
+    const r = Math.hypot(x, z), city = 1 - THREE.MathUtils.smoothstep(r, PLATEAU_R - 2, PLATEAU_R + 8);
+    const w = { story: 2.4 * city + 2.6 * g(x, z, 0, 0, 5) + 1.2 * g(x, z, 7.8, -4.2, 3.5) + 1.6 * g(x, z, SEM.x, SEM.z, 3.5) + 1.2 * g(x, z, ARC.x, ARC.z, 2.5), reality: 1.4 * (1 - city) + 0.05,
+      nothing: 2.2 * g(x, z, HATCH.x, HATCH.z, 3.2) + 1.6 * g(x, z, HATCH.x, -28.8, 3), imagination: 0.04 };
+    const c = new THREE.Color(0, 0, 0); let ws = 0; for (const k in w) { c.add(new THREE.Color(CC[k]).multiplyScalar(w[k])); ws += w[k]; } return c.multiplyScalar(1 / ws);
+  };
+  const storyAt = (x, z) => 3.6 * g(x, z, 0, 0, 6) + 1.6 * g(x, z, 7.8, -4.2, 3) + 1.2 * g(x, z, ARC.x, ARC.z, 2) + 0.8 * (1 - THREE.MathUtils.smoothstep(Math.hypot(x, z), PLATEAU_R - 3, PLATEAU_R + 2));
+  // after the Calamity: the city is erased (black, flat); Orin, who did it, is unwritten (a blank where he stands)
+  const erasedAt = (x, z) => after && Math.hypot(x, z) < PLATEAU_R + 15 && x > -24;
+  const OC = ERASE.uC.value;
+  const list = narrCells.map(c => {
+    let col, h = c.y - NBASE;
+    if (erasedAt(c.x, c.z)) { const orin = Math.hypot(c.x - OC.x, c.z - OC.y) < 1.1; col = new THREE.Color(orin ? CC.blank : CC.erased); h = orin ? (FLOOR - NBASE) + 1.4 : (FLOOR - NBASE) * 0.55; }
+    else { col = conceptAt(c.x, c.z); h += storyAt(c.x, c.z); }
+    return { ...c, col, h: Math.max(0.1, Math.round(h / 0.2) * 0.2) };
+  });
+  const geo = new THREE.BoxGeometry(NCELL * 0.92, 1, NCELL * 0.92).translate(0, 0.5, 0);
+  const ramp = new Uint8Array([90, 175, 255]), gm = new THREE.DataTexture(ramp, 3, 1, THREE.RedFormat); gm.minFilter = gm.magFilter = THREE.NearestFilter; gm.needsUpdate = true;
+  const mesh = new THREE.InstancedMesh(geo, new THREE.MeshToonMaterial({ color: '#ffffff', gradientMap: gm }), list.length);
+  const m4 = new THREE.Matrix4();
+  list.forEach((c, k) => { m4.makeScale(1, c.h, 1).setPosition(c.x, NBASE, c.z); mesh.setMatrixAt(k, m4); mesh.setColorAt(k, crt ? c.col.clone().multiplyScalar(1.05) : c.col); });
+  const grp = new THREE.Group(); grp.add(mesh); return grp;
+}
+function applyStyle() {
+  const narr = state.style === 'blocks';
+  if (narr) {
+    if (!narrCells) narrCells = narrHeights();
+    const key = state.theme + state.after;
+    if (narrKey !== key) { if (narrRoot) { scene.remove(narrRoot); narrRoot.traverse(o => { o.geometry?.dispose(); o.material?.dispose?.(); }); } narrRoot = buildNarr(); scene.add(narrRoot); narrKey = key; }
+  }
+  root.visible = !narr; if (narrRoot) narrRoot.visible = narr;
+}
 function syncLabels() {
   layer.innerHTML = '';
   for (const l of labels) { const el = document.createElement('div'); el.className = 'lbl' + (l.ember ? ' ember' : ''); el.textContent = l.text; layer.appendChild(el); l.el = el; }
@@ -1965,13 +2038,17 @@ if (new URLSearchParams(location.search).get('view') === 'lab') { camera.positio
 addEventListener('resize', resize);
 
 function note() {
+  if (state.style === 'blocks') { const C = NCONCEPTS[state.theme], sw = c => `<i style="display:inline-block;width:10px;height:10px;margin-right:6px;vertical-align:-1px;background:${c};border:1px solid var(--line)"></i>`;
+    $('note').innerHTML = `<h2>The Narrative view</h2>The place as it is <b>written</b>, the way the Scribe sees it. The same rules hold on every site.<br>${sw(C.nothing)}<b>Nothing</b> (Sils) · ${sw(C.story)}<b>Story</b> (Antholonious)<br>${sw(C.reality)}<b>Reality</b> (Lithia) · ${sw(C.imagination)}<b>Imagination</b> (Moinera)<br><b>Height</b>: how much story is written there. <b>Black</b>: erased. <b>Blank</b>: unwritten.<br>` +
+      (state.after ? 'After: the city is <b>erased</b>, a flat black wound. Where Orin stands there is only a <b>blank</b>: he is unwritten. The prairie is untouched.' : 'Here: Story soaks the bluff, tallest at the Cathedral and the Archive\'s monument. The prairie is Reality. A knot of <b>Nothing</b> sits at the hatch, over the Voided temple Nera works in.'); return; }
   $('note').innerHTML = state.after
     ? '<h2>After the Calamity</h2>Orin\'s seal breaks and Niro takes control for a moment. The city is erased outward from where he stands: <b>everything scrubbed off the map</b>, the ground left <b>completely smooth</b> and dark: a black wound in the middle of the plains. The family is gone. Nera survives.'
     : '<h2>Aurelia · a Storyborn settlement</h2>Kansas, on a low limestone bluff above the Solomon River valley: white stone and gold over the prairie, a city of progress sped up by its Storyborn. Lines of script glow on its walls and streets. <b>The Cathedral of the Storyborn</b> crowns the rings; the ruler lives in a <b>tower with no doors</b>. Orin\'s home, the seminary where he takes the priest\'s test, and the <b>Undercroft</b> under the north slope: Nera\'s lab, <b>raw concrete and void light</b>, where she studies a Storyborn\'s body and reports to the Voided.';
 }
 function seg(id, fn) { $(id).addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; [...$(id).children].forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset.v); }); }
-seg('stateSeg', v => { state.after = +v; note(); if (reduceMotion) state.t = state.after; });
-seg('themeSeg', v => { state.theme = v; document.body.classList.toggle('paper', v === 'paper'); build(); });
+seg('stateSeg', v => { state.after = +v; note(); if (reduceMotion) state.t = state.after; if (state.style === 'blocks') { state.t = state.after; applyStyle(); } });
+seg('styleSeg', v => { state.style = v; applyStyle(); note(); });
+seg('themeSeg', v => { state.theme = v; document.body.classList.toggle('paper', v === 'paper'); build(); applyStyle(); });
 seg('tagSeg', v => { state.showTags = v === 'on'; });
 
 // ------------------------------------------------------------------ first-person walk (test)
@@ -2376,8 +2453,6 @@ addEventListener('keydown', e => {
   if (e.code === 'Escape') exitWalk();
 });
 addEventListener('keyup', e => { held[e.code] = false; });
-$('walkBtn').addEventListener('click', () => fp.on ? exitWalk() : enterWalk());
-$('fpNext').addEventListener('click', nextStop); $('fpPrev').addEventListener('click', prevStop); $('fpExit').addEventListener('click', exitWalk);
 
 function updateWalk(dt, time) {
   // lids: the trapdoor opens as you reach it, the hatch stands open while you're on the temple leg
@@ -2470,5 +2545,6 @@ if (q.get('after') === '1') { state.after = 1; state.t = 1; [...$('stateSeg').ch
 if (q.get('theme') === 'paper') { state.theme = 'paper'; document.body.classList.add('paper'); [...$('themeSeg').children].forEach(x => x.classList.toggle('on', x.dataset.v === 'paper')); }
 build(); note();
 $('boot').remove();
-{ const wk = q.get('walk') || ((location.hash.match(/^#walk-([a-z-]+)/) || [])[1] || '').replace(/-/g, ' '); if (wk) { makeScenes(); const c = fp.chapters.find(c => c.name.toLowerCase() === wk) || fp.chapters[0]; let ki = q.get('at') ? +q.get('at') : c.ki; if (q.get('stop')) ki = fp.scenes[c.si].keys.map((k, i) => k.stop ? i : -1).filter(i => i >= 0)[+q.get('stop')]; enterWalk(c.si, ki, true); } }
+if (q.get('style') === 'blocks') { state.style = 'blocks'; [...$('styleSeg').children].forEach(x => x.classList.toggle('on', x.dataset.v === 'blocks')); applyStyle(); note(); }
+// (walk inside was removed 2026-11-16: the maps stay as models)
 frame();

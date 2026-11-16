@@ -1307,8 +1307,7 @@ addEventListener('keydown', e => { if (!fp.on) return; held[e.code] = true;
   if (['ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
   if (e.code === 'Escape') exitWalk(); });
 addEventListener('keyup', e => { held[e.code] = false; });
-$('walkBtn').addEventListener('click', () => fp.on ? exitWalk() : enterWalk());
-$('fpNext').addEventListener('click', nextStop); $('fpPrev').addEventListener('click', prevStop); $('fpExit').addEventListener('click', exitWalk);
+
 function updateWalk(dt) {
   if (!fp.on) return;
   const sc = fp.sc, mv = (held.KeyW || held.ArrowUp ? 1 : 0) - (held.KeyS || held.ArrowDown ? 1 : 0);
@@ -1359,5 +1358,5 @@ if (state.theme === 'paper') { document.body.classList.add('paper'); [...$('them
 if (state.style === 'blocks') [...$('styleSeg').children].forEach(x => x.classList.toggle('on', x.dataset.v === 'blocks'));
 resize(); build(); note(); applyEnv(0);
 $('boot').remove();
-{ const wk = q.get('walk'); if (wk) { makeScenes(); const c = fp.chapters.find(c => c.name.toLowerCase() === wk) || fp.chapters[0]; let ki = c.ki; if (q.get('stop')) ki = fp.scenes[c.si].keys.map((k, i) => k.stop ? i : -1).filter(i => i >= 0)[+q.get('stop')] ?? c.ki; enterWalk(c.si, ki, true); } }
+// (walk inside was removed 2026-11-16: the maps stay as models)
 frame();
