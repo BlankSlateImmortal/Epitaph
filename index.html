@@ -1527,29 +1527,29 @@ const STAT_HELP = {
 // Every level of every stat has its own name (vault Stats.md, 2026-11-16). 1 → 7; 7 is mastery, not a rank.
 const L_ = s => s.split(' · ');
 const PERSON_LADDERS = {
-  body: L_('Frail · Hale · Hardy · Tempered · Ironblood · Unbroken · Undying'), will: L_('Wavering · Steady · Firm · Resolute · Steel-willed · Unyielding · Unshakeable'),
-  reserve: L_('Faint Pulse · Steady Beat · Strong Heart · Deep Well · Great Heart · Furnace · Unfailing Heart'), control: L_('Clumsy · Practiced · Deft · Precise · Exacting · Flawless · Silent Hand'),
-  weight: L_('Unnoticed · Glimpsed · Noticed · Watched · Followed · Underlined · Written in Bold'), renown: L_('Nobody · Known Face · Local Name · Spoken Of · Renowned · Famed · Legend'),
+  body: L_('Frail · Hale · Hardy · Tempered · Ironblood · Unbroken · Undying'), will: L_('Wavering · Steady · Firm · Determined · Steel-willed · Unyielding · Unshakeable'),
+  reserve: L_('Faint Pulse · Steady Beat · Drumbeat · Deep Well · Hearth · Furnace · Unfailing Heart'), control: L_('Clumsy · Practiced · Deft · Accurate · Exacting · Flawless · Silent Hand'),
+  weight: L_('Unnoticed · Skimmed · Noticed · Watched · Followed · Underlined · Written in Bold'), renown: L_('Nobody · Known Face · Local Name · Spoken Of · Sung Of · Famed · Legend'),
   insight: L_('Unaware · Observant · Perceptive · Discerning · Far-seeing · Unveiled · True Perception')
 };
 const STAT_LADDERS = {
   person: PERSON_LADDERS, '': PERSON_LADDERS,
-  storyborn: { body: L_('Ill-fitting · Settling · Bound · Woven · Fused · Perfect Vessel · Living Altar'), will: L_('Echo · Fading · Divided · Holding · Present · Whole · Unbowed Self'),
+  storyborn: { body: L_('Ill-fitting · Settling · Bound · Woven · Fused · Perfect Fit · Living Altar'), will: L_('Echo · Fading · Divided · Holding · Present · Whole · Unbowed Self'),
     reserve: L_('Trickle · Seep · Stream · Current · Torrent · Deluge · Wellspring'), control: L_('Whim · Sway · Hold · Command · Rule · Sovereignty · Absolute Domain'),
     weight: L_('Unheeded · Heard · Considered · Weighed · Approved · Favoured · Co-Author'), renown: L_('Lone · Handful · Circle · Congregation · Flock · Faith · Creed'),
-    insight: L_('Blank · Fragments · Echoes · Recollection · Remembrance · Recall · Godmemory') },
-  godling: { body: L_('Fragile Shell · Seed-body · Hardened · Tempered · Forged · Bearing Frame · Divine Vessel'), will: L_('Adrift · Tethered · Moored · Grounded · Rooted · Keel · Unmoving Star'),
+    insight: L_('Blank · Flickers · Déjà Vu · Dreams · Recollection · Old Names · Godmemory') },
+  godling: { body: L_('Fragile Shell · Seed-body · Firmed · Annealed · Forged · Bearing Frame · Divine Vessel'), will: L_('Adrift · Tethered · Moored · Grounded · Rooted · Keel · Unmoving Star'),
     reserve: L_('Drop · Cup · Basin · Pool · Lake · Sea · Whole Plane'), control: L_('Static · Hum · Resonance · Harmony · Chord · Concord · One with the Plane'),
-    weight: L_('Still Water · Ripple · Wake · Swell · Wave · Tide · Tsunami'), renown: L_('Unknown · Whisper · Murmur · Rumour · Tale · Myth · Prophecy'),
-    insight: L_('Silence · Faint Voice · Whisper · Murmur · Counsel · Chorus · The Retainer Speaks') },
-  voided: { body: L_('Raw · Hardened · Scarred · Weathered · Ironclad · Unfeeling · Unkillable'), will: L_('Trembling · Steadied · Calm · Still · Frozen · Stasis-bound · Perfect Stillness'),
-    reserve: PERSON_LADDERS.reserve, control: L_('Blunt · Keen · Sharp · Honed · Razor · Clean Cut · Erasure\'s Edge'),
-    weight: L_('Shadow · Veiled · Glimpsed · Seen · Marked · Exposed · Laid Bare'), renown: L_('Nameless · Rumoured · Whispered · Feared · Dreaded · Infamous · Nightmare'),
-    insight: L_('Blind Faith · Doubt · Questions · Glimpses · Understanding · Clear Sight · Val\'s Truth') },
-  fallen: { body: L_('Soft · Tough · Gritty · Hard · Weathered · Iron · Unbreakable'), will: L_('Shaky · Steady · Cool · Bold · Fearless · Iron Nerve · Unflinching'),
-    reserve: L_('Bare Hands · Sidearm · Kit · Armed · Loaded · Arsenal · War Engine'), control: L_('Tinkerer · Mechanic · Engineer · Artificer · Grafter · Magician · Magic-Smith'),
-    weight: L_('Faint Line · Smudge · Mark · Line · Paragraph · Page · Written Whole'), renown: L_('Stray · Hand · Trusted · Respected · Leader · Commander · Banner'),
-    insight: L_('Curious · Student · Scholar · Researcher · Expert · Master · Revelation') },
+    weight: L_('Still Water · Stir · Wake · Swell · Wave · Tide · Tsunami'), renown: L_('Unknown · Gossip · Hearsay · Sightings · Tale · Myth · Prophecy'),
+    insight: L_('Silence · Faint Voice · Hints · Words · Counsel · Chorus · The Retainer Speaks') },
+  voided: { body: L_('Raw · Calloused · Scarred · Numbed · Ironclad · Unfeeling · Unkillable'), will: L_('Trembling · Steadied · Calm · Hushed · Frozen · Stasis-bound · Absolute Zero'),
+    reserve: PERSON_LADDERS.reserve, control: L_('Blunt · Keen · Sharp · Honed · Razor · Hairline · Erasure\'s Touch'),
+    weight: L_('Shadow · Shrouded · Glimpsed · Seen · Marked · Spotlit · Laid Bare'), renown: L_('Nameless · Suspected · Wanted · Feared · Dreaded · Infamous · Nightmare'),
+    insight: L_('Blind Faith · Doubt · Questions · Cracks · Understanding · Seeing Through · Val\'s Truth') },
+  fallen: { body: L_('Soft · Tough · Rugged · Hard · Weathered · Bedrock · Unbreakable'), will: L_('Shaky · Collected · Cool · Bold · Fearless · Cold-blooded · Unflinching'),
+    reserve: L_('Bare Hands · Sidearm · Kit · Armed · Loaded · Armoury · War Engine'), control: L_('Tinkerer · Mechanic · Engineer · Artificer · Grafter · Magician · Magic-Smith'),
+    weight: L_('Faint Stroke · Smudge · Word · Line · Paragraph · Page · Written Whole'), renown: L_('Stray · Hand · Trusted · Respected · Leader · Commander · Banner'),
+    insight: L_('Curious · Student · Scholar · Analyst · Expert · Visionary · Revelation') },
   twisted: { ...PERSON_LADDERS, reserve: L_('Hollow · Cavity · Pit · Chasm · Abyss · Void-deep · Bottomless'), weight: [] }
 };
 // the name for a stat at a level ('' at 0 or where nothing can be engraved)
