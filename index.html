@@ -1092,6 +1092,8 @@
     font-family:'Source Serif 4', serif; font-size:12.5px; padding:6px 8px; border-radius:2px;
   }
   .gen-loc-cascade select:focus{ outline:none; border-color: var(--dust); }
+  /* the Power panel can list many rows: scroll inside the record instead of spilling out */
+  .rec-detail{ max-height:calc(100% - 104px); overflow-y:auto; scrollbar-width:thin; }
 </style>
 <link rel="stylesheet" href="assets/epitaph-theme.css?v=18">
 <link rel="stylesheet" href="assets/epitaph-book.css?v=4">
@@ -1124,6 +1126,7 @@
     <div class="actions">
       <a class="btn ghost" id="atlasLink" href="atlas.html">Atlas</a>
       <a class="btn ghost" id="musesLink" href="muses.html">Muses</a>
+      <a class="btn ghost" id="powersLink" href="powers.html">Powers</a>
       <button class="btn ghost" id="chaptersBtn" type="button">Chapters</button>
       <button class="btn ghost checks-btn" id="checksBtn" type="button">Checks <span class="checks-badge" id="checksBadge" hidden></span></button>
       <details class="nav-menu" id="dataMenu">
@@ -1186,6 +1189,7 @@
           <li><a href="index.html">Character Dossier</a></li>
           <li><a href="atlas.html">World Map</a></li>
           <li><a href="muses.html">Muses</a></li>
+          <li><a href="powers.html">Power systems</a></li>
         </ul>
         <p class="book-hint">Type <b>opl</b> for the Library, <b>ops</b> for the skill tree, <b>help</b> for everything.</p>
       </div>
@@ -1252,19 +1256,69 @@ function showToast(message, opts = {}){
   }, duration);
 }
 
-const FACTIONS = ['Storyborn', 'Voided', 'Humanity', 'Unaffiliated'];
-// Races (separate from faction: Orin and Nera are Storyborn by community, not by race).
-// 'voided' = the Era 0 survivors. The lore may rename them (vault: Exploratory Ideas/Lore/The Two Voided);
-// change the label here and everything else follows. `design` is what Hero art: Auto picks for that race.
+const FACTIONS = ['Storyborn', 'Voided', 'The Fallen', 'Humanity', 'Unaffiliated'];
+// Divine status (gods only): Bound = caught by The Binding (a Storyborn's god), Unbound = escaped it
+// (Val, Syicale, the gods outside), Split = Antholonious only. Schema v7 migrated Fallen → Bound, Outer → Unbound.
+const DIVINE_STATUSES = ['Bound', 'Unbound', 'Split'];
+// Type (stored as char.race; separate from faction: Orin and Nera are Storyborn by community, not by type).
+// Matches the vault's Power Systems notes. `design` is what Hero art: Auto picks; `group` is the
+// EpitaphType design group listed for it (the old 'voided' lettering belongs to the Fallen now).
+// Schema v7 migrated the old race 'voided' (= Era 0 survivors) to 'fallen'.
 const RACES = [
-  { id: 'storyborn', label: 'Storyborn', design: '9A' },
-  { id: 'voided', label: 'Voided (Era 0 survivors)', design: 'H1' }
+  { id: 'storyborn', label: 'Storyborn (bound god in a host)', design: '9A', group: 'storyborn' },
+  { id: 'person', label: 'Era 1-born person', design: '', group: '' },
+  { id: 'godling', label: 'Godling', design: '', group: '' },
+  { id: 'voided', label: 'Voided (the Hollow Reach)', design: '', group: '' },
+  { id: 'fallen', label: 'The Fallen (no dormant name)', design: 'H1', group: 'voided' }
 ];
-const FACTION_ABBR = { 'Storyborn':'STRY', 'Voided':'VOID', 'Humanity':'HUMN', 'Unaffiliated':'UNAF' };
+const FACTION_ABBR = { 'Storyborn':'STRY', 'Voided':'VOID', 'The Fallen':'FALN', 'Humanity':'HUMN', 'Unaffiliated':'UNAF' };
 function factionClass(f){
   if(f === 'Storyborn' || f === 'Humanity') return 'ember';
   if(f === 'Voided') return 'verdigris';
   return 'neutral';
+}
+
+// ---- Power (schema v7, per chapter): see powers.html and the vault's Power Systems notes ----
+// Threat = the one shared scale (how much of the world they can hurt or change in one fight).
+const THREAT_LEVELS = [
+  { v: '1', label: '1 · Yourself' }, { v: '2', label: '2 · A few people' }, { v: '3', label: '3 · A district' },
+  { v: '4', label: '4 · A settlement' }, { v: '5', label: '5 · A region' }, { v: '5.5', label: '5½ · Several regions' },
+  { v: '6', label: '6 · A face' }, { v: '7', label: '7 · The planet' }, { v: 'beyond', label: 'Beyond the scale' }
+];
+const VOIDED_RANKS = ['Black Hand', 'Clear', 'Switcher'];
+const PLANES = ['Dreams (Moinera)', 'Thought (Gorid)', 'Time (Signalious)'];
+function threatLabel(v){ const t = THREAT_LEVELS.find(x => x.v === v); return t ? t.label : ''; }
+function normalizePower(p){
+  p = p && typeof p === 'object' && !Array.isArray(p) ? p : {};
+  const str = v => typeof v === 'string' ? v : '';
+  const lvl = v => { const n = parseInt(v); return isNaN(n) ? 0 : Math.max(0, Math.min(7, n)); };
+  return {
+    threat: THREAT_LEVELS.some(x => x.v === p.threat) ? p.threat : '',
+    name: str(p.name),             // Era 1: the woken dormant name ("true name"), written on the heart
+    rings: str(p.rings),           // Era 1: skills lifted into rings around the heart / heart condition
+    cuts: Array.isArray(p.cuts) ? p.cuts.filter(c => c && typeof c === 'object').map(c => ({ desire: str(c.desire), cost: str(c.cost), boon: str(c.boon) })) : [],
+    gift: str(p.gift),             // a Storyborn's gift (one per Storyborn)
+    domain: lvl(p.domain),         // Storyborn tier 1–7 (= domain size)
+    plane: PLANES.includes(p.plane) ? p.plane : '',
+    planeLevel: lvl(p.planeLevel), // Godling level 1–7
+    planeName: str(p.planeName),   // e.g. "Young Dreamling"
+    voidedRank: VOIDED_RANKS.includes(p.voidedRank) ? p.voidedRank : '',
+    black: str(p.black),           // how far the Black covers them
+    grafts: str(p.grafts),         // Fallen magic-tech: grafted god-words
+    notes: str(p.notes)
+  };
+}
+function powerIsEmpty(p){
+  return !p || (!p.threat && !p.name && !p.rings && !p.cuts.length && !p.gift && !p.domain && !p.plane && !p.planeLevel && !p.planeName && !p.voidedRank && !p.black && !p.grafts && !p.notes);
+}
+// Which power fields a type cares about (gods use the Storyborn set; no type shows everything).
+function powerFieldsFor(char){
+  const r = char && char.race;
+  if(r === 'storyborn' || isDivineChar(char)) return ['threat', 'domain', 'name', 'rings', 'cuts', 'notes'];
+  if(r === 'godling') return ['threat', 'plane', 'planeLevel', 'planeName', 'notes'];
+  if(r === 'voided') return ['threat', 'voidedRank', 'black', 'name', 'rings', 'cuts', 'gift', 'notes'];
+  if(r === 'fallen') return ['threat', 'grafts', 'gift', 'notes'];
+  return ['threat', 'name', 'rings', 'cuts', 'gift', 'notes'];
 }
 function factionLabel(f){
   return FACTION_ABBR[f] || (f || '').toUpperCase();
@@ -1406,7 +1460,9 @@ function migrateCharacter(c){
     // schema v6: the state applies from this chapter number until the next version starts
     startChapter: Number.isInteger(s.startChapter) && s.startChapter > 0 ? s.startChapter : null,
     presence: PRESENCE.includes(s.presence) ? s.presence : 'alive',
-    archetypeReason: typeof s.archetypeReason === 'string' ? s.archetypeReason : ''
+    archetypeReason: typeof s.archetypeReason === 'string' ? s.archetypeReason : '',
+    // schema v7: power under the new systems (threat, heart rings, Cuts, plane, Voided rank, grafts)
+    power: normalizePower(s.power)
   }));
   return result;
 }
@@ -1670,9 +1726,10 @@ const linesOf = (text) => String(text || '').split('\n').map(x => x.trim()).filt
 // ---- One-time state migration to per-chapter state (schema v2) ----
 // Additive only: every replaced value is copied to a legacy* property and the
 // original fields stay in place until the UI stops reading them.
-const STATE_SCHEMA_VERSION = 6;
+const STATE_SCHEMA_VERSION = 7;
 const BACKUP_STORAGE_KEY = 'epitaph-character-profiles-backup-v1';    // before the chapter-state upgrade
 const BACKUP_STORAGE_KEY_V2 = 'epitaph-character-profiles-backup-v2'; // before the atlas-tracker upgrade
+const BACKUP_STORAGE_KEY_V7 = 'epitaph-character-profiles-backup-v7'; // before the power-systems upgrade
 const GEN_NOTE_FIELDS = ['currentAffiliations', 'recentEvents', 'characterDevelopment', 'politicalSocialStatus', 'possessions', 'currentRelationships', 'currentKnowledge', 'knownSecrets'];
 function migrateStateV2(st){
   if((st.schemaVersion || 1) >= 2) return st;
@@ -1806,7 +1863,20 @@ function migrateStateV6(st){
   st.schemaVersion = 6;
   return st;
 }
-function migrateState(st){ return migrateStateV6(migrateStateV5(migrateStateV4(migrateStateV3(migrateStateV2(st))))); }
+// v7: the power-systems lore (vault Power Systems, 2026-11-16). Divine statuses become
+// Bound / Unbound / Split, and the old race 'voided' (the Era 0 survivors) is now 'fallen'.
+// Per-chapter `power` is added by migrateCharacter.
+function migrateStateV7(st){
+  if((st.schemaVersion || 1) >= 7) return st;
+  const STATUS = { Fallen: 'Bound', Outer: 'Unbound' };
+  st.characters.forEach(c => {
+    if(STATUS[c.divineStatus]) c.divineStatus = STATUS[c.divineStatus];
+    if(c.race === 'voided') c.race = 'fallen';
+  });
+  st.schemaVersion = 7;
+  return st;
+}
+function migrateState(st){ return migrateStateV7(migrateStateV6(migrateStateV5(migrateStateV4(migrateStateV3(migrateStateV2(st)))))); }
 
 // ---- Relationships ----
 // Stored as {name, relation, note, charId}. charId links to another Dossier
@@ -1888,7 +1958,7 @@ async function loadState(){
 // browser has no room for a second copy, the migration still runs (it only
 // adds fields) and the user is told to Export a file backup.
 function backupBeforeMigration(raw, fromVersion){
-  const key = fromVersion < 2 ? BACKUP_STORAGE_KEY : BACKUP_STORAGE_KEY_V2;
+  const key = fromVersion < 2 ? BACKUP_STORAGE_KEY : fromVersion < 7 && fromVersion >= 6 ? BACKUP_STORAGE_KEY_V7 : BACKUP_STORAGE_KEY_V2;
   try{
     if(localStorage.getItem(key)) return;
     localStorage.setItem(key, raw);
@@ -2297,7 +2367,7 @@ function renderSystemSection(){
   const sortedTitles = [...snap.titles].sort((a, b) => (b.rankTier || 0) - (a.rankTier || 0));
   const recordIndex = String(state.characters.findIndex(c => c.id === char.id) + 1).padStart(3, '0');
   const statusLabel = markSummary(snap).label;
-  const divineStatuses = ['Fallen', 'Outer', 'Split'];
+  const divineStatuses = DIVINE_STATUSES;
   const chg = changesFor(char, snap);
 
   container.innerHTML = `
@@ -2334,6 +2404,7 @@ const REC_ITEMS = [
   { k: 'status', label: 'Status', jp: '状態', x: 79, y: 26 },
   { k: 'authority', label: 'Authority', jp: '権能', x: 44, y: 40 },
   { k: 'faction', label: 'Faction', jp: '勢力', x: 82, y: 49 },
+  { k: 'power', label: 'Power', jp: '力', x: 64, y: 57 },
   { k: 'state', label: 'State', jp: '感情', x: 46, y: 66 },
   { k: 'portrait', label: 'Portrait', jp: '肖像', x: 77, y: 73 },
   { k: 'edit', label: 'Edit', jp: '編集', x: 60, y: 90 }
@@ -2366,7 +2437,7 @@ function renderCharacterRecord(char, snap, portraitSrc, sPos, recordIndex, statu
     </section>`;
 }
 function recDetailHtml(cmd, char, snap, sortedTitles){
-  const divineStatuses = ['Fallen', 'Outer', 'Split'];
+  const divineStatuses = DIVINE_STATUSES;
   const row = (k, v, empty) => `<div class="rec-row"><span>${k}</span><b class="${v ? '' : 'empty'}">${v ? escapeHtml(v) : (empty || 'Unrecorded')}</b></div>`;
   const head = (t, jp) => `<div class="rec-detail-head"><span>${t}</span><small lang="ja">${jp}</small></div>`;
   const it = REC_ITEMS.find(i => i.k === cmd);
@@ -2375,7 +2446,8 @@ function recDetailHtml(cmd, char, snap, sortedTitles){
     case 'titles': return head('TITLES', it.jp) + (sortedTitles.length ? `<div class="titles-row">${sortedTitles.map((t, idx) => renderTitleChip(t, idx)).join('')}</div>` : `<p class="rec-empty">No titles yet.</p>`);
     case 'status': return head('STATUS', it.jp) + row('Marks', markSummary(snap).text, 'None') + row('Marked / bound items', String(markedItems(snap).length)) + row('God / primordial', char.primordial ? 'Yes' : '', 'No') + `<div class="rec-marks">${divineStatuses.map(ds => `<span class="${char.divineStatus === ds ? 'on' : ''}">[${char.divineStatus === ds ? '●' : '○'} ${ds.toUpperCase()}]</span>`).join('')}</div>`;
     case 'authority': return head('AUTHORITY', it.jp) + row('Concept', char.authority) + row('Skills', String((snap.skills || []).length));
-    case 'faction': return head('FACTION', it.jp) + row('Faction', char.faction, 'Unassigned');
+    case 'faction': return head('FACTION', it.jp) + row('Faction', char.faction, 'Unassigned') + row('Type', (RACES.find(r => r.id === char.race) || {}).label || '', 'Unset');
+    case 'power': return head('POWER', it.jp) + powerRowsHtml(char, snap, row) + `<p class="rec-empty"><a href="powers.html" target="_blank" rel="noopener">How the power systems work ↗</a></p><button type="button" class="slant-btn primary" id="recPowerBtn">Edit power</button>`;
     case 'state': return head('STATE', it.jp) + row('Emotional state', snap.emotionalState);
     case 'portrait': return head('PORTRAIT', it.jp) + `<p class="rec-empty">${snap.systemPortrait || snap.portrait ? 'Uses your uploaded image.' : 'Uses the generated figure.'}</p><button type="button" class="slant-btn" id="recPortraitBtn">Change or reposition</button>`;
     case 'edit': return head('EDIT', it.jp) + `<p class="rec-empty">Name, archetype, faction, divine status, titles and emotional state.</p><button type="button" class="slant-btn primary" id="recEditBtn">Edit identity</button>`;
@@ -2405,6 +2477,7 @@ function wireCharacterRecord(char, snap, sortedTitles){
     if(k === 'titles' && sortedTitles.some(t => t.rankTier > 0)) wireTitleChipTooltips(sortedTitles);
     const pb = document.getElementById('recPortraitBtn'); if(pb) pb.addEventListener('click', () => openAvatarImageModal(char, snap));
     const eb = document.getElementById('recEditBtn'); if(eb) eb.addEventListener('click', () => openIdentityForm(char, snap));
+    const pw = document.getElementById('recPowerBtn'); if(pw) pw.addEventListener('click', () => openPowerForm(char, snap));
     if(anim) gsap.fromTo(detail.children, { x: -14, opacity: 0 }, { x: 0, opacity: 1, duration: 0.3, stagger: 0.04 });
     drawLine();
   }
@@ -2866,6 +2939,7 @@ function buildBrief(char, snap){
       { label: 'Carrying', items: carrying },
       { label: 'Marks', items: (snap.marks || []).map(m => ({ text: markText(m), tag: chg.isNew('marks', m) ? 'new' : '' })) },
       { label: 'Abilities', items: (snap.skills || []).map(sk => ({ text: `${sk.name} LV${levelInfo(sk.level).lvl}${sk.corrupted ? ' (corrupted)' : ''}` })) },
+      { label: 'Power', items: powerIsEmpty(snap.power) ? [] : powerFieldsFor(char).map(k => ({ k, t: powerValueText(k, snap.power) })).filter(x => x.t).map(x => ({ text: `${POWER_FIELD_LABEL[x.k]}: ${x.t}` })) },
       { label: 'Stats', text: STAT_LABELS.map(l => `${l} ${Number((snap.stats || {})[l]) || 0}`).join(' · ') },
       { label: 'Last chapter', text: prev ? (prev.notes || '—') : '— (first chapter)' }
     ]
@@ -3439,7 +3513,7 @@ function openCharacterForm(existingChar){
         </select>
       </div>
       <div class="field">
-        <label>Race</label>
+        <label>Type (power system)</label>
         <select id="fRace">
           <option value="">— none / unknown —</option>
           ${RACES.map(r => `<option value="${r.id}" ${existingChar && existingChar.race === r.id ? 'selected' : ''}>${escapeHtml(r.label)}</option>`).join('')}
@@ -3498,7 +3572,8 @@ function heroArtOptionsHtml(name, current){
       + EpitaphType.DESIGNS.filter(x => x.owner === own).map(x => o(x.key, x.name + ' (flat)')).join('') + '</optgroup>';
   }
   RACES.forEach(r => {
-    h += `<optgroup label="${escapeAttr(r.label)}">` + EpitaphType.DESIGNS.filter(x => x.group === r.id).map(x => o(x.key, x.name)).join('') + '</optgroup>';
+    if(!r.group) return;
+    h += `<optgroup label="${escapeAttr(r.label)}">` + EpitaphType.DESIGNS.filter(x => x.group === r.group).map(x => o(x.key, x.name)).join('') + '</optgroup>';
   });
   return h;
 }
@@ -3948,9 +4023,7 @@ function openSystemForm(char, snap){
         <label>Divine status</label>
         <select id="sysDivineStatus">
           <option value="">— not divine —</option>
-          <option value="Fallen" ${char.divineStatus === 'Fallen' ? 'selected' : ''}>Fallen</option>
-          <option value="Outer" ${char.divineStatus === 'Outer' ? 'selected' : ''}>Outer</option>
-          <option value="Split" ${char.divineStatus === 'Split' ? 'selected' : ''}>Split</option>
+          ${DIVINE_STATUSES.map(ds => `<option value="${ds}" ${char.divineStatus === ds ? 'selected' : ''}>${ds}</option>`).join('')}
         </select>
       </div>
       <div class="field">
@@ -4611,6 +4684,75 @@ function reviewSystemSave(charId, snapId){
   document.getElementById('backToSysEdit').addEventListener('click', () => openSystemForm(char, snap));
 }
 
+// ---- Power (schema v7) ----
+const POWER_FIELD_LABEL = {
+  threat: 'Threat', domain: 'Storyborn tier (domain)', name: 'Name on the heart', rings: 'Heart rings',
+  cuts: 'Cuts', gift: 'Gift', plane: 'Plane', planeLevel: 'Godling level', planeName: 'Plane-name',
+  voidedRank: 'Voided rank', black: 'The Black', grafts: 'Grafts', notes: 'Notes'
+};
+const DOMAIN_SIZES = ['', 'Their own body', 'A few people', 'A district', 'A settlement', 'A region', 'Several regions', 'A whole face'];
+function powerValueText(k, p){
+  switch(k){
+    case 'threat': return threatLabel(p.threat);
+    case 'domain': return p.domain ? `Tier ${p.domain} · ${DOMAIN_SIZES[p.domain]}` : '';
+    case 'planeLevel': return p.planeLevel ? `Level ${p.planeLevel} / 7` : '';
+    case 'cuts': return p.cuts.length ? p.cuts.map(c => [c.desire && 'for ' + c.desire, c.cost && 'gave ' + c.cost, c.boon && '→ ' + c.boon].filter(Boolean).join(', ')).join(' · ') : '';
+    default: return p[k] || '';
+  }
+}
+function powerRowsHtml(char, snap, row){
+  const p = snap.power || normalizePower(null);
+  return powerFieldsFor(char).map(k => row(POWER_FIELD_LABEL[k], powerValueText(k, p), k === 'cuts' ? 'None' : 'Unrecorded')).join('');
+}
+function openPowerForm(char, snap){
+  if(blockIfLocked(snap)) return;
+  const p = snap.power || normalizePower(null);
+  const fields = powerFieldsFor(char);
+  const has = k => fields.includes(k);
+  const typeLabel = (RACES.find(r => r.id === char.race) || {}).label || 'no type set (set it in the character form)';
+  const sel = (id, opts, cur, blank) => `<select id="${id}"><option value="">${blank}</option>${opts.map(o => typeof o === 'string' ? `<option value="${escapeAttr(o)}" ${cur === o ? 'selected' : ''}>${escapeHtml(o)}</option>` : `<option value="${escapeAttr(o.v)}" ${cur === o.v ? 'selected' : ''}>${escapeHtml(o.label)}</option>`).join('')}</select>`;
+  const lvlOpts = n => Array.from({ length: n }, (_, i) => ({ v: String(i + 1), label: String(i + 1) }));
+  const text = (id, label, val, ph) => `<div class="field"><label>${label}</label><input type="text" id="${id}" value="${escapeAttr(val)}" placeholder="${escapeAttr(ph)}"></div>`;
+  modalContent.innerHTML = `
+    <h2>Power — ${escapeHtml(char.name || 'Unnamed')}</h2>
+    <p class="sub">This chapter version only. Type: ${escapeHtml(typeLabel)}. Fields follow the type. <a href="powers.html" target="_blank" rel="noopener">How the systems work ↗</a></p>
+    <div class="field-row">
+      <div class="field"><label>Threat (shared scale)</label>${sel('pwThreat', THREAT_LEVELS, p.threat, '— unrated —')}</div>
+      ${has('domain') ? `<div class="field"><label>Storyborn tier (domain size)</label>${sel('pwDomain', DOMAIN_SIZES.slice(1).map((d, i) => ({ v: String(i + 1), label: `${i + 1} · ${d}` })), p.domain ? String(p.domain) : '', '—')}</div>` : ''}
+      ${has('voidedRank') ? `<div class="field"><label>Voided rank</label>${sel('pwVoidedRank', VOIDED_RANKS, p.voidedRank, '— none —')}</div>` : ''}
+      ${has('plane') ? `<div class="field"><label>Plane</label>${sel('pwPlane', PLANES, p.plane, '— none —')}</div>` : ''}
+      ${has('planeLevel') ? `<div class="field"><label>Godling level</label>${sel('pwPlaneLevel', lvlOpts(7), p.planeLevel ? String(p.planeLevel) : '', '—')}</div>` : ''}
+    </div>
+    ${has('planeName') ? text('pwPlaneName', 'Plane-name (grows with their level)', p.planeName, 'e.g. Young Dreamling') : ''}
+    ${has('black') ? text('pwBlack', 'The Black (how far it covers them)', p.black, 'e.g. Hands only · full Black, face spared') : ''}
+    ${has('name') ? text('pwName', 'Name on the heart (woken dormant name / title)', p.name, 'e.g. Benevolent Thief') : ''}
+    ${has('rings') ? text('pwRings', 'Heart rings (skills lifted off the heart, heart condition)', p.rings, 'e.g. 3 rings lifted; scarred from chaining') : ''}
+    ${has('gift') ? text('pwGift', 'Gift (one per Storyborn)', p.gift, 'e.g. from Gaia: …') : ''}
+    ${has('grafts') ? text('pwGrafts', 'Grafts (god-words grafted onto weapons, armour or skin)', p.grafts, 'e.g. Reality seal on the left gauntlet') : ''}
+    ${has('cuts') ? `<div class="field"><label>Cuts — one per line, as Desire | What they gave | The boon</label><textarea id="pwCuts" placeholder="Protect my sister | my fear | Unbroken Wall">${p.cuts.map(c => `${c.desire} | ${c.cost} | ${c.boon}`).join('\n')}</textarea></div>` : ''}
+    <div class="field"><label>Notes</label><textarea id="pwNotes" placeholder="Anything else about their power this chapter">${escapeHtml(p.notes)}</textarea></div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" id="pwSave">Save</button>
+    </div>
+  `;
+  document.getElementById('pwSave').addEventListener('click', async () => {
+    const v = id => { const el = document.getElementById(id); return el ? el.value.trim() : undefined; };
+    const next = { ...p };
+    next.threat = v('pwThreat') || '';
+    [['pwDomain', 'domain'], ['pwPlaneLevel', 'planeLevel']].forEach(([id, k]) => { const x = v(id); if(x !== undefined) next[k] = parseInt(x) || 0; });
+    [['pwVoidedRank', 'voidedRank'], ['pwPlane', 'plane'], ['pwPlaneName', 'planeName'], ['pwBlack', 'black'], ['pwName', 'name'], ['pwRings', 'rings'], ['pwGift', 'gift'], ['pwGrafts', 'grafts'], ['pwNotes', 'notes']]
+      .forEach(([id, k]) => { const x = v(id); if(x !== undefined) next[k] = x; });
+    const cutsRaw = v('pwCuts');
+    if(cutsRaw !== undefined) next.cuts = cutsRaw.split('\n').map(s => s.trim()).filter(Boolean).map(line => { const [desire = '', cost = '', boon = ''] = line.split('|').map(x => x.trim()); return { desire, cost, boon }; });
+    snap.power = normalizePower(next);
+    await persistState();
+    renderAll();
+    closeModal();
+  });
+  openModal();
+}
+
 // ---- Mini-window quick-edit forms (one system piece at a time) ----
 function openIdentityForm(char, snap){
   if(blockIfLocked(snap)) return;
@@ -4631,9 +4773,7 @@ function openIdentityForm(char, snap){
         <label>Divine status</label>
         <select id="mwDivineStatus">
           <option value="">— not divine —</option>
-          <option value="Fallen" ${char.divineStatus === 'Fallen' ? 'selected' : ''}>Fallen</option>
-          <option value="Outer" ${char.divineStatus === 'Outer' ? 'selected' : ''}>Outer</option>
-          <option value="Split" ${char.divineStatus === 'Split' ? 'selected' : ''}>Split</option>
+          ${DIVINE_STATUSES.map(ds => `<option value="${ds}" ${char.divineStatus === ds ? 'selected' : ''}>${ds}</option>`).join('')}
         </select>
       </div>
       <div class="field">
@@ -5511,6 +5651,7 @@ const LEFT_PAGE_DEFAULT_HTML = `
           <li><a href="index.html">Character Dossier</a></li>
           <li><a href="atlas.html">World Map</a></li>
           <li><a href="muses.html">Muses</a></li>
+          <li><a href="powers.html">Power systems</a></li>
         </ul>
         <p class="book-hint">Type <b>opl</b> for the Library, <b>ops</b> for the skill tree, <b>help</b> for everything.</p>
       `;

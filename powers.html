@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Epitaph — Power Systems</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Noto+Serif+JP:wght@500;900&family=VT323&family=Space+Mono:wght@400;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;1,8..60,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=17">
+<style>
+  /* Read-only rules page. Source of truth: the vault's Exploratory Ideas/Power Systems notes (2026-11-16). */
+  :root{ --ink:#080603; --bone:#f1e6cf; --dust:#b5904f; --line:rgba(255,178,56,.17); --panel:#0e0a05; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; background:var(--ink); color:var(--bone); }
+  body{ font-family:'Source Serif 4',Georgia,serif; font-size:16px; line-height:1.55; min-height:100vh; }
+  .app{ max-width:1180px; margin:0 auto; padding:24px max(16px, 3vw) 80px; }
+  .top-nav{ display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; padding-bottom:16px; border-bottom:1px solid var(--line); }
+  .top-nav .actions{ display:flex; flex-wrap:wrap; gap:6px; }
+  .p-title{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:20px; align-items:end; padding:34px 0 22px; border-bottom:1px solid var(--line); }
+  .p-title h1{ font-family:var(--f-display); font-weight:400; font-size:clamp(52px,9vw,128px); line-height:.82; margin:0; text-transform:uppercase; letter-spacing:.03em; }
+  .p-title p{ font-family:var(--f-mono); font-size:12px; color:var(--dust); max-width:62ch; margin:12px 0 0; }
+  .p-title .jp{ font-family:var(--f-jp); font-weight:900; font-size:44px; writing-mode:vertical-rl; letter-spacing:.2em; color:var(--amber); text-shadow:var(--phosphor-glow); }
+  .toc{ display:flex; flex-wrap:wrap; gap:6px 14px; padding:16px 0; border-bottom:1px solid var(--line); font-family:var(--f-crt); font-size:19px; }
+  .toc a{ color:var(--amber); text-decoration:none; }
+  .toc a:hover, .toc a:focus-visible{ text-decoration:underline; }
+  section{ padding:30px 0 10px; border-bottom:1px solid var(--line); scroll-margin-top:12px; }
+  h2{ font-family:var(--f-display); font-weight:400; font-size:clamp(34px,4.4vw,56px); line-height:.9; margin:0 0 6px; text-transform:uppercase; letter-spacing:.03em; }
+  h2 small{ font-family:var(--f-jp); font-size:.45em; color:var(--amber); margin-left:10px; letter-spacing:.1em; }
+  h3{ font-family:var(--f-crt); font-weight:400; font-size:22px; color:var(--amber); text-shadow:var(--phosphor-glow); margin:22px 0 6px; }
+  .lede{ font-size:18px; max-width:72ch; color:var(--bone); }
+  p, li{ max-width:76ch; }
+  ul{ padding-left:20px; }
+  li{ margin:3px 0; }
+  b{ color:#fff3dc; }
+  .tbl{ overflow-x:auto; margin:10px 0 6px; border:1px solid var(--amber-dim); background:var(--panel); }
+  table{ border-collapse:collapse; width:100%; min-width:560px; font-size:14px; }
+  th, td{ text-align:left; vertical-align:top; padding:8px 10px; border-bottom:1px solid var(--line); }
+  th{ font-family:var(--f-mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--dust); font-weight:700; }
+  td.n{ font-family:var(--f-crt); font-size:19px; color:var(--amber); white-space:nowrap; }
+  tr:last-child td{ border-bottom:0; }
+  .cards{ display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:12px; margin:12px 0; }
+  .card{ border:1px solid var(--amber-dim); background:var(--panel); padding:12px 14px; }
+  .card h4{ font-family:var(--f-crt); font-weight:400; font-size:20px; color:var(--amber); margin:0 0 4px; }
+  .card p{ margin:0; font-size:14px; }
+  pre.chant{ font-family:var(--f-mono); font-size:13px; line-height:1.7; color:var(--bone); background:var(--panel); border-left:3px solid var(--amber); padding:12px 16px; margin:10px 0; white-space:pre-wrap; }
+  .note{ font-family:var(--f-mono); font-size:11px; color:var(--dust); letter-spacing:.06em; }
+  .yes{ color:#9fe3b0; } .no{ color:#e39f9f; }
+  @media (max-width:640px){ .p-title{ grid-template-columns:1fr; } .p-title .jp{ display:none; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top-nav">
+    <div class="brand">EPITAPH // POWER SYSTEMS</div>
+    <div class="actions">
+      <a class="btn ghost" href="index.html">Dossier</a>
+      <a class="btn ghost" href="atlas.html">Atlas</a>
+      <a class="btn ghost" href="muses.html">Muses</a>
+    </div>
+  </div>
+
+  <header class="p-title">
+    <div>
+      <h1>Power Systems</h1>
+      <p>How power works on Epitaph, for every kind of person. Draft canon as of 16 Nov 2026, from the vault's Power Systems notes. Names are placeholders until the naming pass at the end.</p>
+    </div>
+    <span class="jp" lang="ja">権能</span>
+  </header>
+
+  <nav class="toc" aria-label="Sections">
+    <a href="#foundation">Foundation</a><a href="#scale">Scale</a><a href="#storyborn">Storyborn</a><a href="#people">Era 1 people</a><a href="#cut">The Cut</a><a href="#godlings">Godlings</a><a href="#voided">Voided</a><a href="#fallen">The Fallen</a><a href="#stacking">Stacking</a><a href="#balance">Balance</a>
+  </nav>
+
+  <section id="foundation">
+    <h2>Foundation<small lang="ja">基礎</small></h2>
+    <p class="lede">Every power sits on one ladder. Each rung is cut from the rung above, and a lower rung can never fully override a higher one on the same line.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Rung</th><th>What it is</th><th>Who holds it</th></tr></thead>
+      <tbody>
+        <tr><td class="n">Concept</td><td>Nothing, Fate, Imagination, Reality (Chaos above them)</td><td>The Primordials, Grisha</td></tr>
+        <tr><td class="n">Authority</td><td>A major part of a concept: erasure, dreams, thought, omniscience</td><td>Primordials and their gods; Val (erasure, at full rank)</td></tr>
+        <tr><td class="n">Divinity</td><td>One god's share: what that god <i>is</i></td><td>Gods</td></tr>
+        <tr><td class="n">Archetype</td><td>A divinity cut down by The Binding into a script</td><td>Storyborn</td></tr>
+        <tr><td class="n">Gift</td><td>A slice of a Storyborn's power given to a follower</td><td>Followers (one per Storyborn)</td></tr>
+        <tr><td class="n">Skill</td><td>A power the Voice of the World writes into a person</td><td>Era 1-born people</td></tr>
+        <tr><td class="n">Tech</td><td>Power built by hand from the energy in the air</td><td>Anyone who can build or use it</td></tr>
+      </tbody>
+    </table></div>
+    <ul>
+      <li><b>The source:</b> The Binding turned the caught gods' bodies and authorities into the energy that feeds the barriers and the air. Skills and tech run on it. <b>Storyborn don't</b>: they draw up from their concept.</li>
+      <li><b>Nothing is the paint, erasure is the brush.</b> Erasure sits outside the circulation and can touch anything, even souls.</li>
+      <li><b>Marks</b> are bindings a higher being places on someone: blessings and curses.</li>
+      <li><b>The planes</b> (dreams, thought, time) connect only to their Godlings, but they're the ground everyone's experience stands on. Every dream happens on the dream plane.</li>
+    </ul>
+  </section>
+
+  <section id="scale">
+    <h2>The Scale<small lang="ja">尺度</small></h2>
+    <p class="lede">One shared Threat rank answers one question: how much of the world can this person hurt or change in one fight? Each system keeps its own 7 steps underneath.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Threat</th><th>Reach</th><th>Storyborn</th><th>Person (title)</th><th>Godling</th><th>Voided</th></tr></thead>
+      <tbody>
+        <tr><td class="n">1</td><td>Yourself</td><td>Tier 1</td><td>Title 1</td><td>Level 1–2</td><td>Black Hand: hands</td></tr>
+        <tr><td class="n">2</td><td>A few people</td><td>Tier 2</td><td>Title 2</td><td>Level 3</td><td>Black Hand: hands, mastered</td></tr>
+        <tr><td class="n">3</td><td>A district</td><td>Tier 3</td><td>Title 3</td><td>Level 4</td><td>Black Hand: arms to torso</td></tr>
+        <tr><td class="n">4</td><td>A settlement</td><td>Tier 4</td><td>Title 4–5</td><td>Level 5</td><td>Full Black; Clear</td></tr>
+        <tr><td class="n">5</td><td>A region</td><td>Tier 5</td><td>Title 6</td><td>Level 6</td><td>Switcher (cap)</td></tr>
+        <tr><td class="n">5½</td><td>Several regions</td><td>Tier 6</td><td>Title 7 (natural cap)</td><td>—</td><td>—</td></tr>
+        <tr><td class="n">6</td><td>A face</td><td>Tier 7 (cap)</td><td>Only with a Cut</td><td>—</td><td>—</td></tr>
+        <tr><td class="n">7</td><td>The planet</td><td>—</td><td>—</td><td>Level 7 (cap)</td><td>—</td></tr>
+        <tr><td class="n">Beyond</td><td colspan="5">Val, the planes, the Voice of the World, the Primordials</td></tr>
+      </tbody>
+    </table></div>
+    <p>Only Godlings can reach the planet. That's why the Storyborn fear them.</p>
+  </section>
+
+  <section id="storyborn">
+    <h2>Storyborn<small lang="ja">物語生</small></h2>
+    <p class="lede">A god caught by The Binding, living in a human host by possession, merging, or as a parasite. Strong now, chained forever.</p>
+    <ul>
+      <li><b>Archetype:</b> tied to one concept. Crossing into another concept costs existence. The archetype can be upgraded, with the Voice's approval.</li>
+      <li><b>Tier = domain size</b>, and the domain follows them. Abilities work only inside it. Every new Storyborn starts at tier 1.</li>
+      <li><b>Drift:</b> the higher they climb, the more the concept replaces their personality.</li>
+      <li><b>Gifts:</b> one per follower, per Storyborn. Followers' deeds can upgrade the archetype.</li>
+      <li><b>Costs:</b> story (acting against the archetype) and existence.</li>
+      <li><b>The look:</b> the archetype symbol on the back, with rings around it and glyphs flowing along the body. They can show or hide it. The rings show which ability is active: they <b>rotate</b> for small ones and <b>lift off the back into a halo</b> for big ones. Shifting glyphs mean an innate passive. When they run low, the rings and glyphs slow down.</li>
+      <li><b>Skills:</b> merge and parasite hosts keep their skills, but using one outside the concept costs story. Possession hosts lose them, because the person is gone.</li>
+    </ul>
+    <div class="tbl"><table>
+      <thead><tr><th>Tier</th><th>Domain</th><th>What changes</th></tr></thead>
+      <tbody>
+        <tr><td class="n">1</td><td>Their own body</td><td>Fresh in a host; the archetype barely shows</td></tr>
+        <tr><td class="n">2</td><td>A few people</td><td>Marks spread; first gifts</td></tr>
+        <tr><td class="n">3</td><td>A district</td><td>The concept colours their personality</td></tr>
+        <tr><td class="n">4</td><td>A settlement</td><td>Several authorities within the concept</td></tr>
+        <tr><td class="n">5</td><td>A region</td><td>Old goals start slipping</td></tr>
+        <tr><td class="n">6</td><td>Several regions</td><td>Barely themselves; mostly concept</td></tr>
+        <tr><td class="n">7</td><td>A whole face</td><td>Nearly a Primordial in temperament</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section id="people">
+    <h2>Era 1 People<small lang="ja">名</small></h2>
+    <p class="lede">Everyone born in Era 1 carries a dormant name. When the Voice of the World wakes it, their core skill wakes with it.</p>
+    <ul>
+      <li><b>Who wakes:</b> anyone can, but the Voice only wakes people it finds <b>interesting</b>, by its own taste: freedom, bullies and the people who stand up to them, the weak growing strong, tragedies. Most people don't know this is the rule.</li>
+      <li><b>The name is the title.</b> It refines with mastery (Thief → Benevolent Thief → … tier 7). Each refinement rewrites the name on the heart, and it hurts badly.</li>
+      <li><b>Skills:</b> a core, up to 7 <b>branches</b> (one per title tier), and <b>derivatives</b> that grow deep through heavy use, capped by the title tier. No two people share a skill.</li>
+      <li><b>Invoking:</b> everyone has their own style. Some recite the story behind the skill, some use hand signs, and the closest to their own story do it silently.</li>
+    </ul>
+    <h3>The heart</h3>
+    <div class="cards">
+      <div class="card"><h4>The tank</h4><p>The heart holds the energy, breathed in from the air. Spending makes it race; resting refills it.</p></div>
+      <div class="card"><h4>The rings</h4><p>Only the name is written on the heart. With training, skills are lifted off it into invisible rings around it, which hold each skill's story. Only the user, and rare seers, can perceive them.</p></div>
+      <div class="card"><h4>The gears</h4><p>Skill rings spin fast. The name turns very slowly, but every use nudges it. Chaining skills spins the name up, and the friction and heat damage the heart.</p></div>
+      <div class="card"><h4>The cost</h4><p>Cores and branches cost energy: overuse leaves you drained and shaking. Pushing a derivative past your tier also strains the heart. <span class="note">(subject to change)</span></p></div>
+    </div>
+  </section>
+
+  <section id="cut">
+    <h2>The Cut<small lang="ja">刻</small></h2>
+    <p class="lede">The only way to pay for more power. You give the world a piece of yourself, and it carves a permanent boon into you.</p>
+    <pre class="chant">Here lies what I was.
+I give it: my fear, my mother's face.
+I bind it, I bury it, I nail it down.
+Carve it, World, and read it back to me.
+Let the grave of gods hold one line more.
+Epitaph.</pre>
+    <ul>
+      <li>At <b>"Epitaph"</b> the Voice speaks from inside them. The exchange takes a fraction of a second, and <b>only they feel it</b>. Others sense the energy afterwards.</li>
+      <li><b>The Voice asks what they desire</b>, then decides whether the offering is enough. They can't refuse what it asks for.</li>
+      <li><b>Cost:</b> an emotion, a memory or bond, or a piece of yourself or your existence. Whatever is taken rots or withers into energy, and the world feeds on it.</li>
+      <li><b>Gain:</b> the Cut itself, a named boon that always works but reaches full strength only when they act on the desire they spoke. <span class="note">(subject to change)</span></li>
+      <li><b>Every Cut also carves the heart.</b> People can die right after receiving the boon.</li>
+      <li><b>Storyborn rarely Cut.</b> They're too proud. The Voice narrows their archetype, takes a piece of them, and pulls them in among the gods sealed in the books, the bitter ones who live inside the Voice.</li>
+      <li>Anyone with a dormant name can make a Cut. The Fallen can't.</li>
+    </ul>
+  </section>
+
+  <section id="godlings">
+    <h2>Godlings<small lang="ja">神子</small></h2>
+    <p class="lede">3 to 6 Era 1-born people, one or two per plane, claimed by it at birth. Their dormant name is replaced by the plane's ("Young Dreamling"), and that name grows with them. Weak now, but free, everywhere, and the only real path to godhood.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Level</th><th>What they can do</th><th>Risk</th></tr></thead>
+      <tbody>
+        <tr><td class="n">1</td><td>Nothing yet. Noticed only because they never wake skills</td><td>—</td></tr>
+        <tr><td class="n">2</td><td>The plane speaks to them. Small effects on themselves</td><td>The plane's toll begins</td></tr>
+        <tr><td class="n">3</td><td>Small acts on others, anywhere on the planet</td><td>Ripples give them away</td></tr>
+        <tr><td class="n">4</td><td>Move freely inside the plane. Dream travel opens</td><td>The toll deepens</td></tr>
+        <tr><td class="n">5</td><td>Pull the plane into the physical world</td><td>Overreach burns the body</td></tr>
+        <tr><td class="n">6</td><td>The plane at scale; can pull part of it through</td><td>Ripples felt across a face</td></tr>
+        <tr><td class="n">7</td><td>Body fully forged; can pull all of the plane</td><td>The retainer can move in</td></tr>
+      </tbody>
+    </table></div>
+    <ul>
+      <li><b>Three endings at level 7:</b> worn by the retainer, cut off by the plane, or handed the plane, which then vanishes and leaves them its god.</li>
+      <li><b>Descension:</b> the god comes to earth through the Godling, at an immense strain on their body. Bringing part of the plane along <b>overclocks</b> them (more energy than the body can hold), which will probably kill them. From level 6 it barely strains them.</li>
+      <li><b>Dream travel:</b> a Dreamling can only come out where someone is dreaming, and <b>that dreamer dies</b>, because the dream is made real through their body.</li>
+      <li><b>Bringing others into a plane</b> is easy at level 6–7, but they need a strong sense of self and true name, or the plane sweeps them away.</li>
+      <li>No skills, no gifts, no Cuts. They bargain with their plane instead. They can use tech.</li>
+    </ul>
+  </section>
+
+  <section id="voided">
+    <h2>The Voided<small lang="ja">虚</small></h2>
+    <p class="lede">The people of the Hollow Reach, who follow Val. Their warriors carry his blessing: a binding mark, a light piece of Val himself, that lets them hold erasure in stasis. They are the weapon: close-combat assassins, not frontline soldiers.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Rank</th><th>What it takes</th></tr></thead>
+      <tbody>
+        <tr><td class="n">Black Hand</td><td>Erasure from the hands up to the full body (eyes, ears and mouth spared). Must master full Black</td></tr>
+        <tr><td class="n">Clear</td><td>Only a master of full Black can turn fully transparent. A select few</td></tr>
+        <tr><td class="n">Switcher</td><td>Masters both, and the change between them</td></tr>
+      </tbody>
+    </table></div>
+    <ul>
+      <li><b>Val holds the final say</b> over every blessing. Only he can lift the lid completely and turn a Voided into a <b>bomb</b> that erases a settlement. If Val dies, every blessed Voided explodes.</li>
+      <li><b>The Black covers only the surface.</b> Weapons that touch it are erased. While it's up, energy can't reach the heart, so skills don't grow, and the Voice can't see them. Skilled Voided live double lives.</li>
+      <li><b>What beats them:</b> anything that doesn't touch. Heat, cold, pressure, suffocation, falls, poison in the air. Also the spared face, and breaking their focus.</li>
+      <li>Borrowed erasure counts at the blessing's rank. Only Val holds erasure at full rank.</li>
+      <li>Children born in the Hollow Reach have no dormant name.</li>
+    </ul>
+  </section>
+
+  <section id="fallen">
+    <h2>The Fallen<small lang="ja">堕</small></h2>
+    <p class="lede">The survivors with no dormant name. The Voice can't read them, so the Storyborn can't sense them. Their power is tech, numbers, and later magic-tech.</p>
+    <ul>
+      <li><b>Tech</b> runs on the energy in the air. It can be copied, shared and built in bulk, and it costs no heart strain. With tanks and missiles it reaches a settlement.</li>
+      <li><b>Grafting (magic-tech):</b> Nera learns to activate the god-words on Storyborn bodies and graft them onto gauntlets, weapons, armour or skin, powered like the Voided stations. A graft works on contact or through the thing it's engraved into: a reality seal can turn ground to mud or a person to stone, and the same seal on a bullet works on impact. What's possible depends on what that Storyborn controlled.</li>
+      <li><b>The price:</b> a grafted Fallen carries part of a dead deity and stops being invisible. Artificial dormant names can be made, but they never fit the wearer properly.</li>
+      <li><b>Two concepts in one graft</b> collide and explode, killing the wearer. Chaos appears for a moment and offers something for the offering, like a ritual. Each bomb needs words from two Storyborn corpses, Chaos twists what it's asked for, and the blast tops out at a settlement.</li>
+    </ul>
+  </section>
+
+  <section id="stacking">
+    <h2>Stacking<small lang="ja">重ね</small></h2>
+    <p class="lede">Who can hold what at once.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Who</th><th>Skills</th><th>Cut</th><th>Gift</th><th>Dye</th><th>Tech</th><th>Plane</th></tr></thead>
+      <tbody>
+        <tr><td>Era 1-born person</td><td class="yes">if woken</td><td class="yes">yes</td><td class="yes">yes</td><td class="yes">by joining the Voided</td><td class="yes">yes</td><td class="no">no</td></tr>
+        <tr><td>Fallen</td><td class="no">no</td><td class="no">no</td><td class="yes">yes</td><td class="yes">yes (no skills)</td><td class="yes">yes</td><td class="no">no</td></tr>
+        <tr><td>Voided (Era 1-born)</td><td class="yes">yes, Black down</td><td class="yes">yes</td><td class="yes">only from an eccentric Storyborn</td><td class="yes">yes</td><td>stations only, no weapons</td><td class="no">no</td></tr>
+        <tr><td>Storyborn</td><td class="yes">merge / parasite hosts</td><td class="yes">rare, brutal</td><td>they give, not take</td><td class="no">no: it would cripple them</td><td>?</td><td class="no">no</td></tr>
+        <tr><td>Godling</td><td class="no">no</td><td class="no">no</td><td class="no">no</td><td class="no">no: the plane rejects it</td><td class="yes">yes</td><td class="yes">yes</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section id="balance">
+    <h2>Balance<small lang="ja">均衡</small></h2>
+    <div class="cards">
+      <div class="card"><h4>Storyborn beat people</h4><p>A higher ceiling, without needing a Cut.</p></div>
+      <div class="card"><h4>Fallen beat Storyborn</h4><p>By surprise. They can't be sensed, and grafts can target one concept.</p></div>
+      <div class="card"><h4>Voided beat Fallen and people</h4><p>Up close. Bullets and blades are erased by the Black.</p></div>
+      <div class="card"><h4>Range beats Voided</h4><p>Heat, pressure, air, falls, and anything that doesn't touch.</p></div>
+      <div class="card"><h4>Godlings outgrow everyone</h4><p>If they survive the years when they're weak.</p></div>
+    </div>
+    <h3>Three kinds of ruin, three scars</h3>
+    <ul>
+      <li><b>Nothing</b> (Orin's Calamity) leaves smooth dark ground.</li>
+      <li><b>Erasure</b> (a Voided bomb) leaves clean, precise holes.</li>
+      <li><b>Chaos</b> (a two-concept graft) leaves land twisted and wrong.</li>
+    </ul>
+  </section>
+</div>
+</body>
+</html>
