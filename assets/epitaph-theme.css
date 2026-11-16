@@ -464,14 +464,45 @@ input, select, textarea{ accent-color:var(--amber); }
 .rec-marks{ display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; font-family:var(--f-crt); font-size:17px; color:var(--amber-dim); }
 .rec-marks .on{ color:var(--amber); text-shadow:var(--phosphor-glow); }
 .rec-detail .titles-row{ display:flex; flex-direction:column; gap:6px; }
+/* Persona-style command column + clear ways to close (2026-11-16) */
+.rec-cmd{ transform:translate(-50%,-50%) rotate(calc(-6deg + var(--i, 0) * 0.9deg)); }
+.rec-cmd span{ transform:skewX(-14deg); min-width:150px; text-align:left; padding:7px 22px; font-size:14px; box-shadow:4px 4px 0 rgba(0,0,0,.5), 0 0 0 1px rgba(255,178,56,.12); }
+.rec-cmd.on{ z-index:2; }
+.rec-cmd.on span{ background:var(--bone); color:var(--ink); font-size:17px; padding:9px 28px; box-shadow:6px 6px 0 var(--ember); }
+.rec-cmd-title{ left:auto; right:26px; top:50px; padding-right:0; padding-left:60px; }
+.rec.open .rec-top span:last-child{ opacity:0; }
+.rec-name-block{ transition:opacity .2s; }
+.rec.open .rec-name-block{ opacity:0 !important; }
+.rec-close{ position:absolute; z-index:6; right:22px; top:12px; display:none; min-height:40px; padding:0 14px; border:1px solid var(--amber-dim); background:rgba(5,4,3,.85); color:var(--amber); font-family:var(--f-crt); font-size:18px; letter-spacing:.08em; cursor:pointer; }
+.rec.open .rec-close{ display:block; }
+.rec-close:hover, .rec-close:focus-visible{ background:var(--amber); color:var(--ink); outline:none; }
+.rec-sheet-x{ display:none; }
+.rec-vert{ transition:opacity .2s; }
+.rec.open .rec-vert{ opacity:0; }
 @media (max-width:760px){
-  .rec{ height:auto; min-height:560px; }
-  .rec-figure{ height:62%; top:-60px; bottom:auto; }
-  .rec-name-block{ max-width:none; right:26px; }
-  .rec-detail{ width:auto; right:26px; top:auto; bottom:24px; }
-  .rec-cmd span{ font-size:11px; padding:4px 10px; letter-spacing:.14em; }
+  .rec{ height:auto; min-height:0; margin-top:70px; }
+  .rec{ isolation:auto; }
+  .rec-glass{ position:relative; inset:auto; min-height:470px; z-index:auto; -webkit-backdrop-filter:none; backdrop-filter:none; background:linear-gradient(135deg, rgba(255,230,190,.08), rgba(11,7,3,.6)); }
   .rec-bg span{ font-size:200px; }
+  .rec-figure{ height:auto; width:72%; top:-50px; bottom:auto; aspect-ratio:4/5; }
+  .rec-name-block{ max-width:none; right:26px; }
+  .rec-lines{ display:none; }
+  .rec-cmd-title{ display:none; }
+  /* commands: a grid under the card */
+  .rec-menu{ position:relative; inset:auto; display:none; grid-template-columns:repeat(3, minmax(0,1fr)); gap:6px; padding:10px 0 0; }
+  .rec.open .rec-menu{ display:grid; }
+  .rec-cmd{ position:static !important; transform:none !important; width:100%; }
+  .rec-cmd span, .rec-cmd.on span{ transform:none; min-width:0; width:100%; text-align:center; font-size:12px; letter-spacing:.12em; padding:10px 4px; box-shadow:none; border:1px solid var(--amber-dim); }
+  .rec-cmd.on span{ box-shadow:0 0 0 2px var(--ember); }
+  .rec-cmd small{ display:none !important; }
+  .rec.open .rec-name-block{ opacity:1 !important; transform:none !important; }
+  .rec-close{ right:14px; top:14px; }
+  /* details: a bottom sheet with a big close */
+  .rec-detail, .rec.open .rec-detail{ position:fixed; left:0; right:0; top:auto; bottom:0; width:auto; max-height:62vh; overflow-y:auto; z-index:160; background:#0b0805; border-top:2px solid var(--amber); padding:14px 16px 28px; box-shadow:0 -18px 40px rgba(0,0,0,.7); opacity:0; pointer-events:none; transform:translateY(100%); transition:transform .25s ease, opacity .2s; }
+  .rec.open.sheet .rec-detail{ opacity:1; pointer-events:auto; transform:none; }
+  .rec-sheet-x{ display:block; width:100%; min-height:44px; margin-bottom:10px; border:1px solid var(--amber-dim); background:transparent; color:var(--amber); font-family:var(--f-crt); font-size:19px; letter-spacing:.1em; cursor:pointer; }
 }
+
 
 /* =====================================================================
    SUBJECT SELECT — prominent cards, figures peek out of the top
