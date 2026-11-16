@@ -1114,7 +1114,7 @@
   .rec-detail{ max-height:calc(100% - 104px); overflow-y:auto; scrollbar-width:thin; }
 </style>
 <link rel="stylesheet" href="assets/epitaph-theme.css?v=18">
-<link rel="stylesheet" href="assets/epitaph-editors.css?v=1">
+<link rel="stylesheet" href="assets/epitaph-editors.css?v=2">
 <link rel="stylesheet" href="assets/epitaph-book.css?v=4">
 <link rel="stylesheet" href="assets/epitaph-codex-views.css?v=2">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
@@ -4038,7 +4038,9 @@ function carryForwardState(prev){
     portraitStyle: prev.portraitStyle || '',
     portraitSeed: prev.portraitSeed || '',
     figure2d: normalizeFigure2d(prev.figure2d),
-    heroArt: normalizeHeroArt(prev.heroArt, prev.figure2d)
+    heroArt: normalizeHeroArt(prev.heroArt, prev.figure2d),
+    // power (Threat, Cuts, gifts, ranks…) carries forward like every other chapter field
+    power: normalizePower(copy(prev.power))
   };
 }
 
@@ -6068,6 +6070,6 @@ function restoreLeftPage(){
 </script>
 <script src="assets/epitaph-book.js?v=6"></script>
 
-<script src="assets/epitaph-editors.js?v=1"></script>
+<script src="assets/epitaph-editors.js?v=2"></script>
 </body>
 </html>

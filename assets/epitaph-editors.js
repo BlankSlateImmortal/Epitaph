@@ -1,6 +1,7 @@
 /* Epitaph — the wide editors, designed on the canvas "Epitaph Edit Menus" (2026-11-16):
  *   Stats (seven pip ladders) · Power (threat ruler + Cut tablets) · Skills (the forge: glyph centre,
  *   seven spokes, derivatives straight out) · Inventory (the relic bench) · New profile (type first).
+ *   …and the chapter editors: Chapter, Marks, Ties, Arc, Knowledge, New chapter.
  * Loaded after index.html's main script. It replaces these index functions by name, so every button
  * that already opens them now opens the new editors: openStatsOnlyForm, openPowerForm,
  * openSkillsOnlyForm, openInventoryOnlyForm, openCharacterForm (+ renderInventoryEditor and
@@ -679,4 +680,281 @@
     wireCharacterExtras(existingChar);
     openModal({ wide: true });
   };
+
+  // =====================================================================
+  // Shared bits for the chapter-level editors
+  // =====================================================================
+  function presencePlates(prefix, presence) {
+    return `<select id="${prefix}Presence" class="pf-hidden" aria-hidden="true" tabindex="-1">${PRESENCE.map(p => `<option value="${p}"${presence === p ? ' selected' : ''}>${PRESENCE_LABEL[p]}</option>`).join('')}</select>
+      <div class="ed-chips" data-presence-for="${prefix}">${PRESENCE.map(p => `<button type="button" class="ed-chip${presence === p ? ' on' : ''}${p === 'dead' ? ' dead' : ''}" data-presence="${p}" aria-pressed="${presence === p}">${p === 'dead' ? '† ' : p === 'missing' ? '? ' : ''}${esc(PRESENCE_LABEL[p].toUpperCase())}</button>`).join('')}</div>`;
+  }
+  function wirePresence(prefix) {
+    const sel = document.getElementById(prefix + 'Presence');
+    modalContent.querySelectorAll(`[data-presence-for="${prefix}"] [data-presence]`).forEach(b => b.addEventListener('click', () => {
+      sel.value = b.dataset.presence;
+      modalContent.querySelectorAll(`[data-presence-for="${prefix}"] [data-presence]`).forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', x === b); });
+    }));
+  }
+  function startField(prefix, startChapter) {
+    return `<label class="ed-field">Starts at chapter<input type="number" inputmode="numeric" min="1" step="1" id="${prefix}Start" list="chapterNumbers" value="${Number.isInteger(startChapter) ? startChapter : ''}" placeholder="e.g. 6"></label>
+      <datalist id="chapterNumbers">${chapterList().map(c => `<option value="${c.number}">${esc(c.title || '')}</option>`).join('')}</datalist>
+      <p class="gen-empty-hint" id="${prefix}StartHint" style="margin:4px 0 0"></p>`;
+  }
+  // a list of one-line entries edited as rows (condition, knowledge)
+  function rowList(key, items, ph) {
+    return `<div class="rl" data-rl="${key}">${items.map((t, i) => `<div class="rl-row"><span class="rl-n">${String(i + 1).padStart(2, '0')}</span><input type="text" data-rl-item="${key}" value="${attr(t)}" placeholder="${attr(ph)}" aria-label="${attr(ph)} ${i + 1}"><button type="button" class="rl-x" data-rl-x="${key}:${i}" aria-label="Remove">×</button></div>`).join('')}
+      <button type="button" class="ed-chip rl-add" data-rl-add="${key}">+ ADD</button></div>`;
+  }
+  function readRows(key) { return [...modalContent.querySelectorAll(`[data-rl-item="${key}"]`)].map(i => i.value.trim()); }
+  function wireRows(key, list, redraw) {
+    modalContent.querySelectorAll(`[data-rl-add="${key}"]`).forEach(b => b.addEventListener('click', () => { list.splice(0, list.length, ...readRows(key)); list.push(''); redraw(); const ins = modalContent.querySelectorAll(`[data-rl-item="${key}"]`); if (ins.length) ins[ins.length - 1].focus(); }));
+    modalContent.querySelectorAll(`[data-rl-x^="${key}:"]`).forEach(b => b.addEventListener('click', () => { list.splice(0, list.length, ...readRows(key)); list.splice(+b.dataset.rlX.split(':')[1], 1); redraw(); }));
+  }
+
+  // =====================================================================
+  // CHAPTER — where they are, what they want, how they are
+  // =====================================================================
+  openChapterStateForm = function (char, snap) {
+    if (blockIfLocked(snap)) return;
+    const cond = (snap.condition || []).slice();
+    let draft = { objective: snap.objective || '', notes: snap.notes || '' };
+    const draw = () => {
+      const keepLoc = readLocationPicker('cs');
+      modalContent.innerHTML = head('EDIT CHAPTER', subFor(char, snap), 'csSave2', 'Save chapter') + `<div class="ed-cols">
+        <div class="ed-side"><div><div class="ed-kicker">Page 01 · chapter</div><div class="ed-big">${esc(snap.chapterRange || 'This chapter')}</div><p class="ed-copy">Where they are, what they want, and how they are. Changes only this chapter.</p></div>
+          <div class="ed-box">${startField('cs', snap.startChapter)}<div class="ed-field">Presence${presencePlates('cs', snap.presence)}</div></div></div>
+        <div class="ed-main" style="display:flex;flex-direction:column;gap:14px">
+          <label class="ed-field">Wants — what they want right now<input type="text" id="csObjective2" value="${attr(draft.objective)}" placeholder="e.g. Find the missing relic" style="font-size:18px"></label>
+          <div class="ed-field">Where — this chapter's location${locationPickerHtml('cs')}</div>
+          <div class="ed-box thin"><div class="ed-kicker">Condition — injuries, physical and mental state</div>${rowList('cond', cond, 'e.g. Broken arm')}</div>
+          <label class="ed-field">Notes — what happened, development, standing<textarea id="csNotes2" style="min-height:150px" placeholder="Joined the Iron Guild. Lost Yona's trust.">${esc(draft.notes)}</textarea></label>
+        </div>
+        <div class="ed-panel">${hasArchetype(char) ? `<div class="ed-box">${archetypeFieldHtml('cs', char, snap.archetype)}</div>` : ''}
+          <div class="ed-box thin"><div class="ed-readout">&gt; THIS CHAPTER ONLY<br>&gt; OTHER CHAPTERS KEEP THEIR OWN STATE</div></div></div></div>`;
+      wireCancel(); wirePresence('cs'); wireStartHint('cs');
+      wireLocationPicker('cs', keepLoc !== undefined ? keepLoc : snap.location);
+      wireArchetypeField('cs');
+      wireRows('cond', cond, () => { draft = { objective: document.getElementById('csObjective2').value, notes: document.getElementById('csNotes2').value }; draw(); });
+      document.getElementById('csSave2').addEventListener('click', async () => {
+        snap.objective = document.getElementById('csObjective2').value.trim();
+        snap.notes = document.getElementById('csNotes2').value.trim();
+        snap.condition = readRows('cond').filter(Boolean);
+        const loc = readLocationPicker('cs'); if (loc !== undefined) snap.location = loc;
+        const arch = readArchetypeField('cs'); if (arch !== undefined) setArchetype(char, snap, arch);
+        snap.startChapter = readStartChapter('cs');
+        snap.presence = document.getElementById('csPresence').value;
+        await persistState(); renderAll(); closeModal();
+      });
+    };
+    draw(); openModal({ wide: true });
+  };
+
+  // =====================================================================
+  // MARKS — sigil cards + one mark at a time
+  // =====================================================================
+  let mkSel = 0, mkLen = 0;
+  const KIND_COLOR = { blessing: 'var(--gold)', curse: 'var(--ember)', binding: 'var(--verdigris)' };
+  const baseRenderMarks = renderMarksEditor;
+  renderMarksEditor = function () {
+    const wrap = document.getElementById('marksEditorWrap');
+    if (!wrap || !wrap.classList.contains('mk-wide')) return baseRenderMarks();
+    const list = pendingMarks;
+    if (list.length > mkLen) mkSel = list.length - 1;
+    mkLen = list.length; mkSel = Math.max(0, Math.min(mkSel, list.length - 1));
+    const cards = list.map((m, i) => `<button type="button" class="mk-card${i === mkSel ? ' on' : ''}" data-mk="${i}" style="--k:${KIND_COLOR[m.kind] || 'var(--gold)'}" aria-pressed="${i === mkSel}">
+        <span class="mk-sig">${m.image ? `<img src="${m.image}" alt="">` : esc((m.name || '?').charAt(0).toUpperCase())}</span>
+        <span class="mk-txt"><span class="mk-kind">${esc((MARK_KIND_LABEL[m.kind] || m.kind).toUpperCase())}</span><b>${esc(m.name || 'Unnamed mark')}</b><small>${esc(m.source || '')}</small></span></button>`).join('');
+    const m = list[mkSel], a = (f) => `data-mark-path="char" data-mark-idx="${mkSel}" data-f="${f}"`;
+    const editor = m ? `<div class="mk-editor" style="--k:${KIND_COLOR[m.kind] || 'var(--gold)'}">
+        <div class="mk-editor-head"><span>MARK ${String(mkSel + 1).padStart(2, '0')} / ${list.length}</span><span>${esc((MARK_KIND_LABEL[m.kind] || '').toUpperCase())}</span></div>
+        <div class="mk-editor-body">
+          <div class="mk-top">${EpitaphMarks.sigilPickerHtml(m, `data-sigil-path="char" data-sigil-idx="${mkSel}"`)}
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px">
+              <div class="ed-chips">${MARK_KINDS.map(k => `<button type="button" class="ed-chip${m.kind === k ? ' on' : ''}" data-mk-kind="${k}" style="${m.kind === k ? `background:${KIND_COLOR[k]};border-color:${KIND_COLOR[k]}` : ''}">${esc(MARK_KIND_LABEL[k].toUpperCase())}</button>`).join('')}</div>
+              <label class="ed-field">Name<input type="text" ${a('name')} value="${attr(m.name)}" placeholder="Name of the mark" style="font-family:'Pirata One',serif;font-size:20px"></label></div></div>
+          <label class="ed-field">Source — who or what placed it<input type="text" ${a('source')} value="${attr(m.source)}"></label>
+          <label class="ed-field">Effect — what it does<textarea ${a('effect')}>${esc(m.effect)}</textarea></label>
+          <div class="pf-identity" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+            <label class="ed-field">Cost<input type="text" ${a('cost')} value="${attr(m.cost)}" placeholder="What it takes (text only)"></label>
+            <label class="ed-field">Ends<input type="text" ${a('ends')} value="${attr(m.ends)}" placeholder="How it ends"></label></div>
+          <div class="ed-acts"><button type="button" class="ed-slant danger" onclick="removeMark('char', ${mkSel})">Remove mark</button></div>
+        </div></div>` : `<div class="mk-editor"><div class="iv-empty">&gt; No marks this chapter.<span class="sig-cursor"></span></div></div>`;
+    const n = k => list.filter(x => x.kind === k).length;
+    wrap.innerHTML = `<div class="ed-cols">
+      <div class="ed-side"><div><div class="ed-kicker">Page 02 · marks</div><div class="ed-big">Marks</div><p class="ed-copy">Bindings a higher being places on someone. Costs are text only; nothing is calculated.</p></div>
+        <div class="mk-list">${cards}</div><button type="button" class="ed-chip" onclick="addMark('char')" style="min-height:46px;transform:none;border-style:dashed;color:var(--amber)">+ NEW MARK</button></div>
+      <div class="ed-main">${editor}</div>
+      <div class="ed-panel"><div class="ed-counters"><div class="ed-counter"><b style="color:var(--gold)">${n('blessing')}</b><span>BLESSINGS</span></div><div class="ed-counter"><b style="color:#f08a74">${n('curse')}</b><span>CURSES</span></div><div class="ed-counter"><b style="color:var(--verdigris)">${n('binding')}</b><span>BINDINGS</span></div></div>
+        <div class="ed-box thin" style="font-size:13px;line-height:1.55;color:#d9cbb0"><div><b style="color:var(--gold);font-weight:400;font-family:var(--f-crt);font-size:18px">BLESSING</b> — an outside gift that works for them, usually with a debt.</div><div><b style="color:#f08a74;font-weight:400;font-family:var(--f-crt);font-size:18px">CURSE</b> — an outside cost, restriction or compulsion.</div><div><b style="color:var(--verdigris);font-weight:400;font-family:var(--f-crt);font-size:18px">BINDING</b> — tied to a person or thing until a condition is met (Val's blessing on the Voided is one).</div></div></div></div>`;
+    wrap.querySelectorAll('[data-mk]').forEach(b => b.addEventListener('click', () => { syncMarksFromDOM(); mkSel = +b.dataset.mk; renderMarksEditor(); }));
+    wrap.querySelectorAll('[data-mk-kind]').forEach(b => b.addEventListener('click', () => { syncMarksFromDOM(); if (pendingMarks[mkSel]) pendingMarks[mkSel].kind = b.dataset.mkKind; renderMarksEditor(); }));
+  };
+  openMarksForm = function (char, snap) {
+    if (blockIfLocked(snap)) return;
+    pendingMarks = (snap.marks || []).map(m => ({ ...m }));
+    mkSel = 0; mkLen = pendingMarks.length;
+    modalContent.innerHTML = head('EDIT MARKS', subFor(char, snap), 'mkSave', 'Save marks') + `<div id="marksEditorWrap" class="mk-wide"></div>`;
+    wireCancel(); renderMarksEditor();
+    document.getElementById('mkSave').addEventListener('click', async () => {
+      syncMarksFromDOM(); snap.marks = cleanMarks(pendingMarks);
+      await persistState(); renderAll(); closeModal();
+    });
+    openModal({ wide: true });
+  };
+
+  // =====================================================================
+  // TIES — one bond per row
+  // =====================================================================
+  function tieThumb(target, name) {
+    const sn = target && getActiveSnapshot(target), pic = sn && (sn.systemPortrait || sn.portrait);
+    return `<span class="ti-face">${pic ? `<img src="${pic}" alt="">` : esc((name || '?').trim().charAt(0).toUpperCase() || '?')}</span>`;
+  }
+  openRelationshipsOnlyForm = function (char, snap) {
+    if (blockIfLocked(snap)) return;
+    let rows = (snap.relationships || []).map(r => ({ name: relationshipDisplayName(r), relation: r.relation || '', note: r.note || '' }));
+    const others = state.characters.filter(c => c.id !== char.id);
+    const sync = () => { rows = [...modalContent.querySelectorAll('.ti-row')].map(r => ({ name: r.querySelector('[data-t=name]').value, relation: r.querySelector('[data-t=relation]').value, note: r.querySelector('[data-t=note]').value })); };
+    const draw = () => {
+      const inferred = inferredRelationships(char).filter(x => !rows.some(r => r.name.trim().toLowerCase() === (x.name || '').toLowerCase()));
+      const list = rows.map((r, i) => {
+        const target = others.find(c => (c.name || '').trim().toLowerCase() === r.name.trim().toLowerCase());
+        return `<div class="ti-row${target ? ' linked' : ''}">${tieThumb(target, r.name)}
+          <label class="ed-field">Name${target ? ' · linked file' : ''}<input type="text" data-t="name" value="${attr(r.name)}" list="tieNames" placeholder="Who"></label>
+          <label class="ed-field">Relation<input type="text" data-t="relation" value="${attr(r.relation)}" placeholder="e.g. Older sister"></label>
+          <label class="ed-field ti-note">Note<input type="text" data-t="note" value="${attr(r.note)}" placeholder="One line"></label>
+          <button type="button" class="pw-x" style="position:static" data-ti-x="${i}" aria-label="Remove this tie">×</button></div>`;
+      }).join('');
+      modalContent.innerHTML = head('EDIT TIES', subFor(char, snap), 'tiSave', 'Save ties') + `<div class="ed-cols">
+        <div class="ed-side"><div><div class="ed-kicker">Page 06 · ties</div><div class="ed-big">Bonds</div><p class="ed-copy">A name that matches another file links to it, so a rename never breaks the bond. This chapter only.</p></div>
+          <div class="ed-counters" style="grid-template-columns:repeat(2,minmax(0,1fr))"><div class="ed-counter"><b>${rows.length}</b><span>RECORDED</span></div><div class="ed-counter"><b>${rows.filter(r => others.some(c => (c.name || '').trim().toLowerCase() === r.name.trim().toLowerCase())).length}</b><span>LINKED</span></div></div></div>
+        <div class="ed-main" style="display:flex;flex-direction:column;gap:8px">${list || `<div class="iv-empty">&gt; No ties yet.</div>`}
+          <button type="button" class="ed-chip" id="tiAdd" style="min-height:46px;transform:none;border-style:dashed;color:var(--amber);align-self:flex-start;padding:0 18px">+ NEW TIE</button></div>
+        <div class="ed-panel"><div class="ed-box thin"><div class="ed-kicker">Others list ${esc(char.name || 'them')}</div>
+          ${inferred.length ? inferred.map(x => `<div class="ti-inferred">${tieThumb(findCharacterById(x.charId), x.name)}<div style="flex:1;min-width:0"><b style="font-family:'Pirata One',serif;font-weight:400;font-size:19px">${esc(x.name)}</b><div style="font-size:12px;color:var(--dust)">Lists you as: ${esc(x.relation || '—')}</div></div><button type="button" class="ed-chip" data-ti-back="${attr(x.name)}">+ ADD BACK</button></div>`).join('') : `<div class="ed-readout" style="color:var(--dust)">&gt; Nobody else lists them without a tie back.</div>`}</div></div></div>
+        <datalist id="tieNames">${others.map(c => `<option value="${attr(c.name || '')}">`).join('')}</datalist>`;
+      wireCancel();
+      document.getElementById('tiAdd').addEventListener('click', () => { sync(); rows.push({ name: '', relation: '', note: '' }); draw(); const n = modalContent.querySelectorAll('[data-t=name]'); if (n.length) n[n.length - 1].focus(); });
+      modalContent.querySelectorAll('[data-ti-x]').forEach(b => b.addEventListener('click', () => { sync(); rows.splice(+b.dataset.tiX, 1); draw(); }));
+      modalContent.querySelectorAll('[data-ti-back]').forEach(b => b.addEventListener('click', () => { sync(); rows.push({ name: b.dataset.tiBack, relation: '', note: '' }); draw(); }));
+      modalContent.querySelectorAll('[data-t=name]').forEach(el => el.addEventListener('change', () => { sync(); draw(); }));
+      document.getElementById('tiSave').addEventListener('click', async () => {
+        sync();
+        const text = rows.filter(r => r.name.trim()).map(r => [r.name, r.relation, r.note].map(x => x.replace(/\|/g, '/').trim()).join(' | ')).join('\n');
+        snap.relationships = parseRelationshipLines(text, char.id);
+        await persistState(); renderAll(); closeModal();
+      });
+    };
+    draw(); openModal({ wide: true });
+  };
+
+  // =====================================================================
+  // ARC — the line through the chapters, and where they're heading
+  // =====================================================================
+  openArcOnlyForm = function (char, snap) {
+    if (blockIfLocked(snap)) return;
+    const steps = archetypeTimeline(char);
+    const lineName = hasArchetype(char) ? 'Archetype' : typeOf(char) === 'godling' ? 'Plane-name' : hasTrueName(char) ? 'True name' : isGodType(char) ? 'Concept' : 'Line';
+    const tape = steps.map((st, i) => `${i ? '<span class="ar-arrow" aria-hidden="true">→</span>' : ''}<div class="ar-step${st.ids.includes(snap.id) ? ' on' : ''}${st.name === 'UNASSIGNED' ? ' unset' : ''}"><b>${esc(st.name)}</b><small>${esc(st.range)}</small>${i && st.from.archetypeReason ? `<em>${esc(st.from.archetypeReason)}</em>` : ''}</div>`).join('');
+    const names = (snap.titles || []).slice().sort((a, b) => (a.rankTier || 0) - (b.rankTier || 0));
+    modalContent.innerHTML = head('EDIT ARC', subFor(char, snap), 'arSave', 'Save arc') + `
+      <div class="ed-box" style="margin-bottom:18px"><div class="ed-kicker">${esc(lineName)} · through every chapter</div><div class="ar-tape">${tape}</div></div>
+      <div class="ed-cols"><div class="ed-main" style="display:flex;flex-direction:column;gap:14px">
+        ${hasArchetype(char) ? `<div class="ed-box">${archetypeFieldHtml('mwArc', char, snap.archetype)}</div>`
+          : hasTrueName(char) ? `<div class="ed-box"><div class="ed-kicker">${esc(lineName)} history — this chapter</div>
+            <div class="ar-names">${names.map(t => `<div><span class="ed-chip on" style="transform:none">${esc(ROMAN[(t.rankTier || 1) - 1] || '—')}</span><b>${esc(t.name)}</b><small>${esc(t.blurb || '')}</small></div>`).join('') || `<div class="ed-readout" style="color:var(--dust)">&gt; Not woken yet.</div>`}</div>
+            <button type="button" class="ed-chip" id="arNames" style="align-self:flex-start">EDIT THE ${esc(lineName.toUpperCase())} ▸</button></div>`
+          : `<div class="ed-box thin ed-readout" style="color:var(--dust)">&gt; ${isGodType(char) ? 'Swayed only by their concept.' : 'Unwritten: no dormant name.'}</div>`}
+        <label class="ed-field">Why it changed here (optional, one line)<input type="text" id="mwArcReason" value="${attr(snap.archetypeReason || '')}" placeholder="e.g. Yona's betrayal broke him"></label>
+        <label class="ed-field">Heading toward — one line on where they're going<input type="text" id="mwArcHeading" value="${attr(snap.headingToward || '')}" placeholder="e.g. A reckoning with Yona" style="font-size:18px"></label>
+      </div>
+      <div class="ed-panel"><div class="ed-box thin"><div class="ed-readout">&gt; THE TAPE IS BUILT FROM EVERY CHAPTER<br>&gt; ${steps.length} STEP${steps.length === 1 ? '' : 'S'} SO FAR</div></div></div></div>`;
+    wireCancel(); wireArchetypeField('mwArc');
+    const nb = document.getElementById('arNames'); if (nb) nb.addEventListener('click', () => openIdentityForm(char, snap));
+    document.getElementById('arSave').addEventListener('click', async () => {
+      setArchetype(char, snap, readArchetypeField('mwArc'));
+      snap.headingToward = document.getElementById('mwArcHeading').value.trim();
+      snap.archetypeReason = document.getElementById('mwArcReason').value.trim();
+      await persistState(); renderAll(); closeModal();
+    });
+    openModal({ wide: true });
+  };
+
+  // =====================================================================
+  // KNOWLEDGE — what they know, and the secrets around them
+  // =====================================================================
+  openKnowledgeOnlyForm = function (char, snap) {
+    if (blockIfLocked(snap)) return;
+    const know = (snap.knowledge || []).slice();
+    let secrets = (snap.secrets || []).map(s => ({ ...normalizeSecret(s) }));
+    const syncSecrets = () => { secrets = [...modalContent.querySelectorAll('.kn-secret')].map(r => ({ text: r.querySelector('[data-s=text]').value, knownBy: r.querySelector('[data-s=knownBy]').value, characterKnows: r.dataset.knows === '1' })); };
+    const draw = () => {
+      const known = secrets.filter(s => s.characterKnows).length, C2 = 2 * Math.PI * 22;
+      modalContent.innerHTML = head('EDIT KNOWLEDGE', subFor(char, snap), 'knSave', 'Save knowledge') + `<div class="ed-cols">
+        <div class="ed-main" style="flex-basis:420px"><div class="ed-kicker">Page 08 · known</div><div class="ed-big" style="margin-bottom:12px">Knows</div>${rowList('know', know, 'e.g. Knows the war has begun')}</div>
+        <div class="ed-main" style="flex-basis:520px"><div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px"><div><div class="ed-kicker">Secrets around them</div><div class="ed-big" style="margin-bottom:12px">Secrets</div></div>
+          ${secrets.length ? `<div class="k-gauge" style="display:flex;align-items:center;gap:10px"><svg viewBox="0 0 54 54" width="54" height="54" aria-hidden="true"><circle cx="27" cy="27" r="22" fill="none" stroke="rgba(255,178,56,.25)" stroke-width="4" stroke-dasharray="2 3"></circle><circle cx="27" cy="27" r="22" fill="none" stroke="var(--amber)" stroke-width="4" stroke-dasharray="${(C2 * known / secrets.length).toFixed(1)} ${C2.toFixed(1)}" transform="rotate(-90 27 27)"></circle></svg><span class="ed-readout"><b>${known}/${secrets.length}</b> KNOWN TO THEM</span></div>` : ''}</div>
+          <div style="display:flex;flex-direction:column;gap:8px">${secrets.map((s, i) => `<div class="kn-secret" data-knows="${s.characterKnows ? 1 : 0}">
+              <label class="ed-field">Secret<input type="text" data-s="text" value="${attr(s.text)}" placeholder="e.g. Caused the destruction of a village"></label>
+              <div class="kn-bottom"><div class="ed-chips"><button type="button" class="ed-chip${s.characterKnows ? ' on' : ''}" data-kn-knows="${i}:1">THEY KNOW</button><button type="button" class="ed-chip${s.characterKnows ? '' : ' on'}" data-kn-knows="${i}:0">THEY DON'T</button></div>
+                <label class="ed-field" style="flex:1;min-width:160px">Known by<input type="text" data-s="knownBy" value="${attr(s.knownBy)}" placeholder="Who else knows"></label>
+                <button type="button" class="pw-x" style="position:static" data-kn-x="${i}" aria-label="Remove this secret">×</button></div></div>`).join('')}
+            <button type="button" class="ed-chip" id="knAddSecret" style="min-height:46px;transform:none;border-style:dashed;color:var(--amber);align-self:flex-start;padding:0 18px">+ NEW SECRET</button></div></div></div>`;
+      wireCancel();
+      wireRows('know', know, () => { syncSecrets(); draw(); });
+      document.getElementById('knAddSecret').addEventListener('click', () => { know.splice(0, know.length, ...readRows('know')); syncSecrets(); secrets.push({ text: '', characterKnows: false, knownBy: '' }); draw(); });
+      modalContent.querySelectorAll('[data-kn-x]').forEach(b => b.addEventListener('click', () => { know.splice(0, know.length, ...readRows('know')); syncSecrets(); secrets.splice(+b.dataset.knX, 1); draw(); }));
+      modalContent.querySelectorAll('[data-kn-knows]').forEach(b => b.addEventListener('click', () => { know.splice(0, know.length, ...readRows('know')); syncSecrets(); const [i, v] = b.dataset.knKnows.split(':'); secrets[+i].characterKnows = v === '1'; draw(); }));
+      document.getElementById('knSave').addEventListener('click', async () => {
+        syncSecrets();
+        snap.knowledge = readRows('know').filter(Boolean);
+        snap.secrets = secrets.filter(s => s.text.trim()).map(s => ({ text: s.text.trim(), characterKnows: s.characterKnows, knownBy: s.knownBy.trim() }));
+        await persistState(); renderAll(); closeModal();
+      });
+    };
+    draw(); openModal({ wide: true });
+  };
+
+  // =====================================================================
+  // NEW CHAPTER — a new version of the same character
+  // =====================================================================
+  openSnapshotForm = function () {
+    const char = getActiveCharacter();
+    if (!char) return openCharacterForm();
+    pendingPortrait = null;
+    const prev = getActiveSnapshot(char) || {};
+    const carried = [
+      ['Where', locationLabelFor(prev.location) || '—'], ['Wants', prev.objective || '—'], ['Ties', (prev.relationships || []).length],
+      ['Knows', (prev.knowledge || []).length], ['Secrets', (prev.secrets || []).length], ['Condition', (prev.condition || []).length],
+      ['Marks', (prev.marks || []).length], ['Carried items', (prev.inventory || []).length], ['Skills', (prev.skills || []).length],
+      [hasTrueName(char) ? 'True names' : 'Titles', (prev.titles || []).length], ['Stats', hasStats(char) ? 'all 7' : 'unrated'], ['Power', prev.power && prev.power.threat ? 'Threat ' + prev.power.threat : 'yes']
+    ];
+    modalContent.innerHTML = head('NEW CHAPTER', [char.name || 'Unnamed', (RACES.find(r => r.id === char.race) || {}).label || ''].filter(Boolean).join(' · '), 'snSave', 'Save version') + `<div class="ed-cols">
+      <div class="ed-main" style="display:flex;flex-direction:column;gap:14px">
+        <div><div class="ed-kicker">A new point in the story</div><div class="ed-big">Next<br>chapter</div></div>
+        <div class="pf-identity" style="max-width:none">
+          <label class="ed-field">Chapter range<input type="text" id="fChapterRange" value="" placeholder="e.g. CH 6 – CH 10" style="font-size:18px"></label>
+          <div>${startField('fSnap', suggestNextStart(char))}</div>
+          <div class="ed-field wide">Presence${presencePlates('fSnap', prev.presence || 'alive')}</div>
+          <label class="ed-field wide">One-line summary — this point in the story<input type="text" id="fBlurb" value="" placeholder="A short line"></label>
+          <label class="ed-field wide">Backstory / notes<textarea id="fBackstory" placeholder="What's changed by this point"></textarea></label>
+        </div>
+        ${portraitFieldHtml()}
+      </div>
+      <div class="ed-panel"><div class="ed-box"><div class="ed-readout" style="display:flex;justify-content:space-between"><b>CARRIED FORWARD</b><b>FROM ${esc((prev.chapterRange || 'NOW').toUpperCase())}</b></div>
+        <div class="sn-carry">${carried.map(([k, v]) => `<div><span>${esc(k.toUpperCase())}</span><b>${esc(String(v))}</b></div>`).join('')}</div>
+        <div style="font-size:13px;line-height:1.5;color:var(--dust)">Everything starts as a copy. Edit only what changed; changed sections get a CHANGED marker.</div></div></div></div>`;
+    wireCancel(); wirePresence('fSnap'); wireDropzone(); wireStartHint('fSnap');
+    const startInp = document.getElementById('fSnapStart');
+    let touched = false;
+    startInp.addEventListener('input', () => { touched = true; });
+    document.getElementById('fChapterRange').addEventListener('input', e => {
+      const n = parseStartChapter(e.target.value);
+      if (!touched && n) { startInp.value = n; startInp.dispatchEvent(new Event('input')); touched = false; }
+    });
+    document.getElementById('snSave').addEventListener('click', () => { modalContent.classList.remove('wide'); reviewSnapshotSave(); });
+    // "Keep editing" refills the presence select after this opens: mirror it onto the plates
+    setTimeout(() => { const sel = document.getElementById('fSnapPresence'); if (sel) modalContent.querySelectorAll('[data-presence-for="fSnap"] [data-presence]').forEach(x => { x.classList.toggle('on', x.dataset.presence === sel.value); x.setAttribute('aria-pressed', x.dataset.presence === sel.value); }); }, 40);
+    openModal({ wide: true });
+  };
+
 })();
