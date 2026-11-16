@@ -108,7 +108,7 @@
   // =====================================================================
   // POWER — threat ruler, type ladders, Cut tablets, gifts
   // =====================================================================
-  const THREAT_SHORT = { '1': 'Yourself', '2': 'A few', '3': 'A district', '4': 'Settlement', '5': 'A region', '5.5': 'Several', '6': 'A face', '7': 'The planet', beyond: 'Gods' };
+  const THREAT_SHORT = { '1': 'Soul', '2': 'Host', '3': 'Ward', '4': 'City', '5': 'Realm', '5.5': 'Dominion', '6': 'Face', '7': 'Planet', beyond: 'Gods' };
   function lockedThreatLabel(char, v) {
     if (v === 'beyond') return 'Gods';
     if (v === '7') return 'Godlings';
@@ -121,10 +121,11 @@
     const order = THREAT_LEVELS.map(x => x.v), selIdx = order.indexOf(d.threat);
     const ruler = THREAT_LEVELS.map((x, i) => {
       const ok = allowed.includes(x.v), on = x.v === d.threat;
-      if (!ok) { const lab = lockedThreatLabel(char, x.v); return `<button type="button" class="ed-cell ${lab === 'Cut only' ? 'cut' : 'ed-hatch'}" disabled><b>${x.v === '5.5' ? '5½' : x.v === 'beyond' ? '∞' : esc(x.v)}</b><small>${esc(lab)}</small></button>`; }
+      if (!ok) { const need = rankForThreat(x.v), lab = x.v !== 'beyond' && need > statRank(snap) ? 'Needs rank ' + ROMAN[need - 1] : lockedThreatLabel(char, x.v); return `<button type="button" class="ed-cell ${lab === 'Cut only' ? 'cut' : 'ed-hatch'}" disabled><b>${x.v === '5.5' ? '5½' : x.v === 'beyond' ? '∞' : esc(x.v)}</b><small>${esc(lab)}</small></button>`; }
       return `<button type="button" class="ed-cell${on ? ' on' : (selIdx > -1 && i < selIdx ? ' past' : '')}" data-threat="${attr(x.v)}" aria-pressed="${on}"><b>${x.v === '5.5' ? '5½' : x.v === 'beyond' ? '∞' : esc(x.v)}</b><small>${esc(THREAT_SHORT[x.v])}${on ? ' ◂' : ''}</small></button>`;
     }).join('');
-    const capText = { storyborn: 'cap for a Storyborn: a face', person: 'cap for a person: several regions · a face opens with a Cut', voided: 'cap for the Voided: a region', fallen: 'cap for the Fallen: a settlement', godling: 'cap for a Godling: the planet', twisted: 'one of a kind: uncapped' }[t] || (isGodType(char) ? 'gods are beyond the scale' : '');
+    const capText = { storyborn: 'cap for a Storyborn: Face', person: 'cap for a person: Dominion · Face opens with a Cut', voided: 'cap for the Voided: Realm', fallen: 'cap for the Fallen: City', godling: 'cap for a Godling: Planet', twisted: 'one of a kind: uncapped' }[t] || (isGodType(char) ? 'gods are beyond the scale' : '');
+    const rank = statRank(snap), rankText = isGodType(char) ? '' : `rank ${ROMAN[rank - 1]} (highest stat) caps Threat at ${threatLabel(RANK_THREAT[rank]).replace(/^\S+ · /, '').toLowerCase()}`;
     const ladder = (key, n, labels, cur) => `<div class="pw-mini" style="grid-template-columns:repeat(${n},minmax(0,1fr))">${Array.from({ length: n }, (_, i) => `<button type="button" class="ed-cell${cur === i + 1 ? ' on' : (cur > i + 1 ? ' past' : '')}" data-ladder="${key}" data-n="${i + 1}" style="min-height:58px"><b>${i + 1}</b><small>${esc(labels[i] || '')}</small></button>`).join('')}</div>`;
     const ranks = voidedRanksFor(snap);
     const rankPlates = VOIDED_RANKS.map(r => ranks.includes(r)
@@ -146,7 +147,7 @@
     return head('EDIT POWER', subFor(char, snap), 'pwSave2', 'Save power') + `
       <div class="ed-box" style="margin-bottom:18px"><div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap">
         <div><div class="ed-kicker">Threat · the shared scale</div><div class="ed-big" style="font-size:54px;color:var(--amber)">${esc(threatLabel(d.threat) || 'Unrated')}</div></div>
-        <div class="ed-readout" style="color:var(--dust)">&gt; ${esc(capText.toUpperCase())}</div></div>
+        <div class="ed-readout" style="color:var(--dust);text-align:right">&gt; ${esc(capText.toUpperCase())}${rankText ? `<br>&gt; ${esc(rankText.toUpperCase())}` : ''}</div></div>
         <div class="pw-ruler">${ruler}</div></div>
       <div class="ed-cols"><div class="ed-main" style="display:flex;flex-direction:column;gap:14px">
         ${has('domain') ? `<div class="ed-box thin"><div class="ed-kicker">Storyborn tier · domain size</div>${ladder('domain', 7, DOMAIN_SIZES.slice(1), d.domain)}</div>` : ''}

@@ -101,8 +101,10 @@
             const o = r.charId && chars.find(x => x.id === r.charId), ov = o && vAt(o, start(s));
             if (ov && ov.presence === 'dead' && !/dead|late|former|mourn|lost/i.test(r.relation || '')) out.push({ level: 'info', rule: 'lore', ...at(c, s), text: `${name(c)} lists ${o.name} in ${label(s)}, but ${o.name} is dead by then.` });
           });
-          const th = parseFloat(p.threat), sum = Object.values(s.stats || {}).reduce((a, v) => a + (Number(v) || 0), 0);
-          if (th >= 4 && c.race !== 'primordial' && c.race !== 'unbound' && sum < 10) out.push({ level: 'info', rule: 'lore', ...at(c, s), text: `${name(c)} is Threat ${p.threat} in ${label(s)} but their stats add up to only ${sum}.` });
+          if (p.threat && p.threat !== 'beyond' && c.race !== 'primordial' && c.race !== 'unbound' && typeof statRank === 'function') {
+            const rank = statRank(s), need = rankForThreat(p.threat);
+            if (need > rank) out.push({ level: 'warn', rule: 'lore', ...at(c, s), text: `${name(c)} is Threat ${p.threat === '5.5' ? '5½' : p.threat} in ${label(s)}, but their highest stat is ${rank}. That reach needs rank ${need}.` });
+          }
         });
       }
       // one-sided relationships (information)
