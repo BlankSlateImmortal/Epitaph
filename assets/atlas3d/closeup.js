@@ -12,7 +12,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { loadPins, buildPin, designFor, DESIGN_LABEL, patch } from './pins/pins.js?v=3';
+import { loadPins, buildPin, designFor, DESIGN_LABEL, patch } from './pins/pins.js?v=4';
 
 export const REGION_LABEL = {
   plains: 'Plains', hills: 'Hills', mountains: 'Mountains', ice: 'Snowfield', rim: 'Impact mountains', pit: 'The crater',

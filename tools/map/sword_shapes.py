@@ -10,7 +10,7 @@ knobs), band (rings), grip. Each shape is one object named after it.
 Run:  blender -b --factory-startup -P tools/map/sword_shapes.py -- [OUT.glb] [sheet.png]
 """
 import bpy, bmesh, math, os, sys
-from mathutils import Vector
+from mathutils import Vector, Matrix
 
 argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 OUT = argv[0] if argv else os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'assets', 'atlas3d', 'pins', 'swords.glb')
@@ -87,6 +87,20 @@ class Shape:
             R.append([self.bm.verts.new(p + (u * math.cos(2 * math.pi * s / seg) + w * math.sin(2 * math.pi * s / seg)) * r) for s in range(seg)])
         for i in range(len(R) - 1):
             for s in range(seg): self.face([R[i][s], R[i][(s + 1) % seg], R[i + 1][(s + 1) % seg], R[i + 1][s]], mat)
+
+    def spike(self, a, b, r, mat, flat=.45, seg=6):
+        A, B = Vector(a), Vector(b); d = B - A
+        res = bmesh.ops.create_cone(self.bm, cap_ends=True, segments=seg, radius1=r, radius2=.0006, depth=d.length)
+        M = Matrix.Translation((A + B) / 2) @ d.normalized().to_track_quat('Z', 'Y').to_matrix().to_4x4() @ Matrix.Diagonal((1, flat, 1, 1))
+        for v in res['verts']: v.co = M @ v.co
+        for f in {f for v in res['verts'] for f in v.link_faces}: f.material_index = SLOT[mat]; f.smooth = False
+
+    def disc(self, c, r, mat, depth=.004, seg=20):     # a round inset on both faces of a blade (reads as a hole)
+        for side in (-1, 1):
+            res = bmesh.ops.create_cone(self.bm, cap_ends=True, segments=seg, radius1=r, radius2=r, depth=depth)
+            M = Matrix.Translation((c[0], side * c[1], c[2])) @ Matrix.Rotation(math.pi / 2, 4, 'X')
+            for v in res['verts']: v.co = M @ v.co
+            for f in {f for v in res['verts'] for f in v.link_faces}: f.material_index = SLOT[mat]; f.smooth = True
 
     def grip(self, length, r, bands=(), r_end=None, z0=G + .03):
         r_end = r_end or r
@@ -237,17 +251,102 @@ def sawback():
     S.lathe([(.017, 0), (.028, .012), (.012, .03)], 'iron_light', top)
     return S.finish('sawback')
 
-SHAPES = [falchion, stiletto, zweihander, executioner, sabre, flamberge, khopesh, estoc, scimitar, gladius, katana, rapier, sawback]
+# ---------------------------------------------------------------- the character weapons (refs in the vault: World Buildinig/Items)
+def grisha_katana():                  # Grisha: a long curved blade, a spiky guard like black scales, a wrapped grip, a diamond pommel
+    S = Shape()
+    S.blade(lambda t: (-.085 * t * t, G * (1 - t)), taper_tip(lambda t: .024 - .004 * t, .9, .6), lambda t: .013, single=True)
+    gz = G + .01
+    for k in range(5):                # big layered scales sweeping back down over the base of the blade, the spine side bigger
+        for s in (-1, 1):
+            a = math.radians(-35 - k * 11); L = (.08 + .016 * (4 - k)) * (1.3 if s < 0 else .85)
+            x0 = s * (.016 + k * .005); z0 = gz + .03 - k * .022
+            S.spike((x0, 0, z0), (x0 + s * L * math.cos(a), 0, z0 + L * math.sin(a)), .02, 'iron', flat=.55)
+    for k in range(3): S.spike((0, 0, gz + .01 + k * .02), ((-1) ** k * .045, 0, gz + .09 + k * .02), .014, 'iron', flat=.55)
+    S.box((0, 0, gz), (.05, .03, .03), 'iron')
+    top = S.grip(.26, .014, bands=[i / 7 for i in range(8)], z0=gz + .03)
+    S.lathe([(0, 0), (.026, .028), (0, .07)], 'iron_light', top, seg=4)
+    return S.finish('grisha_katana')
+
+def scissor():                        # Lithia: one half of a pair of giant scissors: a single-edged blade, a pivot hole, a looped handle
+    S = Shape()
+    S.blade(lambda t: (.02 * t * t, G * (1 - t)), taper_tip(lambda t: .036 + .004 * t, .84, .7), lambda t: .014, single=True)
+    S.disc((-.012, .0072, G - .085), .011, 'band'); S.disc((.006, .0072, .14), .007, 'band')
+    S.box((.03, 0, G - .02), (.05, .02, .06), 'iron')                  # the flare where blade meets handle
+    loop = [(-.02, 0, G + .01), (-.045, 0, G + .09), (-.06, 0, G + .17), (-.03, 0, G + .23), (.03, 0, G + .25), (.075, 0, G + .2),
+            (.07, 0, G + .12), (.035, 0, G + .05), (.0, 0, G + .02)]
+    S.tube(loop + [loop[0]], .013, 'grip', seg=10)
+    for k in range(5): S.spike((.066 - k * .006, 0, G + .2 - k * .03), (.04 - k * .006, 0, G + .19 - k * .03), .011, 'iron_light', flat=.9)   # teeth inside the loop
+    return S.finish('scissor')
+
+def harvester_long():                 # Sils (Terminus Harvester, 1 of 2): a long thin curved blade, a flat cross guard, a knotted grip
+    S = Shape()
+    S.blade(lambda t: (-.06 * t ** 1.6, G * (1 - t)), taper_tip(lambda t: .018 + .006 * math.sin(math.pi * t), .88, .6), lambda t: .011, single=True)
+    S.box((0, 0, G + .012), (.21, .026, .022), 'iron'); S.box((0, -.0135, G + .012), (.18, .002, .008), 'band'); S.box((0, .0135, G + .012), (.18, .002, .008), 'band')
+    top = S.grip(.22, .015, bands=(.12, .3, .62))
+    S.lathe([(.016, 0), (.02, .012), (.014, .02), (.002, .026)], 'iron_light', top)
+    return S.finish('harvester_long')
+
+def harvester_broad():                # Sils (Terminus Harvester, 2 of 2): a broad curved blade widening toward its point
+    S = Shape()
+    S.blade(lambda t: (.05 * t * t, G * (1 - t)), taper_tip(lambda t: .03 + .028 * t, .86, .55), lambda t: .013, single=True, edge=-1)
+    S.box((0, 0, G + .012), (.2, .026, .022), 'iron'); S.box((0, -.0135, G + .012), (.17, .002, .008), 'band'); S.box((0, .0135, G + .012), (.17, .002, .008), 'band')
+    top = S.grip(.15, .016, bands=(.2, .6))
+    S.lathe([(.016, 0), (.022, .012), (.012, .03)], 'iron_light', top)
+    return S.finish('harvester_broad')
+
+def serpent():                        # Vale (Twin Serpents): a slender curved blade with a spur near the guard, winged guard and pommel
+    S = Shape()
+    S.blade(lambda t: (-.05 * t * t + .015 * math.sin(math.pi * t), G * (1 - t)), taper_tip(lambda t: .022 + .008 * (1 - t), .86, .6), lambda t: .012, single=True)
+    S.spike((-.022, 0, G - .05), (-.05, 0, G - .1), .01, 'blade')      # the spur on the spine
+    gz = G + .012
+    S.lathe([(0, -.014), (.02, -.004), (.02, .006), (0, .016)], 'iron', gz, seg=4)
+    for s in (-1, 1):                 # wings of the guard: two feathers each side, swept up
+        S.spike((s * .015, 0, gz), (s * .1, 0, gz + .05), .018, 'iron_light', flat=.5); S.spike((s * .015, 0, gz - .005), (s * .08, 0, gz - .02), .012, 'iron_light', flat=.5)
+    top = S.grip(.17, .013, bands=(.0,), z0=gz + .015)
+    for s in (-1, 1): S.spike((s * .008, 0, top), (s * .04, 0, top + .03), .008, 'iron_light')
+    S.lathe([(.013, 0), (.018, .01), (.006, .024)], 'iron_light', top)
+    return S.finish('serpent')
+
+def nera_scythe():                    # Nera: a mechanical scythe planted spike-down: spear foot, a long pole with machined parts, a folding blade
+    S = Shape()
+    S.blade(lambda t: (0.0, .13 * (1 - t)), lambda t: .018 * (1 - t) + .003, lambda t: .012, n=24)   # the spear foot (its tip at the ground)
+    S.lathe([(.012, 0), (.012, 1.12)], 'grip', .13, seg=10)                                          # the pole
+    for z, h in [(.3, .07), (.62, .1), (.95, .06)]:
+        S.box((0, 0, z), (.03, .028, h), 'iron'); S.box((0, .0145, z), (.022, .002, h * .6), 'band')  # machined collars, lit panels
+    S.box((.02, 0, .68), (.04, .012, .025), 'iron_light')                                            # a trigger block
+    hz = 1.25
+    S.box((.02, 0, hz), (.07, .04, .06), 'iron'); S.box((.02, .021, hz), (.05, .002, .03), 'band')    # the head housing
+    S.blade(lambda t: (.05 + .5 * t, hz + .02 - .03 * t - .11 * t ** 3), taper_tip(lambda t: .03 - .012 * t, .8, .7), lambda t: .012, single=True, edge=-1, n=60)
+    S.blade(lambda t: (-.01 - .07 * t, hz - .01 - .05 * t * t), taper_tip(lambda t: .014, .6, .8), lambda t: .01, single=True, n=20)   # the back hook
+    return S.finish('nera_scythe')
+
+def moinera_dagger():                 # Moinera (dual blades, 1 of 2): a leaf-bladed dagger, flared hooks at the guard, a long wrapped handle, a ring for the chain
+    S = Shape()
+    S.blade(straight(), taper_tip(lambda t: .03 * (1 + .25 * math.sin(math.pi * min(1, t / .7))), .7, .8), lambda t: .015)
+    gz = G + .012
+    S.box((0, 0, gz), (.07, .028, .028), 'iron')
+    for s in (-1, 1):
+        S.spike((s * .03, 0, gz), (s * .065, 0, gz + .05), .012, 'iron'); S.spike((s * .03, 0, gz - .01), (s * .05, 0, gz - .06), .01, 'iron')
+    top = S.grip(.34, .014, bands=(.0, .25, .5, .75, 1.0), z0=gz + .02)
+    ring = [(.018 * math.cos(a), 0, top + .025 + .018 * math.sin(a)) for a in [i / 16 * 2 * math.pi for i in range(17)]]
+    S.tube(ring, .004, 'iron_light')
+    return S.finish('moinera_dagger')
+
+SHAPES = [falchion, stiletto, zweihander, executioner, sabre, flamberge, khopesh, estoc, scimitar, gladius, katana, rapier, sawback,
+          grisha_katana, scissor, harvester_long, harvester_broad, serpent, nera_scythe, moinera_dagger]
 objs = [f() for f in SHAPES]
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.export_scene.gltf(filepath=OUT, export_format='GLB', use_selection=True, export_apply=True)
 print('SHAPES', ', '.join(f'{o.name}:{len(o.data.polygons)}' for o in objs))
 
 if SHEET:                            # a contact sheet: every shape side by side, front view, to check the outlines
-    for i, o in enumerate(objs): o.location.x = i * .42
-    cam = bpy.data.cameras.new('cam'); cam.type = 'ORTHO'; cam.ortho_scale = len(objs) * .42 + .3
+    for o in objs[:-7]: o.hide_render = True                    # the sheet shows the character weapons
+    objs = objs[-7:]
+    for i, o in enumerate(objs): o.location.x = i * .62
+    W = len(objs) * .62 + .2, 1.5
+    cam = bpy.data.cameras.new('cam'); cam.type = 'ORTHO'; cam.ortho_scale = max(W[0], W[1] * 2400 / 640)
     co = bpy.data.objects.new('cam', cam); scene.collection.objects.link(co); scene.camera = co
-    co.location = ((len(objs) - 1) * .42 / 2, -5, .55); co.rotation_euler = (math.pi / 2, 0, 0)
+    co.location = ((len(objs) - 1) * .62 / 2, -5, .7); co.rotation_euler = (math.pi / 2, 0, 0)
     scene.render.engine = 'BLENDER_WORKBENCH'; scene.display.shading.light = 'STUDIO'; scene.display.shading.color_type = 'MATERIAL'
-    scene.render.resolution_x, scene.render.resolution_y = 2400, 420; scene.render.filepath = SHEET
+    scene.render.resolution_x, scene.render.resolution_y = 2400, 640; scene.render.filepath = SHEET
     bpy.ops.render.render(write_still=True); print('SHEET')
