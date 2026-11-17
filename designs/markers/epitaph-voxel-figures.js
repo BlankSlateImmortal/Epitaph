@@ -1,6 +1,6 @@
 /* Epitaph voxel figures: the map markers, built from blocks.
  * FIGS[name](V) builds one figure in a Vox, facing +z, base at y = 0. Colour each block with FIG_COLORS[theme][material]; 'group' / 'groupGlow' take the marker's own colour.
- * Statues: storyborn (an angel at prayer, wings spread, halo behind), voided (an angel under a black veil, wings broken), fallen (bunker door + banner, a placeholder).
+ * Statues: storyborn (an angel at prayer, wings spread, halo behind), voided (an angel under a black veil, wings broken), fallen (a magic-tech gauntlet).
  * Characters: orin (a longsword driven into the ground), nera (a magic-tech staff), yona (a pink star).
  * Primordials (the most detailed): antholonious (hooded, staff of light, cloak breaking into stone), sils (cowled reaper, one wing, scythe),
  *   moinera (angel in a wind-caught gown, wings raised), chaos (Grisha, enthroned under a cracked slab, crown of spires, red eyes), lithia (the blood-red angel).
@@ -66,12 +66,25 @@ const FIGS = {
     wing(V, 1, 2, 21, -3, 8, 4, 'ash', 'ashD', { torn: 0.28, droop: 0.6 });                        // the right wing torn short
     for (const [x, z] of [[4, 3], [-5, 2], [3, -4], [-2, 5], [5, -1]]) V.box(x, 2, z, x + 2, 3, z + 1, 'ash');   // fallen feathers
   },
-  // Fallen: no figure, by choice (they reject the gods). A bunker door under the mountain's lid, a red banner
+  // Fallen: no god (they reject them). A magic-tech gauntlet: a plated forearm rising from the base, an open armoured hand,
+  // Storyborn words grafted along the fingers and round the wrist, a red core set in the back of the hand
   fallen(V) {
-    V.disc(0, 0, 0, 7, 'stone'); V.disc(0, 0, 1, 6.2, 'group', 0.9);
-    for (let y = 1; y < 10; y++) V.disc(0, -2, y, 6.5 - y * 0.6, 'stone');
-    V.box(-3, 1, 2, 4, 7, 4, 'marbleD'); V.box(-2, 1, 4, 3, 6, 5, 'veil'); V.box(-3, 7, 2, 4, 8, 5, 'group');
-    V.box(4, 1, 0, 5, 16, 1, 'ashD'); V.box(5, 11, 0, 10, 15, 1, 'group'); V.box(5, 13, 0, 9, 14, 1, 'groupGlow');
+    V.disc(0, 0, 0, 7, 'stone'); V.disc(0, 0, 1, 6.2, 'group', 0.9); V.disc(0, 0, 1, 3.6, 'steelD');
+    for (let y = 2; y < 19; y++) { const r = 3.3 - (y - 2) * 0.035; V.disc(0, 0, y, r, y % 4 === 1 ? 'steelHi' : (y % 4 === 2 ? 'steelD' : 'steel'));          // the forearm, in overlapping plates
+      if (y % 4 === 1) for (let a = 0; a < 12; a++) { const t = a / 12 * PI * 2; V.set(Math.cos(t) * (r + 0.6), y, Math.sin(t) * (r + 0.6), a % 3 ? 'steelD' : 'gold'); } }   // plate edges and rivets
+    for (let y = 4; y < 17; y++) { V.set(0, y, 3.4, 'glyph'); if (y % 3 === 0) { V.set(-1, y, 3.3, 'glyph'); V.set(1, y, 3.3, 'glyph'); } }                       // a grafted line of script up the forearm
+    for (let y = 19; y < 22; y++) V.disc(0, 0, y, 3.9, y === 20 ? 'glyph' : 'steelD');                                                                         // the cuff: a band of glowing words
+    for (let a = 0; a < 16; a++) { const t = a / 16 * PI * 2; if (a % 2) V.set(Math.cos(t) * 4.3, 20, Math.sin(t) * 4.3, 'group'); }
+    V.box(-3, 22, -2, 4, 30, 2, 'steel'); V.box(-3, 22, 2, 4, 30, 3, 'steelD');                                                                                 // the hand, palm forward (+z)
+    V.box(-1, 25, -3, 2, 28, -2, 'groupGlow'); V.set(0, 26, -3, 'core'); V.box(-2, 24, -3, 3, 25, -2, 'steelHi'); V.box(-2, 28, -3, 3, 29, -2, 'steelHi');      // the red core on the back of the hand
+    V.box(-1, 25, 3, 2, 28, 4, 'glyph');                                                                                                                       // the palm burns with script
+    const fingers = [[-3, 8], [-1, 10], [1, 10.5], [3, 9]];
+    fingers.forEach(([x, len], i) => { for (let k = 0; k < len; k++) { const curl = k > len * 0.55 ? (k - len * 0.55) * 0.55 : 0, y = 30 + k - curl * 0.4, z = 0.5 + curl;
+        const joint = k === 3 || k === Math.round(len * 0.66); V.set(x, y, z, joint ? 'steelHi' : 'steel'); V.set(x + (x < 0 ? -1 : 1) * 0 + 0, y, z - 1, joint ? 'steelD' : 'steel');
+        if (!joint && k % 2 === 0) V.set(x, y, z + 1, 'glyph'); }                                                                                              // words down each finger
+      V.set(x, 30 + len, 0.5 + (len - len * 0.55) * 0.55, 'steelHi'); });
+    for (let k = 0; k < 7; k++) { const x = -4 - k * 0.55, y = 24 + k * 0.9, z = 1 + k * 0.25; V.set(x, y, z, k === 3 ? 'steelHi' : 'steel'); V.set(x, y, z - 1, 'steel'); if (k % 2) V.set(x, y, z + 1, 'glyph'); }   // the thumb
+    for (const [x, y, z] of [[5, 34, 3], [-6, 37, 2], [2, 42, 4], [6, 28, 5], [-3, 44, 2]]) { V.set(x, y, z, 'glyph'); V.set(x + 1, y, z, 'glyph'); }          // loose glyphs drifting off the fingertips
   }
 };
 
