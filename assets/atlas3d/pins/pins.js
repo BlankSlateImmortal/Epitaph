@@ -50,13 +50,14 @@ export function designFor(char) {
 
 // ---------- the model ----------
 // Other sword shapes (tools/map/sword_shapes.py → swords.glb), same layout as the greatsword: tip at the origin,
-// guard at y = 0.63. Character weapons: grisha_katana, scissor (Lithia), harvester_long + harvester_broad (Sils), serpent ×2 (Vale),
-// nera_scythe, moinera_dagger ×2; plus stiletto (Yona), zweihander (Gaia), executioner (Val), estoc (Antholonious).
+// guard at y = 0.63. Character weapons: grisha_katana, nera_scythe, moinera_dagger ×2; traced from their references with painted
+// textures (tools/map/trace_weapons.py): scissor (Lithia), harvester_long + harvester_broad (Sils), serpent_a + serpent_b (Vale);
+// plus stiletto (Yona), zweihander (Gaia), executioner (Val), estoc (Antholonious).
 // Kept for future characters:
 export const SPARE_SHAPES = ['katana', 'rapier', 'sawback', 'falchion', 'sabre', 'flamberge', 'khopesh', 'scimitar', 'gladius'];
 const SHAPES = {};
 let TEMPLATE = null, loading = null;
-export function loadPins(url = new URL('greatsword.glb?v=1', import.meta.url).href, shapesUrl = new URL('swords.glb?v=2', import.meta.url).href) {
+export function loadPins(url = new URL('greatsword.glb?v=1', import.meta.url).href, shapesUrl = new URL('swords.glb?v=3', import.meta.url).href) {
   if (TEMPLATE) return Promise.resolve(TEMPLATE);
   const shapes = new GLTFLoader().loadAsync(shapesUrl).then(g => { g.scene.children.forEach(o => { SHAPES[o.name] = o; }); })
     .catch(e => console.warn('Sword shapes not loaded; pins fall back to the greatsword.', e));
@@ -70,11 +71,15 @@ export function loadPins(url = new URL('greatsword.glb?v=1', import.meta.url).hr
     return (TEMPLATE = g.scene);
   });
 }
-function base(mats, shape = 'greatsword') {
+// keepMaps: traced weapons carry a texture painted from their reference; the design's materials take it on (effects go on top)
+function base(mats, shape = 'greatsword', keepMaps = false) {
   const root = (shape !== 'greatsword' && SHAPES[shape] ? SHAPES[shape] : TEMPLATE).clone(true), parts = {};
   root.position.set(0, 0, 0);
-  root.traverse(o => { if (o.isMesh) { const n = o.material.name; o.geometry = o.geometry.clone(); o.castShadow = true; (parts[n] ||= []).push(o); } });
-  for (const [n, list] of Object.entries(parts)) list.forEach(o => { o.material = mats[n] ?? mats.iron; });
+  root.traverse(o => { if (o.isMesh) { const n = o.material.name.split('.')[0]; o.userData.srcMap = o.material.map; o.geometry = o.geometry.clone(); o.castShadow = true; (parts[n] ||= []).push(o); } });
+  for (const [n, list] of Object.entries(parts)) list.forEach(o => {
+    o.material = mats[n] ?? mats.grip ?? mats.iron;
+    if (keepMaps && o.userData.srcMap && !o.material.map) { o.material.map = o.userData.srcMap; o.material.needsUpdate = true; }
+  });
   return { root, parts };
 }
 
@@ -307,7 +312,7 @@ const DESIGNS = {
   //   void  0..1  how much of his hidden Voided side shows: black erasure breaking through the silver, pale at its edges
   vale(opts) {
     const READ = { value: opts.read ?? .3 }, VOID = { value: opts.void ?? 0 };
-    const blade = patch(std('#d6d9de', .95, .22, { emissive: '#ffd27a', emissiveIntensity: 1 }), { uTime: TIME, uGlyph: { value: textures().glyphs }, uRead: READ, uVoid: VOID }, `
+    const blade = patch(std('#ffffff', .85, .28, { emissive: '#ffd27a', emissiveIntensity: 1 }), { uTime: TIME, uGlyph: { value: textures().glyphs }, uRead: READ, uVoid: VOID }, `
       float g = texture2D(uGlyph, vec2(vObj.x*6.+.5, vObj.y*1.5)).a;
       float s = clamp((0.63 - vObj.y)/0.63, 0., 1.);                  // 0 at the guard, 1 at the tip
       float lit = 1. - smoothstep(uRead - .03, uRead, s);            // verses he has read
@@ -318,10 +323,10 @@ const DESIGNS = {
       diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.), blk);
       totalEmissiveRadiance *= 1. - blk;
       totalEmissiveRadiance += vec3(.9,.86,.8) * smoothstep(.03, 0., abs(er)) * step(.001, uVoid) * .8;`);
-    const mats = { blade, iron: std('#2a2a2e', .85, .4), iron_light: std('#c9ccd2', .95, .25), band: std('#8a8d94', .9, .3), grip: std('#141416', .1, .75) };
+    const mats = { blade, grip: std('#ffffff', .6, .4) };
     const g = new Group();
-    const a = base(mats, 'serpent').root; a.position.x = -.06; a.rotation.z = -.08; g.add(a);
-    const b = base(mats, 'serpent').root; b.position.x = .07; b.rotation.set(0, .5, .1); b.scale.setScalar(.93); g.add(b);
+    const a = base(mats, 'serpent_a', true).root; a.position.x = -.06; a.rotation.z = -.08; g.add(a);
+    const b = base(mats, 'serpent_b', true).root; b.position.x = .07; b.rotation.set(0, .5, .1); g.add(b);
     return { root: g, read: READ, void: VOID, height: topOf(g) };
   },
 
@@ -343,17 +348,16 @@ const DESIGNS = {
   // Sils: Nothing. The Terminus Harvester, two black blades crossed in the ground like a grave marker, white crosses on their
   // guards, blue at the edges; both keep coming apart and reforming (his cycle of death)
   sils() {
-    const blade = patch(std('#08070b', .6, .4, { emissive: '#e6dccb', emissiveIntensity: 1 }), { uTime: TIME }, `
+    const blade = patch(std('#ffffff', .5, .4, { emissive: '#e6dccb', emissiveIntensity: 1 }), { uTime: TIME }, `
       float cyc = .5 + .5*sin(uTime*.6);                              // apart … whole … apart
       float n = fbm(vObj*26. + vec3(0., uTime*.1, 0.));
       if (n < cyc*.6 - .05) discard;
       float rim = smoothstep(.06, 0., n - (cyc*.6 - .05));
-      float streak = smoothstep(.93, 1., sin(vObj.y*31. + floor(vObj.x*70.)*2.3)) * step(.6, fract(vObj.x*70.));   // short blue streaks
-      totalEmissiveRadiance = emissive * rim * 1.5 + vec3(.25,.55,1.) * streak * (.8 + .4*sin(uTime*2.));`);
-    const mats = { blade, iron: std('#0d0c11', .6, .5), iron_light: std('#1a2a55', .6, .4, { emissive: '#3f7dff', emissiveIntensity: .6 }), band: std('#e9e6ee', .1, .5), grip: std('#0a090d', .1, .8) };
+      totalEmissiveRadiance = emissive * rim * 1.5;`);
+    const mats = { blade, grip: std('#ffffff', .4, .5) };
     const g = new Group();
-    const a = base(mats, 'harvester_long').root; a.position.x = -.13; a.rotation.z = -.36; g.add(a);
-    const b = base(mats, 'harvester_broad').root; b.position.x = .13; b.rotation.z = .36; g.add(b);
+    const a = base(mats, 'harvester_long', true).root; a.position.x = -.13; a.rotation.z = -.36; g.add(a);
+    const b = base(mats, 'harvester_broad', true).root; b.position.x = .13; b.rotation.z = .36; g.add(b);
     return { root: g, height: topOf(g), update: erasedGround(g, .3) };
   },
 
@@ -399,13 +403,11 @@ const DESIGNS = {
   // Lithia: Reality, the blood-red angel. Her scissor blade (one half of a giant pair; her own take): deep red with a pale rose
   // stripe, drips running down into a dark pool
   lithia() {
-    const blade = patch(std('#7a1016', .5, .4, { emissive: '#d0303a', emissiveIntensity: 1 }), { uTime: TIME }, `
+    const blade = patch(std('#ffffff', .4, .4, { emissive: '#d0303a', emissiveIntensity: 1 }), { uTime: TIME }, `
       float col = floor(vObj.x*90.), sp = .1 + fract(sin(col*12.9898)*43758.5)*.15, ph = fract(sin(col*7.31)*911.1);
       float drip = smoothstep(.0, .02, fract(vObj.y*2. + uTime*sp + ph) - .9) * step(fract(col*.37), .45);
-      float stripe = smoothstep(.006, .0, abs(vObj.x - .012 - .01*vObj.y)) * step(.1, vObj.y) * step(vObj.y, .45);
-      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.85,.42,.48), stripe*.8);
       totalEmissiveRadiance = emissive * drip * 1.4;`);
-    const b = base({ blade, iron: std('#5a0e16', .7, .4), iron_light: std('#c8506a', .6, .35), band: std('#1a0608', .3, .6), grip: std('#3a1430', .4, .45) }, 'scissor');
+    const b = base({ blade, grip: std('#ffffff', .3, .5) }, 'scissor', true);
     const g = new Group(); g.add(b.root);
     const pool = new Mesh(new THREE.CircleGeometry(.16, 48), std('#3a060a', .3, .15, { emissive: '#640a10', emissiveIntensity: .4, polygonOffset: true, polygonOffsetFactor: -2 }));
     pool.rotation.x = -Math.PI / 2; pool.position.y = .004; g.add(pool);
@@ -417,15 +419,15 @@ const DESIGNS = {
   lithiaGod() {
     const g = new Group(), H = .42, BRK = .2;
     const below = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0), above = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-    const blade = patch(std('#5a1418', .8, .35, { emissive: '#a3141a', emissiveIntensity: 1 }), { uTime: TIME }, `
+    const blade = patch(std('#b89090', .5, .35, { emissive: '#a3141a', emissiveIntensity: 1 }), { uTime: TIME }, `
       float c = abs(vObj.x - .012*sin(vObj.y*60.)) ;
       float crack = (1. - smoothstep(.0, .004, c)) * step(.24, vObj.y) * step(vObj.y, .55);
       totalEmissiveRadiance = emissive * (crack * (1.5 + .5*sin(uTime*3.)) + .08);`);
-    const solid = { blade, iron: std('#2a080c', .9, .35), iron_light: std('#7a2a3a', .8, .35), band: std('#120406', .3, .6), grip: std('#240a1e', .4, .5) };
+    const solid = { blade, grip: std('#c8a8a8', .3, .5) };
     Object.values(solid).forEach(m => { m.clippingPlanes = [below]; });
     const ghost = additive({ color: '#d0303a', opacity: .16, clippingPlanes: [above] });
     for (const mats of [solid, { blade: ghost, iron: ghost, grip: ghost }]) {      // broken off at BRK: the jagged end stands in the ground
-      const b = base(mats, 'scissor'); cut(b.parts.blade[0].geometry, BRK, true); b.root.position.y = -BRK; g.add(b.root);
+      const b = base(mats, 'scissor', mats === solid); cut(b.parts.blade[0].geometry, BRK, true); b.root.position.y = -BRK; g.add(b.root);
     }
     const wrap = std('#d8cfc4', 0, .9), stain = std('#8e1a20', 0, .8);
     for (const [y, m] of [[.08, wrap], [.11, stain], [.17, wrap], [.23, wrap], [.255, stain]]) {

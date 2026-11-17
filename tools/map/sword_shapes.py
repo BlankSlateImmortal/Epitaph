@@ -333,20 +333,63 @@ def moinera_dagger():                 # Moinera (dual blades, 1 of 2): a leaf-bl
     return S.finish('moinera_dagger')
 
 SHAPES = [falchion, stiletto, zweihander, executioner, sabre, flamberge, khopesh, estoc, scimitar, gladius, katana, rapier, sawback,
-          grisha_katana, scissor, harvester_long, harvester_broad, serpent, nera_scythe, moinera_dagger]
+          grisha_katana, nera_scythe, moinera_dagger]
 objs = [f() for f in SHAPES]
+
+# ---------------------------------------------------------------- traced weapons: outlines and repainted textures from the
+# reference images (tools/map/trace_weapons.py → weapon_tex/traced.json): Lithia's scissor blade, Sils's Terminus Harvester
+# (two), Vale's Twin Serpents (two). Solid, with their holes cut through and bevelled edges; the texture is mapped on from the front.
+import json
+TEX = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'weapon_tex')
+def traced(o, half=.0055, bev=.0022):
+    cu = bpy.data.curves.new(o['name'], 'CURVE'); cu.dimensions = '2D'; cu.fill_mode = 'BOTH'
+    cu.extrude = half; cu.bevel_depth = bev; cu.bevel_resolution = 1
+    for r in o['rings']:
+        sp = cu.splines.new('POLY'); sp.points.add(len(r) - 1)
+        for p, (x, y) in zip(sp.points, r): p.co = (x, y, 0, 1)
+        sp.use_cyclic_u = True
+    ob = bpy.data.objects.new(o['name'], cu); scene.collection.objects.link(ob)
+    bpy.ops.object.select_all(action='DESELECT'); ob.select_set(True); bpy.context.view_layer.objects.active = ob
+    bpy.ops.object.convert(target='MESH')
+    ob = bpy.context.active_object; me = ob.data
+    # stand it up: curve x → x, curve y → up (z), extrusion → thickness (y)
+    for v in me.vertices: x, y, z = v.co; v.co = Vector((x, -z, y))
+    # materials: the blade (below the guard line) and the rest, both with the repainted texture
+    key = o['tex'][4:-4]
+    img = bpy.data.images.load(os.path.join(TEX, o['tex']), check_existing=True)
+    def tmat(n):
+        name = n + '.' + key
+        if name in bpy.data.materials: return bpy.data.materials[name]
+        m = bpy.data.materials.new(name); m.use_nodes = True; b = m.node_tree.nodes['Principled BSDF']
+        t = m.node_tree.nodes.new('ShaderNodeTexImage'); t.image = img; t.interpolation = 'Closest'
+        m.node_tree.links.new(t.outputs['Color'], b.inputs['Base Color']); return m
+    me.materials.clear(); me.materials.append(tmat('blade')); me.materials.append(tmat('grip'))
+    for f in me.polygons: f.material_index = 0 if f.center.z < G - .004 else 1; f.use_smooth = False
+    # texture coordinates: model (x, up) → back to the image
+    inv = o['inv']; c, si = math.cos(-inv['rot']), math.sin(-inv['rot']); W, H = o['size']
+    while me.uv_layers: me.uv_layers.remove(me.uv_layers[0])        # only our mapping: back to the reference image
+    uv = me.uv_layers.new(name='UVMap'); me.uv_layers.active = uv; uv.active_render = True
+    for loop in me.loops:
+        x, z = me.vertices[loop.vertex_index].co.x, me.vertices[loop.vertex_index].co.z
+        rx, ry = x * c - z * si, x * si + z * c
+        px, py = rx / inv['s'] + inv['tip'][0], -ry / inv['s'] + inv['tip'][1]
+        uv.data[loop.index].uv = (px / W, 1 - py / H)
+    me.update(); return ob
+traced_path = os.path.join(TEX, 'traced.json')
+if os.path.exists(traced_path):
+    objs += [traced(o) for o in json.load(open(traced_path))]
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.export_scene.gltf(filepath=OUT, export_format='GLB', use_selection=True, export_apply=True)
 print('SHAPES', ', '.join(f'{o.name}:{len(o.data.polygons)}' for o in objs))
 
 if SHEET:                            # a contact sheet: every shape side by side, front view, to check the outlines
-    for o in objs[:-7]: o.hide_render = True                    # the sheet shows the character weapons
-    objs = objs[-7:]
+    for o in objs[:-5]: o.hide_render = True                    # the sheet shows the traced weapons
+    objs = objs[-5:]
     for i, o in enumerate(objs): o.location.x = i * .62
     W = len(objs) * .62 + .2, 1.5
     cam = bpy.data.cameras.new('cam'); cam.type = 'ORTHO'; cam.ortho_scale = max(W[0], W[1] * 2400 / 640)
     co = bpy.data.objects.new('cam', cam); scene.collection.objects.link(co); scene.camera = co
     co.location = ((len(objs) - 1) * .62 / 2, -5, .7); co.rotation_euler = (math.pi / 2, 0, 0)
-    scene.render.engine = 'BLENDER_WORKBENCH'; scene.display.shading.light = 'STUDIO'; scene.display.shading.color_type = 'MATERIAL'
+    scene.render.engine = 'BLENDER_WORKBENCH'; scene.display.shading.light = 'STUDIO'; scene.display.shading.color_type = 'TEXTURE'
     scene.render.resolution_x, scene.render.resolution_y = 2400, 640; scene.render.filepath = SHEET
     bpy.ops.render.render(write_still=True); print('SHEET')
