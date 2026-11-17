@@ -2559,6 +2559,7 @@ function frame() {
   liftCars.forEach((c, i) => { c.position.lerpVectors(c.userData.a, c.userData.b, 0.5 + 0.5 * Math.sin(time * 0.35 + i * PI)); c.visible = state.t < 0.05; });
   animateSite(dt, time);
   updateWalk(dt, time);
+  giantPin?.update(time, fp.on ? fpCam : camera);
   if (!fp.on) controls.update();
   renderPass.camera = fp.on ? fpCam : camera;
   composer.render();
@@ -2570,6 +2571,12 @@ if (q.get('after') === '1') { state.after = 1; state.t = 1; [...$('stateSeg').ch
 if (q.get('theme') === 'paper') { state.theme = 'paper'; document.body.classList.add('paper'); [...$('themeSeg').children].forEach(x => x.classList.toggle('on', x.dataset.v === 'paper')); }
 build(); note();
 $('boot').remove();
+// ?embed=1&pin=<design>&ring=<colour>: opened inside the map's close-up; a character's sword stands here, giant (assets/atlas3d/pins/pins.js)
+let giantPin = null;
+if (q.get('embed') === '1') { document.body.classList.add('embed'); state.showTags = false; }
+if (q.get('pin')) import('../atlas3d/pins/pins.js').then(m => m.placeGiant({ scene, ground: root, camera, controls, renderer, design: q.get('pin'), ring: q.get('ring') || null,
+  height: 12, maxY: FLOOR + 1.2, spots: [[-26, -9], [-24, 12], [-4, -27], [12, -26], [-30, 2], [30, 14]] })).then(p => { giantPin = p; }).catch(e => console.warn('giant pin', e));
+
 if (q.get('style') === 'blocks') { state.style = 'blocks'; [...$('styleSeg').children].forEach(x => x.classList.toggle('on', x.dataset.v === 'blocks')); applyStyle(); note(); }
 // (walk inside was removed 2026-11-16: the maps stay as models)
 frame();
