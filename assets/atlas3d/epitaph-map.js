@@ -347,7 +347,10 @@ function addMarkers(T, markerScale, parent = root) {
   markerRoot = new THREE.Group(); parent.add(markerRoot); parent = markerRoot;
   const era = state.era;
   const byKey = {};
-  placesFor(era).forEach(p => {
+  // a fictional city whose own Storyborn site stands inside it (Verdant Reach) is drawn once: the site's statue
+  const shown = placesFor(era), representedBy = new Set(shown.filter(q => q.group === 'STORYBORN' && q.cityId).map(q => q.cityId));
+  shown.forEach(p => {
+    if (p.fictional && !p.group && representedBy.has(p.id)) return;
     const [u, v] = eeUV(p.lng, p.lat);
     const here = earthAt(u, v, era);
     const sunk = era === 1 && !p.group && !p.fictional && (here.kind === 'sunk' || here.kind === 'sea');
