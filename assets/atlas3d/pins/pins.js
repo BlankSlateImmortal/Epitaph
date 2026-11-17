@@ -21,16 +21,31 @@ export const PIN_HEIGHT = 1.055;
 const TIME = { value: 0 };
 
 // ---------- which design a character gets ----------
-const CHAR_DESIGNS = { orin: 'orin', nera: 'nera', yona: 'yona', gaia: 'gaia', val: 'val' };
+const CHAR_DESIGNS = { orin: 'orin', nera: 'nera', yona: 'yona', gaia: 'gaia', val: 'val', vale: 'vale' };
+// swords that need the name AND the type (Dossier race): the Primordials' own forms, and Lithia as an Unbound god.
+// No god swords for Antholonious (split at the siege), Sils (sealed in Orin) or Moinera (she became the dreamscape).
+const NAME_AND_TYPE = [
+  { names: ['grisha', 'chaos', 'universe'], type: 'primordial', design: 'grisha' },
+  { names: ['sils', 'silence'], type: 'primordial', design: 'sils' },
+  { names: ['antholonious'], type: 'primordial', design: 'antholonious' },
+  { names: ['moinera'], type: 'primordial', design: 'moinera' },
+  { names: ['lithia'], type: 'primordial', design: 'lithia' },
+  { names: ['lithia'], type: 'unbound', design: 'lithiaGod' }
+];
 const TYPE_DESIGNS = { storyborn: 'storyborn', person: 'person', godling: 'godling', voided: 'voided', fallen: 'fallen', unbound: 'unbound', primordial: 'primordial' };
 export const DESIGN_LABEL = {
   storyborn: 'Storyborn', person: 'Person', godling: 'Godling', voided: 'Voided', fallen: 'Fallen', unbound: 'Unbound', primordial: 'Primordial',
-  orin: 'Twisted Storyborn', nera: 'Fallen · rebuilt', yona: 'Godling · Dreamling', gaia: 'Storyborn', val: 'Unbound · the hole'
+  orin: 'Twisted Storyborn', nera: 'Fallen · rebuilt', yona: 'Godling · Dreamling', gaia: 'Storyborn', val: 'Unbound · the hole',
+  vale: 'The first Storyborn', grisha: 'Chaos · the Last Primordial', sils: 'Primordial · Nothing', antholonious: 'Primordial · Fate',
+  moinera: 'Primordial · Imagination', lithia: 'Primordial · Reality', lithiaGod: 'Unbound · wounded'
 };
 export function designFor(char) {
   const first = String(char && char.name || '').trim().split(/\s+/)[0].toLowerCase().replace(/[^a-z]/g, '');
+  const type = String(char && (char.race || char.type) || '').toLowerCase();
+  const special = NAME_AND_TYPE.find(r => r.type === type && r.names.includes(first));
+  if (special) return special.design;
   if (CHAR_DESIGNS[first]) return CHAR_DESIGNS[first];
-  return TYPE_DESIGNS[String(char && (char.race || char.type) || '').toLowerCase()] || 'person';
+  return TYPE_DESIGNS[type] || 'person';
 }
 
 // ---------- the model ----------
@@ -286,6 +301,114 @@ const DESIGNS = {
     return { root: g, update: halo(b.root, { r: .27, y: .67 }), height: PIN_HEIGHT * 1.3 };
   },
   val() { const d = DESIGNS.voided(); d.root.scale.setScalar(1.15); return { ...d, height: PIN_HEIGHT * 1.15 }; },
+
+  // Vale, the first Storyborn: Antholonious's soul in a body the Scribe wrote its destiny on. Two states, like Orin's seal:
+  //   read  0..1  how much of the written destiny he has recognised: the verses light from the guard toward the tip
+  //   void  0..1  how much of his hidden Voided side shows: black erasure breaking through the gold, pale at its edges
+  vale(opts) {
+    const READ = { value: opts.read ?? .3 }, VOID = { value: opts.void ?? 0 };
+    const blade = patch(std('#cdb68a', .9, .3, { emissive: '#ffd27a', emissiveIntensity: 1 }), { uTime: TIME, uGlyph: { value: textures().glyphs }, uRead: READ, uVoid: VOID }, `
+      float g = texture2D(uGlyph, vec2(vObj.x*6.+.5, vObj.y*1.5)).a;
+      float s = clamp((0.63 - vObj.y)/0.63, 0., 1.);                  // 0 at the guard, 1 at the tip
+      float lit = 1. - smoothstep(uRead - .03, uRead, s);            // verses he has read
+      float edge = smoothstep(.04, 0., abs(s - uRead)) * step(.001, uRead) * step(uRead, .999);
+      totalEmissiveRadiance = emissive * g * (lit * (1.2 + .3*sin(uTime*2. + vObj.y*20.)) + (1. - lit) * .06) + vec3(1.,.85,.5) * edge * g * 2.;
+      float n = fbm(vObj*30. + vec3(0., uTime*.05, 0.)), er = uVoid*1.15 - n;
+      float blk = smoothstep(0., .02, er);
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.), blk);
+      totalEmissiveRadiance *= 1. - blk;
+      totalEmissiveRadiance += vec3(.9,.86,.8) * smoothstep(.03, 0., abs(er)) * step(.001, uVoid) * .8;`);
+    const b = base({ blade, ...SETS.bronze() });
+    return { root: b.root, read: READ, void: VOID, update: halo(b.root, { r: .17, y: .67, color: '#ffe3a0' }) };
+  },
+
+  // Grisha: Chaos, the Last Primordial. A blade that won't hold still: dark, churning, veined red; a crown of spires
+  // round the guard; a red eye in the pommel; shards circling at random
+  grisha() {
+    const blade = patch(std('#1b1517', .6, .35, { emissive: '#ff3a2a', emissiveIntensity: 1 }), { uTime: TIME }, `
+      float n = fbm(vObj*24. + vec3(uTime*.4, -uTime*.6, uTime*.3));
+      float vein = smoothstep(.62, .7, n) * (1. - smoothstep(.7, .78, n));
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.32,.05,.06), smoothstep(.4, .9, n)*.6);
+      totalEmissiveRadiance = emissive * vein * (1.2 + .6*sin(uTime*5. + n*20.));`,
+      `transformed.x += (sin(position.y*37. + uTime*2.3) + sin(position.y*23. - uTime*3.7)*.6 + sin(position.y*61. + uTime*5.1)*.3) * .007 * smoothstep(.0, .55, position.y) * step(position.y, .62);`);
+    const crown = std('#2a2226', .8, .35), b = base({ blade, iron: crown, iron_light: std('#4a3a40', .85, .3), band: std('#5a1a1c', .7, .4), grip: std('#120e10', .2, .6) }), g = b.root;
+    const spires = new Group(); spires.position.y = G + .02; g.add(spires);
+    for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2, h = .07 + (k % 2) * .05; const sp = new Mesh(new THREE.ConeGeometry(.012, h, 5), crown); sp.position.set(Math.cos(a) * .07, h / 2, Math.sin(a) * .045); sp.rotation.z = -Math.cos(a) * .35; sp.rotation.x = Math.sin(a) * .35; spires.add(sp); }
+    const eye = new Mesh(new THREE.SphereGeometry(.014, 16, 12), new THREE.MeshBasicMaterial({ color: '#ff3a2a' })); eye.position.set(0, 1.02, .02); g.add(eye);
+    const spin = shards(g, std('#3a2a2e', .7, .3, { emissive: '#ff3a2a', emissiveIntensity: .6 }), 5);
+    return { root: g, update: t => { spin(t * (1 + .5 * Math.sin(t * 2.3))); spires.rotation.y = Math.sin(t * .7) * .4; eye.scale.setScalar(.8 + .4 * Math.abs(Math.sin(t * 3.1))); } };
+  },
+
+  // Sils: Nothing. A sword-shaped absence with a pale edge, that keeps coming apart and reforming (his cycle of death)
+  sils() {
+    const blade = patch(std('#050407', .2, .9, { emissive: '#e6dccb', emissiveIntensity: 1 }), { uTime: TIME }, `
+      float cyc = .5 + .5*sin(uTime*.6);                              // apart … whole … apart
+      float n = fbm(vObj*26. + vec3(0., uTime*.1, 0.));
+      if (n < cyc*.75 - .05) discard;
+      totalEmissiveRadiance = emissive * smoothstep(.06, 0., n - (cyc*.75 - .05)) * 1.5;`);
+    const dark = std('#0b0a0e', .5, .7), b = base({ blade, iron: dark, iron_light: std('#1a181f', .6, .6), band: dark, grip: std('#060508', .1, .8) });
+    const g = new Group(); g.add(b.root);
+    return { root: g, update: erasedGround(g, .22) };
+  },
+
+  // Antholonious: Fate, the Author Beyond Pages. Pale stone written with gold; above the guard it breaks into
+  // square fragments drifting up like torn pages
+  antholonious() {
+    const blade = patch(std('#d9d6cf', 0, .9, { emissive: '#ffe7a8', emissiveIntensity: 1 }), { uTime: TIME, uGlyph: { value: textures().glyphs } }, `
+      float g = texture2D(uGlyph, vec2(vObj.x*6.+.5, vObj.y*1.5 - uTime*.02)).a;
+      totalEmissiveRadiance = emissive * g * .9;`);
+    const st = std('#bdb8ae', 0, .9), b = base({ blade, iron: st, iron_light: std('#e8e4dc', 0, .85), band: std('#9a7a3a', .8, .35), grip: std('#a9a59c', 0, .9) }), g = b.root;
+    const frags = [], fm = std('#e8e4dc', 0, .85, { emissive: '#ffe7a8', emissiveIntensity: .25 });
+    for (let k = 0; k < 14; k++) { const m = new Mesh(new THREE.BoxGeometry(.018, .018, .004), fm.clone()); m.material.transparent = true; g.add(m); frags.push({ m, x: (Math.random() - .5) * .12, z: (Math.random() - .5) * .05, ph: Math.random(), sp: .25 + Math.random() * .2 }); }
+    return { root: g, update: t => frags.forEach(f => { const u = (t * f.sp + f.ph) % 1; f.m.position.set(f.x + Math.sin(t + f.ph * 9) * .01, G + .05 + u * .55, f.z); f.m.rotation.set(t * 2 + f.ph * 9, t + f.ph, 0); f.m.material.opacity = 1 - u; }) };
+  },
+
+  // Moinera: Imagination. Dream-opal that never keeps one shape: the blade ripples and shifts as you watch
+  moinera() {
+    const blade = patch(new THREE.MeshPhysicalMaterial({ color: '#f2e8ff', metalness: 0, roughness: .08, iridescence: 1, iridescenceIOR: 1.6, emissive: '#c9a8ff', emissiveIntensity: .3 }), { uTime: TIME }, `
+      totalEmissiveRadiance *= 1. + .8*sin(uTime*1.3 + vObj.y*14.);`,
+      `float w = smoothstep(.0, .6, position.y) * step(position.y, .62);
+       transformed.x += sin(position.y*16. + uTime*1.6) * .014 * w;
+       transformed.z += cos(position.y*11. - uTime*1.1) * .008 * w;
+       transformed.x *= 1. + .25*sin(uTime*.9 + position.y*5.) * w;`);
+    const b = base({ blade, ...SETS.pearl() });
+    return { root: b.root, update: shards(b.root, std('#f3d6e6', .2, .3, { emissive: '#ff9ad5', emissiveIntensity: .5 }), 4) };
+  },
+
+  // Lithia: Reality, the blood-red angel. The most solid of them: deep red, with drips running down into a dark pool
+  lithia() {
+    const blade = patch(std('#7a1016', .5, .4, { emissive: '#d0303a', emissiveIntensity: 1 }), { uTime: TIME }, `
+      float col = floor(vObj.x*90.), sp = .1 + fract(sin(col*12.9898)*43758.5)*.15, ph = fract(sin(col*7.31)*911.1);
+      float drip = smoothstep(.0, .02, fract(vObj.y*2. + uTime*sp + ph) - .9) * step(fract(col*.37), .45);
+      totalEmissiveRadiance = emissive * drip * 1.4;`);
+    const b = base({ blade, iron: std('#3a0a0e', .7, .4), iron_light: std('#64101a', .8, .35), band: std('#a3141a', .8, .3), grip: std('#2a0608', .1, .7) });
+    const g = new Group(); g.add(b.root);
+    const pool = new Mesh(new THREE.CircleGeometry(.16, 48), std('#3a060a', .3, .15, { emissive: '#640a10', emissiveIntensity: .4, polygonOffset: true, polygonOffsetFactor: -2 }));
+    pool.rotation.x = -Math.PI / 2; pool.position.y = .004; g.add(pool);
+    return { root: g, sink: .06, update: t => { pool.scale.setScalar(1 + .04 * Math.sin(t * 1.1)); } };
+  },
+
+  // Lithia as an Unbound god, wounded from the war: the Unbound sword coming down through its barrier, in her red,
+  // its blade cracked and bound with stained wraps
+  lithiaGod() {
+    const g = new Group(), H = .5;
+    const below = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0), above = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const blade = patch(std('#5a1418', .8, .35, { emissive: '#a3141a', emissiveIntensity: 1 }), { uTime: TIME }, `
+      float c = abs(vObj.x - .012*sin(vObj.y*60.)) ;
+      float crack = (1. - smoothstep(.0, .004, c)) * step(.12, vObj.y) * step(vObj.y, .5);
+      totalEmissiveRadiance = emissive * (crack * (1.5 + .5*sin(uTime*3.)) + .08);`);
+    const solid = { blade, iron: std('#1e0a0c', .9, .35), iron_light: std('#3a1216', .9, .3), band: std('#3a1216', .9, .3), grip: std('#120506', .2, .6) };
+    Object.values(solid).forEach(m => { m.clippingPlanes = [below]; });
+    const ghost = additive({ color: '#d0303a', opacity: .16, clippingPlanes: [above] });
+    g.add(base(solid).root, base({ blade: ghost, iron: ghost }).root);
+    const wrap = std('#d8cfc4', 0, .9), stain = std('#8e1a20', 0, .8);
+    for (const [y, m] of [[.2, wrap], [.235, stain], [.3, wrap], [.36, wrap], [.385, stain]]) {
+      const w = new Mesh(new THREE.CylinderGeometry(.06, .062, .022, 16, 1, true).scale(1, 1, .3), m); w.position.y = y; w.rotation.z = (y * 37 % 1 - .5) * .25; w.material.side = THREE.DoubleSide; w.material.clippingPlanes = [below]; g.add(w);
+    }
+    const bar = new Mesh(new THREE.CircleGeometry(.32, 48), additive({ map: textures().hex, color: '#d0303a', opacity: .55 })); bar.rotation.x = -Math.PI / 2; bar.position.y = H; g.add(bar);
+    const v = new THREE.Vector3();
+    return { root: g, update: t => { g.updateWorldMatrix(true, false); const y = g.localToWorld(v.set(0, H, 0)).y; below.constant = y; above.constant = -y; bar.rotation.z = t * .1; } };
+  },
 };
 
 const RING_ON = new Set(['orin', 'nera', 'yona', 'gaia']);
@@ -302,7 +425,7 @@ export function buildPin(design = 'person', opts = {}) {
     ring.position.y = .03; group.add(ring);
   }
   return {
-    group, design, height: (d.height ?? PIN_HEIGHT) - sink, seal: d.seal,
+    group, design, height: (d.height ?? PIN_HEIGHT) - sink, seal: d.seal, read: d.read, void: d.void,
     update(t, camera) { TIME.value = t; d.update?.(t, camera); }
   };
 }

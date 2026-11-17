@@ -17,9 +17,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { loadPins, buildPin, designFor } from './pins/pins.js';
+import { loadPins, buildPin, designFor } from './pins/pins.js?v=2';
 import { Vox, FIGS, FIG_COLORS } from './statues.js';
-import { openCloseup, isOpen as closeupOpen } from './closeup.js';
+import { openCloseup, isOpen as closeupOpen } from './closeup.js?v=2';
 
 const World = window.EpitaphWorld;
 const $ = id => document.getElementById(id);
@@ -194,6 +194,7 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.shadowMap.enabled = true;
+renderer.localClippingEnabled = true;          // Unbound swords are cut where they pass through their barrier
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
 const pmrem = new THREE.PMREMGenerator(renderer);
