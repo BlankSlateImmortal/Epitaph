@@ -2,6 +2,32 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Map: pin close-up (atlas-3d.html)
+
+- **Click a sword** on the map to open a big, turnable close-up of it. Drag still picks the sword up. Esc or Close goes back.
+- **Each character gets their own pin design** (`assets/atlas3d/pins/pins.js`), all built on the jade greatsword model:
+  - **By type:** Storyborn gold with drifting glyphs and a halo · Person steel with name rings · Godling plane-glass · Voided a sword-shaped hole · Fallen broken · Unbound through the barrier · Primordial stone.
+  - **By character:** Orin, Nera, Yona, Gaia and Val have their own versions. The type comes from the Dossier (`race`); the five names win over the type.
+- **The close-up copies the ground the sword is in** (`assets/atlas3d/closeup.js`, region read from the map's elevation data):
+  - plains, hills, mountains, snowfield (far north and south), impact mountains, the crater
+  - **Coast:** the tip in the surf, the rest above the water
+  - **At sea:** a character en route across open water rides in a small boat with the sword in its deck
+  - **Under the sea:** open sea; land the +60 m sea took shows sunken ruins
+- **Places with a built site** (Aurelia, the Hollow Reach) open that site instead, with the sword standing in it at giant size (`?embed=1&pin=…` on the site pages). "Open the site" leaves the map for the full site.
+- The map pauses while the close-up is open.
+
+## Map: sword pins (atlas-3d.html)
+
+- Every living character stands on the map as a jade greatsword stuck in the ground (`assets/atlas3d/pins/greatsword.glb`, about 2,900 polygons; rebuild with `tools/map/greatsword_pin.py` in Blender). The dead keep the grave cross.
+- **Drag a sword** to pick it up: it strains, pulls free in a puff of block dust and rises on a **golden thread** tied to the cursor. It hangs by its pommel and swings like a pendulum, so fast moves make it sway. **Scroll** to let the thread out (the sword drops lower and swings slower and wider) or reel it in (the map doesn't zoom while a sword is held). On release the thread snaps back to the cursor. A click without dragging still focuses the sword.
+- **Throwing:** on release the sword keeps its momentum (hand speed plus swing) and flies under gravity, spinning, its point turning into the direction of travel like a dart. It sticks in at the angle it hits, leaning at most 55°, and keeps that angle afterwards (remembered per character in `epitaph-map-pin-poses`).
+- **Magnetic statue sites:** places listed in `EpitaphWorld.STATUES` (`assets/epitaph-world.js`) pull swords in. Their rings light up while you carry a sword. Within a short reach (`SNAP`), the carried sword is pulled toward one and a thrown one bends toward it in flight, then snaps onto the site and stabs in with a wobble.
+- **Anywhere else, the sword stays where it lands.** Near a map place (within `NEAR_PLACE`) the character is **en route** to it (label `Name → Place`); otherwise their location is **unknown** (label `Name · ?`). These are saved as `{ status: 'unknown' | 'enroute', lat, lng, toPlaceId?, countryId? }`, which `EpitaphWorld.resolve` reads as "Unknown location" / "En route to …", so the Dossier shows them too. **Esc** while carrying puts the sword back where it came from.
+- **Impacts:** when a sword hits the ground, the block columns around it hop up and fall back with a small bounce, in a wave that rolls outward, and the camera jolts. Harder hits lift higher and reach further; a slanted throw makes the wave lopsided, bigger in the direction the sword was travelling. Chapter-travel landings make a medium ripple. Tune it in `IMPACT` at the top of the impacts section in `assets/atlas3d/epitaph-map.js` (`lift`, `reach`, `speed`, `gravity`, `skew`, `shake`). Off when the system asks for reduced motion.
+- **Chapter travel:** changing chapter (scrubber or ◀ ▶) flies each sword from where it stood to its place in the new chapter: it pulls free, arcs across the map point-first, dives in and wobbles. Swords leave one after another; a character new to the story drops in from above.
+- **Saved to the Dossier:** a drop sets `location = { countryId, placeId }` on the chapter version shown (the latest, or the one at the chapter on the scrubber). An open Dossier tab updates itself. Locked (canon) chapters refuse to move with a wiggle and a note; demo pins move but are not saved.
+- Add a statue site by adding its place id to `STATUES`. The list starts with Aurelia, the Temple of the Voided, the Hollow Reach, the Church of the Storyborn and Verdant Reach.
+
 ## Atlas tracker
 
 The Atlas has one job now: show where each character is, chapter by chapter.

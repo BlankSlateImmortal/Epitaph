@@ -16,6 +16,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { loadPins, buildPin, designFor } from './pins/pins.js';
+import { openCloseup, isOpen as closeupOpen } from './closeup.js';
 
 const World = window.EpitaphWorld;
 const $ = id => document.getElementById(id);
@@ -144,7 +147,7 @@ function earthAt(u, v, era) {
 const outlineMats = new Set();
 function outlineMaterial(color, px) {
   const m = new THREE.ShaderMaterial({
-    uniforms: { uColor: { value: new THREE.Color(color) }, uPx: { value: px }, uRes: { value: new THREE.Vector2(1, 1) } },
+    uniforms: { uColor: { value: new THREE.Color(color) }, uPx: { value: px }, uRes: { value: new THREE.Vector2(canvas.clientWidth || innerWidth, canvas.clientHeight || innerHeight) } },
     vertexShader: `
       uniform float uPx; uniform vec2 uRes;
       void main(){
@@ -216,13 +219,13 @@ function loadCharacters() {
   const list = (st && Array.isArray(st.characters)) ? st.characters : [];
   const chars = list.map((c, i) => {
     const versions = (c.snapshots || []).filter(s => Number.isInteger(s.startChapter)).sort((a, b) => a.startChapter - b.startChapter);
-    const stops = versions.map(s => ({ ch: s.startChapter, presence: s.presence || 'alive', r: World.resolve(s.location) })).filter(s => s.r && num(s.r.lat) && num(s.r.lng));
+    const stops = versions.map(s => ({ ch: s.startChapter, presence: s.presence || 'alive', r: World.resolve(s.location), snapId: s.id, locked: !!s.locked })).filter(s => s.r && num(s.r.lat) && num(s.r.lng));
     if (!stops.length) {
       const snap = (c.snapshots || []).find(s => s.id === c.activeSnapshotId) || (c.snapshots || [])[0];
       const r = snap && World.resolve(snap.location);
-      if (r && num(r.lat)) stops.push({ ch: null, presence: snap.presence || 'alive', r });
+      if (r && num(r.lat)) stops.push({ ch: null, presence: snap.presence || 'alive', r, snapId: snap.id, locked: !!snap.locked });
     }
-    return { id: c.id, name: c.name || 'Unnamed', color: CHAR_COLORS[i % CHAR_COLORS.length], stops };
+    return { id: c.id, name: c.name || 'Unnamed', race: c.race || '', color: CHAR_COLORS[i % CHAR_COLORS.length], stops };
   }).filter(c => c.stops.length);
   const chapters = new Set((st && st.chapters || []).map(c => c.number).filter(Number.isInteger));
   chars.forEach(c => c.stops.forEach(s => Number.isInteger(s.ch) && chapters.add(s.ch)));
@@ -259,6 +262,7 @@ function placesFor(era) {
 
 // ------------------------------------------------------------------ view plumbing
 let root = null, pickables = [], animated = [], surface = null, labels = [], viewCfg = null;
+let markerRoot = null, markerAnim = [], markerArgs = null;   // the place + character markers, rebuilt alone when a pin moves
 let eraHooks = [];          // (eraT) => void, called while the era changes
 function mat(color, opts = {}) { return new THREE.MeshStandardMaterial({ color, roughness: 0.82, metalness: 0, envMapIntensity: 1, ...opts }); }
 function shadowGround(T, y, size) {
@@ -314,6 +318,8 @@ let arcBetween = null;
 
 // places + characters + trails on the current surface
 function addMarkers(T, markerScale, parent = root) {
+  markerArgs = { T, markerScale, parent };
+  markerRoot = new THREE.Group(); parent.add(markerRoot); parent = markerRoot;
   const era = state.era;
   const byKey = {};
   placesFor(era).forEach(p => {
@@ -339,18 +345,29 @@ function addMarkers(T, markerScale, parent = root) {
     if (!cs) return;
     const r = cs.stop.r, n = stacks[r.key] = (stacks[r.key] || 0) + 1;
     const at = surface(r.lat, r.lng), dead = cs.stop.presence === 'dead';
-    const t = new THREE.Mesh(dead ? markerGeo.dead : markerGeo.token, mat(c.color, { roughness: 0.35, emissive: c.color, emissiveIntensity: 0.25 }));
-    placeOn(t, at, markerScale * 1.15);
+    const t = dead || !PIN_TEMPLATE ? new THREE.Mesh(dead ? markerGeo.dead : markerGeo.token, mat(c.color, { roughness: 0.35, emissive: c.color, emissiveIntensity: 0.25 })) : makePin(T, c);
+    placeOn(t, at, markerScale * (t.userData.isPin ? PIN_LEN : 1.15));
     const side = new THREE.Vector3().crossVectors(at.normal, Math.abs(at.normal.y) > 0.9 ? new THREE.Vector3(1, 0, 0) : UP).normalize();
     const fwd = new THREE.Vector3().crossVectors(side, at.normal);
-    const ang = 2.4 + (n - 1) * 2.1, rad = 0.32 * markerScale;   // tokens stand beside the place marker, not on it
+    const ang = 2.4 + (n - 1) * 2.1, rad = r.kind === 'point' && n === 1 ? 0 : 0.32 * markerScale;   // tokens stand beside the place marker, not on it
     t.position.addScaledVector(side, Math.cos(ang) * rad).addScaledVector(fwd, Math.sin(ang) * rad).addScaledVector(at.normal, 0.04);
     t.castShadow = true; t.userData.char = c; t.userData.charState = cs;
-    withOutline(t, T);
-    parent.add(t); pickables.push(t);
-    const base = t.position.clone();
-    if (!reduceMotion && !dead) animated.push(time => { t.position.copy(base).addScaledVector(at.normal, Math.sin(time * 2 + n) * 0.03 * markerScale); });
-    labels.push({ obj: t, text: (dead ? '† ' : '') + c.name, color: c.color, offset: 0.62 * markerScale, normal: at.normal });
+    if (t.userData.isPin) {
+      const pose = readPoses()[c.id];
+      if (pose && (pose.key === r.key || (pose.placeId && 'place:' + pose.placeId === r.key)) && n === 1)   // keep the angle it landed at
+        t.quaternion.setFromUnitVectors(UP, at.normal).multiply(new THREE.Quaternion().fromArray(pose.q));
+      t.position.addScaledVector(at.normal, -0.08 * markerScale);          // the point is buried a little
+      t.userData.hit.userData = { char: c, charState: cs, pin: t, at, scale: markerScale };
+      pickables.push(t.userData.hit);
+      markerAnim.push(time => t.userData.update(reduceMotion ? 0 : time));          // the design's own effects (glyphs, fading glass, the seal)
+    } else {
+      withOutline(t, T); pickables.push(t);
+      const base = t.position.clone();
+      if (!reduceMotion && !dead) markerAnim.push(time => { t.position.copy(base).addScaledVector(at.normal, Math.sin(time * 2 + n) * 0.03 * markerScale); });
+    }
+    parent.add(t);
+    const where = r.kind === 'point' ? (r.to ? ' → ' + r.to.name : ' · ?') : '';
+    labels.push({ obj: t, text: (dead ? '† ' : '') + c.name + where, color: c.color, offset: (t.userData.isPin ? 0.86 : 0.62) * markerScale, normal: at.normal, marker: true });
     const pts = cs.path.map(s => s.r).filter((q, i, a) => i === 0 || q.key !== a[i - 1].key);
     for (let i = 1; i < pts.length; i++) {
       const curve = arcBetween(pts[i - 1], pts[i]), newest = i === pts.length - 1;
@@ -358,10 +375,64 @@ function addMarkers(T, markerScale, parent = root) {
       if (newest && !reduceMotion) {
         const spark = new THREE.Mesh(new THREE.SphereGeometry(0.07 * markerScale, 12, 8), new THREE.MeshBasicMaterial({ color: '#fff' }));
         parent.add(spark);
-        animated.push(time => { spark.position.copy(curve.getPointAt((time * 0.25) % 1)); });
+        markerAnim.push(time => { spark.position.copy(curve.getPointAt((time * 0.25) % 1)); });
       }
     }
   });
+}
+
+// ------------------------------------------------------------------ impacts: block shockwave + camera jolt
+// When a sword hits, the view it is on (board or planet) hands its nearby columns to quake(): each column hops
+// up and falls back with a small bounce, timed by its distance so a wave rolls outward. A slanted hit makes the
+// wave lopsided: taller and longer in the direction the sword was travelling.
+const IMPACT = {
+  lift: 0.34,       // tallest hop, in marker units, for the hardest hit
+  reach: 3.2,       // wave radius for the hardest hit, in marker units (a gentle drop is about a third)
+  speed: 7,         // how fast the wave spreads (marker units per second)
+  gravity: 9,       // how quickly lifted columns fall back
+  skew: 0.9,        // how lopsided a slanted hit makes the wave (0 = always round)
+  shake: 0.18       // camera jolt for the hardest hit
+};
+let groundImpact = null;                         // set by the view builder: (pos, dir, power, slant) => list of columns
+const quakes = [];
+const shake = { t: 1, amp: 0 };
+function impact(pos, normal, vel, power, scale) {
+  if (reduceMotion || !groundImpact) return;
+  power = Math.max(0, Math.min(1, power));
+  const vt = vel ? vel.clone().addScaledVector(normal, -vel.dot(normal)) : new THREE.Vector3();
+  const slant = vel && vel.lengthSq() > 1e-8 ? Math.min(1, vt.length() / vel.length()) : 0;
+  const dir = vt.lengthSq() > 1e-8 ? vt.normalize() : null;
+  const reach = IMPACT.reach * scale * (0.35 + 0.65 * power);
+  const q = groundImpact(pos, reach);           // [{ r, d (unit vector from impact, along the ground), set(lift) }], plus flush()
+  if (!q || !q.cols.length) return;
+  const g = IMPACT.gravity * scale, items = [];
+  q.cols.forEach(cl => {
+    const cos = dir ? cl.d.dot(dir) : 0;
+    const rEff = cl.r / (1 + 0.6 * IMPACT.skew * slant * Math.max(0, cos));              // reaches further ahead
+    if (rEff > reach) return;
+    const fall = Math.exp(-rEff / (reach * 0.42)), inner = smooth01(cl.r / (0.45 * scale));  // the column under the sword barely moves
+    const A = IMPACT.lift * scale * power * fall * inner * Math.max(0.15, 1 + IMPACT.skew * slant * cos);
+    if (A < 0.004 * scale) return;
+    const v0 = Math.sqrt(2 * g * A);
+    items.push({ set: cl.set, delay: rEff / (IMPACT.speed * scale), v0, T1: 2 * v0 / g, v1: v0 * 0.42 });
+  });
+  if (!items.length) return;
+  let t = 0;
+  quakes.push({ step(dt) {
+    t += dt; let live = false;
+    items.forEach(it => {
+      let tau = t - it.delay, lift = 0;
+      if (tau > 0) {
+        if (tau < it.T1) lift = it.v0 * tau - g * tau * tau / 2;                         // the hop
+        else if ((tau -= it.T1) < 2 * it.v1 / g) lift = it.v1 * tau - g * tau * tau / 2;  // a small bounce
+        else { if (!it.done) { it.done = true; it.set(0); } return; }
+      }
+      live = true; it.set(Math.max(0, lift));
+    });
+    q.flush();
+    return !live;
+  } });
+  shake.t = 0; shake.amp = Math.max(shake.amp * (1 - shake.t), IMPACT.shake * scale * power);
 }
 
 // ------------------------------------------------------------------ VIEW 02: the Earth board (Shattered look, real data)
@@ -422,6 +493,20 @@ function buildEarth() {
   withOutline(vox, T, T.outlinePx * 0.7);
   root.add(vox);
   eraHooks.push(applyEra);
+  groundImpact = (pos, reach) => {
+    const cols = [], i0 = Math.floor((pos.x / BW + 0.5) * NX), j0 = Math.floor((-pos.z / BH + 0.5) * NZ), k = Math.ceil(reach / cell) + 1;
+    for (let j = j0 - k; j <= j0 + k; j++) for (let i = i0 - k; i <= i0 + k; i++) {
+      if (i < 0 || j < 0 || i >= NX || j >= NZ) continue;
+      const idx = index[j * NX + i]; if (idx < 0) continue;
+      const cl = cells[idx], dx = cl.x - pos.x, dz = cl.z - pos.z, r = Math.hypot(dx, dz);
+      if (r > reach * 1.7) continue;
+      cols.push({ r, d: new THREE.Vector3(dx, 0, dz).normalize(), set: lift => {
+        const c = cl.c[Math.max(0, cl.state)];
+        m4.makeScale(1, topOf(c) + BASE, 1).setPosition(cl.x, -BASE + lift, cl.z); vox.setMatrixAt(idx, m4);
+      } });
+    }
+    return { cols, flush: () => { vox.instanceMatrix.needsUpdate = true; } };
+  };
 
   // Era 1 set pieces, grouped so they can rise and fade with the era
   const lore = new THREE.Group(); root.add(lore);
@@ -580,6 +665,20 @@ function buildPlanet() {
   withOutline(cols, T, T.outlinePx * 0.6);
   cols.userData.earth = true;
   planet.add(cols); pickables.push(cols);
+  groundImpact = (pos, reach) => {
+    const list = [], at = pos.clone().normalize(), n = at, tq = new THREE.Quaternion(), ts = new THREE.Vector3(), tm = new THREE.Matrix4();
+    earthCells.forEach((cl, i) => {
+      const p = cl.dir.clone().multiplyScalar(PR), r = p.distanceTo(at.clone().multiplyScalar(PR));
+      if (r > reach * 1.7) return;
+      const d = p.clone().sub(at.clone().multiplyScalar(PR)); d.addScaledVector(n, -d.dot(n)); if (d.lengthSq() > 1e-12) d.normalize();
+      list.push({ r, d, set: lift => {
+        const c = cl.c[Math.max(0, cl.state)];
+        tq.setFromUnitVectors(UP, cl.dir);
+        tm.compose(cl.dir.clone().multiplyScalar(PR * 0.995 + lift), tq, ts.set(1, hOf(c), 1)); cols.setMatrixAt(i, tm);
+      } });
+    });
+    return { cols: list, flush: () => { cols.instanceMatrix.needsUpdate = true; } };
+  };
   const maxD = Math.max(...earthCells.map(c => c.d));
   eraHooks.push((eraT, target) => {
     let changed = false;
@@ -735,7 +834,9 @@ function disposeTree(o) {
 function build() {
   if (root) { scene.remove(root); disposeTree(root); }
   root = new THREE.Group(); scene.add(root);
-  pickables = []; animated = []; labels = []; eraHooks = []; state.planet = null;
+  pickables = []; animated = []; labels = []; eraHooks = []; markerAnim = []; markerRoot = null; state.planet = null;
+  if (drag.active) endDrag(true);
+  travels.length = 0; quakes.length = 0; groundImpact = null;
   const T = THEMES[state.theme];
   document.documentElement.dataset.theme = state.theme === 'crt' ? 'crt' : 'paper';
   hemi.color.set(T.hemiSky); hemi.groundColor.set(T.hemiGround); hemi.intensity = 1.1;
@@ -802,7 +903,13 @@ function setChapterUI() {
   const ch = state.chapter;
   $('chapterLabel').textContent = state.era !== 1 ? 'Era 0' : ch == null ? 'Latest' : 'Ch ' + String(ch).padStart(2, '0') + (state.titles[ch] && !state.demo ? ' · ' + state.titles[ch] : '');
 }
-function setChapter(ch) { state.chapter = ch; setChapterUI(); rebuildKeepCamera(); renderLegend(); }
+function setChapter(ch) {
+  const before = pinPositions();                 // where every sword stands now
+  state.chapter = ch; setChapterUI();
+  if (markerRoot && !drag.active) { refreshMarkers(); if (!reduceMotion) flyToChapter(before); }
+  else rebuildKeepCamera();
+  renderLegend();
+}
 const remember = () => { try { localStorage.setItem('epitaph-map-prefs', JSON.stringify({ view: state.view, theme: state.theme, era: state.era })); } catch (e) {} };
 function setView(v) {
   if (state.view === v) return;
@@ -867,7 +974,8 @@ function describe(obj) {
   if (obj.userData.earth) return '<b>Earth</b><span>An island on Epitaph. Click to open the board.</span>';
   if (obj.userData.char) {
     const { char, charState } = obj.userData, s = charState.stop;
-    return `<b>${esc(char.name)}</b><span>${s.presence === 'dead' ? 'Died at' : 'At'} ${esc(s.r.label)}</span>` + (s.ch != null ? `<span>From chapter ${s.ch}</span>` : '');
+    return `<b>${esc(char.name)}</b><span>${s.r.kind === 'point' ? esc(s.r.name) : (s.presence === 'dead' ? 'Died at ' : 'At ') + esc(s.r.label)}</span>` + (s.ch != null ? `<span>From chapter ${s.ch}</span>` : '') +
+      (obj.userData.pin && s.presence !== 'dead' ? `<span class="here">${s.locked ? 'Chapter locked: reopen it in the Dossier to move' : 'Click for a close-up · drag to move them'}</span>` : '');
   }
   const p = obj.userData.place;
   const here = state.era === 1 ? state.chars.filter(c => { const cs = charStateAt(c, state.chapter); return cs && cs.stop.r.place && cs.stop.r.place.id === p.id; }) : [];
@@ -880,10 +988,609 @@ function describe(obj) {
     (here.length ? `<span class="here">Here: ${here.map(c => esc(c.name)).join(', ')}</span>` : '');
 }
 
+// ------------------------------------------------------------------ character pins: pick up, carry, magnet, drop
+// Each living character stands on the map as a greatsword stuck in the ground (assets/atlas3d/pins/greatsword.glb,
+// built by tools/map/greatsword_pin.py; origin at the blade tip, length 1). Press and drag a sword to pull it out;
+// it swings from the grip as you carry it. Only places listed in EpitaphWorld.STATUES hold a pin: near one it is
+// pulled in like a magnet, and dropping it there stabs it in and saves that place as the character's location for
+// the chapter on show (the Dossier tab updates itself). Dropped anywhere else, it flies back.
+let PIN_TEMPLATE = null;
+const PIN_LEN = 0.78;                       // sword length in marker units
+async function loadPin() {
+  try { PIN_TEMPLATE = await loadPins(); }
+  catch (e) { console.warn('Sword pins not loaded; characters use plain tokens.', e); }
+}
+// A character's sword: their design from pins.js (designFor: own design for Orin, Nera, Yona, Gaia, Val;
+// otherwise their type), a ring in their map colour, and an invisible handle to grab.
+// Origin at the blade tip, about 1 unit long, like the rest of the drag code expects.
+function makePin(T, char) {
+  const pin = new THREE.Group(), built = buildPin(designFor(char), { ring: false });
+  built.group.position.y = 0.07;                                    // pins.js sinks the tip 0.07 below its origin
+  const meshes = []; built.group.traverse(o => { if (o.isMesh) meshes.push(o); });   // collect first: outlines are meshes too
+  meshes.forEach(o => {
+    o.castShadow = true;
+    const m = Array.isArray(o.material) ? o.material[0] : o.material;
+    if (m && !m.transparent && m.visible !== false) withOutline(o, T, T.outlinePx * 0.8);   // no ink on glass, glow or the Voided hole
+  });
+  pin.add(built.group);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.012, 6, 28).rotateX(Math.PI / 2), new THREE.MeshBasicMaterial({ color: char.color }));
+  ring.position.y = 0.1; pin.add(ring);
+  const h = Math.max(1, built.height || 1);
+  const hit = new THREE.Mesh(new THREE.BoxGeometry(0.34, h + 0.05, 0.2).translate(0, (h + 0.05) / 2, 0), new THREE.MeshBasicMaterial({ visible: false }));
+  pin.add(hit);
+  Object.assign(pin.userData, { isPin: true, hit, ring, design: built.design, glow: () => {}, update: t => built.update(t, camera) });
+  return pin;
+}
+
+const PROFILES_KEY = 'epitaph-character-profiles';
+const drag = { active: null, pending: null };
+const fx = [];                               // short-lived effects: dust rings and block debris
+const tmpA = new THREE.Vector3(), tmpB = new THREE.Vector3(), tmpN = new THREE.Vector3(), qBase = new THREE.Quaternion(), qTilt = new THREE.Quaternion();
+const smooth01 = x => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };
+const easeOutBack = x => { const c = 1.9; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+
+// tangent axes at a surface normal (side, forward)
+function tangents(n) {
+  const side = new THREE.Vector3().crossVectors(n, Math.abs(n.y) > 0.9 ? new THREE.Vector3(1, 0, 0) : UP).normalize();
+  return [side, new THREE.Vector3().crossVectors(side, n)];
+}
+// where a pin stands beside a place marker (same spot addMarkers uses for the first character there)
+function landingFor(at, scale) {
+  const [side, fwd] = tangents(at.normal), ang = 2.4, rad = 0.32 * scale;
+  return at.pos.clone().addScaledVector(side, Math.cos(ang) * rad).addScaledVector(fwd, Math.sin(ang) * rad).addScaledVector(at.normal, 0.04 - 0.08 * scale);
+}
+// pointer → a point on the map surface, in the markers' local space
+function pointerToSurface(e, handH = 0) {
+  const r = canvas.getBoundingClientRect();
+  pointer.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  raycaster.setFromCamera(pointer, camera);
+  const parent = markerArgs.parent, ray = raycaster.ray;
+  if (state.view === 'planet') {
+    const c = parent.getWorldPosition(new THREE.Vector3());
+    const air = ray.intersectSphere(new THREE.Sphere(c, PR + handH), new THREE.Vector3());
+    if (!air) return null;
+    const hand = parent.worldToLocal(air.clone()), n = hand.clone().normalize();
+    return { pos: n.clone().multiplyScalar(PR), hand, normal: n };          // ground point straight below the hand
+  }
+  const air = ray.intersectPlane(new THREE.Plane(UP, -(0.35 + handH)), new THREE.Vector3());
+  if (!air) return null;
+  const hand = parent.worldToLocal(air);
+  return { pos: hand.clone().setY(hand.y - handH), hand, normal: UP.clone() };
+}
+function statueAnchors(scale) {
+  const ids = new Set(World.STATUES || []);
+  return placesFor(state.era).filter(p => ids.has(p.id)).map(p => {
+    const at = surface(p.lat, p.lng), land = landingFor(at, scale);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.2, 0.26, 40), new THREE.MeshBasicMaterial({ color: THEMES[state.theme].glow, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
+    ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), at.normal); ring.position.copy(at.pos).addScaledVector(at.normal, 0.02);
+    ring.scale.setScalar(scale); markerRoot.add(ring);
+    return { place: p, at, land, ring };
+  });
+}
+// a puff of block dust and a ring where a pin leaves or hits the ground
+function burst(pos, normal, scale, strong) {
+  const T = THEMES[state.theme], parent = markerRoot;
+  if (!parent || reduceMotion) return;
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.6, 1, 48), new THREE.MeshBasicMaterial({ color: T.glow, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false }));
+  ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal); ring.position.copy(pos).addScaledVector(normal, 0.03 * scale); parent.add(ring);
+  const n = strong ? 22 : 12, cubes = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: T.landHi, roughness: 0.9 }), n);
+  const [side, fwd] = tangents(normal), parts = [];
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, sp = (0.8 + Math.random() * 1.4) * scale * (strong ? 1.3 : 0.9);
+    parts.push({ p: pos.clone().addScaledVector(normal, 0.05 * scale), v: side.clone().multiplyScalar(Math.cos(a) * sp).addScaledVector(fwd, Math.sin(a) * sp).addScaledVector(normal, (1.2 + Math.random() * 1.6) * scale), s: (0.025 + Math.random() * 0.03) * scale, r: Math.random() * 6 });
+  }
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), sv = new THREE.Vector3();
+  // place every cube at its start before the first frame draws (otherwise they render as one unit-sized block)
+  parts.forEach((pt, i) => cubes.setMatrixAt(i, m4.compose(pt.p, q, sv.setScalar(pt.s))));
+  cubes.instanceMatrix.needsUpdate = true; cubes.frustumCulled = false;
+  parent.add(cubes);
+  fx.push({ t: 0, life: strong ? 0.8 : 0.6, step(t, dt) {
+    const k = t / this.life;
+    ring.scale.setScalar((0.12 + 0.55 * smooth01(k * 1.4)) * scale * (strong ? 1.3 : 1)); ring.material.opacity = 0.8 * (1 - k);
+    parts.forEach((pt, i) => {
+      pt.v.addScaledVector(normal, -6 * scale * dt); pt.p.addScaledVector(pt.v, dt);
+      const s = pt.s * (1 - k); m4.compose(pt.p, q.setFromEuler(e.set(pt.r + t * 6, pt.r, 0)), sv.setScalar(Math.max(1e-4, s))); cubes.setMatrixAt(i, m4);
+    });
+    cubes.instanceMatrix.needsUpdate = true;
+  }, end() { parent.remove(ring, cubes); ring.geometry.dispose(); ring.material.dispose(); cubes.geometry.dispose(); cubes.material.dispose(); } });
+}
+
+// ---- reading and writing the Dossier
+function canMove(cs) {
+  if (state.demo) return { ok: true, demo: true };
+  if (cs.stop.presence === 'dead') return { ok: false, why: 'The dead stay where they fell.' };
+  if (cs.stop.locked) return { ok: false, why: `Chapter ${cs.stop.ch ?? ''} is locked canon. Reopen it in the Dossier to move this pin.` };
+  return { ok: true };
+}
+function saveLocation(charId, snapId, ref) {
+  let st; try { st = JSON.parse(localStorage.getItem(PROFILES_KEY) || 'null'); } catch (e) { st = null; }
+  const c = st && (st.characters || []).find(x => x.id === charId);
+  const snap = c && ((c.snapshots || []).find(s => s.id === snapId) || (c.snapshots || []).find(s => s.id === c.activeSnapshotId));
+  if (!snap) return 'That character is no longer in the Dossier.';
+  if (snap.locked) return 'That chapter was locked in the Dossier, so the move was not saved.';
+  snap.location = ref;
+  try { localStorage.setItem(PROFILES_KEY, JSON.stringify(st)); } catch (e) { return 'The browser could not save the move (storage may be full).'; }
+  return null;
+}
+function refreshMarkers() {
+  if (!markerArgs || !markerRoot) return;
+  const { T, markerScale, parent } = markerArgs;
+  travels.length = 0;
+  const old = markerRoot; old.parent.remove(old); disposeTree(old);
+  pickables = pickables.filter(p => { let o = p; while (o) { if (o === old) return false; o = o.parent; } return true; });
+  labels = labels.filter(l => !l.marker); markerAnim = [];
+  addMarkers(T, markerScale, parent === old ? root : parent);
+  syncLabelEls();
+}
+let toastTimer = 0;
+function say(html, ms = 2600) { tip.hidden = false; tip.innerHTML = html; clearTimeout(toastTimer); if (ms) toastTimer = setTimeout(() => { if (!drag.active) tip.hidden = true; }, ms); }
+
+// ---- the drag itself
+function beginDrag(hitObj, e) {
+  const { char, charState: cs, pin, at, scale } = hitObj.userData;
+  const verdict = canMove(cs);
+  const d = { char, cs, pin, scale, home: { pos: pin.position.clone(), normal: at.normal.clone() }, verdict,
+    phase: verdict.ok ? 'lift' : 'refuse', t: 0, hand: pin.position.clone(), handPrev: null, vel: new THREE.Vector3(), velPrev: new THREE.Vector3(),
+    tilt: new THREE.Vector2(), tiltV: new THREE.Vector2(), normal: at.normal.clone(), target: null, anchors: [], aim: null, pointerId: e.pointerId };
+  drag.active = d; controls.enabled = false; state.lastInteract = performance.now(); state.focus = null;
+  try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+  canvas.style.cursor = verdict.ok ? 'grabbing' : 'not-allowed';
+  if (!verdict.ok) { say(`<b>${esc(char.name)}</b><span>${esc(verdict.why)}</span>`); return; }
+  d.anchors = statueAnchors(scale);
+  // the sword hangs from the cursor on a golden thread: the cursor end floats at anchorH above the ground,
+  // and the scroll wheel lets thread out (sword lower, slower wider swing) or reels it in
+  const s = d.pin.scale.x;
+  d.anchorH = s + 2.6 * scale;
+  d.Lmin = 0.25 * scale; d.Lmax = d.anchorH - s - 0.15 * scale;
+  d.L = d.Lt = Math.min(d.Lmax, Math.max(d.Lmin, d.anchorH - s - 0.9 * scale));   // the point starts 0.9 above the ground
+  d.aim = { pos: d.home.pos.clone(), normal: d.home.normal.clone(), hand: d.home.pos.clone().addScaledVector(d.home.normal, s + d.L) };
+  d.thread = makeThread(scale);
+  burst(d.home.pos, d.home.normal, scale, false);
+  say(`<b>${esc(char.name)}</b><span>Carry the sword to a site with a statue.</span><span>Scroll to let out or reel in the thread.</span>`, 0);
+}
+function moveDrag(e) {
+  const d = drag.active; if (!d || !(d.phase === 'carry' || d.phase === 'lift')) return;
+  state.lastInteract = performance.now();
+  const hit = pointerToSurface(e, d.anchorH); if (!hit) return;
+  // magnet: the nearest statue site within reach pulls the sword toward its landing spot
+  const reach = SNAP * d.scale; let best = null, bd = Infinity;
+  d.anchors.forEach(a => { const dist = a.land.distanceTo(hit.pos); if (dist < bd) { bd = dist; best = a; } });
+  d.target = best && bd < reach ? best : null;
+  const pull = d.target ? smooth01((reach - bd) / (reach * 0.7)) * 0.85 : 0;
+  const normal = d.target ? hit.normal.clone().lerp(d.target.at.normal, pull).normalize() : hit.normal;
+  const pos = hit.pos.clone().lerp(d.target ? d.target.land : hit.pos, pull);
+  d.aim = { pos, normal, hand: hit.hand.clone().lerp(d.target ? d.target.land.clone().addScaledVector(d.target.at.normal, d.anchorH) : hit.hand, pull) };
+  const r = canvas.getBoundingClientRect(); tip.style.left = (e.clientX - r.left + 16) + 'px'; tip.style.top = (e.clientY - r.top + 16) + 'px';
+  tip.innerHTML = d.target ? `<b>${esc(d.char.name)}</b><span class="here">Drop at ${esc(d.target.place.name)}</span>` : `<b>${esc(d.char.name)}</b><span>Only sites with a statue hold a pin.</span>`;
+}
+function releaseDrag() {
+  const d = drag.active; if (!d) return;
+  if (d.phase === 'refuse') { if (d.t > 0.45) endDrag(); else d.releaseAfter = true; return; }
+  const s = d.pin.scale.x, q = d.pin.quaternion.clone(), up = new THREE.Vector3(0, 1, 0).applyQuaternion(q);
+  d.letGo = { anchor: d.hand.clone(), pommel: d.pin.position.clone().addScaledVector(up, s) };
+  // a rigid body: centre of the blade, its velocity (hand + swing) and its spin (from the swing)
+  const [side, fwd] = tangents(d.normal), swing = side.clone().multiplyScalar(d.tiltV.x).addScaledVector(fwd, d.tiltV.y);
+  const v = d.phase === 'carry' ? d.vel.clone().addScaledVector(swing, d.L + 0.5 * s) : new THREE.Vector3();
+  const vmax = 20 * d.scale; if (v.length() > vmax) v.setLength(vmax);
+  d.body = { q, com: d.pin.position.clone().addScaledVector(up, 0.5 * s), v, omega: new THREE.Vector3().crossVectors(swing, d.normal) };
+  d.phase = 'fly'; d.t = 0;
+}
+function endDrag(silent) {
+  const d = drag.active; if (!d) return;
+  d.anchors.forEach(a => { a.ring.parent && a.ring.parent.remove(a.ring); a.ring.geometry.dispose(); a.ring.material.dispose(); });
+  if (d.thread) { d.thread.group.parent && d.thread.group.parent.remove(d.thread.group); d.thread.dispose(); }
+  try { canvas.releasePointerCapture(d.pointerId); } catch (e) {}
+  drag.active = null; controls.enabled = true; canvas.style.cursor = '';
+  if (!silent && !tip.innerHTML.includes('class="err"')) { clearTimeout(toastTimer); toastTimer = setTimeout(() => { tip.hidden = true; }, 1800); }
+}
+function landed(d) {                            // the sword is back home (Esc)
+  burst(d.dest.pos, d.dest.normal, d.scale, false);
+  impact(d.dest.pos, d.dest.normal, null, 0.2, d.scale);
+  say(`<b>${esc(d.char.name)}</b><span>Put back where it was.</span>`, 1600);
+}
+function makeThread(scale) {
+  const group = new THREE.Group(), gold = '#ffcf5a';
+  const line = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 6, 1, true), new THREE.MeshBasicMaterial({ color: gold, transparent: true, opacity: 0 }));
+  const bead = new THREE.Mesh(new THREE.SphereGeometry(0.035 * scale, 12, 8), new THREE.MeshBasicMaterial({ color: '#fff2c4', transparent: true, opacity: 0 }));
+  const halo = new THREE.Mesh(new THREE.SphereGeometry(0.075 * scale, 12, 8), new THREE.MeshBasicMaterial({ color: gold, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+  group.add(line, bead, halo); markerRoot.add(group);
+  const r = 0.011 * scale, dir = new THREE.Vector3();
+  return {
+    group,
+    set(a, b, opacity, time = 0) {          // a: cursor end, b: the sword's pommel
+      dir.copy(b).sub(a); const len = Math.max(1e-4, dir.length());
+      line.position.copy(a).addScaledVector(dir, 0.5); line.quaternion.setFromUnitVectors(UP, dir.normalize()); line.scale.set(r, len, r);
+      bead.position.copy(a); halo.position.copy(a); halo.scale.setScalar(1 + 0.25 * Math.sin(time * 5));
+      line.material.opacity = opacity; bead.material.opacity = opacity; halo.material.opacity = opacity * 0.45;
+      group.visible = opacity > 0.01;
+    },
+    dispose() { [line, bead, halo].forEach(m => { m.geometry.dispose(); m.material.dispose(); }); }
+  };
+}
+// hang the sword by its pommel from the thread's cursor end: rigid pendulum of thread + blade
+function poseHang(d, anchor, n, tilt, L, extraYaw = 0) {
+  poseAt(d, anchor, n, tilt, extraYaw);                         // sets the orientation
+  const s = d.pin.scale.x, down = tmpA.set(0, -1, 0).applyQuaternion(d.pin.quaternion);
+  const pommel = anchor.clone().addScaledVector(down, L);
+  d.pin.position.copy(pommel).addScaledVector(down, s);           // the tip is one sword-length below the pommel
+  return pommel;
+}
+function poseAt(d, gripPos, n, tilt, extraYaw = 0) {
+  // the sword hangs from its grip (0.8 of the way up), tilted by the swing
+  qBase.setFromUnitVectors(UP, n);
+  if (extraYaw) qBase.multiply(qTilt.setFromAxisAngle(UP, extraYaw));
+  const [side, fwd] = tangents(n), ang = tilt.length();
+  if (ang > 1e-4) { const u = side.clone().multiplyScalar(tilt.x).addScaledVector(fwd, tilt.y).normalize(); qTilt.setFromAxisAngle(tmpA.crossVectors(u, n).normalize(), ang); d.pin.quaternion.copy(qTilt).multiply(qBase); }
+  else d.pin.quaternion.copy(qBase);
+  const s = d.pin.scale.x;
+  d.pin.position.copy(gripPos).sub(tmpB.set(0, 0.8 * s, 0).applyQuaternion(d.pin.quaternion));
+}
+function updatePins(dt, time) {
+  for (let i = fx.length - 1; i >= 0; i--) { const f = fx[i]; f.t += dt; if (f.t >= f.life) { f.end(); fx.splice(i, 1); } else f.step(f.t, dt); }
+  for (let i = travels.length - 1; i >= 0; i--) if (travels[i].step(dt)) travels.splice(i, 1);
+  for (let i = quakes.length - 1; i >= 0; i--) if (quakes[i].step(dt)) quakes.splice(i, 1);
+  const d = drag.active; if (!d) return;
+  d.t += dt;
+  const s = d.pin.scale.x, lift = 0.9 * d.scale;
+  d.anchors.forEach(a => {
+    const on = a === d.target, pulse = 0.5 + 0.5 * Math.sin(time * 6);
+    const flying = d.phase === 'fly', done = !(flying || d.phase === 'carry' || d.phase === 'lift');
+    a.ring.material.opacity = done ? a.ring.material.opacity * 0.9 : on ? 0.75 + 0.25 * pulse : 0.28 + 0.12 * pulse;
+    a.ring.scale.setScalar(d.scale * (on ? 1.35 + 0.15 * pulse : 1));
+  });
+  if (d.phase === 'refuse') {                     // a stubborn wiggle: it will not come out
+    const k = Math.max(0, 1 - d.t / 0.45), w = Math.sin(d.t * 55) * 0.09 * k;
+    qBase.setFromUnitVectors(UP, d.home.normal); d.pin.quaternion.copy(qBase).multiply(qTilt.setFromAxisAngle(new THREE.Vector3(0, 0, 1), w));
+    d.pin.position.copy(d.home.pos);
+    if (d.t > 0.45 && d.releaseAfter) endDrag();
+    return;
+  }
+  const gripHome = d.home.pos.clone().addScaledVector(d.home.normal, 0.8 * s);
+  if (d.phase === 'lift') {                       // strain, then pull free and rise with a little overshoot
+    const strain = 0.16;
+    if (d.t < strain) {
+      const w = Math.sin(d.t * 70) * 0.05;
+      poseAt(d, gripHome.clone().addScaledVector(d.home.normal, 0.02 * s * Math.sin(d.t * 90)), d.home.normal, new THREE.Vector2(w, 0));
+    } else {
+      const k = Math.min(1, (d.t - strain) / 0.38), e = easeOutBack(k);
+      const start = d.home.pos.clone().addScaledVector(d.home.normal, s + d.L);      // thread straight up from the pommel
+      d.hand.copy(start).lerp(d.aim.hand, e);
+      const pommel = poseHang(d, d.hand, d.home.normal.clone().lerp(d.aim.normal, k).normalize(), new THREE.Vector2(), d.L, Math.sin(k * Math.PI) * 0.6);
+      d.thread.set(d.hand, pommel, smooth01(k * 1.5), time);
+      if (k >= 1) { d.phase = 'carry'; d.handPrev = d.hand.clone(); }
+    }
+    return;
+  }
+  if (d.phase === 'carry') {                      // follow the pointer; the blade swings like a pendulum from the grip
+    const target = d.aim.hand;
+    d.hand.x = damp(d.hand.x, target.x, 30, dt); d.hand.y = damp(d.hand.y, target.y, 30, dt); d.hand.z = damp(d.hand.z, target.z, 30, dt);
+    d.normal.lerp(d.aim.normal, 1 - Math.exp(-10 * dt)).normalize();
+    d.vel.copy(d.hand).sub(d.handPrev).divideScalar(Math.max(dt, 1e-3)); d.handPrev.copy(d.hand);
+    const acc = d.vel.clone().sub(d.velPrev).divideScalar(Math.max(dt, 1e-3)); d.velPrev.copy(d.vel);
+    const [side, fwd] = tangents(d.normal), ax = acc.dot(side) / d.scale, az = acc.dot(fwd) / d.scale;
+    d.L = damp(d.L, d.Lt, 12, dt);
+    const reach = (d.L + 0.55 * s) / d.scale;                     // pendulum length: longer thread, slower and wider swing
+    const w2 = 100 / reach, damping = 2.4, push = 0.055;          // stiffness, damping, how hard motion throws the blade
+    d.tiltV.x += (-w2 * d.tilt.x - damping * d.tiltV.x - ax * push * w2 * 0.1) * dt;
+    d.tiltV.y += (-w2 * d.tilt.y - damping * d.tiltV.y - az * push * w2 * 0.1) * dt;
+    d.tilt.addScaledVector(d.tiltV, dt);
+    if (d.tilt.length() > 1.45) d.tilt.setLength(1.45);
+    const pommel = poseHang(d, d.hand, d.normal, d.tilt, d.L, Math.sin(time * 1.3) * 0.15);
+    d.thread.set(d.hand, pommel, 1, time);
+    return;
+  }
+  if (d.thread && d.letGo) { const k = smooth01(d.t / 0.22); d.thread.set(d.letGo.anchor, d.letGo.pommel.clone().lerp(d.letGo.anchor, k), 1 - k, time); }
+  if (d.phase === 'fly') { flyStep(d, dt); return; }
+  if (d.phase === 'stab') { stuckStep(d, dt); return; }
+  // return: straighten, travel home, then fall point-first and stab in with a wobble
+  const travel = d.phase === 'return' ? 0.42 : 0.12, fall = 0.2;
+  const above = d.dest.pos.clone().addScaledVector(d.dest.normal, lift * 0.75 + 0.8 * s);
+  if (d.t < travel) {
+    const k = smooth01(d.t / travel), arc = d.phase === 'return' ? Math.sin(k * Math.PI) * 0.6 * d.scale : 0;
+    const from = d.fallFrom.clone().add(tmpB.set(0, 0.8 * s, 0).applyQuaternion(d.fallQ));
+    d.hand.copy(from).lerp(above, k).addScaledVector(d.dest.normal, arc);
+    d.tilt.multiplyScalar(Math.exp(-14 * dt));
+    poseAt(d, d.hand, d.normal.lerp(d.dest.normal, k).normalize(), d.tilt);
+  } else if (d.t < travel + fall) {
+    const k = (d.t - travel) / fall, g = k * k;                                         // accelerating fall
+    const stab = d.dest.pos.clone().addScaledVector(d.dest.normal, 0.8 * s - 0.05 * d.scale);   // a touch deeper than rest
+    d.hand.copy(above).lerp(stab, g); d.tilt.set(0, 0);
+    poseAt(d, d.hand, d.dest.normal, d.tilt);
+    d.landedAt = null;
+  } else {
+    if (!d.landedAt) { d.landedAt = d.t; landed(d); }
+    const k = d.t - d.landedAt, settle = Math.exp(-5 * k);
+    const rest = d.dest.pos.clone().addScaledVector(d.dest.normal, 0.8 * s - 0.05 * d.scale * settle);
+    poseAt(d, rest, d.dest.normal, new THREE.Vector2(Math.sin(k * 26) * 0.16 * settle, Math.sin(k * 19 + 1) * 0.06 * settle));
+    if (k > 0.75) { poseAt(d, d.dest.pos.clone().addScaledVector(d.dest.normal, 0.8 * s), d.dest.normal, new THREE.Vector2()); endDrag(); }
+  }
+}
+// ---- thrown: ballistic flight with spin, the point turning into the wind; statue sites pull it in
+const MAX_LEAN = 55 * Math.PI / 180;           // a landed sword leans at most this far from upright
+const SNAP = 1.1;                                // statue-site magnet reach, in marker units
+const NEAR_PLACE = 2.6;                          // within this of a map place, an off-site sword is 'en route' to it
+// A map point → lat/lng: the exact reverse of the map's projection (board or planet → map uv → lat/lng).
+// The layout has two pieces (Equal Earth for the main continents, seam in the Bering Strait; Antarctica as a
+// round piece below), so each is inverted on its own.
+function uvToLatLng(u, v) {
+  const L = LAY, px = u * L.W, py = (1 - v) * L.H;
+  // main piece: invert the placement, then Equal Earth (Newton on the latitude parameter)
+  const x = ((px - L.mainX0) / L.mainW * 2 - 1) * L.xmax, y = L.ymax - (py - L.mainY0) / L.mainH * (L.ymax - L.ycut);
+  let p = y / A1;
+  for (let k = 0; k < 12; k++) {
+    const p2 = p * p, p6 = p2 * p2 * p2;
+    const f = p * (A1 + A2 * p2 + p6 * (A3 + A4 * p2)) - y, df = A1 + 3 * A2 * p2 + p6 * (7 * A3 + 9 * A4 * p2);
+    p -= f / df;
+  }
+  const p2 = p * p, p6 = p2 * p2 * p2;
+  const latM = Math.asin(Math.max(-1, Math.min(1, Math.sin(p) / MM))) * 180 / Math.PI;
+  const lr = x * MM * (A1 + 3 * A2 * p2 + p6 * (7 * A3 + 9 * A4 * p2)) / Math.cos(p) * 180 / Math.PI;
+  const wrap = a => ((a + 540) % 360) - 180;
+  if (latM >= L.latCut && Math.abs(lr) <= 180) return { lat: latM, lng: wrap(lr + L.lon0) };
+  // Antarctica: polar coordinates around its centre
+  const dx = px - L.dcx, dy = L.dcy - py, r = Math.hypot(dx, dy);
+  const latA = r / L.rd * L.cdisc - 90;
+  if (latA < L.latCut) return { lat: latA, lng: wrap(Math.atan2(dx, dy) * 180 / Math.PI + L.lonUp) };
+  // off the island (the open sea of Epitaph): the nearest sensible reading
+  return { lat: Math.max(L.latCut, Math.min(89.9, latM)), lng: wrap(Math.max(-180, Math.min(180, lr)) + L.lon0) };
+}
+function latLngAt(p) {
+  let u, v;
+  if (state.view === 'planet') {
+    const dir = p.clone().normalize(), ang = Math.acos(Math.max(-1, Math.min(1, dir.dot(EARTH_DIR))));
+    const r = ang / CAP, sa = Math.sin(ang);
+    const px = sa > 1e-9 ? r * dir.dot(capE1) / sa : 0, py = sa > 1e-9 ? r * dir.dot(capE2) / sa : 0;
+    u = (px / EARTH_FIT_X + 1) / 2; v = (py / EARTH_FIT_Y + 1) / 2;
+  } else { u = p.x / BW + 0.5; v = -p.z / BH + 0.5; }
+  return uvToLatLng(u, v);
+}
+function nearestPlace(pos, scale) {
+  const planet = state.view === 'planet';
+  let best = null, bd = Infinity;
+  placesFor(state.era).forEach(pl => {
+    const q = surface(pl.lat, pl.lng).pos, dd = planet ? q.distanceTo(pos) : Math.hypot(q.x - pos.x, q.z - pos.z);
+    if (dd < bd) { bd = dd; best = pl; }
+  });
+  return best && bd < NEAR_PLACE * scale ? best : null;
+}
+function groundAt(d, p) {
+  // ground under a point: the site's own height near a statue site, otherwise a rough land level
+  const n = state.view === 'planet' ? p.clone().normalize() : UP.clone();
+  const near = nearestSite(d, p);
+  const h = near && near.dist < 2.6 * d.scale ? (state.view === 'planet' ? near.a.land.length() : near.a.land.y) : (state.view === 'planet' ? PR : 0.35);
+  return { n, h, near };
+}
+function nearestSite(d, p) {
+  let best = null, bd = Infinity;
+  d.anchors.forEach(a => { const flat = state.view === 'planet' ? a.land.clone().normalize().multiplyScalar(PR).distanceTo(p.clone().normalize().multiplyScalar(PR)) : Math.hypot(a.land.x - p.x, a.land.z - p.z); if (flat < bd) { bd = flat; best = a; } });
+  return best ? { a: best, dist: bd } : null;
+}
+function flyStep(d, dt) {
+  const b = d.body, s = d.pin.scale.x, G = 14 * d.scale;
+  let { n, h, near } = groundAt(d, b.com);
+  if (!(near && near.dist < 2.6 * d.scale)) {                        // away from statue sites: the actual terrain below
+    b.ll = latLngAt(b.com);
+    const g = surface(b.ll.lat, b.ll.lng).pos;
+    h = (state.view === 'planet' ? g.length() : g.y) - 0.01 + 0.04 - 0.08 * d.scale;   // where a resting sword's tip sits
+  }
+  const acc = n.clone().multiplyScalar(-G);
+  // the magnet: near a statue site the flight bends toward it and slows sideways
+  const reach = SNAP * d.scale;
+  if (near && near.dist < reach * 1.5) {
+    const w = 1 - near.dist / (reach * 1.5), delta = near.a.land.clone().sub(b.com); delta.addScaledVector(n, -delta.dot(n));
+    acc.addScaledVector(delta, 34 * w);
+    const vt = b.v.clone().addScaledVector(n, -b.v.dot(n)); b.v.addScaledVector(vt, -2.5 * w * dt);
+    d.target = near.a;
+  } else d.target = null;
+  b.v.addScaledVector(acc, dt).multiplyScalar(Math.exp(-0.25 * dt));
+  b.com.addScaledVector(b.v, dt);
+  // spin, damped; then the point turns toward the direction of travel (point first, like a dart)
+  b.omega.multiplyScalar(Math.exp(-1.2 * dt));
+  const ang = b.omega.length() * dt;
+  if (ang > 1e-6) b.q.premultiply(qTilt.setFromAxisAngle(tmpA.copy(b.omega).normalize(), ang));
+  const up = new THREE.Vector3(0, 1, 0).applyQuaternion(b.q), speed = b.v.length();
+  if (speed > 1.5 * d.scale) {
+    const want = b.v.clone().normalize().negate();                 // up points away from the direction of travel
+    const turn = Math.min(1, dt * 3.5 * Math.min(1, speed / (8 * d.scale)));
+    b.q.premultiply(qTilt.setFromUnitVectors(up, up.clone().lerp(want, turn).normalize()));
+  }
+  b.q.normalize();
+  const up2 = new THREE.Vector3(0, 1, 0).applyQuaternion(b.q), tip = b.com.clone().addScaledVector(up2, -0.5 * s);
+  d.pin.quaternion.copy(b.q); d.pin.position.copy(tip);
+  const tipH = state.view === 'planet' ? tip.length() : tip.y;
+  if (tipH > h && d.t < 6) return;
+  // impact: lean is capped so it never lies flat (and a pommel-first landing is turned point-down)
+  const lean = up2.angleTo(n);
+  if (lean > MAX_LEAN) {
+    const axis = tmpA.crossVectors(n, up2); if (axis.lengthSq() < 1e-8) axis.copy(tangents(n)[0]); axis.normalize();   // pommel-first: tip it over to one side
+    b.q.premultiply(qTilt.setFromUnitVectors(up2, n.clone().applyAxisAngle(axis, MAX_LEAN)));
+  }
+  const hitSite = near && near.dist < reach * 1.15 ? near.a : null;
+  let land, spot = null;
+  if (hitSite) land = hitSite.land.clone();
+  else {                                                                // off the statue sites: work out where on the map it is
+    const ground = tip.clone().addScaledVector(n, h - tipH), ll = latLngAt(ground);
+    const at = surface(ll.lat, ll.lng);
+    land = ground;                                                    // stays exactly where it hit
+    const near = nearestPlace(at.pos, d.scale);
+    spot = near ? { status: 'enroute', lat: +ll.lat.toFixed(3), lng: +ll.lng.toFixed(3), toPlaceId: near.id, countryId: near.countryId || null, placeId: null }
+                : { status: 'unknown', lat: +ll.lat.toFixed(3), lng: +ll.lng.toFixed(3), placeId: null };
+  }
+  d.stick = { from: tip.clone(), land, n: hitSite ? hitSite.at.normal.clone() : n, q: b.q.clone(), t: 0, site: hitSite, spinAxis: tmpA.crossVectors(n, up2).lengthSq() > 1e-6 ? tmpA.clone().normalize() : new THREE.Vector3(1, 0, 0), hard: Math.min(1, speed / (10 * d.scale)) };
+  d.phase = 'stab'; d.t = 0;
+  burst(land, d.stick.n, d.scale, true);
+  impact(land, d.stick.n, b.v, 0.25 + 0.75 * Math.min(1, speed / (12 * d.scale)), d.scale);
+  settleAt(d, hitSite ? World.makeRef(null, hitSite.place.id) : spot, d.stick.q, d.stick.n);
+}
+function stuckStep(d, dt) {
+  const st = d.stick, s = d.pin.scale.x; st.t += dt;
+  const up = new THREE.Vector3(0, 1, 0).applyQuaternion(st.q);
+  const slide = smooth01(st.t / 0.12);                                   // the snap onto the site
+  const depth = (0.05 + 0.07 * st.hard) * d.scale * Math.exp(-4 * st.t);    // drives in, then eases back to the resting depth
+  const wob = Math.sin(st.t * 24) * (0.1 + 0.12 * st.hard) * Math.exp(-5 * st.t);
+  d.pin.quaternion.copy(st.q).premultiply(qTilt.setFromAxisAngle(st.spinAxis, wob));
+  d.pin.position.copy(st.from).lerp(st.land, slide).addScaledVector(up, -depth);
+  if (st.t > 0.8) { d.pin.quaternion.copy(st.q); endDrag(); }
+}
+// ---- the close-up (assets/atlas3d/closeup.js): what kind of ground is under a character's sword
+function regionAt(r) {
+  const site = r.place ? siteOf(r.place) : null;
+  if (site) return { region: 'site', site };
+  const [u, v] = eeUV(r.lng, r.lat), here = earthAt(u, v, 1);
+  const enroute = r.kind === 'point' && r.status === 'enroute';
+  if (here.kind === 'pit') return { region: 'pit' };
+  if (here.kind === 'rim') return { region: 'rim' };
+  if (here.kind === 'out') return { region: enroute ? 'boat' : 'underwater' };       // past Earth's edge: the open sea of Epitaph
+  if (here.kind === 'sea') return { region: enroute ? 'boat' : here.band === 0 ? 'coast' : 'underwater' };
+  if (here.kind === 'sunk') return { region: enroute ? 'boat' : 'drowned' };
+  const d = 0.006;                                   // dry land within a few map pixels of the water: the coast
+  for (const [a, b] of [[d, 0], [-d, 0], [0, d], [0, -d], [d, d], [-d, -d], [d, -d], [-d, d]]) { const k = earthAt(u + a, v + b, 1).kind; if (k === 'sea' || k === 'sunk' || k === 'out') return { region: 'coast' }; }
+  if (r.lat < -60 || r.lat > 68) return { region: 'ice' };
+  if (here.band >= 3) return { region: 'mountains' };
+  if (here.band === 2) return { region: 'hills' };
+  return { region: 'plains' };
+}
+function openPinCloseup(ud) {
+  if (!ud || !ud.char || !ud.charState) return;
+  const r = ud.charState.stop.r, reg = regionAt(r);
+  tip.hidden = true;
+  openCloseup({
+    mount: canvas.parentElement, char: ud.char, region: reg.region, siteUrl: reg.site || null, theme: state.theme,
+    where: (r.kind === 'point' ? r.name : r.label || r.name) + (ud.charState.stop.ch != null ? ' · chapter ' + ud.charState.stop.ch : '')
+  });
+}
+// ---- landed sword poses, remembered per character so a thrown sword keeps its angle
+const POSE_KEY = 'epitaph-map-pin-poses';
+const readPoses = () => { try { return JSON.parse(localStorage.getItem(POSE_KEY) || '{}') || {}; } catch (e) { return {}; } };
+function savePose(charId, key, q, n) {
+  const rel = new THREE.Quaternion().setFromUnitVectors(UP, n).invert().multiply(q);
+  const all = readPoses(); all[charId] = { key, q: rel.toArray().map(x => +x.toFixed(4)) };
+  try { localStorage.setItem(POSE_KEY, JSON.stringify(all)); } catch (e) {}
+}
+function settleAt(d, ref, q, n) {
+  const r = World.resolve(ref);
+  if (r) savePose(d.char.id, r.key, q, n);
+  const where = r ? (r.kind === 'point' ? r.name : 'Now at ' + r.name) : 'Here';
+  if (d.verdict.demo) { say(`<b>${esc(d.char.name)}</b><span class="here">${esc(where)}</span><span>Demo pin, not saved. Add characters in the Dossier to keep moves.</span>`, 3200); return; }
+  const err = saveLocation(d.char.id, d.cs.stop.snapId, ref);
+  if (err) { say(`<b>${esc(d.char.name)}</b><span class="err">${esc(err)}</span>`, 4000); return; }
+  say(`<b>${esc(d.char.name)}</b><span class="here">${esc(where)}</span><span>Saved to the Dossier${d.cs.stop.ch != null ? ' · chapter ' + d.cs.stop.ch : ''}.</span>`, 2600);
+  setTimeout(() => {
+    if (drag.active) return;
+    const data = loadCharacters(); Object.assign(state, { chars: data.chars, chapters: data.chapters, titles: data.titles, demo: data.demo });
+    refreshMarkers(); renderLegend(); setChapterUI();
+  }, 1000);
+}
+// ---- chapter travel: when the chapter changes, each sword flies from where it was to its next place
+const travels = [];
+function pinPositions() {
+  const out = {};
+  pickables.forEach(h => { const pin = h.userData.pin; if (pin && h.userData.char) out[h.userData.char.id] = { pos: pin.position.clone(), q: pin.quaternion.clone() }; });
+  return out;
+}
+function flyToChapter(before) {
+  travels.splice(0).forEach(tr => tr.finish());
+  let i = 0;
+  pickables.forEach(h => {
+    const pin = h.userData.pin; if (!pin || !h.userData.char) return;
+    const from = before[h.userData.char.id], to = { pos: pin.position.clone(), q: pin.quaternion.clone() }, scale = h.userData.scale;
+    if (from && from.pos.distanceTo(to.pos) < 0.05 * scale) return;            // stayed put
+    const nrm = p => state.view === 'planet' ? p.clone().normalize() : UP.clone();
+    const start = from || { pos: to.pos.clone().addScaledVector(nrm(to.pos), 4 * scale), q: to.q.clone(), drop: true };
+    travels.push(makeTravel(pin, start, to, scale, i++ * 0.14, nrm));
+  });
+}
+function makeTravel(pin, A, B, scale, delay, nrm) {
+  const s = pin.scale.x, nA = nrm(A.pos), nB = nrm(B.pos), lift = 0.7 * scale;
+  const upA = new THREE.Vector3(0, 1, 0).applyQuaternion(A.q);
+  const a1 = A.pos.clone().addScaledVector(upA, s * 0.15).addScaledVector(nA, lift);     // pulled out, hovering
+  const b1 = B.pos.clone().addScaledVector(nB, lift + 0.4 * scale);                       // above the landing
+  const dist = a1.distanceTo(b1), planet = state.view === 'planet';
+  const path = u => {                                                                      // an arc from a1 to b1
+    if (planet) {
+      const ra = a1.length(), rb = b1.length(), dir = a1.clone().normalize().lerp(b1.clone().normalize(), u).normalize();
+      return dir.multiplyScalar(ra + (rb - ra) * u + Math.sin(Math.PI * u) * (dist * 0.3 + 0.4 * scale));
+    }
+    return a1.clone().lerp(b1, u).addScaledVector(UP, Math.sin(Math.PI * u) * (dist * 0.28 + 0.8 * scale));
+  };
+  const T_OUT = A.drop ? 0 : 0.3, T_FLY = A.drop ? 0.25 : Math.min(1.6, 0.6 + dist / (14 * scale)), T_DIVE = 0.22, T_WOB = 0.5;
+  const qFly = new THREE.Quaternion(), tmp = new THREE.Vector3();
+  pin.position.copy(A.pos); pin.quaternion.copy(A.q); pin.userData.travelling = true;
+  let t = -delay, landed = false, started = false;
+  const tr = {
+    step(dt) {
+      t += dt; if (t < 0) return false;
+      if (!started) { started = true; if (!A.drop) burst(A.pos, nA, scale, false); }
+      if (t < T_OUT) {                                                   // strain and pull free
+        const k = smooth01(t / T_OUT), w = Math.sin(t * 60) * 0.05 * (1 - k);
+        pin.quaternion.copy(A.q).slerp(qFly.setFromUnitVectors(UP, nA), k).premultiply(qTilt.setFromAxisAngle(tangents(nA)[0], w));
+        pin.position.copy(A.pos).lerp(a1, k * k);
+      } else if (t < T_OUT + T_FLY) {                                    // fly the arc, point first
+        const u = (t - T_OUT) / T_FLY, e = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+        const p = path(e), ahead = path(Math.min(1, e + 0.02));
+        pin.position.copy(p);
+        tmp.copy(ahead).sub(p);
+        if (tmp.lengthSq() > 1e-8) { const want = qFly.setFromUnitVectors(UP, tmp.normalize().negate()); pin.quaternion.slerp(want, Math.min(1, dt * 10)); }
+      } else if (t < T_OUT + T_FLY + T_DIVE) {                           // turn point-down and dive in
+        const k = (t - T_OUT - T_FLY) / T_DIVE;
+        pin.quaternion.slerp(B.q, Math.min(1, dt * 18));
+        pin.position.copy(b1).lerp(B.pos.clone().addScaledVector(nB, -0.06 * scale), k * k);
+      } else {
+        if (!landed) { landed = true; pin.quaternion.copy(B.q); burst(B.pos, nB, scale, true); impact(B.pos, nB, null, 0.4, scale); }
+        const k = t - T_OUT - T_FLY - T_DIVE, settle = Math.exp(-6 * k);
+        pin.position.copy(B.pos).addScaledVector(nB, -0.06 * scale * settle);
+        pin.quaternion.copy(B.q).premultiply(qTilt.setFromAxisAngle(tangents(nB)[0], Math.sin(k * 24) * 0.14 * settle));
+        if (k > T_WOB) { this.finish(); return true; }
+      }
+      return false;
+    },
+    finish() { pin.position.copy(B.pos); pin.quaternion.copy(B.q); pin.userData.travelling = false; }
+  };
+  return tr;
+}
+// press on a sword: a click (no movement) still focuses it; a drag picks it up
+canvas.addEventListener('pointerdown', e => {
+  if (e.button !== 0 || drag.active || state.era !== 1) return;
+  const r = canvas.getBoundingClientRect();
+  pointer.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  const hit = pick();
+  if (!hit || !hit.userData.pin || hit.userData.pin.userData.travelling) return;
+  e.stopImmediatePropagation();                 // the camera stays put while a sword is held
+  drag.pending = { hit, x: e.clientX, y: e.clientY, id: e.pointerId };
+  try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+}, { capture: true });
+canvas.addEventListener('pointermove', e => {
+  if (drag.pending && !drag.active && Math.hypot(e.clientX - drag.pending.x, e.clientY - drag.pending.y) > 5) { beginDrag(drag.pending.hit, e); drag.pending = null; }
+  if (drag.active) moveDrag(e);
+}, { capture: true });
+const finishPress = e => {
+  if (drag.pending) {                           // it was a click: focus the sword as before
+    const p = drag.pending; drag.pending = null;
+    try { canvas.releasePointerCapture(p.id); } catch (err) {}
+    e.stopImmediatePropagation(); focusOn(p.hit); openPinCloseup(p.hit.userData); return;
+  }
+  if (drag.active) { e.stopImmediatePropagation(); releaseDrag(); }
+};
+canvas.addEventListener('pointerup', finishPress, { capture: true });
+canvas.addEventListener('pointercancel', finishPress, { capture: true });
+canvas.addEventListener('wheel', e => {
+  const d = drag.active; if (!d || !(d.phase === 'carry' || d.phase === 'lift')) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  const px = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1);
+  d.Lt = Math.min(d.Lmax, Math.max(d.Lmin, d.Lt + px * 0.0025 * d.scale));     // scroll down: more thread
+}, { capture: true, passive: false });
+addEventListener('keydown', e => {
+  const d = drag.active; if (e.key !== 'Escape' || !d || d.phase !== 'carry') return;
+  d.fallFrom = d.pin.position.clone(); d.fallQ = d.pin.quaternion.clone(); d.t = 0;
+  d.letGo = { anchor: d.hand.clone(), pommel: d.pin.position.clone().add(tmpB.set(0, d.pin.scale.x, 0).applyQuaternion(d.fallQ)) };
+  d.dest = { pos: d.home.pos.clone(), normal: d.home.normal.clone() }; d.phase = 'return';
+});
+
 // ------------------------------------------------------------------ loop
 const clock = new THREE.Clock();
 let frameCount = 0;
 renderer.setAnimationLoop(() => {
+  if (closeupOpen()) { clock.getDelta(); return; }         // the close-up has the screen; the map waits
   const dt = Math.min(clock.getDelta(), 0.05), time = clock.elapsedTime;
   // era wave: linear progress so the rebuild travels evenly from the strike point
   if (state.eraT !== state.era) {
@@ -901,26 +1608,36 @@ renderer.setAnimationLoop(() => {
     if (camera.position.distanceTo(state.focus.pos) < 0.01 && Math.abs(camera.zoom - state.focus.zoom) < 0.002) state.focus = null;
   }
   animated.forEach(f => f(time, dt));
+  markerAnim.forEach(f => f(time, dt));
+  updatePins(dt, time);
   controls.update();
   if (state.view === 'planet') key.shadow.needsUpdate = true;
-  if ((frameCount++ & 1) === 0) {
+  if ((frameCount++ & 1) === 0 && !drag.active) {
     const hit = pointer.x < 2 ? pick() : null;
     if (hit !== hovered) {
       if (hovered && hovered.material.emissive && !hovered.userData.earth) hovered.material.emissiveIntensity = hovered.userData.baseEmissive ?? hovered.material.emissiveIntensity;
       hovered = hit;
       if (hit && hit.material.emissive && !hit.userData.earth) { hit.userData.baseEmissive = hit.userData.baseEmissive ?? hit.material.emissiveIntensity; hit.material.emissiveIntensity = 0.9; if (hit.material.emissive.getHex() === 0) hit.material.emissive.set('#553a10'); }
       tip.hidden = !hit; if (hit) tip.innerHTML = describe(hit);
-      canvas.style.cursor = hit ? 'pointer' : '';
+      canvas.style.cursor = hit ? (hit.userData.pin ? 'grab' : 'pointer') : '';
     }
   }
+  // camera jolt after an impact: a short, fast, decaying shake
+  let jolt = null;
+  if (shake.t < 0.45 && shake.amp > 0) {
+    shake.t += dt; const k = Math.max(0, 1 - shake.t / 0.45) ** 2;
+    jolt = new THREE.Vector3(Math.sin(time * 91) * 0.8, Math.sin(time * 77 + 1) * 0.6, Math.sin(time * 83 + 2) * 0.8).multiplyScalar(shake.amp * k);
+    camera.position.add(jolt);
+  }
   renderer.render(scene, camera);
+  if (jolt) camera.position.sub(jolt);
   updateLabels();
 });
 addEventListener('resize', frame);
 
 // ------------------------------------------------------------------ start
 async function start() {
-  await loadData();
+  await Promise.all([loadData(), loadPin()]);
   const data = loadCharacters();
   Object.assign(state, { chars: data.chars, chapters: data.chapters, titles: data.titles, demo: data.demo });
   state.chapter = state.chapters.length ? state.chapters[state.chapters.length - 1] : null;
