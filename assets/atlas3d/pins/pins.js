@@ -57,7 +57,7 @@ export function designFor(char) {
 export const SPARE_SHAPES = ['katana', 'rapier', 'sawback', 'falchion', 'sabre', 'flamberge', 'khopesh', 'scimitar', 'gladius'];
 const SHAPES = {};
 let TEMPLATE = null, loading = null;
-export function loadPins(url = new URL('greatsword.glb?v=1', import.meta.url).href, shapesUrl = new URL('swords.glb?v=3', import.meta.url).href) {
+export function loadPins(url = new URL('greatsword.glb?v=1', import.meta.url).href, shapesUrl = new URL('swords.glb?v=4', import.meta.url).href) {
   if (TEMPLATE) return Promise.resolve(TEMPLATE);
   const shapes = new GLTFLoader().loadAsync(shapesUrl).then(g => { g.scene.children.forEach(o => { SHAPES[o.name] = o; }); })
     .catch(e => console.warn('Sword shapes not loaded; pins fall back to the greatsword.', e));
@@ -411,31 +411,16 @@ const DESIGNS = {
     const g = new Group(); g.add(b.root);
     const pool = new Mesh(new THREE.CircleGeometry(.16, 48), std('#3a060a', .3, .15, { emissive: '#640a10', emissiveIntensity: .4, polygonOffset: true, polygonOffsetFactor: -2 }));
     pool.rotation.x = -Math.PI / 2; pool.position.y = .004; g.add(pool);
-    return { root: g, sink: .06, height: topOf(b.root), update: t => { pool.scale.setScalar(1 + .04 * Math.sin(t * 1.1)); } };
+    return { root: g, sink: .06, height: topOf(b.root), bladeMat: blade, update: t => { pool.scale.setScalar(1 + .04 * Math.sin(t * 1.1)); } };
   },
 
-  // Lithia as an Unbound god, wounded from the war: her scissor blade broken off and cracked, bound in stained wraps,
-  // coming down through its barrier in her red
+  // Lithia as an Unbound god, wounded from the war: her scissor blade with the blade broken off, nothing else
   lithiaGod() {
-    const g = new Group(), H = .42, BRK = .2;
-    const below = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0), above = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-    const blade = patch(std('#b89090', .5, .35, { emissive: '#a3141a', emissiveIntensity: 1 }), { uTime: TIME }, `
-      float c = abs(vObj.x - .012*sin(vObj.y*60.)) ;
-      float crack = (1. - smoothstep(.0, .004, c)) * step(.24, vObj.y) * step(vObj.y, .55);
-      totalEmissiveRadiance = emissive * (crack * (1.5 + .5*sin(uTime*3.)) + .08);`);
-    const solid = { blade, grip: std('#c8a8a8', .3, .5) };
-    Object.values(solid).forEach(m => { m.clippingPlanes = [below]; });
-    const ghost = additive({ color: '#d0303a', opacity: .16, clippingPlanes: [above] });
-    for (const mats of [solid, { blade: ghost, iron: ghost, grip: ghost }]) {      // broken off at BRK: the jagged end stands in the ground
-      const b = base(mats, 'scissor', mats === solid); cut(b.parts.blade[0].geometry, BRK, true); b.root.position.y = -BRK; g.add(b.root);
-    }
-    const wrap = std('#d8cfc4', 0, .9), stain = std('#8e1a20', 0, .8);
-    for (const [y, m] of [[.08, wrap], [.11, stain], [.17, wrap], [.23, wrap], [.255, stain]]) {
-      const w = new Mesh(new THREE.CylinderGeometry(.06, .062, .022, 16, 1, true).scale(1, 1, .32), m); w.position.y = y; w.rotation.z = (y * 37 % 1 - .5) * .25; w.material.side = THREE.DoubleSide; w.material.clippingPlanes = [below]; g.add(w);
-    }
-    const bar = new Mesh(new THREE.CircleGeometry(.32, 48), additive({ map: textures().hex, color: '#d0303a', opacity: .55 })); bar.rotation.x = -Math.PI / 2; bar.position.y = H; g.add(bar);
-    const v = new THREE.Vector3();
-    return { root: g, sink: 0, height: topOf(g), update: t => { g.updateWorldMatrix(true, false); const y = g.localToWorld(v.set(0, H, 0)).y; below.constant = y; above.constant = -y; bar.rotation.z = t * .1; } };
+    const d = DESIGNS.lithia(), BRK = .22, blade = d.root.children[0];
+    const parts = []; blade.traverse(o => { if (o.isMesh && o.material === d.bladeMat) parts.push(o); });
+    parts.forEach(o => cut(o.geometry, BRK, true));
+    blade.position.y = -BRK;                                         // the jagged break stands in the ground
+    return { ...d, height: topOf(d.root) };
   },
 };
 

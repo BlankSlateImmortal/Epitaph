@@ -354,6 +354,14 @@ def traced(o, half=.0055, bev=.0022):
     ob = bpy.context.active_object; me = ob.data
     # stand it up: curve x → x, curve y → up (z), extrusion → thickness (y)
     for v in me.vertices: x, y, z = v.co; v.co = Vector((x, -z, y))
+    # hilts get real depth (the blade stays a thin slab); the broad Harvester's narrow hilt is widened too
+    hilt = [v for v in me.vertices if v.co.z > G + .01]
+    if hilt:
+        cx = sum(v.co.x for v in hilt) / len(hilt)
+        for v in hilt:
+            k = min(1, (v.co.z - G - .01) / .03)                    # ease in above the guard
+            v.co.y *= 1 + 1.6 * k
+            if o['name'] == 'harvester_broad': v.co.x = cx + (v.co.x - cx) * (1 + .6 * k)
     # materials: the blade (below the guard line) and the rest, both with the repainted texture
     key = o['tex'][4:-4]
     img = bpy.data.images.load(os.path.join(TEX, o['tex']), check_existing=True)

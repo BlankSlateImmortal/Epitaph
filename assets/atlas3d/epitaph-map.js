@@ -17,9 +17,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { loadPins, buildPin, designFor } from './pins/pins.js?v=5';
+import { loadPins, buildPin, designFor } from './pins/pins.js?v=6';
 import { Vox, FIGS, FIG_COLORS } from './statues.js';
-import { openCloseup, isOpen as closeupOpen } from './closeup.js?v=5';
+import { openCloseup, isOpen as closeupOpen } from './closeup.js?v=6';
 
 const World = window.EpitaphWorld;
 const $ = id => document.getElementById(id);
