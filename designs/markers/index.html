@@ -25,7 +25,25 @@
   #card{ position:fixed; left:max(16px, env(safe-area-inset-left,0px)); bottom:calc(16px + env(safe-area-inset-bottom,0px)); width:min(360px, calc(100% - 32px)); padding:12px 14px; background:var(--panel); border:1px solid var(--line); font-size:11px; line-height:1.65; color:var(--dim); z-index:3; }
   #card h2{ margin:0 0 4px; font-family:var(--f-display); font-weight:400; letter-spacing:.1em; font-size:19px; color:var(--bone); } #card b{ color:var(--bone); font-weight:400; }
   .hint{ position:fixed; right:max(16px, env(safe-area-inset-right,0px)); bottom:calc(16px + env(safe-area-inset-bottom,0px)); font-size:10px; letter-spacing:.12em; color:var(--dim); text-transform:uppercase; z-index:3; }
-  @media (max-width:640px){ .hint{ display:none; } #card{ font-size:10px; } }
+  #fx{ position:fixed; right:max(16px, env(safe-area-inset-right,0px)); top:calc(64px + env(safe-area-inset-top,0px)); bottom:calc(16px + env(safe-area-inset-bottom,0px)); width:min(300px, calc(100% - 32px)); overflow-y:auto;
+    background:var(--panel); border:1px solid var(--line); z-index:5; font-size:11px; color:var(--dim); }
+  .fx-head{ position:sticky; top:0; display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:var(--panel); border-bottom:1px solid var(--line); }
+  .fx-head b{ font-family:var(--f-display); font-weight:400; letter-spacing:.12em; font-size:17px; color:var(--bone); }
+  .fx-head button{ background:none; border:1px solid var(--line); color:var(--bone); font-size:16px; width:28px; height:28px; cursor:pointer; }
+  #fxBody{ padding:4px 12px 14px; }
+  #fxBody h3{ margin:14px 0 6px; font-family:var(--f-display); font-weight:400; letter-spacing:.14em; font-size:14px; color:var(--amber); }
+  .fx-presets{ display:flex; flex-wrap:wrap; gap:4px; margin-top:10px; }
+  .fx-presets button{ font-family:var(--f-display); letter-spacing:.08em; font-size:13px; padding:5px 8px 4px; background:none; border:1px solid var(--line); color:var(--dim); cursor:pointer; }
+  .fx-presets button.on{ background:var(--amber); color:var(--bg); }
+  .fx-row{ border-top:1px solid var(--line); padding:6px 0; }
+  .fx-on{ display:flex; gap:8px; align-items:center; cursor:pointer; color:var(--bone); font-size:12px; }
+  .fx-on input{ accent-color:var(--amber); }
+  .fx-fields{ display:none; grid-template-columns:1fr; gap:4px; padding:6px 0 2px 22px; }
+  .fx-row.active .fx-fields{ display:grid; }
+  .fx-fields label{ display:grid; grid-template-columns:80px minmax(0,1fr); align-items:center; gap:8px; text-transform:capitalize; }
+  .fx-fields input[type=range]{ width:100%; accent-color:var(--amber); }
+  .fx-fields input[type=color]{ width:44px; height:22px; border:1px solid var(--line); background:none; padding:0; }
+  @media (max-width:640px){ .hint{ display:none; } #card{ font-size:10px; } #fx{ top:auto; height:52%; left:max(16px, env(safe-area-inset-left,0px)); width:auto; } }
 </style>
 
 <canvas id="stage" aria-label="The map markers of Epitaph, built from blocks, on a turntable"></canvas>
@@ -34,11 +52,12 @@
   <h1>Epitaph <span>//</span> Markers</h1>
   <div class="ctrls">
     <div class="seg" id="pick"></div>
-    <div class="seg"><button id="spinBtn" class="on">Turn</button></div>
+    <div class="seg"><button id="spinBtn" class="on">Turn</button><button id="fxBtn">Effects</button></div>
     <div class="seg"><button id="thCrt" class="on">Signal</button><button id="thPaper">Paper</button></div>
   </div>
 </header>
 <aside id="card"></aside>
+<aside id="fx" hidden><div class="fx-head"><b>Effects</b><button id="fxClose" aria-label="Close effects">×</button></div><div id="fxBody"></div></aside>
 <span class="hint">drag to turn · scroll to zoom</span>
 
 <script type="importmap">
@@ -47,6 +66,11 @@
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 /* Epitaph voxel figures: the map markers, built from blocks.
  * FIGS[name](V) builds one figure in a Vox, facing +z, base at y = 0. Colour each block with FIG_COLORS[theme][material]; 'group' / 'groupGlow' take the marker's own colour.
  * Statues: storyborn (an angel at prayer, wings spread, halo behind), voided (an angel under a black veil, wings broken), fallen (bunker door + banner, a placeholder).
@@ -345,9 +369,10 @@ function build() {
       if (!['gold', 'core', 'glyph', 'spark', 'groupGlow', 'fate', 'eye', 'voidGlow', 'nothing'].includes(t)) c.offsetHSL(0, 0, (hash3(x, y, z) - 0.5) * 0.05); else c.multiplyScalar(1.15);
       im.setColorAt(i, c); });
     im.castShadow = im.receiveShadow = true; pivot.add(im); figs.push(pivot);
-    let topY = -1e9; for (const v of vis) if (v[1] > topY) topY = v[1]; const top = topY * S; LBL.push({ t: it.name, c: it.group[theme], p: new THREE.Vector3(pivot.position.x, top + 1.6, pivot.position.z), k });
+    let topY = -1e9, rMax = 0; for (const v of vis) { if (v[1] > topY) topY = v[1]; const rr = Math.hypot(v[0], v[2]); if (rr > rMax && v[1] > 3) rMax = rr; } const top = topY * S; pivot.userData.h = top; pivot.userData.r = Math.min(rMax * S, top * 0.6); LBL.push({ t: it.name, c: it.group[theme], p: new THREE.Vector3(pivot.position.x, top + 1.6, pivot.position.z), k });
   });
   syncLabels(); card();
+  if (typeof fxTargets === 'function') { fxTargets(); FX.applyPost(); }
 }
 const layer = $('labels'), pv = new THREE.Vector3();
 function syncLabels() { layer.innerHTML = ''; for (const l of LBL) { const el = document.createElement('div'); el.className = 'lbl'; el.style.setProperty('--c', l.c); el.textContent = l.t; layer.appendChild(el); l.el = el; } }
@@ -359,17 +384,229 @@ function frame() {
   if (focus == null) { const half = a < 1 ? 44 / a : 25; Object.assign(camera, { left: -half * a, right: half * a, top: half, bottom: -half }); controls.target.set(0, 6, -8); camera.position.set(40, 40, 62); camera.zoom = 1; }
   else { const it = ITEMS[focus], half = (a < 1 ? 1.3 / a : 1) * (it.prim ? 8.5 : 7), P = figs[focus].position; Object.assign(camera, { left: -half * a, right: half * a, top: half, bottom: -half }); controls.target.set(P.x, it.prim ? 6.5 : 4.2, P.z); camera.position.set(P.x + 30, 26, P.z + 52); camera.zoom = 1; }
   camera.updateProjectionMatrix();
+  if (typeof fxTargets === 'function') { fxTargets(); FX.applyPost(); }
 }
 const pick = $('pick');
 [['All', null], ...ITEMS.map((it, k) => [it.name, k])].forEach(([n, k]) => { const b = document.createElement('button'); b.textContent = n; if (k == null) b.classList.add('on'); b.addEventListener('click', () => { focus = k; [...pick.children].forEach(x => x.classList.toggle('on', x === b)); frame(); card(); }); pick.appendChild(b); });
 $('spinBtn').addEventListener('click', () => { spin = !spin; $('spinBtn').classList.toggle('on', spin); if (!spin) figs.forEach(f => f.rotation.y = 0); });
 const seg = (on, off, fn) => $(on).addEventListener('click', () => { $(on).classList.add('on'); $(off).classList.remove('on'); fn(); });
 seg('thCrt', 'thPaper', () => { theme = 'crt'; document.body.classList.remove('paper'); build(); }); seg('thPaper', 'thCrt', () => { theme = 'paper'; document.body.classList.add('paper'); build(); });
-function resize() { renderer.setSize(canvas.clientWidth, canvas.clientHeight, false); frame(); }
+function resize() { renderer.setSize(canvas.clientWidth, canvas.clientHeight, false); if (typeof FX !== 'undefined') FX.setSize(canvas.clientWidth, canvas.clientHeight); frame(); }
 addEventListener('resize', resize);
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; if (reduce) { spin = false; $('spinBtn').classList.remove('on'); }
 const clock = new THREE.Clock();
-function loop() { const dt = clock.getDelta(); if (spin) figs.forEach(f => f.rotation.y += dt * 0.4); controls.update(); renderer.render(scene, camera); placeLabels(); requestAnimationFrame(loop); }
+function loop() { const dt = clock.getDelta(); if (spin) figs.forEach(f => f.rotation.y += dt * 0.4); controls.update(); FX.update(clock.elapsedTime, dt); FX.render(clock.elapsedTime); placeLabels(); requestAnimationFrame(loop); }
+// ================================================================ VISUAL EFFECTS (a separate layer: the figures and their blocks are never touched)
+// Aura effects live in their own groups placed at each figure; image effects run as a post-processing chain only while one is on.
+const FX = (() => {
+  const P = {};               // live settings, filled from DEFAULTS
+  const DEFAULTS = {
+    pixelAura:  { on: false, color: '#ffd27a', intensity: 1, density: 0.5, speed: 0.5 },
+    lightning:  { on: false, color: '#9fd8ff', intensity: 1, density: 0.4, speed: 0.6 },
+    haze:       { on: false, color: '#ff9ad8', intensity: 0.5, density: 0.5, speed: 0.3 },
+    sigils:     { on: false, color: '#ffd27a', intensity: 0.8, speed: 0.4 },
+    particles:  { on: false, color: '#ffe7b0', intensity: 1, density: 0.5, speed: 0.5 },
+    connection: { on: false, color: '#9fd8ff', intensity: 0.8, density: 0.5, speed: 0.4 },
+    soft:       { on: false, amount: 0.35 },
+    bloom:      { on: false, strength: 0.6, radius: 0.5, threshold: 0.75 },
+    dof:        { on: false, amount: 0.5 },
+    ca:         { on: false, amount: 0.35 },
+    grain:      { on: false, amount: 0.3 },
+    vignette:   { on: false, amount: 0.45 },
+    grade:      { on: false, saturation: 1, contrast: 1, brightness: 0, temperature: 0 },
+    fog:        { on: false, color: '#1a1420', density: 0.4 },
+    ghost:      { on: false, amount: 0.35 }
+  };
+  const PRESETS = {
+    Original: {},
+    Dreamy: { soft: { on: true, amount: 0.3 }, bloom: { on: true, strength: 0.45, radius: 0.6, threshold: 0.8 }, haze: { on: true, color: '#ff9ad8', intensity: 0.5, density: 0.5, speed: 0.25 },
+      pixelAura: { on: true, color: '#f4b8ff', intensity: 0.6, density: 0.3, speed: 0.3 }, particles: { on: true, color: '#ffd6f2', intensity: 0.7, density: 0.35, speed: 0.35 },
+      grade: { on: true, saturation: 1.08, contrast: 0.96, brightness: 0.02, temperature: 0.08 }, vignette: { on: true, amount: 0.3 } },
+    Supernatural: { pixelAura: { on: true, color: '#9fd8ff', intensity: 0.9, density: 0.45, speed: 0.7 }, lightning: { on: true, color: '#b8e6ff', intensity: 1, density: 0.35, speed: 0.7 },
+      particles: { on: true, color: '#c8f0ff', intensity: 0.8, density: 0.45, speed: 0.7 }, ca: { on: true, amount: 0.4 }, bloom: { on: true, strength: 0.55, radius: 0.4, threshold: 0.82 },
+      grade: { on: true, saturation: 1.05, contrast: 1.12, brightness: 0, temperature: -0.2 } },
+    'Dark Fantasy': { grade: { on: true, saturation: 0.75, contrast: 1.15, brightness: -0.02, temperature: -0.1 }, vignette: { on: true, amount: 0.6 }, fog: { on: true, color: '#2a1e36', density: 0.3 },
+      particles: { on: true, color: '#9b6cff', intensity: 0.8, density: 0.4, speed: 0.3 }, connection: { on: true, color: '#8a5cff', intensity: 0.6, density: 0.35, speed: 0.25 }, grain: { on: true, amount: 0.25 },
+      bloom: { on: true, strength: 0.35, radius: 0.5, threshold: 0.85 } },
+    Divine: { bloom: { on: true, strength: 0.5, radius: 0.55, threshold: 0.8 }, sigils: { on: true, color: '#ffd27a', intensity: 0.8, speed: 0.35 }, particles: { on: true, color: '#fff0c0', intensity: 0.8, density: 0.4, speed: 0.4 },
+      pixelAura: { on: true, color: '#ffe08a', intensity: 0.6, density: 0.3, speed: 0.35 }, grade: { on: true, saturation: 1.04, contrast: 1, brightness: 0.03, temperature: 0.3 }, soft: { on: true, amount: 0.15 } },
+    Cinematic: { dof: { on: true, amount: 0.5 }, grain: { on: true, amount: 0.22 }, bloom: { on: true, strength: 0.35, radius: 0.4, threshold: 0.85 }, vignette: { on: true, amount: 0.45 },
+      grade: { on: true, saturation: 0.92, contrast: 1.12, brightness: -0.01, temperature: 0.1 } },
+    Ethereal: { bloom: { on: true, strength: 0.5, radius: 0.65, threshold: 0.8 }, soft: { on: true, amount: 0.3 }, ghost: { on: true, amount: 0.35 }, haze: { on: true, color: '#a8d8ff', intensity: 0.4, density: 0.45, speed: 0.25 },
+      particles: { on: true, color: '#eaf6ff', intensity: 0.75, density: 0.4, speed: 0.3 }, grade: { on: true, saturation: 0.88, contrast: 0.96, brightness: 0.03, temperature: -0.25 } }
+  };
+  const reset = () => { for (const k in DEFAULTS) P[k] = { ...DEFAULTS[k] }; };
+  reset();
+
+  // ---------------------------------------------------------------- textures drawn once
+  const canvasTex = (size, draw) => { const c = document.createElement('canvas'); c.width = c.height = size; const g = c.getContext('2d'); draw(g, size); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; };
+  const softDot = canvasTex(128, (g, s) => { const r = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(0.4, 'rgba(255,255,255,0.35)'); r.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = r; g.fillRect(0, 0, s, s); });
+  const circleTex = canvasTex(512, (g, s) => {     // a magic circle: rings, a seven-point star, tick marks and runes
+    const c = s / 2; g.strokeStyle = '#fff'; g.fillStyle = '#fff'; g.lineWidth = 3;
+    for (const r of [0.47, 0.42, 0.28]) { g.beginPath(); g.arc(c, c, s * r, 0, Math.PI * 2); g.stroke(); }
+    g.beginPath(); for (let k = 0; k <= 7; k++) { const a = -Math.PI / 2 + k * (Math.PI * 2 / 7) * 3, r = s * 0.42; k ? g.lineTo(c + Math.cos(a) * r, c + Math.sin(a) * r) : g.moveTo(c + Math.cos(a) * r, c + Math.sin(a) * r); } g.stroke();
+    for (let k = 0; k < 56; k++) { const a = k / 56 * Math.PI * 2, r0 = s * (k % 4 ? 0.435 : 0.425); g.beginPath(); g.moveTo(c + Math.cos(a) * r0, c + Math.sin(a) * r0); g.lineTo(c + Math.cos(a) * s * 0.47, c + Math.sin(a) * s * 0.47); g.stroke(); }
+    g.lineWidth = 2; for (let k = 0; k < 14; k++) { const a = k / 14 * Math.PI * 2, x = c + Math.cos(a) * s * 0.35, y = c + Math.sin(a) * s * 0.35; g.save(); g.translate(x, y); g.rotate(a + Math.PI / 2); g.beginPath();
+      const h = (k * 7919) % 5; g.moveTo(-8, -8); g.lineTo(8, 8); if (h > 1) { g.moveTo(8, -8); g.lineTo(-8, 8); } if (h > 2) { g.moveTo(0, -10); g.lineTo(0, 10); } if (h > 3) { g.moveTo(-10, 0); g.lineTo(10, 0); } g.stroke(); g.restore(); }
+  });
+  const ringTex = canvasTex(256, (g, s) => { const c = s / 2; g.strokeStyle = '#fff'; g.lineWidth = 4; g.beginPath(); g.arc(c, c, s * 0.44, 0, Math.PI * 2); g.stroke(); g.lineWidth = 2;
+    for (let k = 0; k < 24; k++) { const a = k / 24 * Math.PI * 2; if (k % 3 === 0) continue; g.beginPath(); g.arc(c, c, s * 0.38, a, a + 0.12); g.stroke(); } });
+
+  // ---------------------------------------------------------------- aura effects, one group per target figure
+  let layer = new THREE.Group(); scene.add(layer);
+  let targets = [], parts = {};
+  const additive = (color, map, opacity = 1) => new THREE.MeshBasicMaterial({ color, map, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+  const glowColor = (hex, k) => new THREE.Color(hex).multiplyScalar(k);
+  const M4 = new THREE.Matrix4(), V3 = new THREE.Vector3(), Q = new THREE.Quaternion(), S3 = new THREE.Vector3(), E = new THREE.Euler();
+  const rnd = (i, j) => hash3(i, j, 17);
+
+  function clear() { scene.remove(layer); layer.traverse(o => { o.geometry?.dispose?.(); o.material?.dispose?.(); }); layer = new THREE.Group(); scene.add(layer); parts = {}; }
+  function attach(list) { targets = list; rebuild(); }
+  function rebuild() {
+    clear();
+    for (const [ti, t] of targets.entries()) {
+      const g = new THREE.Group(); g.position.copy(t.pos); layer.add(g);
+      const H = t.h, R = Math.max(1.2, t.r), pt = parts[ti] = { g, H, R };
+      if (P.pixelAura.on) { const n = Math.round(14 + P.pixelAura.density * 80); pt.aura = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.9, depthWrite: false }), n);
+        pt.aura.userData.seeds = Array.from({ length: n }, (_, i) => [rnd(i, ti) * Math.PI * 2, 1.05 + rnd(i, 1) * 0.55, 0.05 + rnd(i, 2) * 1.05, 0.4 + rnd(i, 3), 0.05 + rnd(i, 4) * 0.06]); pt.aura.frustumCulled = false; g.add(pt.aura); }
+      if (P.lightning.on) { const n = 4 + Math.round(P.lightning.density * 10); pt.bolt = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: '#ffffff' }), n * 26); pt.bolt.userData = { n, next: 0 }; pt.bolt.frustumCulled = false; g.add(pt.bolt); }
+      if (P.haze.on) { const n = Math.round(6 + P.haze.density * 22); pt.haze = []; for (let i = 0; i < n; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: softDot, color: P.haze.color, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+          s.userData = { a: rnd(i, 5) * Math.PI * 2, r: R * (0.4 + rnd(i, 6) * 1.3), y: H * (0.05 + rnd(i, 7) * 0.95), s: R * (1.4 + rnd(i, 8) * 2.2), ph: rnd(i, 9) * 6 }; g.add(s); pt.haze.push(s); } }
+      if (P.sigils.on) { const c = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), additive('#ffffff', circleTex)); c.scale.setScalar(R * 3.4); c.position.y = 0.06; g.add(c);
+        const r = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), additive('#ffffff', ringTex)); r.scale.setScalar(R * 2.4); r.position.y = H * 0.55; g.add(r);
+        const orbs = []; for (let i = 0; i < 3; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: circleTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); s.scale.setScalar(R * 0.55); g.add(s); orbs.push(s); }
+        pt.sig = { c, r, orbs }; }
+      if (P.particles.on) { const n = Math.round(24 + P.particles.density * 130), pos = new Float32Array(n * 3), seed = new Float32Array(n * 4);
+        for (let i = 0; i < n; i++) seed.set([rnd(i, 10), rnd(i, 11) * Math.PI * 2, 0.3 + rnd(i, 12) * 1.1, 0.5 + rnd(i, 13)], i * 4);
+        const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('seed', new THREE.BufferAttribute(seed, 4));
+        const mat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uT: { value: 0 }, uH: { value: H }, uR: { value: R }, uColor: { value: new THREE.Color() }, uSize: { value: 6 }, uMap: { value: softDot } },
+          vertexShader: `attribute vec4 seed; uniform float uT, uH, uR, uSize; varying float vA;
+            void main(){ float life = fract(seed.x + uT * 0.12 * seed.w); float a = seed.y + uT * 0.4 * seed.w; float r = uR * seed.z * (1.0 + life * 0.4);
+              vec3 p = vec3(cos(a) * r, life * uH * 1.25, sin(a) * r); vA = sin(life * 3.14159);
+              vec4 mv = modelViewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = uSize * (0.6 + seed.w * 0.6); }`,
+          fragmentShader: 'uniform vec3 uColor; uniform sampler2D uMap; varying float vA; void main(){ vec4 t = texture2D(uMap, gl_PointCoord); gl_FragColor = vec4(uColor * t.rgb, t.a * vA); }' });
+        pt.pts = new THREE.Points(geo, mat); pt.pts.frustumCulled = false; g.add(pt.pts); }
+      if (P.connection.on) { const n = 3 + Math.round(P.connection.density * 6); pt.link = { cubes: new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: '#ffffff' }), n),
+          lines: new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 6), 3)), new THREE.LineBasicMaterial({ color: '#ffffff', transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })),
+          seeds: Array.from({ length: n }, (_, i) => [i / n * Math.PI * 2 + rnd(i, 14), 1.25 + rnd(i, 15) * 0.4, 0.25 + rnd(i, 16) * 0.85]) };
+        pt.link.cubes.frustumCulled = pt.link.lines.frustumCulled = false; g.add(pt.link.cubes, pt.link.lines); }
+    }
+  }
+  function boltPath(pt, k, out) {                  // one jagged arc: from the figure out to a point round it, in blocky steps
+    const H = pt.H, R = pt.R, a = Math.random() * Math.PI * 2, y0 = H * (0.5 + Math.random() * 0.55), y1 = Math.random() * H * 0.9, r1 = R * (1.2 + Math.random() * 0.8);
+    let p = new THREE.Vector3(Math.cos(a) * R * 0.35, y0, Math.sin(a) * R * 0.35); const end = new THREE.Vector3(Math.cos(a + (Math.random() - 0.5)) * r1, y1, Math.sin(a + (Math.random() - 0.5)) * r1);
+    for (let s = 0; s < 26; s++) { const t = (s + 1) / 26, q = p.clone().lerp(end, 1 / (26 - s)); q.x += (Math.random() - 0.5) * R * 0.25; q.y += (Math.random() - 0.5) * H * 0.05; q.z += (Math.random() - 0.5) * R * 0.25; out.push([p.clone(), q.clone(), 1 - t * 0.6]); p = q; }
+  }
+  function update(time, dt) {
+    for (const ti in parts) { const pt = parts[ti], { H, R } = pt;
+      if (pt.aura) { const A = P.pixelAura, sp = A.speed * 1.6, m = pt.aura; m.material.color.copy(glowColor(A.color, 0.45 + A.intensity * 0.45)); m.material.opacity = Math.min(0.9, 0.25 + A.intensity * 0.35);
+        m.userData.seeds.forEach(([a0, rr, yy, w, s], i) => { const a = a0 + time * sp * w, bob = Math.sin(time * sp * 2 + i) * 0.04; V3.set(Math.cos(a) * R * rr, (yy + bob) * H, Math.sin(a) * R * rr); E.set(time * w, time * w * 0.7, 0); Q.setFromEuler(E); S3.setScalar(s * Math.min(R, 2.4) * (0.45 + A.intensity * 0.25)); M4.compose(V3, Q, S3); m.setMatrixAt(i, M4); });
+        m.instanceMatrix.needsUpdate = true; }
+      if (pt.bolt) { const B = P.lightning, m = pt.bolt; m.material.color.copy(glowColor(B.color, 0.8 + B.intensity * 0.7));
+        if (time > m.userData.next) { const segs = []; for (let k = 0; k < m.userData.n; k++) if (Math.random() < 0.55) boltPath(pt, k, segs); let i = 0; const w = 0.022 * Math.min(R, 3) * (0.7 + B.intensity * 0.4);
+          for (const [a, b, f] of segs) { if (i >= m.count) break; V3.copy(a).add(b).multiplyScalar(0.5); const d = b.clone().sub(a); Q.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize()); S3.set(w * f, d.length() + w, w * f); M4.compose(V3, Q, S3); m.setMatrixAt(i++, M4); }
+          for (; i < m.count; i++) { M4.makeScale(0, 0, 0); m.setMatrixAt(i, M4); } m.instanceMatrix.needsUpdate = true; m.userData.next = time + (0.25 - B.speed * 0.18) * (0.5 + Math.random()); m.visible = true; }
+        else if (Math.random() < 0.08) m.visible = !m.visible; }
+      if (pt.haze) { const Z = P.haze; for (const s of pt.haze) { const u = s.userData, a = u.a + time * Z.speed * 0.25; s.position.set(Math.cos(a) * u.r, u.y + Math.sin(time * Z.speed + u.ph) * H * 0.04, Math.sin(a) * u.r); s.scale.setScalar(u.s); s.material.color.set(Z.color); s.material.opacity = 0.03 + Z.intensity * 0.1 * (0.7 + 0.3 * Math.sin(time * 0.7 + u.ph)); } }
+      if (pt.sig) { const G = P.sigils, col = glowColor(G.color, 0.35 + G.intensity * 0.55); pt.sig.c.rotation.y = time * G.speed * 0.3; pt.sig.c.material.color.copy(col); pt.sig.c.material.opacity = 0.35 + G.intensity * 0.5;
+        pt.sig.r.rotation.y = -time * G.speed * 0.6; pt.sig.r.position.y = H * (0.5 + Math.sin(time * G.speed) * 0.06); pt.sig.r.material.color.copy(col); pt.sig.r.material.opacity = 0.3 + G.intensity * 0.4;
+        pt.sig.orbs.forEach((s, i) => { const a = time * G.speed * 0.8 + i * 2.094; s.position.set(Math.cos(a) * R * 1.5, H * (0.75 + 0.1 * Math.sin(time + i)), Math.sin(a) * R * 1.5); s.material.color.copy(col); s.material.rotation = time * G.speed; }); }
+      if (pt.pts) { const Pp = P.particles, u = pt.pts.material.uniforms; u.uT.value = time * Pp.speed * 2.2; u.uColor.value.copy(glowColor(Pp.color, 0.45 + Pp.intensity * 0.55)); u.uSize.value = (2.5 + Pp.intensity * 2.5) * renderer.getPixelRatio() * Math.min(1.8, camera.zoom * (focus == null ? 0.8 : 1.4)); }
+      if (pt.link) { const L = P.connection, { cubes, lines, seeds } = pt.link, arr = lines.geometry.attributes.position.array, s = 0.09 * R;
+        cubes.material.color.copy(glowColor(L.color, 0.5 + L.intensity * 0.5)); lines.material.color.copy(glowColor(L.color, 0.45 + L.intensity * 0.6)); lines.material.opacity = 0.35 + 0.45 * L.intensity * (0.6 + 0.4 * Math.sin(time * 4 * L.speed));
+        seeds.forEach(([a0, rr, yy], i) => { const a = a0 + time * L.speed * 0.4; V3.set(Math.cos(a) * R * rr, yy * H + Math.sin(time * L.speed * 2 + i) * H * 0.04, Math.sin(a) * R * rr); E.set(time, time * 0.6, 0); Q.setFromEuler(E); S3.setScalar(s); M4.compose(V3, Q, S3); cubes.setMatrixAt(i, M4);
+          arr.set([0, H * 0.62, 0, V3.x, V3.y, V3.z], i * 6); });
+        cubes.instanceMatrix.needsUpdate = true; lines.geometry.attributes.position.needsUpdate = true; }
+    }
+  }
+
+  // ---------------------------------------------------------------- image effects
+  const composer = new EffectComposer(renderer), renderPass = new RenderPass(scene, camera); composer.addPass(renderPass);
+  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.6, 0.5, 0.75); composer.addPass(bloom);
+  const depthRT = new THREE.WebGLRenderTarget(1, 1), depthMat = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
+  const finalPass = new ShaderPass({
+    uniforms: { tDiffuse: { value: null }, tDepth: { value: depthRT.texture }, uRes: { value: new THREE.Vector2(1, 1) }, uTime: { value: 0 }, uSoft: { value: 0 }, uDof: { value: 0 }, uFocus: { value: 0.5 },
+      uCA: { value: 0 }, uGrain: { value: 0 }, uVig: { value: 0 }, uSat: { value: 1 }, uCon: { value: 1 }, uBri: { value: 0 }, uTemp: { value: 0 }, uGhost: { value: 0 } },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `#include <packing>
+      uniform sampler2D tDiffuse, tDepth; uniform vec2 uRes; uniform float uTime, uSoft, uDof, uFocus, uCA, uGrain, uVig, uSat, uCon, uBri, uTemp, uGhost; varying vec2 vUv;
+      float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+      void main(){
+        vec2 px = 1.0 / uRes; vec3 base = texture2D(tDiffuse, vUv).rgb;
+        float coc = 0.0; if (uDof > 0.0) { float d = unpackRGBAToDepth(texture2D(tDepth, vUv)); coc = clamp((abs(d - uFocus) - 0.01) * uDof * 4.0, 0.0, 0.8); }
+        float rad = uSoft * 2.0 + coc * 5.0, amt = clamp(uSoft * 0.45 + coc, 0.0, 0.9);
+        vec3 col = base;
+        if (amt > 0.001) { vec3 acc = vec3(0.0); for (int i = 0; i < 12; i++) { float a = float(i) * 2.399963, r = sqrt(float(i) + 0.5) / 3.5; acc += texture2D(tDiffuse, vUv + vec2(cos(a), sin(a)) * r * rad * px).rgb; } col = mix(base, acc / 12.0, amt); }
+        if (uCA > 0.0) { vec2 dir = (vUv - 0.5) * uCA * 0.012; col.r = mix(col.r, texture2D(tDiffuse, vUv + dir).r, 0.85); col.b = mix(col.b, texture2D(tDiffuse, vUv - dir).b, 0.85); }
+        if (uGhost > 0.0) { vec3 g1 = texture2D(tDiffuse, vUv + vec2(0.012, 0.004) * uGhost).rgb, g2 = texture2D(tDiffuse, vUv - vec2(0.009, -0.006) * uGhost).rgb; col = max(col, (g1 + g2) * 0.5 * (0.35 * uGhost) + col * (1.0 - 0.2 * uGhost)); }
+        col = pow(max(col, 0.0), vec3(1.0 / 2.2));                          // grade in display gamma, so contrast doesn't crush the darks
+        col += uBri; col = (col - 0.5) * uCon + 0.5; float l = dot(col, vec3(0.299, 0.587, 0.114)); col = mix(vec3(l), col, uSat); col += vec3(uTemp * 0.06, uTemp * 0.012, -uTemp * 0.06);
+        if (uVig > 0.0) { float v = smoothstep(0.85, 0.2, length(vUv - 0.5) * 1.25); col *= mix(1.0, v, uVig); }
+        if (uGrain > 0.0) col += (hash(vUv * uRes + fract(uTime) * 100.0) - 0.5) * 0.1 * uGrain;
+        gl_FragColor = vec4(pow(max(col, 0.0), vec3(2.2)), 1.0);
+      }`
+  });
+  composer.addPass(finalPass); composer.addPass(new OutputPass());
+  const postOn = () => ['soft', 'bloom', 'dof', 'ca', 'grain', 'vignette', 'grade', 'ghost'].some(k => P[k].on);
+  function applyPost() {
+    bloom.enabled = P.bloom.on; bloom.strength = P.bloom.strength; bloom.radius = P.bloom.radius; bloom.threshold = P.bloom.threshold;
+    const u = finalPass.uniforms; u.uSoft.value = P.soft.on ? P.soft.amount : 0; u.uDof.value = P.dof.on ? P.dof.amount : 0; u.uCA.value = P.ca.on ? P.ca.amount : 0; u.uGrain.value = P.grain.on ? P.grain.amount : 0;
+    u.uVig.value = P.vignette.on ? P.vignette.amount : 0; u.uGhost.value = P.ghost.on ? P.ghost.amount : 0;
+    const G = P.grade.on ? P.grade : DEFAULTS.grade; u.uSat.value = G.saturation; u.uCon.value = G.contrast; u.uBri.value = G.brightness; u.uTemp.value = G.temperature;
+    if (P.fog.on) { const span = Math.max(30, camera.position.distanceTo(controls.target)); scene.fog = new THREE.Fog(P.fog.color, span * (1.15 - P.fog.density * 0.7), span * (1.9 - P.fog.density * 0.6)); } else scene.fog = null;
+    scene.background = new THREE.Color(P.fog.on ? P.fog.color : (theme === 'crt' ? '#080603' : '#f6eddd'));   // in fog, dark figures read as silhouettes against the haze
+  }
+  function render(time) {
+    if (!postOn()) { renderer.render(scene, camera); return; }
+    finalPass.uniforms.uTime.value = time;
+    if (P.dof.on) { const fogWas = scene.fog; scene.fog = null; layer.visible = false; scene.overrideMaterial = depthMat; renderer.setRenderTarget(depthRT); renderer.clear(); renderer.render(scene, camera);
+      renderer.setRenderTarget(null); scene.overrideMaterial = null; layer.visible = true; scene.fog = fogWas;
+      finalPass.uniforms.uFocus.value = controls.target.clone().project(camera).z * 0.5 + 0.5; }
+    composer.render();
+  }
+  function setSize(w, h) { const pr = renderer.getPixelRatio(); composer.setSize(w, h); depthRT.setSize(Math.floor(w * pr / 2), Math.floor(h * pr / 2)); finalPass.uniforms.uRes.value.set(w * pr, h * pr); bloom.resolution.set(w, h); }
+  return { P, DEFAULTS, PRESETS, reset, attach, rebuild, update, applyPost, render, setSize };
+})();
+
+// ---------------------------------------------------------------- the effects panel (built from one schema)
+const FX_SCHEMA = [
+  ['Aura', [['pixelAura', 'Pixelated aura', ['color', 'intensity', 'density', 'speed']], ['lightning', 'Voxel lightning', ['color', 'intensity', 'density', 'speed']], ['haze', 'Dream haze', ['color', 'intensity', 'density', 'speed']],
+    ['sigils', 'Magic sigils', ['color', 'intensity', 'speed']], ['particles', 'Energy particles', ['color', 'intensity', 'density', 'speed']], ['connection', 'Energy connection', ['color', 'intensity', 'density', 'speed']]]],
+  ['Image', [['soft', 'Soft focus', ['amount']], ['bloom', 'Bloom', ['strength', 'radius', 'threshold']], ['dof', 'Depth of field', ['amount']], ['ca', 'Chromatic aberration', ['amount']], ['grain', 'Film grain', ['amount']],
+    ['vignette', 'Vignette', ['amount']], ['grade', 'Colour grading', ['saturation', 'contrast', 'brightness', 'temperature']], ['fog', 'Atmospheric fog', ['color', 'density']], ['ghost', 'Ghosting', ['amount']]]]
+];
+const RANGES = { intensity: [0, 2, 0.05], density: [0, 1, 0.05], speed: [0, 1.5, 0.05], amount: [0, 1, 0.02], strength: [0, 2, 0.05], radius: [0, 1, 0.05], threshold: [0, 1, 0.02],
+  saturation: [0, 2, 0.02], contrast: [0.5, 1.6, 0.02], brightness: [-0.3, 0.3, 0.01], temperature: [-1, 1, 0.02] };
+const REBUILD = new Set(['on', 'density']);
+const AURA = new Set(['pixelAura', 'lightning', 'haze', 'sigils', 'particles', 'connection']);
+function fxPanel() {
+  const box = $('fxBody'); box.innerHTML = '';
+  const pres = document.createElement('div'); pres.className = 'fx-presets';
+  for (const name of Object.keys(FX.PRESETS)) { const b = document.createElement('button'); b.textContent = name === 'Original' ? 'Reset' : name; b.dataset.preset = name; b.addEventListener('click', () => { FX.reset(); const pr = FX.PRESETS[name]; for (const k in pr) Object.assign(FX.P[k], pr[k]); [...pres.children].forEach(x => x.classList.toggle('on', x === b && name !== 'Original')); FX.rebuild(); FX.applyPost(); fxPanel.sync(); }); pres.appendChild(b); }
+  box.appendChild(pres);
+  for (const [title, list] of FX_SCHEMA) {
+    const h = document.createElement('h3'); h.textContent = title; box.appendChild(h);
+    for (const [key, label, fields] of list) {
+      const row = document.createElement('div'); row.className = 'fx-row'; const id = 'fx-' + key;
+      row.innerHTML = `<label class="fx-on" for="${id}"><input type="checkbox" id="${id}" data-k="${key}" data-f="on"><span>${label}</span></label><div class="fx-fields">` +
+        fields.map(f => f === 'color' ? `<label>Colour<input type="color" id="${id}-${f}" data-k="${key}" data-f="${f}"></label>` : `<label>${f}<input type="range" id="${id}-${f}" data-k="${key}" data-f="${f}" min="${RANGES[f][0]}" max="${RANGES[f][1]}" step="${RANGES[f][2]}"></label>`).join('') + '</div>';
+      box.appendChild(row);
+    }
+  }
+  box.querySelectorAll('input').forEach(inp => inp.addEventListener('input', () => {
+    const k = inp.dataset.k, f = inp.dataset.f; FX.P[k][f] = inp.type === 'checkbox' ? inp.checked : inp.type === 'color' ? inp.value : +inp.value;
+    pres.querySelectorAll('button').forEach(b => b.classList.remove('on'));
+    if (AURA.has(k) && REBUILD.has(f)) FX.rebuild(); FX.applyPost(); inp.closest('.fx-row').classList.toggle('active', FX.P[k].on);
+  }));
+  fxPanel.sync = () => box.querySelectorAll('input').forEach(inp => { const v = FX.P[inp.dataset.k][inp.dataset.f]; if (inp.type === 'checkbox') { inp.checked = v; inp.closest('.fx-row').classList.toggle('active', v); } else inp.value = v; });
+  fxPanel.sync();
+}
+// the targets: the figure you're looking at, or every figure on the floor
+function fxTargets() { FX.attach(figs.map((f, i) => ({ f, i })).filter(({ i }) => focus == null || i === focus).map(({ f }) => ({ pos: f.position.clone(), h: f.userData.h || 6, r: f.userData.r || 2 }))); }
+
+fxPanel();
+$('fxBtn').addEventListener('click', () => { const f = $('fx'); f.hidden = !f.hidden; $('fxBtn').classList.toggle('on', !f.hidden); });
+$('fxClose').addEventListener('click', () => { $('fx').hidden = true; $('fxBtn').classList.remove('on'); });
 build(); resize(); loop();
 </script>
 </html>
