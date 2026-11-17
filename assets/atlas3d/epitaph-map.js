@@ -18,6 +18,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { loadPins, buildPin, designFor } from './pins/pins.js';
+import { Vox, FIGS, FIG_COLORS } from './statues.js';
 import { openCloseup, isOpen as closeupOpen } from './closeup.js';
 
 const World = window.EpitaphWorld;
@@ -313,6 +314,30 @@ const markerGeo = {};
   markerGeo.token = mergeGeometries([new THREE.CapsuleGeometry(0.09, 0.16, 4, 12).translate(0, 0.2, 0).toNonIndexed(), new THREE.TorusGeometry(0.14, 0.025, 6, 20).rotateX(Math.PI / 2).translate(0, 0.02, 0).toNonIndexed()]);
   markerGeo.dead = mergeGeometries([new THREE.BoxGeometry(0.06, 0.4, 0.06).translate(0, 0.2, 0).toNonIndexed(), new THREE.BoxGeometry(0.24, 0.06, 0.06).translate(0, 0.29, 0).toNonIndexed()]);
 })();
+// ---------- block statues for settlement markers (assets/atlas3d/statues.js): built once, only the blocks you can see
+const STATUE_H = 0.78;                          // statue height in marker units (a city marker is about 0.48)
+const PIN_GAP = 0.46;                           // how far a sword stands from its place's marker (clear of a statue's wings)
+const statueBlocks = {};
+function statueData(name) {
+  if (statueBlocks[name]) return statueBlocks[name];
+  const V = new Vox(); FIGS[name](V);
+  const all = [...V.m.values()], has = (x, y, z) => !!V.get(x, y, z);
+  const shown = all.filter(([x, y, z]) => !(has(x + 1, y, z) && has(x - 1, y, z) && has(x, y + 1, z) && has(x, y - 1, z) && has(x, y, z + 1) && has(x, y, z - 1)));
+  const top = Math.max(...all.map(b => b[1])) + 1;
+  return (statueBlocks[name] = { blocks: shown, size: STATUE_H / top });
+}
+function statueMesh(name, T, groupColor) {
+  const { blocks, size } = statueData(name), pal = FIG_COLORS[state.theme] || FIG_COLORS.crt;
+  const glow = new THREE.Color(groupColor).lerp(new THREE.Color('#ffffff'), 0.35);
+  const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(size, size, size).translate(0, size / 2, 0), toonMaterial(), blocks.length);
+  const m4 = new THREE.Matrix4(), c = new THREE.Color();
+  blocks.forEach(([x, y, z, mat], i) => {
+    m4.makeTranslation(x * size, y * size, z * size); mesh.setMatrixAt(i, m4);
+    mesh.setColorAt(i, mat === 'group' ? c.set(groupColor) : mat === 'groupGlow' ? glow : c.set(pal[mat] || '#ff00ff'));
+  });
+  mesh.material.emissive = new THREE.Color('#000000');           // the hover highlight lights it up
+  return mesh;
+}
 function placeOn(obj, at, scale = 1) { obj.position.copy(at.pos); obj.quaternion.setFromUnitVectors(UP, at.normal); obj.scale.setScalar(scale); }
 let arcBetween = null;
 
@@ -328,7 +353,9 @@ function addMarkers(T, markerScale, parent = root) {
     const sunk = era === 1 && !p.group && !p.fictional && (here.kind === 'sunk' || here.kind === 'sea');
     const kind = markerGeo[p.kind] ? p.kind : 'other';
     const color = p.group ? (T.groups[p.group] || T.groups.OTHER) : sunk ? T.sunk : p.fictional ? T.groups.STORYBORN : T.city;
-    const m = new THREE.Mesh(sunk ? markerGeo.ruin : markerGeo[kind], mat(color, { roughness: 0.5, emissive: p.group ? color : '#000', emissiveIntensity: p.group ? 0.35 : 0, transparent: sunk, opacity: sunk ? 0.75 : 1 }));
+    const storyborn = !sunk && (p.group === 'STORYBORN' || (p.fictional && !p.group));   // Storyborn sites and settlements: the praying angel
+    const m = storyborn ? statueMesh('storyborn', T, T.groups.STORYBORN)
+      : new THREE.Mesh(sunk ? markerGeo.ruin : markerGeo[kind], mat(color, { roughness: 0.5, emissive: p.group ? color : '#000', emissiveIntensity: p.group ? 0.35 : 0, transparent: sunk, opacity: sunk ? 0.75 : 1 }));
     const k = p.lat.toFixed(1) + ',' + p.lng.toFixed(1);
     const n = byKey[k] = (byKey[k] || 0) + 1;
     const spread = state.view === 'planet' ? 1.2 : 4.2;   // places sharing a spot (a temple in a city) sit side by side
@@ -349,7 +376,7 @@ function addMarkers(T, markerScale, parent = root) {
     placeOn(t, at, markerScale * (t.userData.isPin ? PIN_LEN : 1.15));
     const side = new THREE.Vector3().crossVectors(at.normal, Math.abs(at.normal.y) > 0.9 ? new THREE.Vector3(1, 0, 0) : UP).normalize();
     const fwd = new THREE.Vector3().crossVectors(side, at.normal);
-    const ang = 2.4 + (n - 1) * 2.1, rad = r.kind === 'point' && n === 1 ? 0 : 0.32 * markerScale;   // tokens stand beside the place marker, not on it
+    const ang = 2.4 + (n - 1) * 2.1, rad = r.kind === 'point' && n === 1 ? 0 : PIN_GAP * markerScale;   // tokens stand beside the place marker, not on it
     t.position.addScaledVector(side, Math.cos(ang) * rad).addScaledVector(fwd, Math.sin(ang) * rad).addScaledVector(at.normal, 0.04);
     t.castShadow = true; t.userData.char = c; t.userData.charState = cs;
     if (t.userData.isPin) {
@@ -1036,7 +1063,7 @@ function tangents(n) {
 }
 // where a pin stands beside a place marker (same spot addMarkers uses for the first character there)
 function landingFor(at, scale) {
-  const [side, fwd] = tangents(at.normal), ang = 2.4, rad = 0.32 * scale;
+  const [side, fwd] = tangents(at.normal), ang = 2.4, rad = PIN_GAP * scale;
   return at.pos.clone().addScaledVector(side, Math.cos(ang) * rad).addScaledVector(fwd, Math.sin(ang) * rad).addScaledVector(at.normal, 0.04 - 0.08 * scale);
 }
 // pointer → a point on the map surface, in the markers' local space

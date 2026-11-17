@@ -1,4 +1,5 @@
 /* Epitaph settlement statues, built from blocks (kept from the map-markers work, designs/markers on the markers-page branch).
+ * Used by the map (assets/atlas3d/epitaph-map.js) for the settlement markers.
  * FIGS[name](V) builds one statue in a Vox, facing +z, base at y = 0. Colour each block with FIG_COLORS[theme][material];
  * 'group' / 'groupGlow' take the marker's own colour (Storyborn teal, Voided violet, Fallen red).
  *   storyborn  an angel at prayer, hands together, wings spread, a gold halo behind the head
@@ -92,3 +93,5 @@ const FIG_COLORS = {
   crt:   { stone: '#4a3a28', marble: '#f1e6cf', marbleD: '#cbbd9e', gold: '#ffc04a', veil: '#120e16', veilHi: '#2a2230', ash: '#9a9284', ashD: '#6e6758', steel: '#b9bec6', steelD: '#6f7680', steelHi: '#eef2f6', leatherD: '#3a2414' },
   paper: { stone: '#6a5a46', marble: '#ffffff', marbleD: '#ddd6c8', gold: '#e0a02a', veil: '#16121c', veilHi: '#322a3a', ash: '#a59e92', ashD: '#7a7366', steel: '#c3c8d0', steelD: '#7a818c', steelHi: '#ffffff', leatherD: '#4a3020' }
 };
+
+export { Vox, FIGS, FIG_COLORS };
