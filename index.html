@@ -1167,6 +1167,18 @@
   #modalContent a, .rec-detail a{ color:var(--amber); }
   /* the Power panel can list many rows: scroll inside the record instead of spilling out */
   .rec-detail{ max-height:calc(100% - 104px); overflow-y:auto; scrollbar-width:thin; }
+
+  /* ---- Reader mode: everything that edits is hidden (epitaph-mode.js puts .mode-reader on <html>, for readers and for the author's preview).
+          New write controls: give them class "edit-only", or add their selector here. ---- */
+  .mode-reader #newChapterTopBtn, .mode-reader #newBtn, .mode-reader #chaptersBtn, .mode-reader #checksBtn,
+  .mode-reader #exportBtn, .mode-reader #publishBtn, .mode-reader #mergeBtn, .mode-reader #importBtn,
+  .mode-reader #dataMenu .nav-menu-sep, .mode-reader #dataMenu a[href="muses.html"],
+  .mode-reader #sigNewChapter, .mode-reader #editBtn, .mode-reader #deleteBtn, .mode-reader .thumb-add,
+  .mode-reader .rec-cmd[data-cmd="edit"], .mode-reader #recEditBtn, .mode-reader #recPowerBtn, .mode-reader #recPortraitBtn,
+  .mode-reader #editSystemBtn, .mode-reader #chapterEditBtn, .mode-reader #marksEditBtn, .mode-reader #repositionPortraitBtn,
+  .mode-reader #mwOpenStats, .mode-reader #mwOpenSkills, .mode-reader #mwOpenInventory, .mode-reader #mwOpenRelationships,
+  .mode-reader #mwOpenArc, .mode-reader #mwOpenKnowledge,
+  .mode-reader a[href="#generationSection"], .mode-reader #generationSection{ display:none !important; }
 </style>
 <link rel="stylesheet" href="assets/epitaph-theme.css?v=20">
 <link rel="stylesheet" href="assets/epitaph-editors.css?v=8">
@@ -1188,7 +1200,7 @@
 <script src="assets/epitaph-states.js?v=1"></script>
 <script src="assets/epitaph-checks.js?v=7"></script>
 <script src="assets/epitaph-codex-views.js?v=2"></script>
-<script src="assets/epitaph-mode.js?v=4"></script>
+<script src="assets/epitaph-mode.js?v=5"></script>
 <script src="published/epitaph-data.js"></script>
 <script src="assets/epitaph-reader-data.js?v=1"></script>
 </head>
@@ -2708,7 +2720,9 @@ const CODEX_TABS = [
 ];
 // Tabs a type can't have never appear (Godlings and the Fallen have no skills; gods are unrated).
 function codexTabsFor(char){
-  return CODEX_TABS.filter(([k]) => !(k === 'skills' && !canHaveSkills(char)) && !(k === 'stats' && !hasStats(char)))
+  // readers never get the Arc and Knowledge tabs: what they hold (secrets, true names) is not in the published copy
+  const reader = !(window.EpitaphMode && EpitaphMode.canEdit());
+  return CODEX_TABS.filter(([k]) => !(k === 'skills' && !canHaveSkills(char)) && !(k === 'stats' && !hasStats(char)) && !(reader && (k === 'arc' || k === 'knowledge')))
     .map(([k, l]) => [k, k === 'skills' && isGodType(char) ? 'Authorities' : k === 'arc' && hasTrueName(char) ? (typeOf(char) === 'godling' ? 'Plane-name' : 'True name') : l]);
 }
 
