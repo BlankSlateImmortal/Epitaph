@@ -371,8 +371,10 @@ const DESIGNS = {
     return { root: g, height: topOf(g), update: t => frags.forEach(f => { const u = (t * f.sp + f.ph) % 1; f.m.position.set(f.x + Math.sin(t + f.ph * 9) * .01, G + .05 + u * .55, f.z); f.m.rotation.set(t * 2 + f.ph * 9, t + f.ph, 0); f.m.material.opacity = 1 - u; }) };
   },
 
-  // Moinera: Imagination. Her dual blades: two daggers of dark dream-opal that ripple and shift, red-wrapped handles,
-  // joined by a chain that sags between them
+  // Moinera: Imagination. Her dual blades: two daggers of dark dream-opal that ripple and shift, red-wrapped handles, joined by a
+  // loose chain. The chain is simulated (Verlet points held a link apart, with gravity) and the second dagger hangs on its end as a
+  // swinging weight. Planted, both daggers stand in the ground with the chain sagging between them; held (setFree(true): picked
+  // up, thrown, or flying to a new chapter) the second dagger is let go and swings freely; set down, it settles back beside the first.
   moinera() {
     const blade = patch(new THREE.MeshPhysicalMaterial({ color: '#2a2230', metalness: .3, roughness: .12, iridescence: 1, iridescenceIOR: 1.7, emissive: '#c9a8ff', emissiveIntensity: .25 }), { uTime: TIME }, `
       totalEmissiveRadiance *= 1. + .9*sin(uTime*1.3 + vObj.y*14.);`,
@@ -383,19 +385,74 @@ const DESIGNS = {
     const mats = { blade, iron: std('#141218', .8, .35), iron_light: std('#2a262e', .9, .3), band: std('#3a0d14', .4, .5), grip: std('#6e1a24', .1, .6) };
     const g = new Group(), S = .82;
     const a = base(mats, 'moinera_dagger').root; a.scale.setScalar(S); a.position.x = -.13; a.rotation.z = .1; g.add(a);
-    const b = base(mats, 'moinera_dagger').root; b.scale.setScalar(S); b.position.set(.13, 0, .03); b.rotation.set(0, .6, -.12); g.add(b);
-    // the chain: links hung from each dagger's ring, sagging between them
-    const ring = (o, sgn) => { o.updateWorldMatrix(true, true); const box = new THREE.Box3().setFromObject(o); return new THREE.Vector3((box.min.x + box.max.x) / 2 + sgn * .01, box.max.y - .02, 0); };
-    const pA = ring(a, 1), pB = ring(b, -1), mid = pA.clone().lerp(pB, .5).add(new THREE.Vector3(0, -.62, .1));
-    const curve = new THREE.QuadraticBezierCurve3(pA, mid, pB), chain = new Group(), linkMat = std('#16141a', .9, .35);
-    const N = 46, geo = new THREE.TorusGeometry(.011, .0032, 6, 12), up = new THREE.Vector3();
-    for (let i = 0; i <= N; i++) {
-      const u = i / N, l = new Mesh(geo, linkMat); l.position.copy(curve.getPointAt(u));
-      const tg = curve.getTangentAt(u); l.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), tg); if (i % 2) l.rotateX(Math.PI / 2);
-      chain.add(l);
+    const b = base(mats, 'moinera_dagger').root; b.scale.setScalar(S); g.add(b);
+    // each dagger's chain ring, in the dagger's own frame (the top of the hilt)
+    const box = new THREE.Box3().setFromObject(b), ringOff = new THREE.Vector3(0, box.max.y / S - .02, 0);
+    const restB = { pos: new THREE.Vector3(.13, 0, .03), quat: new THREE.Quaternion().setFromEuler(new THREE.Euler(0, .6, -.12)) };
+    b.position.copy(restB.pos); b.quaternion.copy(restB.quat);
+    const height = topOf(g);
+    // ---- the chain: N+1 points from A's ring to B's ring; B's tip is one more point, a dagger-length below its ring
+    const N = 22, links = new Group(), linkMat = std('#16141a', .9, .35), lgeo = new THREE.TorusGeometry(.011, .0032, 6, 12);
+    for (let i = 0; i < N; i++) links.add(new Mesh(lgeo, linkMat));
+    g.add(links);
+    const P = [], O = [], tip = new THREE.Vector3(), tipO = new THREE.Vector3(), w = new THREE.Vector3(), q = new THREE.Quaternion();
+    let free = false, last = null, segL = 0, bodyL = 0, scale = 1, ready = false, settle = 0;
+    const worldOf = (obj, local, out) => out.copy(local).applyMatrix4(obj.matrixWorld);
+    const restRing = new THREE.Vector3(), restTip = new THREE.Vector3(), ringA = new THREE.Vector3();
+    function rest() {                       // where B's ring and tip sit when planted (world)
+      const m = new THREE.Matrix4().compose(restB.pos, restB.quat, new THREE.Vector3(S, S, S)).premultiply(g.matrixWorld);
+      restRing.copy(ringOff).applyMatrix4(m); restTip.set(0, 0, 0).applyMatrix4(m);
     }
-    g.add(chain);
-    return { root: g, height: topOf(g), update: t => { chain.rotation.x = Math.sin(t * .8) * .03; } };
+    function init() {
+      g.updateWorldMatrix(true, true); scale = new THREE.Vector3().setFromMatrixScale(g.matrixWorld).x;
+      worldOf(a, ringOff, ringA); rest();
+      const mid = ringA.clone().lerp(restRing, .5); mid.y -= .55 * scale;
+      const curve = new THREE.QuadraticBezierCurve3(ringA.clone(), mid, restRing.clone());
+      for (let i = 0; i <= N; i++) { const v = curve.getPointAt(i / N); P[i] = v.clone(); O[i] = v.clone(); }
+      segL = curve.getLength() / N; bodyL = restRing.distanceTo(restTip); tip.copy(restTip); tipO.copy(restTip); ready = true;
+    }
+    const lq = new THREE.Quaternion(), gq = new THREE.Quaternion(), down = new THREE.Vector3(0, -1, 0), X = new THREE.Vector3(1, 0, 0);
+    function step(dt) {
+      g.updateWorldMatrix(true, true);
+      const sc = new THREE.Vector3().setFromMatrixScale(g.matrixWorld).x; if (Math.abs(sc - scale) > 1e-4) { segL *= sc / scale; bodyL *= sc / scale; scale = sc; }
+      worldOf(a, ringOff, ringA); rest();
+      const grav = -7 * scale * dt * dt, damp = .985;
+      for (let i = 1; i <= N; i++) { const p = P[i], o = O[i]; w.copy(p); p.x += (p.x - o.x) * damp; p.y += (p.y - o.y) * damp + grav; p.z += (p.z - o.z) * damp; o.copy(w); }
+      w.copy(tip); tip.x += (tip.x - tipO.x) * damp; tip.y += (tip.y - tipO.y) * damp + grav; tip.z += (tip.z - tipO.z) * damp; tipO.copy(w);
+      if (!free) {                           // planted: B's ring and tip ease back to where they stand
+        settle = Math.min(1, settle + dt * 2.5); const k = 1 - Math.exp(-14 * dt * settle);
+        P[N].lerp(restRing, k); tip.lerp(restTip, k);
+      } else settle = 0;
+      for (let it = 0; it < 14; it++) {
+        P[0].copy(ringA);
+        for (let i = 0; i < N; i++) {
+          const p = P[i], r = P[i + 1]; w.subVectors(r, p); const d = w.length() || 1e-6, diff = (d - segL) / d;
+          if (i === 0) r.addScaledVector(w, -diff); else { p.addScaledVector(w, diff * .5); r.addScaledVector(w, -diff * .5); }
+        }
+        w.subVectors(tip, P[N]); const d = w.length() || 1e-6, diff = (d - bodyL) / d;   // B is rigid: its tip a dagger-length from its ring
+        P[N].addScaledVector(w, diff * .5); tip.addScaledVector(w, -diff * .5);
+        if (!free) { P[N].lerp(restRing, .2 * settle); tip.lerp(restTip, .2 * settle); }
+      }
+    }
+    function draw() {
+      g.getWorldQuaternion(gq); gq.invert();
+      for (let i = 0; i < N; i++) {
+        const l = links.children[i], p0 = g.worldToLocal(P[i].clone()), p1 = g.worldToLocal(P[i + 1].clone());
+        l.position.copy(p0).lerp(p1, .5); w.subVectors(p1, p0).normalize(); l.quaternion.setFromUnitVectors(X, w); if (i % 2) l.rotateX(Math.PI / 2);
+        l.scale.setScalar(1);
+      }
+      // B: its ring at the chain's end, its blade pointing from ring to tip
+      const ringL = g.worldToLocal(P[N].clone()), tipL = g.worldToLocal(tip.clone());
+      w.subVectors(tipL, ringL).normalize(); lq.setFromUnitVectors(down, w);
+      if (!free) lq.slerp(restB.quat, settle);                      // planted, it settles into its own lean and twist
+      b.quaternion.copy(lq); b.position.copy(ringL).sub(ringOff.clone().multiplyScalar(S).applyQuaternion(lq));
+    }
+    return { root: g, height, setFree: v => { free = !!v; }, update: t => {
+      if (!ready) { init(); last = t; }
+      const dt = Math.min(1 / 30, Math.max(0, t - (last ?? t))); last = t;
+      if (dt > 0) step(dt);
+      draw();
+    } };
   },
 
   // Lithia: Reality, the blood-red angel. Her scissor blade (one half of a giant pair; her own take): deep red with a pale rose
@@ -438,7 +495,7 @@ export function buildPin(design = 'person', opts = {}) {
     ring.position.y = .03; group.add(ring);
   }
   return {
-    group, design, height: (d.height ?? PIN_HEIGHT) - sink, seal: d.seal, read: d.read, void: d.void,
+    group, design, height: (d.height ?? PIN_HEIGHT) - sink, seal: d.seal, read: d.read, void: d.void, setFree: d.setFree || (() => {}),
     update(t, camera) { TIME.value = t; d.update?.(t, camera); }
   };
 }

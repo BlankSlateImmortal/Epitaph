@@ -17,9 +17,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { loadPins, buildPin, designFor } from './pins/pins.js?v=7';
+import { loadPins, buildPin, designFor } from './pins/pins.js?v=8';
 import { Vox, FIGS, FIG_COLORS } from './statues.js';
-import { openCloseup, isOpen as closeupOpen } from './closeup.js?v=7';
+import { openCloseup, isOpen as closeupOpen } from './closeup.js?v=8';
 
 const World = window.EpitaphWorld;
 const $ = id => document.getElementById(id);
@@ -1049,7 +1049,7 @@ function makePin(T, char) {
   const h = Math.max(1, built.height || 1);
   const hit = new THREE.Mesh(new THREE.BoxGeometry(0.34, h + 0.05, 0.2).translate(0, (h + 0.05) / 2, 0), new THREE.MeshBasicMaterial({ visible: false }));
   pin.add(hit);
-  Object.assign(pin.userData, { isPin: true, hit, ring, design: built.design, glow: () => {}, update: t => built.update(t, camera) });
+  Object.assign(pin.userData, { isPin: true, hit, ring, design: built.design, built, glow: () => {}, update: t => built.update(t, camera) });
   return pin;
 }
 
@@ -1168,6 +1168,7 @@ function beginDrag(hitObj, e) {
   canvas.style.cursor = verdict.ok ? 'grabbing' : 'not-allowed';
   if (!verdict.ok) { say(`<b>${esc(char.name)}</b><span>${esc(verdict.why)}</span>`); return; }
   d.anchors = statueAnchors(scale);
+  pin.userData.built?.setFree(true);                                // loose parts (Moinera's chain) swing free while held
   // the sword hangs from the cursor on a golden thread: the cursor end floats at anchorH above the ground,
   // and the scroll wheel lets thread out (sword lower, slower wider swing) or reels it in
   const s = d.pin.scale.x;
@@ -1210,6 +1211,7 @@ function endDrag(silent) {
   const d = drag.active; if (!d) return;
   d.anchors.forEach(a => { a.ring.parent && a.ring.parent.remove(a.ring); a.ring.geometry.dispose(); a.ring.material.dispose(); });
   if (d.thread) { d.thread.group.parent && d.thread.group.parent.remove(d.thread.group); d.thread.dispose(); }
+  d.pin.userData.built?.setFree(false);
   try { canvas.releasePointerCapture(d.pointerId); } catch (e) {}
   drag.active = null; controls.enabled = true; canvas.style.cursor = '';
   if (!silent && !tip.innerHTML.includes('class="err"')) { clearTimeout(toastTimer); toastTimer = setTimeout(() => { tip.hidden = true; }, 1800); }
@@ -1546,7 +1548,7 @@ function makeTravel(pin, A, B, scale, delay, nrm) {
   };
   const T_OUT = A.drop ? 0 : 0.3, T_FLY = A.drop ? 0.25 : Math.min(1.6, 0.6 + dist / (14 * scale)), T_DIVE = 0.22, T_WOB = 0.5;
   const qFly = new THREE.Quaternion(), tmp = new THREE.Vector3();
-  pin.position.copy(A.pos); pin.quaternion.copy(A.q); pin.userData.travelling = true;
+  pin.position.copy(A.pos); pin.quaternion.copy(A.q); pin.userData.travelling = true; pin.userData.built?.setFree(true);
   let t = -delay, landed = false, started = false;
   const tr = {
     step(dt) {
@@ -1575,7 +1577,7 @@ function makeTravel(pin, A, B, scale, delay, nrm) {
       }
       return false;
     },
-    finish() { pin.position.copy(B.pos); pin.quaternion.copy(B.q); pin.userData.travelling = false; }
+    finish() { pin.position.copy(B.pos); pin.quaternion.copy(B.q); pin.userData.travelling = false; pin.userData.built?.setFree(false); }
   };
   return tr;
 }

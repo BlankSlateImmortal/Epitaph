@@ -1362,7 +1362,7 @@ $('boot').remove();
 // ?embed=1&pin=<design>&ring=<colour>: opened inside the map's close-up; a character's sword stands here, giant (assets/atlas3d/pins/pins.js)
 let giantPin = null;
 if (q.get('embed') === '1') { document.body.classList.add('embed'); state.showTags = false; }
-if (q.get('pin')) import('../atlas3d/pins/pins.js?v=7').then(m => m.placeGiant({ scene, ground: modelRoot, camera, controls, renderer, design: q.get('pin'), ring: q.get('ring') || null,
+if (q.get('pin')) import('../atlas3d/pins/pins.js?v=8').then(m => m.placeGiant({ scene, ground: modelRoot, camera, controls, renderer, design: q.get('pin'), ring: q.get('ring') || null,
   height: 34, maxY: PF + 1.5, spots: [[-6, 17], [10, 16], [-12, -12], [14, -10], [0, 24]] })).then(p => { giantPin = p; }).catch(e => console.warn('giant pin', e));
 
 // (walk inside was removed 2026-11-16: the maps stay as models)
