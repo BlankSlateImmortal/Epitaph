@@ -33,6 +33,7 @@
   #fade{ position:fixed; inset:0; background:#000; opacity:0; pointer-events:none; transition:opacity .35s; z-index:8; display:grid; place-items:center; }
   #fade b{ font-family:'Bebas Neue',sans-serif; font-weight:400; letter-spacing:.3em; font-size:30px; color:var(--accent); text-align:center; padding:0 16px; }
   @media (max-width:640px){ .hint{ display:none; } #note{ font-size:10px; } }
+  body.embed header, body.embed #note, body.embed .hint, body.embed #labels{ display:none; }
 </style>
 <script type="importmap">
 { "imports": {
@@ -56,6 +57,6 @@
 <div id="fade"><b></b></div>
 <span class="hint">drag to turn · scroll to zoom</span>
 <div id="boot">OPENING THE HOLLOW…</div>
-<script type="module" src="../assets/sites/hollow-reach.js?v=4"></script>
+<script type="module" src="../assets/sites/hollow-reach.js?v=5"></script>
 </body>
 </html>

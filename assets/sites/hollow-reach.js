@@ -1347,6 +1347,7 @@ function frame() {
   const dt = Math.min(clock.getDelta(), 0.05), time = clock.elapsedTime;
   animate(dt, time);
   updateWalk(dt);
+  giantPin?.update(time, fp.on ? fpCam : camera);
   fpGroup.visible = fp.on;
   if (!fp.on) controls.update();
   renderPass.camera = fp.on ? fpCam : camera;
@@ -1358,5 +1359,11 @@ if (state.theme === 'paper') { document.body.classList.add('paper'); [...$('them
 if (state.style === 'blocks') [...$('styleSeg').children].forEach(x => x.classList.toggle('on', x.dataset.v === 'blocks'));
 resize(); build(); note(); applyEnv(0);
 $('boot').remove();
+// ?embed=1&pin=<design>&ring=<colour>: opened inside the map's close-up; a character's sword stands here, giant (assets/atlas3d/pins/pins.js)
+let giantPin = null;
+if (q.get('embed') === '1') { document.body.classList.add('embed'); state.showTags = false; }
+if (q.get('pin')) import('../atlas3d/pins/pins.js').then(m => m.placeGiant({ scene, ground: modelRoot, camera, controls, renderer, design: q.get('pin'), ring: q.get('ring') || null,
+  height: 34, maxY: PF + 1.5, spots: [[-6, 17], [10, 16], [-12, -12], [14, -10], [0, 24]] })).then(p => { giantPin = p; }).catch(e => console.warn('giant pin', e));
+
 // (walk inside was removed 2026-11-16: the maps stay as models)
 frame();

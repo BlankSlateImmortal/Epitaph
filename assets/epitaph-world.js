@@ -210,6 +210,18 @@ const ERA_1_SPECIAL_SITES = [
   // Any location reference (old or new shape) → a resolved place, or null.
   function resolve(ref) {
     if (!ref || typeof ref !== 'object') return null;
+    // a spot off the known places (set by dropping a sword pin on the map):
+    // { status: 'unknown' | 'enroute', lat, lng, toPlaceId?, countryId? }
+    if ((ref.status === 'unknown' || ref.status === 'enroute') && num(ref.lat) && num(ref.lng) && !ref.placeId) {
+      const to = ref.status === 'enroute' ? place(ref.toPlaceId) : null;
+      const name = to ? 'En route to ' + to.name : 'Unknown location';
+      return {
+        place: null, parent: null, country: to ? country(to.countryId) : null, continent: continent(continentAt(ref.lat, ref.lng)),
+        kind: 'point', status: to ? 'enroute' : 'unknown', to,
+        key: 'point:' + ref.lat.toFixed(2) + ',' + ref.lng.toFixed(2),
+        lat: ref.lat, lng: ref.lng, name, label: name, path: name
+      };
+    }
     const p = place(ref.placeId || ref.specialSiteId || ref.cityId);
     const co = country(ref.countryId || (p && p.countryId));
     if (!p && !co) return null;
@@ -239,6 +251,9 @@ const ERA_1_SPECIAL_SITES = [
     ERAS: WORLD_DB_ERAS, KINDS, KIND_LABEL, SITE_GROUPS: SPECIAL_SITE_TYPES,
     // places that have a built 3D site page (path from the site root)
     SITES: { aurelia: 'sites/aurelia.html', 'voided-settlement-001': 'sites/hollow-reach.html' },
+    // places that have a statue (built or being built). On the map, a character's pin can only be
+    // dropped on one of these: it is pulled toward them like a magnet. Add a place id here when its statue exists.
+    STATUES: ['aurelia', 'temple-voided-001', 'voided-settlement-001', 'storyborn-church-001', 'storyborn-settlement-001'],
     continents, countries, places, continent, country, place, placesIn, childPlaces,
     countryCentroid, resolve, sameRef, makeRef, continentAt,
     setExtras(fn) { extrasFn = typeof fn === 'function' ? fn : extrasFn; }
