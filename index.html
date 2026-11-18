@@ -1400,6 +1400,8 @@ function normalizeLore(l){
 }
 // ---- What each type is allowed (the progression charts). Locked options never appear. ----
 function typeOf(c){ return (c && c.race) || ''; }
+// what a record shows when a character has no type: the author sees that it is unset, a reader that it hasn't been revealed yet
+function typeUnset(){ return window.EpitaphMode && EpitaphMode.canEdit() ? 'Unset' : 'Not yet revealed'; }
 function isGodType(c){ return typeOf(c) === 'primordial' || typeOf(c) === 'unbound'; }
 function hasArchetype(c){ return typeOf(c) === 'storyborn'; }
 function hasDormantName(c){
@@ -2809,11 +2811,11 @@ function recDetailHtml(cmd, char, snap, sortedTitles){
   const head = (t, jp) => `<div class="rec-detail-head"><span>${t}</span><small lang="ja">${jp}</small></div>`;
   const it = REC_ITEMS.find(i => i.k === cmd);
   switch(cmd){
-    case 'identity': return head('IDENTITY', it.jp) + row('Name', char.name) + row('Type', (RACES.find(r => r.id === char.race) || {}).label || '', 'Unset') + row(hasArchetype(char) ? 'Archetype' : hasTrueName(char) ? (typeOf(char) === 'godling' ? 'Plane-name' : 'True name') : isGodType(char) ? 'Concept' : 'Name', archetypeLabel(snap, char)) + row('Glyph', glyphFor(char)) + row('Chapter', snap.chapterRange, 'No chapter set') + row('Starts at', chapterLabel(snap.startChapter), '⚠ Not set') + row('Presence', PRESENCE_LABEL[snap.presence]);
+    case 'identity': return head('IDENTITY', it.jp) + row('Name', char.name) + row('Type', (RACES.find(r => r.id === char.race) || {}).label || '', typeUnset()) + row(hasArchetype(char) ? 'Archetype' : hasTrueName(char) ? (typeOf(char) === 'godling' ? 'Plane-name' : 'True name') : isGodType(char) ? 'Concept' : 'Name', archetypeLabel(snap, char)) + row('Glyph', glyphFor(char)) + row('Chapter', snap.chapterRange, 'No chapter set') + row('Starts at', chapterLabel(snap.startChapter), '⚠ Not set') + row('Presence', PRESENCE_LABEL[snap.presence]);
     case 'titles': return head('TITLES', it.jp) + (sortedTitles.length ? `<div class="titles-row">${sortedTitles.map((t, idx) => renderTitleChip(t, idx)).join('')}</div>` : `<p class="rec-empty">No titles yet.</p>`);
-    case 'status': return head('STATUS', it.jp) + row('Marks', markSummary(snap).text, 'None') + row('Marked / bound items', String(markedItems(snap).length)) + row('Type', (RACES.find(r => r.id === char.race) || {}).label || '', 'Unset') + `<div class="rec-marks">${divineStatuses.map(ds => `<span class="${char.divineStatus === ds ? 'on' : ''}">[${char.divineStatus === ds ? '●' : '○'} ${ds.toUpperCase()}]</span>`).join('')}</div>`;
+    case 'status': return head('STATUS', it.jp) + row('Marks', markSummary(snap).text, 'None') + row('Marked / bound items', String(markedItems(snap).length)) + row('Type', (RACES.find(r => r.id === char.race) || {}).label || '', typeUnset()) + `<div class="rec-marks">${divineStatuses.map(ds => `<span class="${char.divineStatus === ds ? 'on' : ''}">[${char.divineStatus === ds ? '●' : '○'} ${ds.toUpperCase()}]</span>`).join('')}</div>`;
     case 'authority': return head('AUTHORITY', it.jp) + row('Concept', char.authority) + row('Skills', String((snap.skills || []).length));
-    case 'faction': return head('FACTION', it.jp) + row('Faction', char.faction, 'Unassigned') + row('Type', (RACES.find(r => r.id === char.race) || {}).label || '', 'Unset');
+    case 'faction': return head('FACTION', it.jp) + row('Faction', char.faction, 'Unassigned') + row('Type', (RACES.find(r => r.id === char.race) || {}).label || '', typeUnset());
     case 'power': return head('POWER', it.jp) + `<button type="button" class="slant-btn primary" id="recPowerBtn" style="margin:0 0 8px">Edit power</button>` + powerRowsHtml(char, snap, row) + `<p class="rec-empty"><a href="powers.html" target="_blank" rel="noopener">How the power systems work ↗</a></p>`;
     case 'state': return head('STATE', it.jp) + row('Emotional state', snap.emotionalState);
     case 'portrait': return head('PORTRAIT', it.jp) + `<p class="rec-empty">${snap.systemPortrait || snap.portrait ? 'Uses your uploaded image.' : 'Uses the generated figure.'}</p><button type="button" class="slant-btn" id="recPortraitBtn">Change or reposition</button>`;

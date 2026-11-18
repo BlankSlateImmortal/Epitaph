@@ -14,6 +14,10 @@
  * characters yet, a character's first chapter version counts instead), `moments:` dates timeline moments, `world:` names places,
  * `reveals:` names items and marks. Anything flagged `open` is known from page 1. Everything else is held back.
  *
+ * A character's `race` (their type: twisted, godling, voided...) is held back too, until a published chapter lists it in `reveals:` as the
+ * race alone ("Twisted"), "Orin: Twisted" or "Orin race". The plain default type, `person`, is never held. The Dossier builds its status
+ * line, type label and tags from the race, so a reader sees none of them until then.
+ *
  * What is dropped, on purpose (open questions for the author are in the plan's tweak log):
  *   characters: secrets, notes, backstory, knowledge, lore, objective, headingToward, archetype(+Reason), copiedFrom, locked, legacy*, museIds
  *   marks: source, effect, cost, ends (they carry plot) · power: everything but threat and name · skills: the corrupted flag
@@ -26,8 +30,10 @@
   const SCHEMA = 1;
   const TL = () => global.EpitaphTimeline, SITES = () => global.EpitaphSites, WORLD = () => global.EpitaphWorld;
 
-  const CHAR_FIELDS = ['id', 'name', 'faction', 'race', 'glyph', 'portraitFigure', 'portraitStyle', 'portraitSeed', 'corruptionColor'];
+  const CHAR_FIELDS = ['id', 'name', 'faction', 'glyph', 'portraitFigure', 'portraitStyle', 'portraitSeed', 'corruptionColor'];
   const VERSION_FIELDS = ['id', 'startChapter', 'chapterRange', 'presence', 'emotionalState', 'portrait', 'portraitPosition', 'systemPortrait', 'systemPortraitPosition', 'figure2d', 'heroArt'];
+  const PLAIN_RACES = ['person'];                              // never held: the default type says nothing
+  const DISTINCT_RACES = ['twisted', 'godling', 'primordial', 'unbound'];   // words that would give a race away if they appeared in text
   const STAT_KEYS = ['body', 'will', 'reserve', 'control', 'weight', 'renown', 'insight'];   // the 7 stats
   const LOCATION_FIELDS = ['countryId', 'placeId', 'status', 'lat', 'lng', 'toPlaceId', 'u', 'v'];
   const clone = o => JSON.parse(JSON.stringify(o));
@@ -78,12 +84,20 @@
       const shown = (name, id, obj) => { const n = revealOf(name, id, obj); return n != null && n <= N; };
       const libItem = id => (lib.items || []).find(i => i && i.id === id) || null;
       const heldThings = new Set();
+      // a character's race: revealed when a chapter lists it (alone, "Name: race" or "Name race"), or it is plain
+      const raceRevealedIn = c => {
+        const r = String(c.race || '').trim(); if (!r) return null;
+        if (PLAIN_RACES.includes(r.toLowerCase())) return 0;
+        return T.firstChapter('reveal', [r, (c.name || '') + ': ' + r, (c.name || '') + ' race']);
+      };
+      const raceShown = c => { const n = raceRevealedIn(c); return n != null && n <= N; };
       const noteHeld = (name, id, obj) => { if (!shown(name, id, obj) && String(name || '').trim().length >= 3) heldThings.add(String(name).trim()); };
       published.forEach(c => pubVersions(c).forEach(s => {
         (s.marks || []).forEach(m => m && noteHeld(m.name, m.id, m));
         (s.inventory || []).forEach(e => { if (!e) return; const it = libItem(e.itemId); noteHeld(it ? it.name : e.name, e.itemId, it); (e.marks || []).forEach(m => m && noteHeld(m.name, m.id, m)); });
       }));
       (lib.items || []).forEach(i => { if (!i) return; noteHeld(i.name, i.id, i); (i.marks || []).forEach(m => m && noteHeld(m.name, m.id, m)); (i.states || []).forEach(st => (st.marks || []).forEach(m => m && noteHeld(m.name, m.id, m))); });
+      published.forEach(c => { const r = String(c.race || '').trim().toLowerCase(); if (r && !raceShown(c) && DISTINCT_RACES.includes(r)) heldThings.add(r); });
       // a held thing whose name is also a shown thing's name (two marks both called "Taint") isn't a secret
       const shownNames = new Set();
       published.forEach(c => pubVersions(c).forEach(s => (s.marks || []).forEach(m => { if (m && shown(m.name, m.id, m)) shownNames.add(String(m.name).trim().toLowerCase()); })));
@@ -125,6 +139,7 @@
           return v;
         });
         const out = pick(c, CHAR_FIELDS);
+        if (c.race && raceShown(c)) { out.race = c.race; out.raceRevealedIn = raceRevealedIn(c); }
         out.introducedIn = introOf(c);
         out.activeSnapshotId = versions[versions.length - 1].id;
         out.snapshots = versions;

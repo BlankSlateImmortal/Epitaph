@@ -11,6 +11,9 @@ own what readers may not see yet, and fails (exit code 1) if any of it is in the
   - anything dated after the last published chapter, or a snapshot that claims more chapters than are published
   - with the drafts: timeline moments no published chapter reveals (their ids and titles), and places no published
     chapter brings up (their ids and names)
+  - with the author's Dossier backup (auto-detected, or --backup PATH): a character's race shown before a chapter reveals it
+    (`reveals: [Twisted]`, `Orin: Twisted` or `Orin race`; the plain type `person` is never held), and characters who are not in the
+    snapshot but whose names appear in it
 The author's rule: a reader sees a thing only from the chapter that reveals it; chapters reveal things by listing them
 (moments, characters, world, reveals). Nothing is changed; it only reads and reports.
 """
@@ -76,6 +79,7 @@ def main():
     ap.add_argument('snapshot', nargs='?', default=str(ROOT / 'published/epitaph-data.js'))
     ap.add_argument('--index', default=str(ROOT / 'chapters/index.json'))
     ap.add_argument('--drafts', default=str(DEFAULT_DRAFTS))
+    ap.add_argument('--backup', default=None, help="the author's Dossier backup (default: the newest epitaph-backup/fixed-DATE.json beside the drafts)")
     a = ap.parse_args()
 
     problems = []
@@ -172,11 +176,35 @@ def main():
                 if len(k) > 3 and k != norm(pid) and k in text:
                     problems.append(f'held-back place "{full}" is named in the file ("{k}")')
 
+    # 5. with the author's Dossier backup: held races and characters who are not in the file
+    backup_name = None
+    bpath = Path(a.backup) if a.backup else None
+    if bpath is None:
+        found = sorted([f for f in DEFAULT_DRAFTS.parent.glob('epitaph-*.json') if re.fullmatch(r'epitaph-(backup|fixed)-\d{4}-\d{2}-\d{2}\.json', f.name)], key=lambda f: f.stat().st_mtime)
+        bpath = found[-1] if found else None
+    if bpath and bpath.exists() and n is not None:
+        backup_name = bpath.name
+        chars = json.loads(bpath.read_text(encoding='utf-8')).get('characters', [])
+        revealed = set()
+        for c in published:
+            if c['chapter'] <= n:
+                revealed.update(norm(x) for x in (c.get('reveals') or []))
+        snap_chars = {c.get('id'): c for c in d.get('characters', [])} if (d := data.get('dossier', {})) else {}
+        for c in chars:
+            race = str(c.get('race') or '').strip()
+            name = str(c.get('name') or '').strip()
+            sc = snap_chars.get(c.get('id'))
+            if sc is not None and sc.get('race') and race.lower() != 'person':
+                if not ({norm(race), norm(f'{name}: {race}'), norm(f'{name} race')} & revealed):
+                    problems.append(f'{name}: the race "{race}" is published, but no published chapter reveals it')
+            if sc is None and len(name) >= 3 and re.search(r'(^|[^a-z0-9])' + re.escape(name.lower()) + r'($|[^a-z0-9])', text):
+                problems.append(f'{name} is not in the snapshot\'s characters, but the name appears in it')
+
     d = data.get('dossier', {})
     print(f'Snapshot: published through {n if n is not None else "nothing (coming soon)"}; '
           f'{len(d.get("characters", []))} characters, {len(data.get("timeline", []))} moments, {len(data.get("sites", []))} places, '
           f'{len(data.get("library", {}).get("items", []))} items. Published chapters: {pub_max if pub_max is not None else "none"}. '
-          f'Drafts checked: {"yes" if checked_drafts else "no (file not found)"}.')
+          f'Drafts checked: {"yes" if checked_drafts else "no (file not found)"}. Dossier backup checked: {backup_name or "no"}.')
     if problems:
         print(f'\nLEAK CHECK FAILED: {len(problems)} problem(s). Do not publish this file.')
         for p in dict.fromkeys(problems):
