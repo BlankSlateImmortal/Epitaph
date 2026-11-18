@@ -536,6 +536,33 @@ export function buildPin(design = 'person', opts = {}) {
   };
 }
 
+// ---------- several swords at once: each takes its own spot (the next free one below maxY); the camera frames them all ----------
+export async function placeGiants({ scene, ground, camera, controls, renderer, spots, maxY = Infinity, height = 10, pins: list }) {
+  await loadPins();
+  if (renderer) renderer.localClippingEnabled = true;
+  const ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0), free = [];
+  for (const [x, z] of spots) {
+    ray.set(new THREE.Vector3(x, 500, z), down);
+    const hit = ray.intersectObject(ground, true).find(h => h.object.visible && h.object.isMesh);
+    if (hit && hit.point.y <= maxY) free.push(hit.point);
+  }
+  if (!free.length) free.push(new THREE.Vector3(spots[0][0], 0, spots[0][1]));
+  const made = list.map(({ design, ring }, i) => {
+    const at = free[i % free.length].clone(); if (i >= free.length) at.x += height * .35 * Math.floor(i / free.length);
+    const pin = buildPin(design, { ring }); pin.group.scale.setScalar(height / pin.height); pin.group.position.copy(at); pin.group.rotation.y = .6 + i * 1.1;
+    pin.group.traverse(o => { if (o.isMesh) o.castShadow = true; }); scene.add(pin.group); return pin;
+  });
+  if (camera && controls && made.length) {
+    const box = new THREE.Box3(); made.forEach(p => box.expandByObject(p.group));
+    const target = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3()), span = Math.max(height * 2.1, size.x * 1.3, size.z * 1.3);
+    const off = camera.position.clone().sub(controls.target);
+    controls.target.copy(target); camera.position.copy(target).add(off);
+    if (camera.isOrthographicCamera) { const z = (camera.top - camera.bottom) / span; controls.maxZoom = Math.max(controls.maxZoom, z * 2.5); camera.zoom = z; camera.updateProjectionMatrix(); }
+    controls.autoRotate = !matchMedia('(prefers-reduced-motion: reduce)').matches; controls.update();
+  }
+  return made;
+}
+
 // ---------- a site page stands the pin, giant, in its own scene ----------
 // spots: [[x, z], ...] tried in order; the first whose ground (raycast onto `ground`) is below maxY wins.
 export async function placeGiant({ scene, ground, camera, controls, renderer, spots, maxY = Infinity, height = 10, design, ring }) {

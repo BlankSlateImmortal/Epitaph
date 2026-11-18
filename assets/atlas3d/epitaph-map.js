@@ -17,9 +17,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { loadPins, buildPin, designFor } from './pins/pins.js?v=9';
+import { loadPins, buildPin, designFor } from './pins/pins.js?v=10';
 import { Vox, FIGS, FIG_COLORS } from './statues.js';
-import { openCloseup, isOpen as closeupOpen } from './closeup.js?v=9';
+import { openCloseup, isOpen as closeupOpen } from './closeup.js?v=10';
 
 const World = window.EpitaphWorld;
 const $ = id => document.getElementById(id);
@@ -1121,7 +1121,9 @@ canvas.addEventListener('pointerup', e => {
   const hit = pick();
   if (!hit) return;
   if (hit.userData.earth) { setView('earth'); return; }      // planet → Earth board
-  const site = siteOf(hit.userData.place);
+  const pl = hit.userData.place, statueSite = pl && state.era === 1 && (World.STATUES || []).includes(pl.id);
+  if (statueSite) { openSettlementCloseup(pl); return; }        // a statue site: everyone snapped to it, in its close-up
+  const site = siteOf(pl);
   if (site) { location.href = site; return; }                 // a place with a built site opens it
   focusOn(hit);
 });
@@ -1695,10 +1697,29 @@ function regionAt(r) {
 function openPinCloseup(ud) {
   if (!ud || !ud.char || !ud.charState) return;
   const r = ud.charState.stop.r, reg = regionAt(r);
+  // swords standing close together on the map share the close-up (the clicked one first)
+  const here = ud.pin.getWorldPosition(new THREE.Vector3()), near = .75 * ud.scale;          // 'very close' on the map
+  const company = pickables.filter(h => h.userData.pin && h.userData.char && h !== ud.hit && h.userData.char.id !== ud.char.id && h.userData.pin.visible !== false)
+    .map(h => ({ c: h.userData.char, d: h.userData.pin.getWorldPosition(new THREE.Vector3()).distanceTo(here) }))
+    .filter(x => x.d < near).sort((a, b) => a.d - b.d).map(x => x.c);
   tip.hidden = true;
   openCloseup({
-    mount: canvas.parentElement, char: ud.char, region: reg.region, siteUrl: reg.site || null, theme: state.theme,
+    mount: canvas.parentElement, char: ud.char, chars: [ud.char, ...company], region: reg.region, siteUrl: reg.site || null, theme: state.theme,
     where: (r.kind === 'point' ? r.name : r.label || r.name) + (ud.charState.stop.ch != null ? ' · chapter ' + ud.charState.stop.ch : '')
+  });
+}
+// a settlement with a statue, opened from its marker: everyone whose sword stands there this chapter (a site inside a city
+// counts for the city, e.g. the Temple of the Voided in Aurelia), around its statue or standing giant in its built site
+function openSettlementCloseup(p) {
+  const ids = new Set([p.id, ...World.places().filter(q => q.cityId === p.id).map(q => q.id)]);
+  const chars = state.chars.filter(c => { const cs = charStateAt(c, state.chapter); return cs && cs.stop.r.place && (ids.has(cs.stop.r.place.id) || ids.has(cs.stop.r.place.cityId)); });
+  const reg = regionAt({ place: p, lat: p.lat, lng: p.lng, kind: 'place' });
+  const statue = (p.group === 'STORYBORN' || (p.fictional && !p.group)) ? 'storyborn' : p.group === 'VOIDED' ? 'voided' : p.group === 'FALLEN' ? 'fallen' : null;
+  tip.hidden = true;
+  openCloseup({
+    mount: canvas.parentElement, chars, title: p.name, region: reg.region === 'site' ? 'plains' : reg.region, siteUrl: reg.site || null, theme: state.theme,
+    statue: reg.site ? null : statue, statueColor: THEMES[state.theme].groups[(statue || 'other').toUpperCase()] || THEMES[state.theme].groups.OTHER,
+    where: (state.chapter != null ? 'Chapter ' + state.chapter : 'Latest') + ' · ' + (chars.length ? chars.length + (chars.length === 1 ? ' sword' : ' swords') : 'no swords')
   });
 }
 // ---- landed sword poses, remembered per character so a thrown sword keeps its angle
