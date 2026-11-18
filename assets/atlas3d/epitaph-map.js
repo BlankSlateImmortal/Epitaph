@@ -1093,9 +1093,17 @@ document.querySelectorAll('[data-theme-btn]').forEach(b => b.addEventListener('c
   document.querySelectorAll('[data-theme-btn]').forEach(x => x.classList.toggle('on', x === b));
   rebuildKeepCamera();
 }));
-$('chapterRange').addEventListener('input', e => !rewinding && setChapter(state.chapters[+e.target.value] ?? null));
-$('prevCh').addEventListener('click', () => { if (rewinding) return; const i = state.chapters.indexOf(state.chapter); if (i > 0) setChapter(state.chapters[i - 1]); });
-$('nextCh').addEventListener('click', () => { if (rewinding) return; const i = state.chapters.indexOf(state.chapter); if (i >= 0 && i < state.chapters.length - 1) setChapter(state.chapters[i + 1]); });
+// the reader's chapter is shared with the book (EpitaphTimeline); only the user's own moves save it, never the Era 0 rewind or the first load
+const TL = window.EpitaphTimeline;
+const latestCh = () => state.chapters.length ? state.chapters[state.chapters.length - 1] : null;
+function userSetChapter(ch) { setChapter(ch); if (TL) TL.setReaderChapter(ch === latestCh() ? null : ch); }
+if (TL) TL.onReaderChange(r => {
+  const want = r == null || !state.chapters.includes(r) ? latestCh() : r;
+  if (want !== state.chapter && !rewinding && !drag.active) setChapter(want);
+});
+$('chapterRange').addEventListener('input', e => !rewinding && userSetChapter(state.chapters[+e.target.value] ?? null));
+$('prevCh').addEventListener('click', () => { if (rewinding) return; const i = state.chapters.indexOf(state.chapter); if (i > 0) userSetChapter(state.chapters[i - 1]); });
+$('nextCh').addEventListener('click', () => { if (rewinding) return; const i = state.chapters.indexOf(state.chapter); if (i >= 0 && i < state.chapters.length - 1) userSetChapter(state.chapters[i + 1]); });
 $('homeBtn').addEventListener('click', () => { state.spin = true; goHome(false); });
 $('legendToggle').addEventListener('click', () => $('legend').classList.toggle('open'));
 const LibUI = window.EpitaphLibraryUI;
@@ -1917,7 +1925,8 @@ async function start() {
   await Promise.all([loadData(), loadPin()]);
   const data = loadCharacters();
   Object.assign(state, { chars: data.chars, chapters: data.chapters, titles: data.titles, demo: data.demo });
-  state.chapter = state.chapters.length ? state.chapters[state.chapters.length - 1] : null;
+  { const r = window.EpitaphTimeline && window.EpitaphTimeline.readerChapter();   // start where the reader is, else the latest chapter
+    state.chapter = r != null && state.chapters.includes(r) ? r : (state.chapters.length ? state.chapters[state.chapters.length - 1] : null); }
   try {
     const p = JSON.parse(localStorage.getItem('epitaph-map-prefs') || 'null');
     if (p) { if (['planet', 'earth'].includes(p.view)) state.view = p.view; if (THEMES[p.theme]) state.theme = p.theme; if (p.era === 0) { state.era = 0; state.eraT = 0; } }
@@ -1939,6 +1948,11 @@ async function start() {
   // deep links (formerly the 2D Atlas): ?item=<id> opens it in the Library; ?char=<id>[&ch=<n>] opens their record there
   const itemId = q.get('item');
   if (itemId && LibUI && window.EpitaphLibrary && EpitaphLibrary.item(itemId)) LibUI.open('items', { mode: 'itemDetail', id: itemId });
+  const placeId = q.get('place');                 // ?place=<id> (EpitaphLinks): fly to that place
+  if (placeId && World.place(placeId)) {
+    const go = () => { const m = pickables.find(p => p.userData.place && p.userData.place.id === placeId); if (m) focusOn(m, 3.2); };
+    if (state.view !== 'earth') { setView('earth'); setTimeout(go, 2600); } else go();
+  }
   const charId = q.get('char'), ch = parseInt(q.get('ch'), 10);
   if (charId && state.chars.some(c => c.id === charId)) {
     if (state.era !== 1) setEra(1);

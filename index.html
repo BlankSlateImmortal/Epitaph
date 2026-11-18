@@ -1170,7 +1170,7 @@
 </style>
 <link rel="stylesheet" href="assets/epitaph-theme.css?v=20">
 <link rel="stylesheet" href="assets/epitaph-editors.css?v=8">
-<link rel="stylesheet" href="assets/epitaph-book.css?v=4">
+<link rel="stylesheet" href="assets/epitaph-book.css?v=6">
 <link rel="stylesheet" href="assets/epitaph-codex-views.css?v=2">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="assets/portrait-gen.js?v=8"></script>
@@ -1178,10 +1178,14 @@
 <script src="assets/epitaph-muses.js?v=7"></script>
 <script src="assets/archetypes.js?v=2"></script>
 <script src="assets/epitaph-world.js?v=8"></script>
+<script src="assets/epitaph-timeline.js?v=4"></script>
+<script src="assets/epitaph-links.js?v=1"></script>
+<script src="assets/epitaph-sites.js?v=8"></script>
+<script src="assets/epitaph-sites-ui.js?v=3"></script>
 <script src="assets/epitaph-library.js?v=3"></script>
 <script src="assets/epitaph-marks.js?v=3"></script>
 <script src="assets/epitaph-states.js?v=1"></script>
-<script src="assets/epitaph-checks.js?v=6"></script>
+<script src="assets/epitaph-checks.js?v=7"></script>
 <script src="assets/epitaph-codex-views.js?v=2"></script>
 </head>
 <body>
@@ -1268,8 +1272,10 @@
           <li><a href="muses.html">Muses</a></li>
           <li><a href="powers.html">Power systems</a></li>
           <li><a href="read.html">Read the chapters</a></li>
+          <li><a href="#" data-book="opse">Site Encyclopedia</a></li>
+          <li><a href="#" data-book="opcl">Creature Log</a></li>
         </ul>
-        <p class="book-hint">Type <b>help</b> for every command: compare chapters (<b>cOrin 1 265</b>), search (<b>s: who holds seal</b>), history, chapter changes, export. <b>opl</b> opens the Library, <b>ops</b> the skill tree.</p>
+        <p class="book-hint">Type <b>help</b> for every command: compare chapters (<b>cOrin 1 265</b>), search (<b>s: who holds seal</b>), history, chapter changes, export. <b>opl</b> opens the Library, <b>ops</b> the skill tree, <b>opse</b> the Site Encyclopedia, <b>opcl</b> the Creature Log.</p>
       </div>
       <div class="book-page right-page">
         <div class="book-panel" id="bookPanel" hidden></div>
@@ -5817,6 +5823,7 @@ function openChecks(){
       }
     }
     if(i.itemId) window.location.href = 'atlas-3d.html?item=' + encodeURIComponent(i.itemId);
+    if(i.placeId && window.EpitaphLinks) EpitaphLinks.open('place:' + i.placeId);
   }));
   openModal();
 }
@@ -5905,7 +5912,10 @@ document.getElementById('exportBtn').addEventListener('click', () => {
     const d = new Date();
     const stamp = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     // the Library (places and items) lives under its own key; the backup carries it too
-    const blob = new Blob([JSON.stringify(Lib ? { ...state, library: Lib.get() } : state, null, 2)], { type: 'application/json' });
+    // so do the site encyclopedia's and the timeline's edits (only what you changed; null when nothing)
+    const extra = {}; const sd = window.EpitaphSites && EpitaphSites.exportData(), td = window.EpitaphTimeline && EpitaphTimeline.exportData();
+    if(sd) extra.sites = sd; if(td) extra.timeline = td;
+    const blob = new Blob([JSON.stringify(Lib ? { ...state, library: Lib.get(), ...extra } : { ...state, ...extra }, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -5959,8 +5969,11 @@ document.getElementById('importFileInput').addEventListener('change', (e) => {
       try{
         const characters = incoming.characters.filter(c => c && typeof c === 'object').map(migrateCharacter);
         const activeId = characters.some(c => c.id === incoming.activeId) ? incoming.activeId : (characters[0] ? characters[0].id : null);
-        const { library, ...rest } = incoming;
+        const { library, sites, timeline, ...rest } = incoming;
         state = migrateState({ ...rest, characters, activeId });
+        // older backups have no sites/timeline: leave the ones in this browser alone
+        if(sites && window.EpitaphSites && !EpitaphSites.importData(sites)) showToast('The site encyclopedia in this backup could not be saved.', { duration: 6500 });
+        if(timeline && window.EpitaphTimeline && !EpitaphTimeline.importData(timeline)) showToast('The timeline in this backup could not be saved.', { duration: 6500 });
         if(library && Lib && !Lib.replace(library)) showToast('The Library in this backup could not be saved — browser storage may be full.', { duration: 6500 });
         await persistState();
         renderAll();
@@ -5997,7 +6010,7 @@ document.getElementById('mergeFileInput').addEventListener('change', (e) => {
     let plan;
     try{
       // bring the file up to the current schema on its own before comparing
-      const { library, ...rest } = JSON.parse(JSON.stringify(incoming));
+      const { library, sites, timeline, ...rest } = JSON.parse(JSON.stringify(incoming));
       const src = migrateState({ ...rest, characters: rest.characters.filter(c => c && typeof c === 'object').map(migrateCharacter), chapters: Array.isArray(rest.chapters) ? rest.chapters : [] });
       const haveIds = new Set(state.characters.map(c => c.id));
       const haveNames = new Set(state.characters.map(c => (c.name || '').trim().toLowerCase()));
@@ -6009,15 +6022,16 @@ document.getElementById('mergeFileInput').addEventListener('change', (e) => {
       const titled = (src.chapters || []).filter(c => c.title && haveCh.has(c.number) && !(chapterByNumber(c.number) || {}).title);
       const lib = Lib ? Lib.get() : null, inLib = library && typeof library === 'object' ? library : {};
       const newOf = (k) => lib ? (Array.isArray(inLib[k]) ? inLib[k] : []).filter(x => x && x.id && !lib[k].some(y => y.id === x.id)) : [];
-      plan = { add, skipped, sameName, chapters, titled, libAdd: { countries: newOf('countries'), places: newOf('places'), items: newOf('items') } };
+      const siteAdd = window.EpitaphSites ? EpitaphSites.newInData(sites) : [], timeAdd = window.EpitaphTimeline ? EpitaphTimeline.newInData(timeline) : [];
+      plan = { add, skipped, sameName, chapters, titled, libAdd: { countries: newOf('countries'), places: newOf('places'), items: newOf('items') }, siteAdd, timeAdd, sites, timeline };
     }catch(err){
       console.error('Merge read failed', err);
       showToast('Could not read the characters in that file.', { duration: 5500 });
       return;
     }
-    const { add, skipped, sameName, chapters, titled, libAdd } = plan;
+    const { add, skipped, sameName, chapters, titled, libAdd, siteAdd, timeAdd, sites, timeline } = plan;
     const libCount = libAdd.countries.length + libAdd.places.length + libAdd.items.length;
-    if(!add.length && !chapters.length && !titled.length && !libCount){
+    if(!add.length && !chapters.length && !titled.length && !libCount && !siteAdd.length && !timeAdd.length){
       showToast('Nothing to merge: everything in that file is already here.', { duration: 5500 });
       return;
     }
@@ -6028,6 +6042,8 @@ document.getElementById('mergeFileInput').addEventListener('change', (e) => {
     if(titled.length) li.push(`<li>Titles for ${plural(titled.length, 'existing chapter')} that had none</li>`);
     if(libAdd.items.length) li.push(`<li>${plural(libAdd.items.length, 'Library item')}: ${libAdd.items.map(i => escapeHtml(i.name || 'Unnamed')).join(', ')}</li>`);
     if(libAdd.places.length + libAdd.countries.length) li.push(`<li>${plural(libAdd.places.length, 'place')}, ${libAdd.countries.length} ${libAdd.countries.length === 1 ? 'country' : 'countries'}</li>`);
+    if(siteAdd.length) li.push(`<li>Site encyclopedia entries for ${plural(siteAdd.length, 'place')}: ${siteAdd.map(id => escapeHtml((window.EpitaphWorld && EpitaphWorld.place(id) || {}).name || id)).join(', ')}</li>`);
+    if(timeAdd.length) li.push(`<li>${plural(timeAdd.length, 'timeline edit')}</li>`);
     modalContent.innerHTML = `
       <div class="confirm-box">
         <div class="display">Merge this file?</div>
@@ -6056,9 +6072,12 @@ document.getElementById('mergeFileInput').addEventListener('change', (e) => {
         if(libCount && Lib && !Lib.update(l => ['countries', 'places', 'items'].forEach(k => libAdd[k].forEach(x => { if(!l[k].some(y => y.id === x.id)) l[k].push(x); })))){
           showToast('Characters merged, but the Library entries could not be saved — browser storage may be full.', { duration: 6500 });
         }
+        if(siteAdd.length && !EpitaphSites.mergeData(sites)) showToast('Characters merged, but the site encyclopedia entries could not be saved.', { duration: 6500 });
+        if(timeAdd.length && !EpitaphTimeline.mergeData(timeline)) showToast('Characters merged, but the timeline edits could not be saved.', { duration: 6500 });
         renderAll();
         closeModal();
-        showToast(`Merged ${plural(add.length, 'character')}.`);
+        const parts = []; if(add.length) parts.push(plural(add.length, 'character')); if(siteAdd.length) parts.push(plural(siteAdd.length, 'site entry').replace('entrys', 'entries')); if(timeAdd.length) parts.push(plural(timeAdd.length, 'timeline edit'));
+        showToast(parts.length ? `Merged ${parts.join(', ')}.` : 'Merged.');
       }catch(err){
         console.error('Merge failed', err);
         state = JSON.parse(before);
@@ -6198,13 +6217,19 @@ function initTerminal(){
 
 function runStorybookCommand(cmd){
   const lower = cmd.toLowerCase();
-  if(lower === 'help') return 'Commands: <b>opl</b> / open library — every Library item, editable · <b>ops</b> / open skills — the skill tree · <b>back</b> — the storybook page · <b>clear</b> — empty this log.';
+  if(lower === 'help') return 'Commands: <b>opl</b> / open library — every Library item, editable · <b>ops</b> / open skills — the skill tree · <b>opse</b> / open site encyclopedia — every place · <b>opcl</b> / open creature log — how life developed · <b>back</b> — the storybook page · <b>clear</b> — empty this log.';
   if(lower === 'clear'){
     setTimeout(() => { document.getElementById('terminalLog').innerHTML = ''; }, 0);
     return '';
   }
   if(lower === 'opl' || lower === 'open library' || lower === 'open lib'){
     return window.EpitaphBook ? EpitaphBook.openLibrary() : 'The Library view did not load.';
+  }
+  if(lower === 'opse' || lower === 'open site encyclopedia' || lower === 'open sites'){
+    return window.EpitaphBook ? EpitaphBook.openSites() : 'The Site Encyclopedia view did not load.';
+  }
+  if(lower === 'opcl' || lower === 'open creature log' || lower === 'open creatures'){
+    return window.EpitaphBook ? EpitaphBook.openCreatures() : 'The Creature Log view did not load.';
   }
   if(lower === 'ops' || lower === 'open skills' || lower === 'open skill'){
     return window.EpitaphBook ? EpitaphBook.openSkills() : 'The skill view did not load.';
@@ -6224,8 +6249,10 @@ const LEFT_PAGE_DEFAULT_HTML = `
           <li><a href="muses.html">Muses</a></li>
           <li><a href="powers.html">Power systems</a></li>
           <li><a href="read.html">Read the chapters</a></li>
+          <li><a href="#" data-book="opse">Site Encyclopedia</a></li>
+          <li><a href="#" data-book="opcl">Creature Log</a></li>
         </ul>
-        <p class="book-hint">Type <b>help</b> for every command: compare chapters (<b>cOrin 1 265</b>), search (<b>s: who holds seal</b>), history, chapter changes, export. <b>opl</b> opens the Library, <b>ops</b> the skill tree.</p>
+        <p class="book-hint">Type <b>help</b> for every command: compare chapters (<b>cOrin 1 265</b>), search (<b>s: who holds seal</b>), history, chapter changes, export. <b>opl</b> opens the Library, <b>ops</b> the skill tree, <b>opse</b> the Site Encyclopedia, <b>opcl</b> the Creature Log.</p>
       `;
 
 function restoreLeftPage(){
@@ -6234,9 +6261,9 @@ function restoreLeftPage(){
 
 
 </script>
-<script src="assets/epitaph-book.js?v=6"></script>
+<script src="assets/epitaph-book.js?v=9"></script>
 
 <script src="assets/epitaph-editors.js?v=12"></script>
-<script src="assets/epitaph-book-tools.js?v=3"></script>
+<script src="assets/epitaph-book-tools.js?v=4"></script>
 </body>
 </html>

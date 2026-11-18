@@ -363,6 +363,7 @@
       ${r('changes', 'Audit log of changes from your chapter markers (dies, at, travel, item). Nothing applies until you say so.', 'changes · changes apply all · changes apply 1 3 · changes skip 2')}
       ${r('export <i>Name</i>', 'Download a character as a Markdown note for the Obsidian vault.', 'export Orin')}
       ${r('opl · ops · back · clear', 'The Library · the skill tree · the storybook page · empty this log.', '')}
+      ${r('opse · opcl', 'The Site Encyclopedia · the Creature Log (placeholder pages for now).', '')}
       </tbody></table>
       <div class="bt-hint">Automatic: two-way ties · shared secrets · save history · a "what changed?" prompt after a new chapter · more lore warnings in Checks.</div>`);
   }
@@ -371,7 +372,7 @@
     const t = cmd.trim(), lower = t.toLowerCase();
     let m;
     if (lower === 'help' || lower === '?') return help();
-    if (['clear', 'opl', 'open library', 'open lib', 'ops', 'open skills', 'open skill', 'back', 'home'].includes(lower)) return baseRun(cmd);
+    if (['clear', 'opl', 'open library', 'open lib', 'ops', 'open skills', 'open skill', 'opse', 'open site encyclopedia', 'open sites', 'opcl', 'open creature log', 'open creatures', 'back', 'home'].includes(lower)) return baseRun(cmd);
     if ((m = t.match(/^s\s*:\s*(.+)$/i))) return search(m[1]);
     if ((m = t.match(/^changes\b\s*(.*)$/i))) return changes(m[1]);
     if ((m = t.match(/^export\s+(.+)$/i))) { const c = findChar(m[1]); return c ? exportChar(c) : err(`No character called “${m[1]}”.`); }

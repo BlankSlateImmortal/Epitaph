@@ -293,3 +293,25 @@
 .bk-check{ display:flex; gap:8px; align-items:center; font-size:13px; color:var(--bone); min-height:36px; }
 .bk-check em{ color:var(--dust); font-style:normal; }
 .bk-check input{ accent-color:var(--amber); width:18px; height:18px; }
+
+/* ---- Site Encyclopedia index (assets/epitaph-sites-ui.js) ---- */
+.book[data-view=sites] .bk-sandbox{ overflow:hidden; cursor:auto; }
+.bk-si{ position:absolute; inset:0; overflow:auto; padding:14px 18px 28px; z-index:2; }
+.bk-si-tools{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.bk-si-tools .bk-filter{ flex:1 1 220px; min-width:0; }
+.bk-si-tools select{ font-family:var(--f-mono); font-size:11px; letter-spacing:.04em; color:var(--bone); background:var(--ink-deep); border:1px solid var(--amber-dim); padding:6px 8px; max-width:100%; }
+.bk-si-tools select:focus{ outline:none; border-color:var(--amber); }
+.bk-si-note{ font-family:var(--f-mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--dust); margin:10px 0 4px; }
+.bk-si-group h3{ font-family:var(--f-crt); font-weight:400; font-size:18px; letter-spacing:.14em; text-transform:uppercase; color:var(--amber); margin:18px 0 8px; border-bottom:1px solid var(--amber-dim); padding-bottom:4px; }
+.bk-si-group h3 span{ font-family:var(--f-mono); font-size:10px; color:var(--dust); letter-spacing:.06em; margin-left:6px; }
+.bk-si-group ul{ list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:8px; }
+.bk-si-row{ display:grid; gap:3px; width:100%; text-align:left; cursor:pointer; padding:9px 11px; color:var(--bone); background:rgba(255,178,56,.04); border:1px solid var(--amber-dim); font:inherit; }
+.bk-si-row:hover, .bk-si-row:focus-visible{ border-color:var(--amber); background:rgba(255,178,56,.09); outline:none; }
+.bk-si-row b{ font-family:var(--f-crt); font-weight:400; font-size:15px; letter-spacing:.08em; text-transform:uppercase; }
+.bk-si-row small{ font-family:var(--f-mono); font-size:10px; color:var(--dust); letter-spacing:.04em; }
+.bk-si-status{ justify-self:start; font-family:var(--f-mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; padding:1px 6px; border:1px solid currentColor; color:var(--amber); }
+.bk-si-status.bk-si-erased, .bk-si-status.bk-si-ruined{ color:#c4553b; }
+.bk-si-status.bk-si-besieged, .bk-si-status.bk-si-strained{ color:#d89a3a; }
+.bk-si-status.bk-si-none{ color:var(--dust); border-style:dashed; }
+.bk-si-empty{ font-family:var(--f-mono); font-size:12px; color:var(--dust); padding:18px 0; }
+.bk-si-status.bk-si-hidden{ color:#8aa0c8; border-style:dotted; margin-left:4px; }
