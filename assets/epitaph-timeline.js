@@ -163,7 +163,11 @@
       return [...set].sort((a, b) => a - b);
     } catch (e) { return []; }
   }
-  function latestChapter() { const c = chapters(); return c.length ? c[c.length - 1] : null; }
+  let latestOverride = null;
+  /** For the published snapshot: pretend the story goes on past chapter `n`, so "the latest chapter" never reveals secrets early
+   *  (the rule that shows an author's secrets at the latest chapter must not apply to what is published). Pass null to clear. */
+  function setLatestOverride(n) { latestOverride = Number.isInteger(n) ? n : null; }
+  function latestChapter() { if (latestOverride != null) return latestOverride; const c = chapters(); return c.length ? c[c.length - 1] : null; }
   /** The chapter the reader is on; null = the latest. */
   function readerChapter() {
     try { const v = localStorage.getItem(READER_KEY); const n = v == null ? NaN : parseInt(v, 10); return Number.isInteger(n) ? n : null; }
@@ -232,7 +236,7 @@
   global.EpitaphTimeline = {
     KEY, READER_KEY, AUTHOR_KEY, VERSION, CH1_YEAR, ERAS, KINDS, DEFAULTS,
     load, save, remove, reset, exportData, importData, newInData, mergeData, byId, applyChapterIndex,
-    compare, chapters, latestChapter, readerChapter, setReaderChapter, authorMode, setAuthorMode, onReaderChange,
+    compare, chapters, latestChapter, setLatestOverride, readerChapter, setReaderChapter, authorMode, setAuthorMode, onReaderChange,
     isRevealed, label, view
   };
 })(typeof window !== 'undefined' ? window : globalThis);

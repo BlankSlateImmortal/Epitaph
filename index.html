@@ -1178,16 +1178,17 @@
 <script src="assets/epitaph-muses.js?v=7"></script>
 <script src="assets/archetypes.js?v=2"></script>
 <script src="assets/epitaph-world.js?v=8"></script>
-<script src="assets/epitaph-timeline.js?v=5"></script>
+<script src="assets/epitaph-timeline.js?v=6"></script>
 <script src="assets/epitaph-links.js?v=1"></script>
 <script src="assets/epitaph-sites.js?v=8"></script>
 <script src="assets/epitaph-sites-ui.js?v=4"></script>
+<script src="assets/epitaph-publish.js?v=1"></script>
 <script src="assets/epitaph-library.js?v=3"></script>
 <script src="assets/epitaph-marks.js?v=3"></script>
 <script src="assets/epitaph-states.js?v=1"></script>
 <script src="assets/epitaph-checks.js?v=7"></script>
 <script src="assets/epitaph-codex-views.js?v=2"></script>
-<script src="assets/epitaph-mode.js?v=3"></script>
+<script src="assets/epitaph-mode.js?v=4"></script>
 </head>
 <body>
 <svg class="grain" width="0" height="0">
@@ -1216,6 +1217,7 @@
           <a href="muses.html">Muses<small>Reference characters</small></a>
           <span class="nav-menu-sep" aria-hidden="true">— Data —</span>
           <button type="button" id="exportBtn">Export<small>Save everything to a backup file</small></button>
+          <button type="button" id="publishBtn" class="edit-only">Publish snapshot<small>Build the read-only copy for readers</small></button>
           <label for="mergeFileInput" id="mergeBtn">Merge<small>Add from a file; keeps what you have</small></label>
           <label for="importFileInput" id="importBtn" class="warn">Import<small>Replace everything with a file</small></label>
         </div>
@@ -5931,6 +5933,56 @@ document.getElementById('exportBtn').addEventListener('click', () => {
     console.error('Export failed', e);
     showToast('Could not export your data. Please try again.', { duration: 5500 });
   }
+});
+
+// ---- Publish snapshot: the filtered, read-only copy readers load (assets/epitaph-publish.js). Nothing is uploaded: it only downloads a file. ----
+document.getElementById('publishBtn').addEventListener('click', async () => {
+  document.getElementById('dataMenu').removeAttribute('open');
+  if(!window.EpitaphPublish || !window.EpitaphSites || !window.EpitaphTimeline){ showToast('The publish tools did not load.', { duration: 5500 }); return; }
+  let index = null;
+  try{ const r = await fetch('chapters/index.json', { cache: 'no-cache' }); if(r.ok) index = await r.json(); }catch(e){}
+  const guess = EpitaphPublish.throughFrom(index);
+  modalContent.innerHTML = `
+    <div class="confirm-box">
+      <div class="display">Publish snapshot</div>
+      <p>Builds the file readers load, with only what they may see. Nothing is uploaded: it downloads <b>epitaph-data.js</b>, which you put in the <b>published/</b> folder of the site.</p>
+      <p>${index ? `chapters/index.json lists ${index.length} published chapter${index.length === 1 ? '' : 's'}.` : 'Could not read chapters/index.json (open the live or local site through its web address, not as a file). Type the number yourself.'}</p>
+      <label class="dim" for="pubThrough">Published through chapter (leave empty if nothing is published yet: a "coming soon" site)</label>
+      <input type="number" id="pubThrough" min="1" step="1" value="${guess == null ? '' : guess}" style="width:8em">
+      <div id="pubResult"></div>
+      <div class="confirm-actions">
+        <button class="btn ghost" id="pubCancel">Close</button>
+        <button class="btn primary" id="pubBuild">Build</button>
+        <button class="btn primary" id="pubDownload" hidden>Download</button>
+      </div>
+    </div>`;
+  openModal();
+  document.getElementById('pubCancel').addEventListener('click', closeModal);
+  let built = null;
+  document.getElementById('pubBuild').addEventListener('click', () => {
+    const raw = document.getElementById('pubThrough').value.trim(), n = raw === '' ? null : parseInt(raw, 10);
+    const out = document.getElementById('pubResult'), dl = document.getElementById('pubDownload');
+    try{
+      built = EpitaphPublish.build({ state, library: Lib ? Lib.get() : null, publishedThrough: Number.isInteger(n) ? n : null, chapterIndex: index });
+    }catch(err){ console.error('Publish failed', err); out.innerHTML = '<p class="inv-warn">Could not build the snapshot. Nothing was changed.</p>'; dl.hidden = true; return; }
+    const r = built.report, c = r.counts, h = r.held, leaks = r.leaks;
+    out.innerHTML = r.publishedThrough == null
+      ? '<p>Nothing published yet: this is the <b>coming soon</b> snapshot (no characters, no story, no encyclopedia entries).</p>'
+      : `<p>Through <b>chapter ${r.publishedThrough}</b>: ${c.characters} character${c.characters === 1 ? '' : 's'} (${c.versions} chapter version${c.versions === 1 ? '' : 's'}), ${c.chapters} chapter title${c.chapters === 1 ? '' : 's'}, ${c.items} item${c.items === 1 ? '' : 's'}, ${c.events} timeline moment${c.events === 1 ? '' : 's'}, ${c.sites} encyclopedia entr${c.sites === 1 ? 'y' : 'ies'}.</p>
+         <p class="dim">Held back: ${h.charactersNotIntroduced.length ? 'not yet introduced: ' + h.charactersNotIntroduced.map(escapeHtml).join(', ') + '; ' : ''}${h.versionsAfter} later chapter version${h.versionsAfter === 1 ? '' : 's'}, ${h.events} timeline moment${h.events === 1 ? '' : 's'}${h.places.length ? ', ' + h.places.length + ' place' + (h.places.length === 1 ? '' : 's') + ' (' + h.places.map(escapeHtml).join(', ') + ')' : ''}.</p>`;
+    out.innerHTML += leaks.length
+      ? `<p class="inv-warn">⚠ Leak check found ${leaks.length} thing${leaks.length === 1 ? '' : 's'} that should be hidden: ${leaks.map(l => escapeHtml(l.kind + ': ' + l.term)).join(', ')}. Don't publish this file.</p>`
+      : '<p>✓ Leak check: no hidden names or moments found in the file.</p>';
+    dl.hidden = false; dl.textContent = leaks.length ? 'Download anyway' : 'Download';
+  });
+  document.getElementById('pubDownload').addEventListener('click', () => {
+    if(!built) return;
+    const blob = new Blob([EpitaphPublish.toScript(built.data)], { type: 'text/javascript' });
+    const url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = 'epitaph-data.js'; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast('Saved epitaph-data.js. Put it in the published/ folder of the site.');
+  });
 });
 
 document.getElementById('importFileInput').addEventListener('change', (e) => {

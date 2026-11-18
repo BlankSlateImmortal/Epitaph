@@ -116,7 +116,8 @@
         + 'border:1px solid var(--amber-dim,rgba(255,178,56,.4));border-left:0;padding:9px 4px;opacity:.7;margin:0;border-radius:0}'
         + 'button#epitaphModeTag{cursor:pointer}#epitaphModeTag:hover,#epitaphModeTag:focus-visible{opacity:1}#epitaphModeTag:focus-visible{outline:1px solid var(--amber,#ffb238);outline-offset:2px}'
         + '#epitaphModeTag[data-mode=preview]{color:#8aa0c8;border-color:#8aa0c8;border-style:dashed}'
-        + '@media print{#epitaphModeTag{display:none}}';
+        + '@media print{#epitaphModeTag{display:none}}'
+        + '.mode-reader .edit-only{display:none!important}';   // anything an author edits with carries class edit-only
       doc.head.appendChild(st);
     }
     drawTag();
