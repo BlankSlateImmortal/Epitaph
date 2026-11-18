@@ -2559,7 +2559,7 @@ function frame() {
   liftCars.forEach((c, i) => { c.position.lerpVectors(c.userData.a, c.userData.b, 0.5 + 0.5 * Math.sin(time * 0.35 + i * PI)); c.visible = state.t < 0.05; });
   animateSite(dt, time);
   updateWalk(dt, time);
-  giantPin?.update(time, fp.on ? fpCam : camera);
+  giantPins.forEach(p => p.update(time, fp.on ? fpCam : camera));
   if (!fp.on) controls.update();
   renderPass.camera = fp.on ? fpCam : camera;
   composer.render();
@@ -2572,10 +2572,13 @@ if (q.get('theme') === 'paper') { state.theme = 'paper'; document.body.classList
 build(); note();
 $('boot').remove();
 // ?embed=1&pin=<design>&ring=<colour>: opened inside the map's close-up; a character's sword stands here, giant (assets/atlas3d/pins/pins.js)
-let giantPin = null;
+let giantPin = null, giantPins = [];
 if (q.get('embed') === '1') { document.body.classList.add('embed'); state.showTags = false; }
-if (q.get('pin')) import('../atlas3d/pins/pins.js').then(m => m.placeGiant({ scene, ground: root, camera, controls, renderer, design: q.get('pin'), ring: q.get('ring') || null,
-  height: 12, maxY: FLOOR + 1.2, spots: [[-26, -9], [-24, 12], [-4, -27], [12, -26], [-30, 2], [30, 14]] })).then(p => { giantPin = p; }).catch(e => console.warn('giant pin', e));
+if (q.get('pin')) {                                   // one or more swords (?pin=a,b&ring=c1,c2), each at its own spot
+  const designs = q.get('pin').split(',').filter(Boolean), rings = (q.get('ring') || '').split(',');
+  import('../atlas3d/pins/pins.js?v=10').then(m => m.placeGiants({ scene, ground: root, camera, controls, renderer, height: 12, maxY: FLOOR + 1.2,
+    spots: [[-26, -9], [-24, 12], [-4, -27], [12, -26], [-30, 2], [30, 14]], pins: designs.map((d, i) => ({ design: d, ring: rings[i] || null })) })).then(p => { giantPin = p[0] || null; giantPins = p; }).catch(e => console.warn('giant pins', e));
+}
 
 if (q.get('style') === 'blocks') { state.style = 'blocks'; [...$('styleSeg').children].forEach(x => x.classList.toggle('on', x.dataset.v === 'blocks')); applyStyle(); note(); }
 // (walk inside was removed 2026-11-16: the maps stay as models)

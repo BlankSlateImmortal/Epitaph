@@ -17,8 +17,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { loadPins, buildPin, designFor } from './pins/pins.js';
-import { openCloseup, isOpen as closeupOpen } from './closeup.js';
+import { loadPins, buildPin, designFor } from './pins/pins.js?v=10';
+import { buildStone, slotLocal } from './stones.js?v=3';
+import { openCloseup, isOpen as closeupOpen } from './closeup.js?v=13';
 
 const World = window.EpitaphWorld;
 const $ = id => document.getElementById(id);
@@ -193,6 +194,7 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.shadowMap.enabled = true;
+renderer.localClippingEnabled = true;          // Unbound swords are cut where they pass through their barrier
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
 const pmrem = new THREE.PMREMGenerator(renderer);
@@ -219,14 +221,16 @@ function loadCharacters() {
   const list = (st && Array.isArray(st.characters)) ? st.characters : [];
   const chars = list.map((c, i) => {
     const versions = (c.snapshots || []).filter(s => Number.isInteger(s.startChapter)).sort((a, b) => a.startChapter - b.startChapter);
-    const stops = versions.map(s => ({ ch: s.startChapter, presence: s.presence || 'alive', r: World.resolve(s.location), snapId: s.id, locked: !!s.locked })).filter(s => s.r && num(s.r.lat) && num(s.r.lng));
+    const stops = versions.map(s => ({ ch: s.startChapter, presence: s.presence || 'alive', r: World.resolve(s.location), snapId: s.id, locked: !!s.locked, objective: s.objective || '' })).filter(s => s.r && ((num(s.r.lat) && num(s.r.lng)) || (num(s.r.u) && num(s.r.v))));
     if (!stops.length) {
       const snap = (c.snapshots || []).find(s => s.id === c.activeSnapshotId) || (c.snapshots || [])[0];
       const r = snap && World.resolve(snap.location);
-      if (r && num(r.lat)) stops.push({ ch: null, presence: snap.presence || 'alive', r, snapId: snap.id, locked: !!snap.locked });
+      if (r && (num(r.lat) || num(r.u))) stops.push({ ch: null, presence: snap.presence || 'alive', r, snapId: snap.id, locked: !!snap.locked, objective: snap.objective || '' });
     }
     return { id: c.id, name: c.name || 'Unnamed', race: c.race || '', color: CHAR_COLORS[i % CHAR_COLORS.length], stops };
-  }).filter(c => c.stops.length);
+  });
+  state.unplaced = chars.filter(c => !c.stops.length).map(c => c.name);       // in the Dossier, but no location yet
+  chars.splice(0, chars.length, ...chars.filter(c => c.stops.length));
   const chapters = new Set((st && st.chapters || []).map(c => c.number).filter(Number.isInteger));
   chars.forEach(c => c.stops.forEach(s => Number.isInteger(s.ch) && chapters.add(s.ch)));
   const titles = {}; (st && st.chapters || []).forEach(c => { if (Number.isInteger(c.number)) titles[c.number] = c.title || ''; });
@@ -313,50 +317,89 @@ const markerGeo = {};
   markerGeo.token = mergeGeometries([new THREE.CapsuleGeometry(0.09, 0.16, 4, 12).translate(0, 0.2, 0).toNonIndexed(), new THREE.TorusGeometry(0.14, 0.025, 6, 20).rotateX(Math.PI / 2).translate(0, 0.02, 0).toNonIndexed()]);
   markerGeo.dead = mergeGeometries([new THREE.BoxGeometry(0.06, 0.4, 0.06).translate(0, 0.2, 0).toNonIndexed(), new THREE.BoxGeometry(0.24, 0.06, 0.06).translate(0, 0.29, 0).toNonIndexed()]);
 })();
+// ---------- settlement stones (assets/atlas3d/stones.js): an engraved standing stone on a plinth with sword slots
+const STONE_S = 0.85;                           // grave size in marker units (about 0.5 tall)
+const stonePal = T => ({ land: T.land, landHi: T.landHi, rock: T.rock, ink: T.ink, glow: T.glow });
+const PIN_GAP = 0.46;                           // how far a sword stands from a plain place's marker
+let stones = {};                                // placeId → { g, scale, taken: Map(charId → slot) } for the current markers
+const stoneKind = p => (p.group === 'STORYBORN' || (p.fictional && !p.group)) ? 'storyborn' : p.group === 'VOIDED' ? 'voided' : p.group === 'FALLEN' ? 'fallen' : null;
+// slot k of a stone, in the markers' space (a sword's tip goes here)
+function slotPos(st, k) { return slotLocal(k).multiplyScalar(st.scale).applyQuaternion(st.g.quaternion).add(st.g.position); }
+function freeSlot(st, exceptId) { const used = new Set([...st.taken].filter(([id]) => id !== exceptId).map(([, k]) => k)); let k = 0; while (used.has(k)) k++; return k; }
 function placeOn(obj, at, scale = 1) { obj.position.copy(at.pos); obj.quaternion.setFromUnitVectors(UP, at.normal); obj.scale.setScalar(scale); }
 let arcBetween = null;
 
 // places + characters + trails on the current surface
 function addMarkers(T, markerScale, parent = root) {
   markerArgs = { T, markerScale, parent };
-  markerRoot = new THREE.Group(); parent.add(markerRoot); parent = markerRoot;
+  markerRoot = new THREE.Group(); parent.add(markerRoot); parent = markerRoot; stones = {};
   const era = state.era;
   const byKey = {};
-  placesFor(era).forEach(p => {
+  // a fictional city whose own Storyborn site stands inside it (Verdant Reach) is drawn once: the site's statue
+  const shown = placesFor(era), representedBy = new Set(shown.filter(q => q.group === 'STORYBORN' && q.cityId).map(q => q.cityId));
+  shown.forEach(p => {
+    if (p.fictional && !p.group && representedBy.has(p.id)) return;
     const [u, v] = eeUV(p.lng, p.lat);
     const here = earthAt(u, v, era);
     const sunk = era === 1 && !p.group && !p.fictional && (here.kind === 'sunk' || here.kind === 'sea');
     const kind = markerGeo[p.kind] ? p.kind : 'other';
     const color = p.group ? (T.groups[p.group] || T.groups.OTHER) : sunk ? T.sunk : p.fictional ? T.groups.STORYBORN : T.city;
-    const m = new THREE.Mesh(sunk ? markerGeo.ruin : markerGeo[kind], mat(color, { roughness: 0.5, emissive: p.group ? color : '#000', emissiveIntensity: p.group ? 0.35 : 0, transparent: sunk, opacity: sunk ? 0.75 : 1 }));
+    // settlements stand as Epitaph stones (assets/atlas3d/stones.js); cities are flat dots
+    const statue = sunk ? null : stoneKind(p);
     const k = p.lat.toFixed(1) + ',' + p.lng.toFixed(1);
     const n = byKey[k] = (byKey[k] || 0) + 1;
     const spread = state.view === 'planet' ? 1.2 : 4.2;   // places sharing a spot (a temple in a city) sit side by side
-    placeOn(m, surface(p.lat - (n - 1) * spread * 0.55, p.lng + (n - 1) * spread), markerScale * (sunk ? 0.8 : 1));
-    m.castShadow = true;
-    m.userData.place = p; m.userData.sunk = sunk;
-    withOutline(m, T);
-    parent.add(m); pickables.push(m);
+    const at = surface(p.lat - (n - 1) * spread * 0.55, p.lng + (n - 1) * spread);
+    const flat = geo => geo.rotateX(-Math.PI / 2);
+    if (statue) {
+      const c = T.groups[statue.toUpperCase()] || T.groups.OTHER, st = buildStone(statue, c, stonePal(T));
+      const g = st.group; placeOn(g, at, markerScale * STONE_S); g.userData.place = p;
+      st.hit.userData.place = p; st.hit.userData.sunk = false; pickables.push(st.hit);
+      st.parts.forEach(m => { if (!m.material.isMeshBasicMaterial) withOutline(m, T); });
+      stones[p.id] = { g, scale: markerScale * STONE_S, taken: new Map() };
+      parent.add(g);
+      return;
+    }
+    const g = new THREE.Group(); placeOn(g, at, markerScale); g.userData.place = p; g.userData.sunk = sunk;
+    const hit = new THREE.Mesh(flat(new THREE.CircleGeometry(.16, 16)), new THREE.MeshBasicMaterial({ visible: false }));
+    hit.position.y = .02; hit.userData.place = p; hit.userData.sunk = sunk; g.add(hit); pickables.push(hit);
+    {
+      const dot = new THREE.Mesh(flat(new THREE.CircleGeometry(.06, 16)), new THREE.MeshBasicMaterial({ color, transparent: sunk, opacity: sunk ? .7 : 1 }));
+      const halo = new THREE.Mesh(flat(new THREE.RingGeometry(.075, .09, 24)), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .45, depthWrite: false }));
+      dot.position.y = halo.position.y = .025; g.add(dot, halo);
+    }
+    parent.add(g);
   });
-  if (era !== 1) return;     // the story's chapters all take place in Era 1
-  const stacks = {};
-  state.chars.forEach(c => {
+  // the story's chapters take place in Era 1; only Vale (sent about 100 years back) also stands in Era 0
+  const chars = era === 1 ? state.chars : state.chars.filter(stayInEra0);
+  const stacks = {}, poses = readPoses();
+  chars.forEach(c => {                                                 // swords that remember a slot claim it first
+    const cs = charStateAt(c, state.chapter), st = cs && cs.stop.r.kind !== 'point' && cs.stop.r.place && stones[cs.stop.r.place.id];
+    const pose = poses[c.id];
+    if (st && pose && pose.key === cs.stop.r.key && Number.isInteger(pose.slot) && ![...st.taken.values()].includes(pose.slot)) st.taken.set(c.id, pose.slot);
+  });
+  chars.forEach(c => {
     const cs = charStateAt(c, state.chapter);
     if (!cs) return;
     const r = cs.stop.r, n = stacks[r.key] = (stacks[r.key] || 0) + 1;
-    const at = surface(r.lat, r.lng), dead = cs.stop.presence === 'dead';
+    const at = spotAt(r); if (!at) return;                              // a spot beyond the board shows on the planet only
+    const dead = cs.stop.presence === 'dead';
     const t = dead || !PIN_TEMPLATE ? new THREE.Mesh(dead ? markerGeo.dead : markerGeo.token, mat(c.color, { roughness: 0.35, emissive: c.color, emissiveIntensity: 0.25 })) : makePin(T, c);
     placeOn(t, at, markerScale * (t.userData.isPin ? PIN_LEN : 1.15));
     const side = new THREE.Vector3().crossVectors(at.normal, Math.abs(at.normal.y) > 0.9 ? new THREE.Vector3(1, 0, 0) : UP).normalize();
     const fwd = new THREE.Vector3().crossVectors(side, at.normal);
-    const ang = 2.4 + (n - 1) * 2.1, rad = r.kind === 'point' && n === 1 ? 0 : 0.32 * markerScale;   // tokens stand beside the place marker, not on it
-    t.position.addScaledVector(side, Math.cos(ang) * rad).addScaledVector(fwd, Math.sin(ang) * rad).addScaledVector(at.normal, 0.04);
+    const ang = 2.4 + (n - 1) * 2.1, rad = r.kind === 'point' && n === 1 ? 0 : PIN_GAP * markerScale;   // tokens stand beside the place marker, not on it
+    const st = r.kind !== 'point' && r.place && stones[r.place.id];
+    if (st && t.userData.isPin) {                                      // in the ground in front of the stone, upright
+      if (!st.taken.has(c.id)) st.taken.set(c.id, freeSlot(st, c.id));
+      t.position.copy(slotPos(st, st.taken.get(c.id))); t.quaternion.copy(st.g.quaternion);
+    } else t.position.addScaledVector(side, Math.cos(ang) * rad).addScaledVector(fwd, Math.sin(ang) * rad).addScaledVector(at.normal, 0.04);
     t.castShadow = true; t.userData.char = c; t.userData.charState = cs;
     if (t.userData.isPin) {
-      const pose = readPoses()[c.id];
-      if (pose && (pose.key === r.key || (pose.placeId && 'place:' + pose.placeId === r.key)) && n === 1)   // keep the angle it landed at
+      const pose = poses[c.id];
+      if (!st && pose && (pose.key === r.key || (pose.placeId && 'place:' + pose.placeId === r.key)) && n === 1)   // keep the angle it landed at
         t.quaternion.setFromUnitVectors(UP, at.normal).multiply(new THREE.Quaternion().fromArray(pose.q));
-      t.position.addScaledVector(at.normal, -0.08 * markerScale);          // the point is buried a little
+      if (!st) t.position.addScaledVector(at.normal, -0.08 * markerScale);          // the point is buried a little
       t.userData.hit.userData = { char: c, charState: cs, pin: t, at, scale: markerScale };
       pickables.push(t.userData.hit);
       markerAnim.push(time => t.userData.update(reduceMotion ? 0 : time));          // the design's own effects (glyphs, fading glass, the seal)
@@ -366,11 +409,13 @@ function addMarkers(T, markerScale, parent = root) {
       if (!reduceMotion && !dead) markerAnim.push(time => { t.position.copy(base).addScaledVector(at.normal, Math.sin(time * 2 + n) * 0.03 * markerScale); });
     }
     parent.add(t);
+    t.userData.rest = { pos: t.position.clone(), quat: t.quaternion.clone() };
     const where = r.kind === 'point' ? (r.to ? ' → ' + r.to.name : ' · ?') : '';
     labels.push({ obj: t, text: (dead ? '† ' : '') + c.name + where, color: c.color, offset: (t.userData.isPin ? 0.86 : 0.62) * markerScale, normal: at.normal, marker: true });
     const pts = cs.path.map(s => s.r).filter((q, i, a) => i === 0 || q.key !== a[i - 1].key);
     for (let i = 1; i < pts.length; i++) {
       const curve = arcBetween(pts[i - 1], pts[i]), newest = i === pts.length - 1;
+      if (!curve) continue;                                             // one end is beyond this view
       parent.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 64, (newest ? 0.035 : 0.022) * markerScale, 6, false), new THREE.MeshBasicMaterial({ color: c.color, transparent: true, opacity: newest ? 0.95 : 0.45 })));
       if (newest && !reduceMotion) {
         const spark = new THREE.Mesh(new THREE.SphereGeometry(0.07 * markerScale, 12, 8), new THREE.MeshBasicMaterial({ color: '#fff' }));
@@ -467,7 +512,7 @@ function buildEarth() {
     index[j * NX + i] = cells.length;
     cells.push({ x: (u - 0.5) * BW, z: -(v - 0.5) * BH, c: [c0, c1], d: craterDist(u, v), state: -1 });
   }
-  const maxD = Math.max(...cells.map(c => c.d));
+  const maxD = Math.max(...cells.map(c => c.d)); state.waveMaxD = maxD;
   cells.forEach(c => { c.delay = Math.min(1, c.d / maxD) * 0.85; });
 
   const boxGeo = new THREE.BoxGeometry(cell * 0.96, 1, cell * 0.96).translate(0, 0.5, 0);
@@ -584,7 +629,8 @@ function buildEarth() {
     return { pos: uvToBoard(u, v).setY(top + 0.01), normal: UP.clone() };
   };
   arcBetween = (a, b) => {
-    const p0 = surface(a.lat, a.lng).pos, p1 = surface(b.lat, b.lng).pos;
+    const s0 = spotAt(a), s1 = spotAt(b); if (!s0 || !s1) return null;
+    const p0 = s0.pos, p1 = s1.pos;
     const mid = p0.clone().lerp(p1, 0.5); mid.y = Math.max(p0.y, p1.y) + 0.8 + p0.distanceTo(p1) * 0.2;
     return new THREE.QuadraticBezierCurve3(p0.clone().setY(p0.y + 0.3), mid, p1.clone().setY(p1.y + 0.3));
   };
@@ -679,7 +725,7 @@ function buildPlanet() {
     });
     return { cols: list, flush: () => { cols.instanceMatrix.needsUpdate = true; } };
   };
-  const maxD = Math.max(...earthCells.map(c => c.d));
+  const maxD = Math.max(...earthCells.map(c => c.d)); state.waveMaxD = maxD;
   eraHooks.push((eraT, target) => {
     let changed = false;
     earthCells.forEach((cl, i) => {
@@ -756,7 +802,8 @@ function buildPlanet() {
     return { pos: dir.clone().multiplyScalar(PR * 0.995 + hOf(c) + 0.01), normal: dir };
   };
   arcBetween = (a, b) => {
-    const pa = surface(a.lat, a.lng).pos, pb = surface(b.lat, b.lng).pos, pts = [];
+    const s0 = spotAt(a), s1 = spotAt(b); if (!s0 || !s1) return null;
+    const pa = s0.pos, pb = s1.pos, pts = [];
     for (let i = 0; i <= 24; i++) { const t = i / 24; pts.push(pa.clone().lerp(pb, t).normalize().multiplyScalar(PR + 0.12 + Math.sin(Math.PI * t) * pa.distanceTo(pb) * 0.25)); }
     return new THREE.CatmullRomCurve3(pts);
   };
@@ -789,7 +836,7 @@ function updateLabels() {
     l.obj.getWorldPosition(tmpV);
     const n = l.normal.clone().applyQuaternion(l.obj.parent.getWorldQuaternion(tmpQ));
     tmpV.addScaledVector(n, l.offset);
-    const facing = n.dot(camDir) < 0.15;
+    const facing = n.dot(camDir) < 0.15 && l.obj.visible !== false;     // a sunk sword takes its label with it
     tmpV.project(camera);
     const eraOk = l.era === undefined || l.era === 'both' || (l.era === 1 ? e > 0.6 : e < 0.4);
     const vis = eraOk && facing && tmpV.z < 1 && Math.abs(tmpV.x) < 1.1 && Math.abs(tmpV.y) < 1.1;
@@ -890,11 +937,36 @@ function renderLegend() {
     li.querySelector('b').textContent = c.name;
     li.querySelector('span').textContent = cs ? (cs.stop.presence === 'dead' ? '† ' : '') + cs.stop.r.name : 'not in story yet';
     li.querySelector('button').disabled = !cs;
-    li.querySelector('button').addEventListener('click', () => { const tok = pickables.find(p => p.userData.char && p.userData.char.id === c.id); if (tok) focusOn(tok); });
+    li.querySelector('button').addEventListener('click', () => { const tok = pickables.find(p => p.userData.char && p.userData.char.id === c.id); if (tok) focusOn(tok); openRecord(c.id); });
     ul.appendChild(li);
   });
+  const un = state.unplaced || [];
+  $('unplaced').hidden = !un.length || state.demo;
+  $('unplaced').innerHTML = un.length ? `<b>Not on the map</b>${un.map(esc).join(', ')}. Set a location for them in the Dossier.` : '';
   $('demoNote').hidden = !state.demo;
+  if (recordId) openRecord(recordId);
 }
+// ---- a character's record (moved from the old 2D Atlas): where they are, how they are, their objective, their trail
+let recordId = null;
+function openRecord(id) {
+  const c = state.chars.find(x => x.id === id), box = $('record');
+  if (!c) { closeRecord(); return; }
+  recordId = id;
+  const cs = charStateAt(c, state.chapter), s = cs && cs.stop;
+  const PRESENCE = { alive: 'Alive', dead: 'Dead', missing: 'Missing' };
+  const ch = s && s.ch != null ? s.ch : state.chapter;
+  const trail = c.stops.map(st => `<li class="${s === st ? 'now' : ''}"><span>${st.ch != null ? 'CH ' + String(st.ch).padStart(2, '0') : 'Now'}</span><span>${esc(st.r.kind === 'point' ? st.r.name : st.r.label)}${st.presence === 'dead' ? ' · †' : ''}</span></li>`).join('');
+  box.style.setProperty('--c', c.color);
+  box.innerHTML = `<h4><span>${esc(c.name)}</span><button type="button" aria-label="Close the record" id="recordClose">×</button></h4>` +
+    (s ? `<dl><dt>Where</dt><dd>${esc(s.r.kind === 'point' ? s.r.name : s.r.path || s.r.label)}</dd><dt>State</dt><dd>${PRESENCE[s.presence] || 'Alive'}</dd>` +
+         (s.objective ? `<dt>Objective</dt><dd>${esc(s.objective)}</dd>` : '') + (s.ch != null ? `<dt>Since</dt><dd>Chapter ${s.ch}</dd>` : '') + `</dl>`
+       : `<p>Not in the story yet at this chapter.</p>`) +
+    `<dt style="font-family:'Bebas Neue',sans-serif;letter-spacing:.1em;font-size:13px;color:var(--amber)">Trail</dt><ol>${trail}</ol>` +
+    `<a href="index.html?char=${encodeURIComponent(c.id)}${Number.isInteger(ch) ? '&ch=' + ch : ''}">Open in the Dossier →</a>`;
+  box.hidden = false; $('lore').hidden = true;
+  $('recordClose').addEventListener('click', closeRecord);
+}
+function closeRecord() { recordId = null; $('record').hidden = true; $('lore').hidden = false; }
 function setChapterUI() {
   const idx = state.chapters.indexOf(state.chapter);
   $('chapterRange').max = Math.max(0, state.chapters.length - 1);
@@ -911,19 +983,106 @@ function setChapter(ch) {
   renderLegend();
 }
 const remember = () => { try { localStorage.setItem('epitaph-map-prefs', JSON.stringify({ view: state.view, theme: state.theme, era: state.era })); } catch (e) {} };
-function setView(v) {
-  if (state.view === v) return;
+// ---- switching views with a zoom: Epitaph → Earth dives onto the Earth patch, fades, and the board pulls back from close in;
+// Earth → Epitaph zooms in on the board, fades, and the planet pulls back out from its Earth patch
+const zfx = { cam: null, veil: null, busy: false };
+const veil = document.createElement('div');
+Object.assign(veil.style, { position: 'absolute', inset: '0', pointerEvents: 'none', opacity: '0', zIndex: '2' });
+canvas.parentElement.appendChild(veil);
+const easeInOut = k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2, easeOut = k => 1 - Math.pow(1 - k, 3), easeIn = k => k * k * k;
+function tweenCam(to, dur, ease, done) { zfx.cam = { t: 0, dur, ease, done, to, from: { target: controls.target.clone(), pos: camera.position.clone(), zoom: camera.zoom } }; }
+function fadeVeil(to, dur, done) { veil.style.background = THEMES[state.theme].bg; zfx.veil = { t: 0, dur, done, from: +veil.style.opacity || 0, to }; }
+function stepViewFx(dt) {
+  const c = zfx.cam;
+  if (c) {
+    c.t += dt; const k = c.ease(Math.min(1, c.t / c.dur));
+    controls.target.lerpVectors(c.from.target, c.to.target, k); camera.position.lerpVectors(c.from.pos, c.to.pos, k);
+    camera.zoom = c.from.zoom + (c.to.zoom - c.from.zoom) * k; camera.updateProjectionMatrix();
+    if (c.t >= c.dur) { zfx.cam = null; c.done && c.done(); }
+  }
+  const f = zfx.veil;
+  if (f) { f.t += dt; const k = Math.min(1, f.t / f.dur); veil.style.opacity = String(f.from + (f.to - f.from) * k); if (k >= 1) { zfx.veil = null; f.done && f.done(); } }
+}
+function switchView(v) {
   state.view = v; remember();
   document.querySelectorAll('[data-view]').forEach(x => x.classList.toggle('on', x.dataset.view === v));
   build(); goHome(true); renderLegend();
 }
+const camPose = () => ({ target: controls.target.clone(), pos: camera.position.clone(), zoom: camera.zoom });
+function setView(v) {
+  if (state.view === v || zfx.busy) return;
+  if (reduceMotion || !viewCfg || drag.active) { switchView(v); return; }
+  zfx.busy = true; controls.enabled = false; state.focus = null; state.spin = false;
+  const finish = () => { zfx.busy = false; controls.enabled = true; state.lastInteract = performance.now(); };
+  if (v === 'earth') {
+    // dive: face the Earth patch square on and zoom into it
+    const dir = EARTH_DIR.clone(); if (state.planet) dir.applyQuaternion(state.planet.quaternion);
+    const target = dir.clone().multiplyScalar(PR);
+    tweenCam({ target, pos: target.clone().addScaledVector(dir, 80), zoom: 3.6 }, 1.0, easeInOut, () => fadeVeil(1, .22, () => {
+      switchView('earth');
+      const home = camPose(); camera.zoom = home.zoom * 3.2; camera.updateProjectionMatrix();
+      fadeVeil(0, .3); tweenCam(home, 1.15, easeOut, finish);
+    }));
+  } else {
+    // out: push in on the board, then the planet pulls back from its Earth patch
+    const p = camPose();
+    tweenCam({ target: p.target, pos: p.pos, zoom: p.zoom * 2.6 }, .55, easeIn, () => fadeVeil(1, .2, () => {
+      switchView('planet');
+      const home = camPose(), dir = EARTH_DIR.clone(), target = dir.clone().multiplyScalar(PR);
+      controls.target.copy(target); camera.position.copy(target).addScaledVector(dir, 80); camera.zoom = 3.6; camera.updateProjectionMatrix();
+      fadeVeil(0, .3); tweenCam(home, 1.2, easeOut, () => { state.spin = true; finish(); });
+    }));
+  }
+}
 let eraBusy = false;
+const stayInEra0 = c => designFor(c) === 'vale';
+// Era 0 clicked: every sword but Vale's sinks into the ground at once, one after another, in a puff of block dust
+function vanishPins() {
+  let i = 0;
+  pickables.forEach(h => {
+    const pin = h.userData.pin; if (!pin || !h.userData.char || stayInEra0(h.userData.char)) return;
+    if (reduceMotion) { pin.visible = false; return; }
+    const start = pin.position.clone(), n = state.view === 'planet' ? start.clone().normalize() : UP.clone(), down = pin.scale.x * 1.15, delay = i++ * .07;
+    pin.userData.travelling = true; let t = -delay, puffed = false;
+    travels.push({ step(dt) {
+      t += dt; if (t < 0) return false;
+      if (!puffed) { puffed = true; burst(start, n, h.userData.scale, false); }
+      const k = Math.min(1, t / .55), e = k * k * (3 - 2 * k);
+      pin.position.copy(start).addScaledVector(n, -down * e + Math.sin(k * Math.PI) * .03 * h.userData.scale);
+      pin.rotateOnAxis(UP, dt * 6 * (1 - k));                         // a twist as it goes
+      if (k >= 1) { this.finish(); return true; }
+      return false;
+    }, finish() { pin.visible = false; pin.userData.travelling = false; } });
+  });
+}
+// Era 0 from a later chapter: first rewind the chapter slider, one chapter at a time from where it is now (not from the newest),
+// down to the first chapter, the swords flying back each step; then switch eras
+let rewinding = false;
 function setEra(era) {
+  if (state.era === era || rewinding) return;
+  const idx = state.chapter == null ? state.chapters.length - 1 : state.chapters.indexOf(state.chapter);
+  if (era === 0 && state.era === 1 && idx > 0 && !reduceMotion && !drag.active) {
+    rewinding = true; $('chapterRange').disabled = true;
+    const steps = idx, wait = Math.min(.45, Math.max(.12, 2.4 / steps)) * 1000;
+    let i = idx;
+    const tick = () => {
+      i -= 1; setChapter(state.chapters[i]); $('chapterRange').disabled = true;
+      if (i > 0) setTimeout(tick, wait);
+      else setTimeout(() => { rewinding = false; applyEra(0); }, 900);       // let the last flights land, then switch
+    };
+    setTimeout(tick, 60);
+    return;
+  }
+  applyEra(era);
+}
+function applyEra(era) {
   if (state.era === era) return;
+  if (era === 0) { eraReturn = null; vanishPins(); }
   state.era = era; remember();
   document.querySelectorAll('[data-era]').forEach(x => x.classList.toggle('on', +x.dataset.era === era));
   eraBusy = true;            // markers are rebuilt once the wave has finished
   renderLore(); renderKeys(); setChapterUI(); renderLegend();
+  if (era === 1 && !reduceMotion && markerRoot) { refreshMarkers(); startEraReturn(); }   // swords wait underground for the wave
   if (reduceMotion) { state.eraT = era; rebuildKeepCamera(); eraBusy = false; }
 }
 
@@ -934,11 +1093,21 @@ document.querySelectorAll('[data-theme-btn]').forEach(b => b.addEventListener('c
   document.querySelectorAll('[data-theme-btn]').forEach(x => x.classList.toggle('on', x === b));
   rebuildKeepCamera();
 }));
-$('chapterRange').addEventListener('input', e => setChapter(state.chapters[+e.target.value] ?? null));
-$('prevCh').addEventListener('click', () => { const i = state.chapters.indexOf(state.chapter); if (i > 0) setChapter(state.chapters[i - 1]); });
-$('nextCh').addEventListener('click', () => { const i = state.chapters.indexOf(state.chapter); if (i >= 0 && i < state.chapters.length - 1) setChapter(state.chapters[i + 1]); });
+$('chapterRange').addEventListener('input', e => !rewinding && setChapter(state.chapters[+e.target.value] ?? null));
+$('prevCh').addEventListener('click', () => { if (rewinding) return; const i = state.chapters.indexOf(state.chapter); if (i > 0) setChapter(state.chapters[i - 1]); });
+$('nextCh').addEventListener('click', () => { if (rewinding) return; const i = state.chapters.indexOf(state.chapter); if (i >= 0 && i < state.chapters.length - 1) setChapter(state.chapters[i + 1]); });
 $('homeBtn').addEventListener('click', () => { state.spin = true; goHome(false); });
 $('legendToggle').addEventListener('click', () => $('legend').classList.toggle('open'));
+const LibUI = window.EpitaphLibraryUI;
+if (LibUI) {
+  $('libraryBtn').addEventListener('click', () => LibUI.open());
+  LibUI.hooks.onChange = () => { const d = loadCharacters(); Object.assign(state, { chars: d.chars, chapters: d.chapters, titles: d.titles, demo: d.demo }); setChapterUI(); rebuildKeepCamera(); renderLegend(); };
+  LibUI.hooks.showPlace = id => {
+    const go = () => { const m = pickables.find(p => p.userData.place && p.userData.place.id === id); if (m) focusOn(m, 3.2); };
+    if (state.view !== 'earth') { setView('earth'); setTimeout(go, 2600); } else go();
+    if (matchMedia('(max-width:700px)').matches) LibUI.close();
+  };
+} else $('libraryBtn').hidden = true;
 
 // hover + click
 const tip = $('tip');
@@ -958,7 +1127,9 @@ canvas.addEventListener('pointerup', e => {
   const hit = pick();
   if (!hit) return;
   if (hit.userData.earth) { setView('earth'); return; }      // planet → Earth board
-  const site = siteOf(hit.userData.place);
+  const pl = hit.userData.place, statueSite = pl && state.era === 1 && (World.STATUES || []).includes(pl.id);
+  if (statueSite) { openSettlementCloseup(pl); return; }        // a statue site: everyone snapped to it, in its close-up
+  const site = siteOf(pl);
   if (site) { location.href = site; return; }                 // a place with a built site opens it
   focusOn(hit);
 });
@@ -1018,7 +1189,7 @@ function makePin(T, char) {
   const h = Math.max(1, built.height || 1);
   const hit = new THREE.Mesh(new THREE.BoxGeometry(0.34, h + 0.05, 0.2).translate(0, (h + 0.05) / 2, 0), new THREE.MeshBasicMaterial({ visible: false }));
   pin.add(hit);
-  Object.assign(pin.userData, { isPin: true, hit, ring, design: built.design, glow: () => {}, update: t => built.update(t, camera) });
+  Object.assign(pin.userData, { isPin: true, hit, ring, design: built.design, built, glow: () => {}, update: t => built.update(t, camera) });
   return pin;
 }
 
@@ -1036,7 +1207,7 @@ function tangents(n) {
 }
 // where a pin stands beside a place marker (same spot addMarkers uses for the first character there)
 function landingFor(at, scale) {
-  const [side, fwd] = tangents(at.normal), ang = 2.4, rad = 0.32 * scale;
+  const [side, fwd] = tangents(at.normal), ang = 2.4, rad = PIN_GAP * scale;
   return at.pos.clone().addScaledVector(side, Math.cos(ang) * rad).addScaledVector(fwd, Math.sin(ang) * rad).addScaledVector(at.normal, 0.04 - 0.08 * scale);
 }
 // pointer → a point on the map surface, in the markers' local space
@@ -1057,14 +1228,16 @@ function pointerToSurface(e, handH = 0) {
   const hand = parent.worldToLocal(air);
   return { pos: hand.clone().setY(hand.y - handH), hand, normal: UP.clone() };
 }
-function statueAnchors(scale) {
+function statueAnchors(scale, charId) {
   const ids = new Set(World.STATUES || []);
   return placesFor(state.era).filter(p => ids.has(p.id)).map(p => {
-    const at = surface(p.lat, p.lng), land = landingFor(at, scale);
+    const st = stones[p.id], slot = st ? freeSlot(st, charId) : null;
+    const at = st ? { pos: st.g.position.clone(), normal: UP.clone().applyQuaternion(st.g.quaternion) } : surface(p.lat, p.lng);
+    const land = st ? slotPos(st, slot) : landingFor(at, scale);
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.2, 0.26, 40), new THREE.MeshBasicMaterial({ color: THEMES[state.theme].glow, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
     ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), at.normal); ring.position.copy(at.pos).addScaledVector(at.normal, 0.02);
     ring.scale.setScalar(scale); markerRoot.add(ring);
-    return { place: p, at, land, ring };
+    return { place: p, at, land, ring, slot };
   });
 }
 // a puff of block dust and a ring where a pin leaves or hits the ground
@@ -1136,7 +1309,8 @@ function beginDrag(hitObj, e) {
   try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
   canvas.style.cursor = verdict.ok ? 'grabbing' : 'not-allowed';
   if (!verdict.ok) { say(`<b>${esc(char.name)}</b><span>${esc(verdict.why)}</span>`); return; }
-  d.anchors = statueAnchors(scale);
+  d.anchors = statueAnchors(scale, d.char.id);
+  pin.userData.built?.setFree(true);                                // loose parts (Moinera's chain) swing free while held
   // the sword hangs from the cursor on a golden thread: the cursor end floats at anchorH above the ground,
   // and the scroll wheel lets thread out (sword lower, slower wider swing) or reels it in
   const s = d.pin.scale.x;
@@ -1179,6 +1353,7 @@ function endDrag(silent) {
   const d = drag.active; if (!d) return;
   d.anchors.forEach(a => { a.ring.parent && a.ring.parent.remove(a.ring); a.ring.geometry.dispose(); a.ring.material.dispose(); });
   if (d.thread) { d.thread.group.parent && d.thread.group.parent.remove(d.thread.group); d.thread.dispose(); }
+  d.pin.userData.built?.setFree(false);
   try { canvas.releasePointerCapture(d.pointerId); } catch (e) {}
   drag.active = null; controls.enabled = true; canvas.style.cursor = '';
   if (!silent && !tip.innerHTML.includes('class="err"')) { clearTimeout(toastTimer); toastTimer = setTimeout(() => { tip.hidden = true; }, 1800); }
@@ -1225,10 +1400,65 @@ function poseAt(d, gripPos, n, tilt, extraYaw = 0) {
   const s = d.pin.scale.x;
   d.pin.position.copy(gripPos).sub(tmpB.set(0, 0.8 * s, 0).applyQuaternion(d.pin.quaternion));
 }
+// ---- back to Era 1: as the era wave passes each sword's place it rises slowly out of the ground into the air; once the wave
+// is done and every sword is up, they all drop together. ERA_RETURN = 'staggered' drops each as soon as it is up instead.
+const ERA_RETURN = 'together';
+let eraReturn = null;
+function startEraReturn() {
+  const maxD = state.waveMaxD || 1, list = [];
+  state.chars.forEach(c => {
+    if (stayInEra0(c)) return;
+    const cs = charStateAt(c, state.chapter); if (!cs) return;
+    const [u, v] = mapUV(cs.stop.r);
+    list.push({ id: c.id, delay: Math.min(1, craterDist(u, v) / maxD) * .85, phase: 'wait', t: 0 });
+  });
+  eraReturn = list.length ? { list, time: 0 } : null;
+}
+function stepEraReturn(dt) {
+  const R = eraReturn; if (!R) return;
+  R.time += dt;
+  let allUp = true, allDone = true;
+  R.list.forEach(e => {
+    const h = pickables.find(p => p.userData.pin && p.userData.char && p.userData.char.id === e.id);
+    if (!h) { if (e.phase !== 'done') allDone = false; return; }
+    const pin = h.userData.pin, rest = pin.userData.rest, sc = h.userData.scale;
+    const n = state.view === 'planet' ? rest.pos.clone().normalize() : UP.clone(), L = pin.scale.x * 1.15, hover = .9 * sc;
+    if (e.phase !== 'done') pin.userData.travelling = true;
+    if (e.phase === 'wait') {
+      pin.visible = false;
+      if (state.eraT >= e.delay - 1e-3) { e.phase = 'rise'; e.t = 0; pin.visible = true; burst(rest.pos, n, sc, false); pin.userData.built?.setFree(true); }
+    }
+    if (e.phase === 'rise') {                                         // slowly up out of the ground, a little twist as it comes
+      e.t += dt; const k = Math.min(1, e.t / 1.5), ek = 1 - Math.pow(1 - k, 3);
+      pin.position.copy(rest.pos).addScaledVector(n, -L + (L + hover) * ek); pin.quaternion.copy(rest.quat); pin.rotateOnAxis(UP, (1 - ek) * 2.5);
+      if (k >= 1) { e.phase = 'hover'; e.t = 0; }
+    }
+    if (e.phase === 'hover') {                                        // waiting in the air, a gentle bob
+      e.t += dt; pin.position.copy(rest.pos).addScaledVector(n, hover + Math.sin(R.time * 2 + e.delay * 9) * .03 * sc); pin.quaternion.copy(rest.quat);
+      if (ERA_RETURN === 'staggered' && e.t > .3) { e.phase = 'drop'; e.t = 0; }
+    }
+    if (e.phase === 'drop') {                                         // point-first into its place
+      e.t += dt; const k = Math.min(1, e.t / .28);
+      pin.position.copy(rest.pos).addScaledVector(n, hover * (1 - k * k)); pin.quaternion.copy(rest.quat);
+      if (k >= 1) { e.phase = 'settle'; e.t = 0; burst(rest.pos, n, sc, true); impact(rest.pos, n, null, .35, sc); pin.userData.built?.setFree(false); }
+    }
+    if (e.phase === 'settle') {
+      e.t += dt; const sd = Math.exp(-6 * e.t);
+      pin.position.copy(rest.pos).addScaledVector(n, -.05 * sc * sd);
+      pin.quaternion.copy(rest.quat).premultiply(qTilt.setFromAxisAngle(tangents(n)[0], Math.sin(e.t * 24) * .14 * sd));
+      if (e.t > .6) { e.phase = 'done'; pin.position.copy(rest.pos); pin.quaternion.copy(rest.quat); pin.userData.travelling = false; }
+    }
+    if (e.phase === 'wait' || e.phase === 'rise') allUp = false;
+    if (e.phase !== 'done') allDone = false;
+  });
+  if (ERA_RETURN === 'together' && allUp && state.eraT >= 1) R.list.forEach(e => { if (e.phase === 'hover') { e.phase = 'drop'; e.t = 0; } });
+  if (allDone) eraReturn = null;
+}
 function updatePins(dt, time) {
   for (let i = fx.length - 1; i >= 0; i--) { const f = fx[i]; f.t += dt; if (f.t >= f.life) { f.end(); fx.splice(i, 1); } else f.step(f.t, dt); }
   for (let i = travels.length - 1; i >= 0; i--) if (travels[i].step(dt)) travels.splice(i, 1);
   for (let i = quakes.length - 1; i >= 0; i--) if (quakes[i].step(dt)) quakes.splice(i, 1);
+  stepEraReturn(dt);
   const d = drag.active; if (!d) return;
   d.t += dt;
   const s = d.pin.scale.x, lift = 0.9 * d.scale;
@@ -1334,7 +1564,18 @@ function uvToLatLng(u, v) {
   // off the island (the open sea of Epitaph): the nearest sensible reading
   return { lat: Math.max(L.latCut, Math.min(89.9, latM)), lng: wrap(Math.max(-180, Math.min(180, lr)) + L.lon0) };
 }
-function latLngAt(p) {
+// Spots beyond Earth (the planet's unmapped lands and seas, the board's open sea) have no lat/lng: they are kept as map uv,
+// which both views can place (the planet anywhere on its sphere, the board inside its rectangle)
+const onEarthUV = (u, v) => u >= 0 && u <= 1 && v >= 0 && v <= 1 && earthAt(u, v, state.era).kind !== 'out';
+const offEarthHeight = () => state.view === 'planet' ? PR * 0.995 + 0.012 : 0.06;
+function mapUV(r) { return num(r.u) && num(r.v) && !num(r.lat) ? [r.u, r.v] : eeUV(r.lng, r.lat); }
+function spotAt(r) {
+  if (!(num(r.u) && num(r.v) && !num(r.lat))) return surface(r.lat, r.lng);
+  if (state.view === 'planet') { const dir = uvToDir(r.u, r.v); return { pos: dir.clone().multiplyScalar(offEarthHeight()), normal: dir }; }
+  if (r.u < 0 || r.u > 1 || r.v < 0 || r.v > 1) return null;              // off the board: only the planet shows it
+  return { pos: uvToBoard(r.u, r.v).setY(offEarthHeight()), normal: UP.clone() };
+}
+function uvAt(p) {
   let u, v;
   if (state.view === 'planet') {
     const dir = p.clone().normalize(), ang = Math.acos(Math.max(-1, Math.min(1, dir.dot(EARTH_DIR))));
@@ -1342,8 +1583,9 @@ function latLngAt(p) {
     const px = sa > 1e-9 ? r * dir.dot(capE1) / sa : 0, py = sa > 1e-9 ? r * dir.dot(capE2) / sa : 0;
     u = (px / EARTH_FIT_X + 1) / 2; v = (py / EARTH_FIT_Y + 1) / 2;
   } else { u = p.x / BW + 0.5; v = -p.z / BH + 0.5; }
-  return uvToLatLng(u, v);
+  return { u, v };
 }
+function latLngAt(p) { const { u, v } = uvAt(p); return uvToLatLng(u, v); }
 function nearestPlace(pos, scale) {
   const planet = state.view === 'planet';
   let best = null, bd = Infinity;
@@ -1369,9 +1611,12 @@ function flyStep(d, dt) {
   const b = d.body, s = d.pin.scale.x, G = 14 * d.scale;
   let { n, h, near } = groundAt(d, b.com);
   if (!(near && near.dist < 2.6 * d.scale)) {                        // away from statue sites: the actual terrain below
-    b.ll = latLngAt(b.com);
-    const g = surface(b.ll.lat, b.ll.lng).pos;
-    h = (state.view === 'planet' ? g.length() : g.y) - 0.01 + 0.04 - 0.08 * d.scale;   // where a resting sword's tip sits
+    const uv = uvAt(b.com);
+    if (onEarthUV(uv.u, uv.v)) {
+      b.ll = uvToLatLng(uv.u, uv.v);
+      const g = surface(b.ll.lat, b.ll.lng).pos;
+      h = (state.view === 'planet' ? g.length() : g.y) - 0.01 + 0.04 - 0.08 * d.scale;   // where a resting sword's tip sits
+    } else h = offEarthHeight() + 0.04 - 0.08 * d.scale;              // beyond Earth: sea level
   }
   const acc = n.clone().multiplyScalar(-G);
   // the magnet: near a statue site the flight bends toward it and slows sideways
@@ -1409,14 +1654,17 @@ function flyStep(d, dt) {
   let land, spot = null;
   if (hitSite) land = hitSite.land.clone();
   else {                                                                // off the statue sites: work out where on the map it is
-    const ground = tip.clone().addScaledVector(n, h - tipH), ll = latLngAt(ground);
-    const at = surface(ll.lat, ll.lng);
+    const ground = tip.clone().addScaledVector(n, h - tipH), uv = uvAt(ground);
     land = ground;                                                    // stays exactly where it hit
-    const near = nearestPlace(at.pos, d.scale);
-    spot = near ? { status: 'enroute', lat: +ll.lat.toFixed(3), lng: +ll.lng.toFixed(3), toPlaceId: near.id, countryId: near.countryId || null, placeId: null }
-                : { status: 'unknown', lat: +ll.lat.toFixed(3), lng: +ll.lng.toFixed(3), placeId: null };
+    if (!onEarthUV(uv.u, uv.v)) spot = { status: 'unknown', u: +uv.u.toFixed(5), v: +uv.v.toFixed(5), placeId: null };   // beyond Earth
+    else {
+      const ll = uvToLatLng(uv.u, uv.v), at = surface(ll.lat, ll.lng), near = nearestPlace(at.pos, d.scale);
+      spot = near ? { status: 'enroute', lat: +ll.lat.toFixed(3), lng: +ll.lng.toFixed(3), toPlaceId: near.id, countryId: near.countryId || null, placeId: null }
+                  : { status: 'unknown', lat: +ll.lat.toFixed(3), lng: +ll.lng.toFixed(3), placeId: null };
+    }
   }
-  d.stick = { from: tip.clone(), land, n: hitSite ? hitSite.at.normal.clone() : n, q: b.q.clone(), t: 0, site: hitSite, spinAxis: tmpA.crossVectors(n, up2).lengthSq() > 1e-6 ? tmpA.clone().normalize() : new THREE.Vector3(1, 0, 0), hard: Math.min(1, speed / (10 * d.scale)) };
+  d.stick = { from: tip.clone(), land, n: hitSite ? hitSite.at.normal.clone() : n, q: hitSite ? new THREE.Quaternion().setFromUnitVectors(UP, hitSite.at.normal) : b.q.clone(), t: 0,   // into a stone's slot: upright
+    site: hitSite, spinAxis: tmpA.crossVectors(n, up2).lengthSq() > 1e-6 ? tmpA.clone().normalize() : new THREE.Vector3(1, 0, 0), hard: Math.min(1, speed / (10 * d.scale)) };
   d.phase = 'stab'; d.t = 0;
   burst(land, d.stick.n, d.scale, true);
   impact(land, d.stick.n, b.v, 0.25 + 0.75 * Math.min(1, speed / (12 * d.scale)), d.scale);
@@ -1436,7 +1684,12 @@ function stuckStep(d, dt) {
 function regionAt(r) {
   const site = r.place ? siteOf(r.place) : null;
   if (site) return { region: 'site', site };
-  const [u, v] = eeUV(r.lng, r.lat), here = earthAt(u, v, 1);
+  const [u, v] = mapUV(r);
+  if (!(u >= 0 && u <= 1 && v >= 0 && v <= 1)) {                      // beyond Earth on the planet: unmapped land, or the open sea
+    const dir = uvToDir(u, v), land = fbm(dir.x * 1.4 + 3, dir.y * 1.4 + dir.z * 0.9) > 0.08;
+    return { region: land ? 'plains' : (r.status === 'enroute' ? 'boat' : 'underwater') };
+  }
+  const here = earthAt(u, v, 1);
   const enroute = r.kind === 'point' && r.status === 'enroute';
   if (here.kind === 'pit') return { region: 'pit' };
   if (here.kind === 'rim') return { region: 'rim' };
@@ -1453,23 +1706,43 @@ function regionAt(r) {
 function openPinCloseup(ud) {
   if (!ud || !ud.char || !ud.charState) return;
   const r = ud.charState.stop.r, reg = regionAt(r);
+  // swords standing close together on the map share the close-up (the clicked one first)
+  const here = ud.pin.getWorldPosition(new THREE.Vector3()), near = .75 * ud.scale;          // 'very close' on the map
+  const company = pickables.filter(h => h.userData.pin && h.userData.char && h !== ud.hit && h.userData.char.id !== ud.char.id && h.userData.pin.visible !== false)
+    .map(h => ({ c: h.userData.char, d: h.userData.pin.getWorldPosition(new THREE.Vector3()).distanceTo(here) }))
+    .filter(x => x.d < near).sort((a, b) => a.d - b.d).map(x => x.c);
   tip.hidden = true;
   openCloseup({
-    mount: canvas.parentElement, char: ud.char, region: reg.region, siteUrl: reg.site || null, theme: state.theme,
+    mount: canvas.parentElement, char: ud.char, chars: [ud.char, ...company], region: reg.region, siteUrl: reg.site || null, theme: state.theme,
     where: (r.kind === 'point' ? r.name : r.label || r.name) + (ud.charState.stop.ch != null ? ' · chapter ' + ud.charState.stop.ch : '')
+  });
+}
+// a settlement with a statue, opened from its marker: everyone whose sword stands there this chapter (a site inside a city
+// counts for the city, e.g. the Temple of the Voided in Aurelia), around its statue or standing giant in its built site
+function openSettlementCloseup(p) {
+  const ids = new Set([p.id, ...World.places().filter(q => q.cityId === p.id).map(q => q.id)]);
+  const chars = state.chars.filter(c => { const cs = charStateAt(c, state.chapter); return cs && cs.stop.r.place && (ids.has(cs.stop.r.place.id) || ids.has(cs.stop.r.place.cityId)); });
+  const reg = regionAt({ place: p, lat: p.lat, lng: p.lng, kind: 'place' });
+  const statue = (p.group === 'STORYBORN' || (p.fictional && !p.group)) ? 'storyborn' : p.group === 'VOIDED' ? 'voided' : p.group === 'FALLEN' ? 'fallen' : null;
+  tip.hidden = true;
+  openCloseup({
+    mount: canvas.parentElement, chars, title: p.name, region: reg.region === 'site' ? 'plains' : reg.region, siteUrl: reg.site || null, theme: state.theme,
+    statue: reg.site ? null : statue, statueColor: THEMES[state.theme].groups[(statue || 'other').toUpperCase()] || THEMES[state.theme].groups.OTHER,
+    where: (state.chapter != null ? 'Chapter ' + state.chapter : 'Latest') + ' · ' + (chars.length ? chars.length + (chars.length === 1 ? ' sword' : ' swords') : 'no swords')
   });
 }
 // ---- landed sword poses, remembered per character so a thrown sword keeps its angle
 const POSE_KEY = 'epitaph-map-pin-poses';
 const readPoses = () => { try { return JSON.parse(localStorage.getItem(POSE_KEY) || '{}') || {}; } catch (e) { return {}; } };
-function savePose(charId, key, q, n) {
+function savePose(charId, key, q, n, slot = null) {
   const rel = new THREE.Quaternion().setFromUnitVectors(UP, n).invert().multiply(q);
   const all = readPoses(); all[charId] = { key, q: rel.toArray().map(x => +x.toFixed(4)) };
+  if (Number.isInteger(slot)) all[charId].slot = slot;
   try { localStorage.setItem(POSE_KEY, JSON.stringify(all)); } catch (e) {}
 }
 function settleAt(d, ref, q, n) {
   const r = World.resolve(ref);
-  if (r) savePose(d.char.id, r.key, q, n);
+  if (r) savePose(d.char.id, r.key, q, n, d.stick && d.stick.site ? d.stick.site.slot : null);
   const where = r ? (r.kind === 'point' ? r.name : 'Now at ' + r.name) : 'Here';
   if (d.verdict.demo) { say(`<b>${esc(d.char.name)}</b><span class="here">${esc(where)}</span><span>Demo pin, not saved. Add characters in the Dossier to keep moves.</span>`, 3200); return; }
   const err = saveLocation(d.char.id, d.cs.stop.snapId, ref);
@@ -1515,7 +1788,7 @@ function makeTravel(pin, A, B, scale, delay, nrm) {
   };
   const T_OUT = A.drop ? 0 : 0.3, T_FLY = A.drop ? 0.25 : Math.min(1.6, 0.6 + dist / (14 * scale)), T_DIVE = 0.22, T_WOB = 0.5;
   const qFly = new THREE.Quaternion(), tmp = new THREE.Vector3();
-  pin.position.copy(A.pos); pin.quaternion.copy(A.q); pin.userData.travelling = true;
+  pin.position.copy(A.pos); pin.quaternion.copy(A.q); pin.userData.travelling = true; pin.userData.built?.setFree(true);
   let t = -delay, landed = false, started = false;
   const tr = {
     step(dt) {
@@ -1544,7 +1817,7 @@ function makeTravel(pin, A, B, scale, delay, nrm) {
       }
       return false;
     },
-    finish() { pin.position.copy(B.pos); pin.quaternion.copy(B.q); pin.userData.travelling = false; }
+    finish() { pin.position.copy(B.pos); pin.quaternion.copy(B.q); pin.userData.travelling = false; pin.userData.built?.setFree(false); }
   };
   return tr;
 }
@@ -1597,8 +1870,12 @@ renderer.setAnimationLoop(() => {
     state.eraT += Math.sign(state.era - state.eraT) * Math.min(Math.abs(state.era - state.eraT), dt * 0.5);
     const prog = state.era === 1 ? state.eraT : 1 - state.eraT;
     eraHooks.forEach(f => f(state.era === 1 ? prog : 1 - prog, state.era));
-    if (state.eraT === state.era && eraBusy) { eraBusy = false; rebuildKeepCamera(); }
+    if (state.eraT === state.era && eraBusy) {
+      eraBusy = false; const before = pinPositions(); rebuildKeepCamera();
+      if (state.era === 1 && !reduceMotion && !eraReturn) flyToChapter(before);   // (the wave return handles the swords when it's running)
+    }
   }
+  stepViewFx(dt);
   if (state.focus) {
     controls.target.x = damp(controls.target.x, state.focus.target.x, 5, dt);
     controls.target.y = damp(controls.target.y, state.focus.target.y, 5, dt);
@@ -1659,6 +1936,16 @@ async function start() {
   if (isSmall()) $('legend').classList.remove('open');
   build(); goHome(true); renderLegend();
   $('boot').hidden = true;
+  // deep links (formerly the 2D Atlas): ?item=<id> opens it in the Library; ?char=<id>[&ch=<n>] opens their record there
+  const itemId = q.get('item');
+  if (itemId && LibUI && window.EpitaphLibrary && EpitaphLibrary.item(itemId)) LibUI.open('items', { mode: 'itemDetail', id: itemId });
+  const charId = q.get('char'), ch = parseInt(q.get('ch'), 10);
+  if (charId && state.chars.some(c => c.id === charId)) {
+    if (state.era !== 1) setEra(1);
+    if (Number.isInteger(ch) && state.chapters.includes(ch)) setChapter(ch);
+    openRecord(charId);
+    const tok = pickables.find(p => p.userData.char && p.userData.char.id === charId); if (tok) focusOn(tok);
+  }
 }
 start().catch(err => { $('boot').textContent = 'Could not load the map: ' + err; console.error(err); });
 addEventListener('storage', e => { if (e.key === 'epitaph-character-profiles' || e.key === 'epitaph-library') { const d = loadCharacters(); Object.assign(state, { chars: d.chars, chapters: d.chapters, titles: d.titles, demo: d.demo }); setChapterUI(); rebuildKeepCamera(); renderLegend(); } });

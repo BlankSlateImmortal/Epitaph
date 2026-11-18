@@ -12,7 +12,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { loadPins, buildPin, designFor, DESIGN_LABEL, patch } from './pins/pins.js';
+import { loadPins, buildPin, designFor, DESIGN_LABEL, patch } from './pins/pins.js?v=10';
+import { buildStone, slotLocal } from './stones.js?v=3';
 
 export const REGION_LABEL = {
   plains: 'Plains', hills: 'Hills', mountains: 'Mountains', ice: 'Snowfield', rim: 'Impact mountains', pit: 'The crater',
@@ -268,13 +269,18 @@ let cur = null;
 export const isOpen = () => !!cur;
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-export async function openCloseup({ mount, char, region, theme = 'crt', where = '', siteUrl = null, onClose = null }) {
+// chars: everyone in the scene (the first is the one clicked; swords standing close together on the map come along).
+// title + statue: a settlement opened from its marker: its Epitaph stone in the middle (no built site), its swords in the stone's slots.
+export async function openCloseup({ mount, char, chars, region, theme = 'crt', where = '', siteUrl = null, onClose = null, title = null, statue = null, statueColor = '#6fb3a3' }) {
   closeCloseup(true);
   if (!document.getElementById('cu-css')) { const st = document.createElement('style'); st.id = 'cu-css'; st.textContent = CSS; document.head.appendChild(st); }
-  const design = designFor(char), P = PAL[theme] || PAL.crt, kind = siteUrl ? 'site' : (REGIONS[region] ? region : 'plains');
-  const el = document.createElement('div'); el.className = 'cu'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Close-up of ' + char.name);
-  el.innerHTML = `<header class="cu-head"><div><b><i style="background:${esc(char.color || '#ffb238')}"></i>${esc(char.name)}</b>
-      <span class="cu-tag">${esc(DESIGN_LABEL[design] || design)}</span><span class="cu-tag">${esc(REGION_LABEL[kind])}</span><span>${esc(where)}</span></div>
+  chars = (chars && chars.length ? chars : char ? [char] : []);
+  char = chars[0] || null;
+  const design = char ? designFor(char) : null, P = PAL[theme] || PAL.crt, kind = siteUrl ? 'site' : (REGIONS[region] ? region : 'plains');
+  const el = document.createElement('div'); el.className = 'cu'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Close-up of ' + (title || (char && char.name) || 'a place'));
+  const who = chars.map(c => `<b><i style="background:${esc(c.color || '#ffb238')}"></i>${esc(c.name)}</b>`).join(' ');
+  el.innerHTML = `<header class="cu-head"><div>${title ? `<b>${esc(title)}</b>` : ''}${who || (title ? '<span>No one is here this chapter.</span>' : '')}
+      ${chars.length === 1 ? `<span class="cu-tag">${esc(DESIGN_LABEL[design] || design)}</span>` : ''}<span class="cu-tag">${esc(REGION_LABEL[kind])}</span><span>${esc(where)}</span></div>
       <button type="button" class="cu-x">Close ✕</button></header>
     <div class="cu-stage"><div class="cu-load">RAISING THE SCENE…</div></div>
     <footer class="cu-foot"><span>drag to turn · scroll to zoom · esc to close</span>${siteUrl ? `<a href="${esc(siteUrl)}">Open the site →</a>` : ''}</footer>`;
@@ -289,8 +295,9 @@ export async function openCloseup({ mount, char, region, theme = 'crt', where = 
 
   if (siteUrl) {                                     // a built site: open it with the sword standing in it, giant
     const f = document.createElement('iframe');
-    const q = new URLSearchParams({ embed: '1', pin: design, ring: char.color || '', theme: theme === 'paper' ? 'paper' : 'crt' });
-    f.src = siteUrl + (siteUrl.includes('?') ? '&' : '?') + q; f.title = 'Site with ' + char.name + "'s sword";
+    const q = new URLSearchParams({ embed: '1', theme: theme === 'paper' ? 'paper' : 'crt' });
+    if (chars.length) { q.set('pin', chars.map(c => designFor(c)).join(',')); q.set('ring', chars.map(c => c.color || '').join(',')); }   // each sword at its own spot
+    f.src = siteUrl + (siteUrl.includes('?') ? '&' : '?') + q; f.title = (title || 'Site') + (chars.length ? ' with ' + chars.map(c => c.name).join(', ') : '');
     f.addEventListener('load', () => { load.remove(); });
     stage.appendChild(f); return;
   }
@@ -317,21 +324,36 @@ export async function openCloseup({ mount, char, region, theme = 'crt', where = 
   key.shadow.mapSize.set(2048, 2048); Object.assign(key.shadow.camera, { left: -3, right: 3, top: 3, bottom: -3, near: .5, far: 12 }); key.shadow.bias = -.0005; key.shadow.normalBias = .02;
   const rimL = new THREE.DirectionalLight(P.rim, .7); rimL.position.set(-3, 2, -2.5);
   scene.add(key, rimL);
-  if (out.flag && char.color) out.flag.color.set(char.color);
+  if (out.flag && char && char.color) out.flag.color.set(char.color);
 
-  const pin = buildPin(design, { ring: char.color });
-  const at = out.at || [0, 0];
-  pin.group.position.set(at[0], out.ground ?? 0, at[1]); pin.group.rotation.y = .5;
-  pin.group.traverse(o => { if (o.isMesh) o.castShadow = true; });
-  (out.parent || scene).add(pin.group);
+  // the swords: alone, the clicked one stands in the middle; with company, the others ring it; at a settlement, all ring its statue
+  const at = out.at || [0, 0], gy = out.ground ?? 0, parent = out.parent || scene;
+  let stone = null; const STONE = 1.9;                           // the grave, about 1.1 tall: the swords stand bare in front of it
+  if (statue) { stone = buildStone(statue, statueColor, { land: P.earth, landHi: P.sand, rock: P.rock, ink: P.wood2, glow: P.glow }).group; stone.scale.setScalar(STONE); stone.position.set(at[0], gy, at[1]); stone.rotation.y = .3; parent.add(stone); }
+  const ringR = .55, pins = [];
+  chars.forEach((c, i) => {
+    const pin = buildPin(designFor(c), { ring: c.color });
+    let x = at[0], z = at[1], y = gy;
+    if (stone) {
+      const sp = slotLocal(i).multiplyScalar(STONE).applyQuaternion(stone.quaternion).add(stone.position); x = sp.x; y = sp.y; z = sp.z;
+    } else if (i > 0) {
+      const n = chars.length - 1, k = i - 1, a = .9 + k / Math.max(1, n) * Math.PI * 2;
+      x += Math.cos(a) * ringR; z += Math.sin(a) * ringR;
+    }
+    pin.group.position.set(x, y, z); pin.group.rotation.y = stone ? stone.rotation.y : .5 + i * 1.3;
+    pin.group.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    parent.add(pin.group); pins.push(pin);
+  });
+  const spread = statue ? 1.7 : chars.length > 1 ? 1 + .35 * Math.min(4, chars.length) : 1;     // pull the camera back for a crowd or a stone
+  scene.fog.near *= spread; scene.fog.far *= spread;
 
   const camera = new THREE.PerspectiveCamera(35, 1, .05, 60);
   const c = out.cam || { pos: [2.0, 1.1, 2.5], target: [0, .55, 0] };
   const tgt = new THREE.Vector3(...c.target).add(new THREE.Vector3(at[0], (out.ground ?? 0), at[1]));
-  camera.position.copy(tgt).add(new THREE.Vector3(...c.pos).sub(new THREE.Vector3(...c.target)));
+  camera.position.copy(tgt).add(new THREE.Vector3(...c.pos).sub(new THREE.Vector3(...c.target)).multiplyScalar(spread));
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.target.copy(tgt); controls.enableDamping = true; controls.enablePan = false;
-  controls.minDistance = 1.1; controls.maxDistance = 6.5; controls.maxPolarAngle = under ? 1.75 : 1.52;
+  controls.minDistance = 1.1; controls.maxDistance = 6.5 * spread; controls.maxPolarAngle = under ? 1.75 : 1.52;
   controls.autoRotate = !matchMedia('(prefers-reduced-motion: reduce)').matches; controls.autoRotateSpeed = .5;
   controls.addEventListener('start', () => { controls.autoRotate = false; });
 
@@ -341,7 +363,7 @@ export async function openCloseup({ mount, char, region, theme = 'crt', where = 
   const loop = () => {
     const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedTime; TC.value = t;
     (out.fx || []).forEach(f => f(t, dt));
-    pin.update(t, camera); controls.update(); renderer.render(scene, camera);
+    pins.forEach(p => p.update(t, camera)); controls.update(); renderer.render(scene, camera);
     state.raf = requestAnimationFrame(loop);
   };
   loop();

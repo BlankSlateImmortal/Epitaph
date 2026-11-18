@@ -1347,7 +1347,7 @@ function frame() {
   const dt = Math.min(clock.getDelta(), 0.05), time = clock.elapsedTime;
   animate(dt, time);
   updateWalk(dt);
-  giantPin?.update(time, fp.on ? fpCam : camera);
+  giantPins.forEach(p => p.update(time, fp.on ? fpCam : camera));
   fpGroup.visible = fp.on;
   if (!fp.on) controls.update();
   renderPass.camera = fp.on ? fpCam : camera;
@@ -1360,10 +1360,13 @@ if (state.style === 'blocks') [...$('styleSeg').children].forEach(x => x.classLi
 resize(); build(); note(); applyEnv(0);
 $('boot').remove();
 // ?embed=1&pin=<design>&ring=<colour>: opened inside the map's close-up; a character's sword stands here, giant (assets/atlas3d/pins/pins.js)
-let giantPin = null;
+let giantPin = null, giantPins = [];
 if (q.get('embed') === '1') { document.body.classList.add('embed'); state.showTags = false; }
-if (q.get('pin')) import('../atlas3d/pins/pins.js').then(m => m.placeGiant({ scene, ground: modelRoot, camera, controls, renderer, design: q.get('pin'), ring: q.get('ring') || null,
-  height: 34, maxY: PF + 1.5, spots: [[-6, 17], [10, 16], [-12, -12], [14, -10], [0, 24]] })).then(p => { giantPin = p; }).catch(e => console.warn('giant pin', e));
+if (q.get('pin')) {                                   // one or more swords (?pin=a,b&ring=c1,c2), each at its own spot
+  const designs = q.get('pin').split(',').filter(Boolean), rings = (q.get('ring') || '').split(',');
+  import('../atlas3d/pins/pins.js?v=10').then(m => m.placeGiants({ scene, ground: modelRoot, camera, controls, renderer, height: 34, maxY: PF + 1.5,
+    spots: [[-6, 17], [10, 16], [-12, -12], [14, -10], [0, 24]], pins: designs.map((d, i) => ({ design: d, ring: rings[i] || null })) })).then(p => { giantPin = p[0] || null; giantPins = p; }).catch(e => console.warn('giant pins', e));
+}
 
 // (walk inside was removed 2026-11-16: the maps stay as models)
 frame();
