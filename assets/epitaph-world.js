@@ -227,6 +227,12 @@ const ERA_1_SPECIAL_SITES = [
     if (!ref || typeof ref !== 'object') return null;
     // a spot off the known places (set by dropping a sword pin on the map):
     // { status: 'unknown' | 'enroute', lat, lng, toPlaceId?, countryId? }
+    // beyond Earth (the planet's unmapped lands and seas): kept as map coordinates { status, u, v }, no lat/lng
+    if ((ref.status === 'unknown' || ref.status === 'enroute') && num(ref.u) && num(ref.v) && !num(ref.lat) && !ref.placeId) {
+      return { place: null, parent: null, country: null, continent: null, kind: 'point', status: 'unknown', to: null,
+        key: 'map:' + ref.u.toFixed(3) + ',' + ref.v.toFixed(3), lat: null, lng: null, u: ref.u, v: ref.v,
+        name: 'Unknown · beyond Earth', label: 'Unknown · beyond Earth', path: 'Unknown · beyond Earth' };
+    }
     if ((ref.status === 'unknown' || ref.status === 'enroute') && num(ref.lat) && num(ref.lng) && !ref.placeId) {
       const to = ref.status === 'enroute' ? place(ref.toPlaceId) : null;
       const name = to ? 'En route to ' + to.name : 'Unknown location';

@@ -1177,7 +1177,7 @@
 <script src="assets/epitaph-type.js?v=2"></script>
 <script src="assets/epitaph-muses.js?v=7"></script>
 <script src="assets/archetypes.js?v=2"></script>
-<script src="assets/epitaph-world.js?v=5"></script>
+<script src="assets/epitaph-world.js?v=7"></script>
 <script src="assets/epitaph-library.js?v=3"></script>
 <script src="assets/epitaph-marks.js?v=3"></script>
 <script src="assets/epitaph-states.js?v=1"></script>
@@ -1726,7 +1726,7 @@ function migrateCharacter(c){
     systemPortraitPosition: s.systemPortraitPosition || { x: 50, y: 50 },
     // per-chapter state (schema v2) — see migrateStateV2
     archetype: typeof s.archetype === 'string' ? s.archetype : '',
-    location: s.location && typeof s.location === 'object' && (s.location.countryId || (typeof s.location.lat === 'number' && typeof s.location.lng === 'number')) ? s.location : null,   // lat/lng: an unknown or en-route spot set on the map
+    location: s.location && typeof s.location === 'object' && (s.location.countryId || (typeof s.location.lat === 'number' && typeof s.location.lng === 'number') || (typeof s.location.u === 'number' && typeof s.location.v === 'number')) ? s.location : null,   // lat/lng: an unknown or en-route spot set on the map
     objective: typeof s.objective === 'string' ? s.objective : '',
     relationships: Array.isArray(s.relationships) ? s.relationships.map(normalizeRelationship) : [],
     knowledge: Array.isArray(s.knowledge) ? s.knowledge.filter(k => typeof k === 'string') : [],

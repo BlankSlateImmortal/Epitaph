@@ -221,11 +221,11 @@ function loadCharacters() {
   const list = (st && Array.isArray(st.characters)) ? st.characters : [];
   const chars = list.map((c, i) => {
     const versions = (c.snapshots || []).filter(s => Number.isInteger(s.startChapter)).sort((a, b) => a.startChapter - b.startChapter);
-    const stops = versions.map(s => ({ ch: s.startChapter, presence: s.presence || 'alive', r: World.resolve(s.location), snapId: s.id, locked: !!s.locked, objective: s.objective || '' })).filter(s => s.r && num(s.r.lat) && num(s.r.lng));
+    const stops = versions.map(s => ({ ch: s.startChapter, presence: s.presence || 'alive', r: World.resolve(s.location), snapId: s.id, locked: !!s.locked, objective: s.objective || '' })).filter(s => s.r && ((num(s.r.lat) && num(s.r.lng)) || (num(s.r.u) && num(s.r.v))));
     if (!stops.length) {
       const snap = (c.snapshots || []).find(s => s.id === c.activeSnapshotId) || (c.snapshots || [])[0];
       const r = snap && World.resolve(snap.location);
-      if (r && num(r.lat)) stops.push({ ch: null, presence: snap.presence || 'alive', r, snapId: snap.id, locked: !!snap.locked, objective: snap.objective || '' });
+      if (r && (num(r.lat) || num(r.u))) stops.push({ ch: null, presence: snap.presence || 'alive', r, snapId: snap.id, locked: !!snap.locked, objective: snap.objective || '' });
     }
     return { id: c.id, name: c.name || 'Unnamed', race: c.race || '', color: CHAR_COLORS[i % CHAR_COLORS.length], stops };
   });
@@ -378,7 +378,8 @@ function addMarkers(T, markerScale, parent = root) {
     const cs = charStateAt(c, state.chapter);
     if (!cs) return;
     const r = cs.stop.r, n = stacks[r.key] = (stacks[r.key] || 0) + 1;
-    const at = surface(r.lat, r.lng), dead = cs.stop.presence === 'dead';
+    const at = spotAt(r); if (!at) return;                              // a spot beyond the board shows on the planet only
+    const dead = cs.stop.presence === 'dead';
     const t = dead || !PIN_TEMPLATE ? new THREE.Mesh(dead ? markerGeo.dead : markerGeo.token, mat(c.color, { roughness: 0.35, emissive: c.color, emissiveIntensity: 0.25 })) : makePin(T, c);
     placeOn(t, at, markerScale * (t.userData.isPin ? PIN_LEN : 1.15));
     const side = new THREE.Vector3().crossVectors(at.normal, Math.abs(at.normal.y) > 0.9 ? new THREE.Vector3(1, 0, 0) : UP).normalize();
@@ -406,6 +407,7 @@ function addMarkers(T, markerScale, parent = root) {
     const pts = cs.path.map(s => s.r).filter((q, i, a) => i === 0 || q.key !== a[i - 1].key);
     for (let i = 1; i < pts.length; i++) {
       const curve = arcBetween(pts[i - 1], pts[i]), newest = i === pts.length - 1;
+      if (!curve) continue;                                             // one end is beyond this view
       parent.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 64, (newest ? 0.035 : 0.022) * markerScale, 6, false), new THREE.MeshBasicMaterial({ color: c.color, transparent: true, opacity: newest ? 0.95 : 0.45 })));
       if (newest && !reduceMotion) {
         const spark = new THREE.Mesh(new THREE.SphereGeometry(0.07 * markerScale, 12, 8), new THREE.MeshBasicMaterial({ color: '#fff' }));
@@ -619,7 +621,8 @@ function buildEarth() {
     return { pos: uvToBoard(u, v).setY(top + 0.01), normal: UP.clone() };
   };
   arcBetween = (a, b) => {
-    const p0 = surface(a.lat, a.lng).pos, p1 = surface(b.lat, b.lng).pos;
+    const s0 = spotAt(a), s1 = spotAt(b); if (!s0 || !s1) return null;
+    const p0 = s0.pos, p1 = s1.pos;
     const mid = p0.clone().lerp(p1, 0.5); mid.y = Math.max(p0.y, p1.y) + 0.8 + p0.distanceTo(p1) * 0.2;
     return new THREE.QuadraticBezierCurve3(p0.clone().setY(p0.y + 0.3), mid, p1.clone().setY(p1.y + 0.3));
   };
@@ -791,7 +794,8 @@ function buildPlanet() {
     return { pos: dir.clone().multiplyScalar(PR * 0.995 + hOf(c) + 0.01), normal: dir };
   };
   arcBetween = (a, b) => {
-    const pa = surface(a.lat, a.lng).pos, pb = surface(b.lat, b.lng).pos, pts = [];
+    const s0 = spotAt(a), s1 = spotAt(b); if (!s0 || !s1) return null;
+    const pa = s0.pos, pb = s1.pos, pts = [];
     for (let i = 0; i <= 24; i++) { const t = i / 24; pts.push(pa.clone().lerp(pb, t).normalize().multiplyScalar(PR + 0.12 + Math.sin(Math.PI * t) * pa.distanceTo(pb) * 0.25)); }
     return new THREE.CatmullRomCurve3(pts);
   };
@@ -1393,7 +1397,7 @@ function startEraReturn() {
   state.chars.forEach(c => {
     if (stayInEra0(c)) return;
     const cs = charStateAt(c, state.chapter); if (!cs) return;
-    const [u, v] = eeUV(cs.stop.r.lng, cs.stop.r.lat);
+    const [u, v] = mapUV(cs.stop.r);
     list.push({ id: c.id, delay: Math.min(1, craterDist(u, v) / maxD) * .85, phase: 'wait', t: 0 });
   });
   eraReturn = list.length ? { list, time: 0 } : null;
@@ -1548,7 +1552,18 @@ function uvToLatLng(u, v) {
   // off the island (the open sea of Epitaph): the nearest sensible reading
   return { lat: Math.max(L.latCut, Math.min(89.9, latM)), lng: wrap(Math.max(-180, Math.min(180, lr)) + L.lon0) };
 }
-function latLngAt(p) {
+// Spots beyond Earth (the planet's unmapped lands and seas, the board's open sea) have no lat/lng: they are kept as map uv,
+// which both views can place (the planet anywhere on its sphere, the board inside its rectangle)
+const onEarthUV = (u, v) => u >= 0 && u <= 1 && v >= 0 && v <= 1 && earthAt(u, v, state.era).kind !== 'out';
+const offEarthHeight = () => state.view === 'planet' ? PR * 0.995 + 0.012 : 0.06;
+function mapUV(r) { return num(r.u) && num(r.v) && !num(r.lat) ? [r.u, r.v] : eeUV(r.lng, r.lat); }
+function spotAt(r) {
+  if (!(num(r.u) && num(r.v) && !num(r.lat))) return surface(r.lat, r.lng);
+  if (state.view === 'planet') { const dir = uvToDir(r.u, r.v); return { pos: dir.clone().multiplyScalar(offEarthHeight()), normal: dir }; }
+  if (r.u < 0 || r.u > 1 || r.v < 0 || r.v > 1) return null;              // off the board: only the planet shows it
+  return { pos: uvToBoard(r.u, r.v).setY(offEarthHeight()), normal: UP.clone() };
+}
+function uvAt(p) {
   let u, v;
   if (state.view === 'planet') {
     const dir = p.clone().normalize(), ang = Math.acos(Math.max(-1, Math.min(1, dir.dot(EARTH_DIR))));
@@ -1556,8 +1571,9 @@ function latLngAt(p) {
     const px = sa > 1e-9 ? r * dir.dot(capE1) / sa : 0, py = sa > 1e-9 ? r * dir.dot(capE2) / sa : 0;
     u = (px / EARTH_FIT_X + 1) / 2; v = (py / EARTH_FIT_Y + 1) / 2;
   } else { u = p.x / BW + 0.5; v = -p.z / BH + 0.5; }
-  return uvToLatLng(u, v);
+  return { u, v };
 }
+function latLngAt(p) { const { u, v } = uvAt(p); return uvToLatLng(u, v); }
 function nearestPlace(pos, scale) {
   const planet = state.view === 'planet';
   let best = null, bd = Infinity;
@@ -1583,9 +1599,12 @@ function flyStep(d, dt) {
   const b = d.body, s = d.pin.scale.x, G = 14 * d.scale;
   let { n, h, near } = groundAt(d, b.com);
   if (!(near && near.dist < 2.6 * d.scale)) {                        // away from statue sites: the actual terrain below
-    b.ll = latLngAt(b.com);
-    const g = surface(b.ll.lat, b.ll.lng).pos;
-    h = (state.view === 'planet' ? g.length() : g.y) - 0.01 + 0.04 - 0.08 * d.scale;   // where a resting sword's tip sits
+    const uv = uvAt(b.com);
+    if (onEarthUV(uv.u, uv.v)) {
+      b.ll = uvToLatLng(uv.u, uv.v);
+      const g = surface(b.ll.lat, b.ll.lng).pos;
+      h = (state.view === 'planet' ? g.length() : g.y) - 0.01 + 0.04 - 0.08 * d.scale;   // where a resting sword's tip sits
+    } else h = offEarthHeight() + 0.04 - 0.08 * d.scale;              // beyond Earth: sea level
   }
   const acc = n.clone().multiplyScalar(-G);
   // the magnet: near a statue site the flight bends toward it and slows sideways
@@ -1623,12 +1642,14 @@ function flyStep(d, dt) {
   let land, spot = null;
   if (hitSite) land = hitSite.land.clone();
   else {                                                                // off the statue sites: work out where on the map it is
-    const ground = tip.clone().addScaledVector(n, h - tipH), ll = latLngAt(ground);
-    const at = surface(ll.lat, ll.lng);
+    const ground = tip.clone().addScaledVector(n, h - tipH), uv = uvAt(ground);
     land = ground;                                                    // stays exactly where it hit
-    const near = nearestPlace(at.pos, d.scale);
-    spot = near ? { status: 'enroute', lat: +ll.lat.toFixed(3), lng: +ll.lng.toFixed(3), toPlaceId: near.id, countryId: near.countryId || null, placeId: null }
-                : { status: 'unknown', lat: +ll.lat.toFixed(3), lng: +ll.lng.toFixed(3), placeId: null };
+    if (!onEarthUV(uv.u, uv.v)) spot = { status: 'unknown', u: +uv.u.toFixed(5), v: +uv.v.toFixed(5), placeId: null };   // beyond Earth
+    else {
+      const ll = uvToLatLng(uv.u, uv.v), at = surface(ll.lat, ll.lng), near = nearestPlace(at.pos, d.scale);
+      spot = near ? { status: 'enroute', lat: +ll.lat.toFixed(3), lng: +ll.lng.toFixed(3), toPlaceId: near.id, countryId: near.countryId || null, placeId: null }
+                  : { status: 'unknown', lat: +ll.lat.toFixed(3), lng: +ll.lng.toFixed(3), placeId: null };
+    }
   }
   d.stick = { from: tip.clone(), land, n: hitSite ? hitSite.at.normal.clone() : n, q: b.q.clone(), t: 0, site: hitSite, spinAxis: tmpA.crossVectors(n, up2).lengthSq() > 1e-6 ? tmpA.clone().normalize() : new THREE.Vector3(1, 0, 0), hard: Math.min(1, speed / (10 * d.scale)) };
   d.phase = 'stab'; d.t = 0;
@@ -1650,7 +1671,12 @@ function stuckStep(d, dt) {
 function regionAt(r) {
   const site = r.place ? siteOf(r.place) : null;
   if (site) return { region: 'site', site };
-  const [u, v] = eeUV(r.lng, r.lat), here = earthAt(u, v, 1);
+  const [u, v] = mapUV(r);
+  if (!(u >= 0 && u <= 1 && v >= 0 && v <= 1)) {                      // beyond Earth on the planet: unmapped land, or the open sea
+    const dir = uvToDir(u, v), land = fbm(dir.x * 1.4 + 3, dir.y * 1.4 + dir.z * 0.9) > 0.08;
+    return { region: land ? 'plains' : (r.status === 'enroute' ? 'boat' : 'underwater') };
+  }
+  const here = earthAt(u, v, 1);
   const enroute = r.kind === 'point' && r.status === 'enroute';
   if (here.kind === 'pit') return { region: 'pit' };
   if (here.kind === 'rim') return { region: 'rim' };
