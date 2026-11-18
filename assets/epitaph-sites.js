@@ -170,6 +170,7 @@
   function placeRevealChapter(rec) {
     if (!rec) return null;
     if (rec.open) return 0;
+    if (rec.revealedIn !== undefined) return rec.revealedIn;   // a published snapshot already carries the answer
     const t = TL(); if (!t) return 0;
     const W = global.EpitaphWorld, p = W && W.place(rec.placeId), full = p ? p.name : rec.placeId;
     let best = t.firstChapter('world', [full, full.split(/\s+[—–-]\s+/).pop(), rec.placeId]);

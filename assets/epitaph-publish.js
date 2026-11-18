@@ -158,6 +158,7 @@
       }).map(e => {
         const refs = (e.refs || []).filter(r => /^place:/.test(r) ? !hiddenPlace(String(r).replace(/^place:/, '')) : /^char:/.test(r) ? !!charRef(r) : false);
         const out = { id: e.id, title: e.title, kind: e.kind, order: e.order, when: clone(e.when), refs };
+        if (e.open) out.open = true;
         if (e.secret) out.secret = true;
         if (e.revealedAt != null) out.revealedAt = e.revealedAt;
         return out;
@@ -183,7 +184,7 @@
       sites.forEach(s => { s.alliances = s.alliances.filter(a => !hiddenPlace(String(a.with).replace(/^place:/, ''))); });
 
       const data = { schemaVersion: SCHEMA, publishedThrough: N, builtAt: now,
-        dossier: { characters: dossierChars, chapters }, library: { countries, places, items }, timeline, sites };
+        dossier: { schemaVersion: state.schemaVersion, characters: dossierChars, chapters }, library: { version: lib.version, countries, places, items }, timeline, sites };
 
       report.counts = { characters: dossierChars.length, versions: dossierChars.reduce((n, c) => n + c.snapshots.length, 0), chapters: chapters.length, items: items.length, places: places.length, events: timeline.length, sites: sites.length };
       report.held = { charactersNotIntroduced: hiddenChars.map(c => c.name || 'Unnamed'),
