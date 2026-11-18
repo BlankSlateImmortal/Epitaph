@@ -18,8 +18,8 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { loadPins, buildPin, designFor } from './pins/pins.js?v=10';
-import { buildStone, slotLocal } from './stones.js?v=1';
-import { openCloseup, isOpen as closeupOpen } from './closeup.js?v=11';
+import { buildStone, buildScabbard, slotLocal } from './stones.js?v=2';
+import { openCloseup, isOpen as closeupOpen } from './closeup.js?v=12';
 
 const World = window.EpitaphWorld;
 const $ = id => document.getElementById(id);
@@ -318,7 +318,9 @@ const markerGeo = {};
   markerGeo.dead = mergeGeometries([new THREE.BoxGeometry(0.06, 0.4, 0.06).translate(0, 0.2, 0).toNonIndexed(), new THREE.BoxGeometry(0.24, 0.06, 0.06).translate(0, 0.29, 0).toNonIndexed()]);
 })();
 // ---------- settlement stones (assets/atlas3d/stones.js): an engraved standing stone on a plinth with sword slots
-const STONE_S = 1.25;                           // stone size in marker units (about 0.8 tall)
+const STONE_S = 0.85;                           // grave size in marker units (about 0.5 tall)
+const sheathed = new Set();                     // 'charId|placeKey' whose scabbard has already risen (it rises once per arrival)
+const stonePal = T => ({ land: T.land, landHi: T.landHi, rock: T.rock, ink: T.ink, glow: T.glow });
 const PIN_GAP = 0.46;                           // how far a sword stands from a plain place's marker
 let stones = {};                                // placeId → { g, scale, taken: Map(charId → slot) } for the current markers
 const stoneKind = p => (p.group === 'STORYBORN' || (p.fictional && !p.group)) ? 'storyborn' : p.group === 'VOIDED' ? 'voided' : p.group === 'FALLEN' ? 'fallen' : null;
@@ -351,7 +353,7 @@ function addMarkers(T, markerScale, parent = root) {
     const at = surface(p.lat - (n - 1) * spread * 0.55, p.lng + (n - 1) * spread);
     const flat = geo => geo.rotateX(-Math.PI / 2);
     if (statue) {
-      const c = T.groups[statue.toUpperCase()] || T.groups.OTHER, st = buildStone(statue, c);
+      const c = T.groups[statue.toUpperCase()] || T.groups.OTHER, st = buildStone(statue, c, stonePal(T));
       const g = st.group; placeOn(g, at, markerScale * STONE_S); g.userData.place = p;
       st.hit.userData.place = p; st.hit.userData.sunk = false; pickables.push(st.hit);
       st.parts.forEach(m => { if (!m.material.isMeshBasicMaterial) withOutline(m, T); });
@@ -392,6 +394,17 @@ function addMarkers(T, markerScale, parent = root) {
     if (st && t.userData.isPin) {                                      // in the stone's sword slots, upright
       if (!st.taken.has(c.id)) st.taken.set(c.id, freeSlot(st, c.id));
       t.position.copy(slotPos(st, st.taken.get(c.id))); t.quaternion.copy(st.g.quaternion);
+      // its scabbard rises out of the plinth when it arrives, and sinks while the sword is carried away
+      const sc = buildScabbard(c.color, stonePal(T)); withOutline(sc, T);
+      sc.position.copy(t.position); sc.quaternion.copy(t.quaternion); sc.scale.copy(t.scale); parent.add(sc);
+      const tag = c.id + '|' + r.key, nrm = at.normal.clone(), base = t.position.clone(), depth = .55 * t.scale.x;
+      let up = sheathed.has(tag) || reduceMotion ? 1 : 0; sheathed.add(tag);
+      markerAnim.push((time, dt) => {
+        const want = drag.active && drag.active.pin === t && drag.active.verdict.ok ? 0 : 1;
+        up += (want - up) * (1 - Math.exp(-(want ? 3 : 9) * (dt || .016)));
+        const e = up * up * (3 - 2 * up);
+        sc.visible = e > .02; sc.position.copy(base).addScaledVector(nrm, -depth * (1 - e));
+      });
     } else t.position.addScaledVector(side, Math.cos(ang) * rad).addScaledVector(fwd, Math.sin(ang) * rad).addScaledVector(at.normal, 0.04);
     t.castShadow = true; t.userData.char = c; t.userData.charState = cs;
     if (t.userData.isPin) {

@@ -13,7 +13,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { loadPins, buildPin, designFor, DESIGN_LABEL, patch } from './pins/pins.js?v=10';
-import { buildStone, slotLocal } from './stones.js?v=1';
+import { buildStone, slotLocal } from './stones.js?v=2';
 
 export const REGION_LABEL = {
   plains: 'Plains', hills: 'Hills', mountains: 'Mountains', ice: 'Snowfield', rim: 'Impact mountains', pit: 'The crater',
@@ -328,8 +328,8 @@ export async function openCloseup({ mount, char, chars, region, theme = 'crt', w
 
   // the swords: alone, the clicked one stands in the middle; with company, the others ring it; at a settlement, all ring its statue
   const at = out.at || [0, 0], gy = out.ground ?? 0, parent = out.parent || scene;
-  let stone = null; const STONE = 2.4;                           // the stone, about 1.6 tall: the swords stand in its slots
-  if (statue) { stone = buildStone(statue, statueColor).group; stone.scale.setScalar(STONE); stone.position.set(at[0], gy, at[1]); stone.rotation.y = .3; parent.add(stone); }
+  let stone = null; const STONE = 1.9;                           // the grave, about 1.1 tall: the swords stand bare in front of it
+  if (statue) { stone = buildStone(statue, statueColor, { land: P.earth, landHi: P.sand, rock: P.rock, ink: P.wood2, glow: P.glow }).group; stone.scale.setScalar(STONE); stone.position.set(at[0], gy, at[1]); stone.rotation.y = .3; parent.add(stone); }
   const ringR = .55, pins = [];
   chars.forEach((c, i) => {
     const pin = buildPin(designFor(c), { ring: c.color });
