@@ -327,7 +327,43 @@ const DESIGNS = {
     const g = new Group();
     const a = base(mats, 'serpent_a', true).root; a.position.x = -.06; a.rotation.z = -.08; g.add(a);
     const b = base(mats, 'serpent_b', true).root; b.position.x = .07; b.rotation.set(0, .5, .1); g.add(b);
-    return { root: g, read: READ, void: VOID, height: topOf(g) };
+    const height = topOf(g);
+    // the coil: held (setFree(true)), the two blades part and spiral round each other like two snakes; fast moves widen the coil
+    // and they trail behind the motion. Set down, the first straightens into place, then the second drops in beside it a beat later.
+    const blades = [a, b].map(o => ({ o, rest: { pos: o.position.clone(), quat: o.quaternion.clone() } }));
+    const pos = new THREE.Vector3(), quat = new THREE.Quaternion(), wp = new THREE.Vector3(), prev = new THREE.Vector3(), vel = new THREE.Vector3(), lv = new THREE.Vector3(), gq = new THREE.Quaternion();
+    let free = false, last = null, coil = 0, released = -1, speed = 0, ready = false;
+    const smooth = x => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };
+    function coilPose(i, t, out) {
+      const phi = t * 1.8 + i * Math.PI, r = .09 + speed * .1;
+      out.pos.set(Math.cos(phi) * r, .05 + Math.sin(phi * 2 + i) * .04, Math.sin(phi) * r).addScaledVector(lv, -(.4 + .5 * i) * Math.min(1, speed));
+      out.quat.setFromEuler(new THREE.Euler(Math.sin(phi) * .3, -phi + Math.PI / 2, (i ? 1 : -1) * (.22 + .15 * Math.sin(phi * 2))));
+      return out;
+    }
+    const pose = { pos: new THREE.Vector3(), quat: new THREE.Quaternion() };
+    return { root: g, read: READ, void: VOID, height, setFree: v => { if (free && !v) released = last ?? 0; free = !!v; },
+      update: t => {
+        const dt = Math.min(1 / 30, Math.max(0, t - (last ?? t))); last = t;
+        g.updateWorldMatrix(true, false); g.getWorldPosition(wp);
+        if (!ready) { prev.copy(wp); ready = true; }
+        if (dt > 0) {                                                  // how fast the sword is moving, in its own frame
+          vel.subVectors(wp, prev).divideScalar(dt); prev.copy(wp);
+          const sc = new THREE.Vector3().setFromMatrixScale(g.matrixWorld).x || 1;
+          g.getWorldQuaternion(gq); lv.copy(vel).divideScalar(sc).applyQuaternion(gq.invert()).setY(0);
+          const sp = lv.length(); if (sp > 1e-5) lv.divideScalar(sp); speed += (Math.min(1, sp / 6) - speed) * (1 - Math.exp(-6 * dt));
+        }
+        coil += ((free ? 1 : 0) - coil) * (1 - Math.exp(-(free ? 5 : 0) * dt));
+        blades.forEach((bl, i) => {
+          let k;                                                       // 1 = coiled, 0 = standing at rest
+          if (free) k = coil;
+          else if (released >= 0) k = 1 - smooth((t - released - i * .22) / .22);   // the second lands a beat after the first
+          else k = 0;
+          coilPose(i, t, pose);
+          bl.o.position.copy(bl.rest.pos).lerp(pose.pos, k); bl.o.quaternion.copy(bl.rest.quat).slerp(pose.quat, k);
+          if (!free && released >= 0 && k > 0) bl.o.position.y += .12 * k * k;     // dropping in from just above
+        });
+        if (!free && released >= 0 && t - released > .7) { released = -1; coil = 0; }
+      } };
   },
 
   // Grisha: Chaos, the Last Primordial. His katana: a long curved blade of red that churns like moving marble, a guard of black
