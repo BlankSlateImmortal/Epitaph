@@ -400,6 +400,7 @@ function addMarkers(T, markerScale, parent = root) {
       if (!reduceMotion && !dead) markerAnim.push(time => { t.position.copy(base).addScaledVector(at.normal, Math.sin(time * 2 + n) * 0.03 * markerScale); });
     }
     parent.add(t);
+    t.userData.rest = { pos: t.position.clone(), quat: t.quaternion.clone() };
     const where = r.kind === 'point' ? (r.to ? ' → ' + r.to.name : ' · ?') : '';
     labels.push({ obj: t, text: (dead ? '† ' : '') + c.name + where, color: c.color, offset: (t.userData.isPin ? 0.86 : 0.62) * markerScale, normal: at.normal, marker: true });
     const pts = cs.path.map(s => s.r).filter((q, i, a) => i === 0 || q.key !== a[i - 1].key);
@@ -501,7 +502,7 @@ function buildEarth() {
     index[j * NX + i] = cells.length;
     cells.push({ x: (u - 0.5) * BW, z: -(v - 0.5) * BH, c: [c0, c1], d: craterDist(u, v), state: -1 });
   }
-  const maxD = Math.max(...cells.map(c => c.d));
+  const maxD = Math.max(...cells.map(c => c.d)); state.waveMaxD = maxD;
   cells.forEach(c => { c.delay = Math.min(1, c.d / maxD) * 0.85; });
 
   const boxGeo = new THREE.BoxGeometry(cell * 0.96, 1, cell * 0.96).translate(0, 0.5, 0);
@@ -713,7 +714,7 @@ function buildPlanet() {
     });
     return { cols: list, flush: () => { cols.instanceMatrix.needsUpdate = true; } };
   };
-  const maxD = Math.max(...earthCells.map(c => c.d));
+  const maxD = Math.max(...earthCells.map(c => c.d)); state.waveMaxD = maxD;
   eraHooks.push((eraT, target) => {
     let changed = false;
     earthCells.forEach((cl, i) => {
@@ -1064,11 +1065,12 @@ function setEra(era) {
 }
 function applyEra(era) {
   if (state.era === era) return;
-  if (era === 0) vanishPins();
+  if (era === 0) { eraReturn = null; vanishPins(); }
   state.era = era; remember();
   document.querySelectorAll('[data-era]').forEach(x => x.classList.toggle('on', +x.dataset.era === era));
   eraBusy = true;            // markers are rebuilt once the wave has finished
   renderLore(); renderKeys(); setChapterUI(); renderLegend();
+  if (era === 1 && !reduceMotion && markerRoot) { refreshMarkers(); startEraReturn(); }   // swords wait underground for the wave
   if (reduceMotion) { state.eraT = era; rebuildKeepCamera(); eraBusy = false; }
 }
 
@@ -1382,10 +1384,65 @@ function poseAt(d, gripPos, n, tilt, extraYaw = 0) {
   const s = d.pin.scale.x;
   d.pin.position.copy(gripPos).sub(tmpB.set(0, 0.8 * s, 0).applyQuaternion(d.pin.quaternion));
 }
+// ---- back to Era 1: as the era wave passes each sword's place it rises slowly out of the ground into the air; once the wave
+// is done and every sword is up, they all drop together. ERA_RETURN = 'staggered' drops each as soon as it is up instead.
+const ERA_RETURN = 'together';
+let eraReturn = null;
+function startEraReturn() {
+  const maxD = state.waveMaxD || 1, list = [];
+  state.chars.forEach(c => {
+    if (stayInEra0(c)) return;
+    const cs = charStateAt(c, state.chapter); if (!cs) return;
+    const [u, v] = eeUV(cs.stop.r.lng, cs.stop.r.lat);
+    list.push({ id: c.id, delay: Math.min(1, craterDist(u, v) / maxD) * .85, phase: 'wait', t: 0 });
+  });
+  eraReturn = list.length ? { list, time: 0 } : null;
+}
+function stepEraReturn(dt) {
+  const R = eraReturn; if (!R) return;
+  R.time += dt;
+  let allUp = true, allDone = true;
+  R.list.forEach(e => {
+    const h = pickables.find(p => p.userData.pin && p.userData.char && p.userData.char.id === e.id);
+    if (!h) { if (e.phase !== 'done') allDone = false; return; }
+    const pin = h.userData.pin, rest = pin.userData.rest, sc = h.userData.scale;
+    const n = state.view === 'planet' ? rest.pos.clone().normalize() : UP.clone(), L = pin.scale.x * 1.15, hover = .9 * sc;
+    if (e.phase !== 'done') pin.userData.travelling = true;
+    if (e.phase === 'wait') {
+      pin.visible = false;
+      if (state.eraT >= e.delay - 1e-3) { e.phase = 'rise'; e.t = 0; pin.visible = true; burst(rest.pos, n, sc, false); pin.userData.built?.setFree(true); }
+    }
+    if (e.phase === 'rise') {                                         // slowly up out of the ground, a little twist as it comes
+      e.t += dt; const k = Math.min(1, e.t / 1.5), ek = 1 - Math.pow(1 - k, 3);
+      pin.position.copy(rest.pos).addScaledVector(n, -L + (L + hover) * ek); pin.quaternion.copy(rest.quat); pin.rotateOnAxis(UP, (1 - ek) * 2.5);
+      if (k >= 1) { e.phase = 'hover'; e.t = 0; }
+    }
+    if (e.phase === 'hover') {                                        // waiting in the air, a gentle bob
+      e.t += dt; pin.position.copy(rest.pos).addScaledVector(n, hover + Math.sin(R.time * 2 + e.delay * 9) * .03 * sc); pin.quaternion.copy(rest.quat);
+      if (ERA_RETURN === 'staggered' && e.t > .3) { e.phase = 'drop'; e.t = 0; }
+    }
+    if (e.phase === 'drop') {                                         // point-first into its place
+      e.t += dt; const k = Math.min(1, e.t / .28);
+      pin.position.copy(rest.pos).addScaledVector(n, hover * (1 - k * k)); pin.quaternion.copy(rest.quat);
+      if (k >= 1) { e.phase = 'settle'; e.t = 0; burst(rest.pos, n, sc, true); impact(rest.pos, n, null, .35, sc); pin.userData.built?.setFree(false); }
+    }
+    if (e.phase === 'settle') {
+      e.t += dt; const sd = Math.exp(-6 * e.t);
+      pin.position.copy(rest.pos).addScaledVector(n, -.05 * sc * sd);
+      pin.quaternion.copy(rest.quat).premultiply(qTilt.setFromAxisAngle(tangents(n)[0], Math.sin(e.t * 24) * .14 * sd));
+      if (e.t > .6) { e.phase = 'done'; pin.position.copy(rest.pos); pin.quaternion.copy(rest.quat); pin.userData.travelling = false; }
+    }
+    if (e.phase === 'wait' || e.phase === 'rise') allUp = false;
+    if (e.phase !== 'done') allDone = false;
+  });
+  if (ERA_RETURN === 'together' && allUp && state.eraT >= 1) R.list.forEach(e => { if (e.phase === 'hover') { e.phase = 'drop'; e.t = 0; } });
+  if (allDone) eraReturn = null;
+}
 function updatePins(dt, time) {
   for (let i = fx.length - 1; i >= 0; i--) { const f = fx[i]; f.t += dt; if (f.t >= f.life) { f.end(); fx.splice(i, 1); } else f.step(f.t, dt); }
   for (let i = travels.length - 1; i >= 0; i--) if (travels[i].step(dt)) travels.splice(i, 1);
   for (let i = quakes.length - 1; i >= 0; i--) if (quakes[i].step(dt)) quakes.splice(i, 1);
+  stepEraReturn(dt);
   const d = drag.active; if (!d) return;
   d.t += dt;
   const s = d.pin.scale.x, lift = 0.9 * d.scale;
@@ -1756,7 +1813,7 @@ renderer.setAnimationLoop(() => {
     eraHooks.forEach(f => f(state.era === 1 ? prog : 1 - prog, state.era));
     if (state.eraT === state.era && eraBusy) {
       eraBusy = false; const before = pinPositions(); rebuildKeepCamera();
-      if (state.era === 1 && !reduceMotion) flyToChapter(before);        // back in Era 1, the swords drop back in (Vale's stays)
+      if (state.era === 1 && !reduceMotion && !eraReturn) flyToChapter(before);   // (the wave return handles the swords when it's running)
     }
   }
   stepViewFx(dt);
