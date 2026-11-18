@@ -1947,7 +1947,7 @@ async function start() {
   $('boot').hidden = true;
   // deep links (formerly the 2D Atlas): ?item=<id> opens it in the Library; ?char=<id>[&ch=<n>] opens their record there
   const itemId = q.get('item');
-  if (itemId && LibUI && window.EpitaphLibrary && EpitaphLibrary.item(itemId)) LibUI.open('items', { mode: 'itemDetail', id: itemId });
+  if (itemId && LibUI && window.EpitaphLibrary && EpitaphLibrary.item(itemId) && !(window.EpitaphMode && !EpitaphMode.canEdit())) LibUI.open('items', { mode: 'itemDetail', id: itemId });
   const placeId = q.get('place');                 // ?place=<id> (EpitaphLinks): fly to that place
   if (placeId && World.place(placeId)) {
     const go = () => { const m = pickables.find(p => p.userData.place && p.userData.place.id === placeId); if (m) focusOn(m, 3.2); };

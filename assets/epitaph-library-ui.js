@@ -129,6 +129,7 @@ let libReturn = null;             // where the country form goes back to
 
 const libBody = () => document.getElementById('libBody');
 function openLibrary(tab, view){
+  if (window.EpitaphMode && !EpitaphMode.canEdit()) return;    // the drawer is an editor: readers (and the author's preview) never open it
   if(tab) libTab = tab;
   libView = view || { mode: 'list' };
   const d = document.getElementById('libDrawer');

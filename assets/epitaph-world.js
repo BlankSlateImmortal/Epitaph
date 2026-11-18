@@ -193,7 +193,10 @@ const ERA_1_SPECIAL_SITES = [
   }
   const continents = () => BUILTIN_CONTINENTS;
   const countries = () => BUILTIN_COUNTRIES.concat(extras().countries);
-  const places = () => BUILTIN_PLACES.concat(extras().places);
+  // A reader's browser may set window.EpitaphWorldGate (assets/epitaph-reader-data.js): a function that says whether a place is visible
+  // yet. Story places (fictional cities, special sites) a reader hasn't reached are then not listed anywhere: not on the map, not in
+  // lookups. The author's browser has no gate.
+  const places = () => { const all = BUILTIN_PLACES.concat(extras().places), g = global.EpitaphWorldGate; return typeof g === 'function' ? all.filter(p => g(p)) : all; };
   const continent = id => BUILTIN_CONTINENTS.find(c => c.id === id) || null;
   const country = id => (id && countries().find(c => c.id === id)) || null;
   const place = id => (id && places().find(p => p.id === id)) || null;

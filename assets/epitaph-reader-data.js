@@ -59,5 +59,15 @@
   try {
     Object.defineProperty(global, 'localStorage', { configurable: true, get: () => shim });
   } catch (e) { /* storage layer could not be replaced: the page falls back to the reader's own (empty) storage */ }
+  // Story places stay off the map until a chapter has revealed them (the author's rule). Real cities and the author's own places are public.
+  // world.js asks this for every place; the records come from the snapshot, where only reached places have one.
+  let siteRecs = null;
+  global.EpitaphWorldGate = p => {
+    if (!p || !(p.fictional || p.group)) return true;
+    const S = global.EpitaphSites; if (!S) return false;
+    if (!siteRecs) { try { siteRecs = new Map(S.load().map(r => [r.placeId, r])); } catch (e) { return false; } }
+    const rec = siteRecs.get(p.id);
+    return !!rec && S.placeReached(rec);
+  };
   global.EpitaphReaderData = { snapshot: snap, publishedThrough: snap.publishedThrough == null ? null : snap.publishedThrough };
 })(typeof window !== 'undefined' ? window : globalThis);
