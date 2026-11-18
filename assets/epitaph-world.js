@@ -20,8 +20,7 @@
 const SPECIAL_SITE_TYPES = [
   { id: 'VOIDED', label: 'Voided' },
   { id: 'STORYBORN', label: 'Storyborn' },
-  { id: 'ANGEL', label: 'Angel' },
-  { id: 'DEMON', label: 'Demon' },
+  { id: 'FALLEN', label: 'Fallen' },
   { id: 'OTHER', label: 'Other' }
 ];
 
@@ -79,7 +78,6 @@ const ERA_0_CITIES = [
   { id: 'miami', name: 'Miami', countryId: 'united-states', lat: 25.76, lng: -80.19 },
   { id: 'san-francisco', name: 'San Francisco', countryId: 'united-states', lat: 37.77, lng: -122.42 },
   { id: 'aurelia', name: 'Aurelia', countryId: 'united-states', lat: 39.5, lng: -98.0, fictional: true },
-  { id: 'helios-7', name: 'Helios-7', countryId: 'united-states', lat: 34.0, lng: -117.0, fictional: true },
 
   { id: 'toronto', name: 'Toronto', countryId: 'canada', lat: 43.65, lng: -79.38 },
   { id: 'vancouver', name: 'Vancouver', countryId: 'canada', lat: 49.28, lng: -123.12 },
@@ -90,7 +88,6 @@ const ERA_0_CITIES = [
 
   { id: 'sao-paulo', name: 'São Paulo', countryId: 'brazil', lat: -23.55, lng: -46.63 },
   { id: 'rio-de-janeiro', name: 'Rio de Janeiro', countryId: 'brazil', lat: -22.91, lng: -43.17 },
-  { id: 'solstice', name: 'Solstice', countryId: 'brazil', lat: -15.0, lng: -47.0, fictional: true },
   { id: 'verdant-reach', name: 'Verdant Reach', countryId: 'brazil', lat: -10.0, lng: -55.0, fictional: true },
 
   { id: 'buenos-aires', name: 'Buenos Aires', countryId: 'argentina', lat: -34.60, lng: -58.38 },
@@ -98,44 +95,34 @@ const ERA_0_CITIES = [
 
   { id: 'london', name: 'London', countryId: 'united-kingdom', lat: 51.51, lng: -0.13 },
   { id: 'manchester', name: 'Manchester', countryId: 'united-kingdom', lat: 53.48, lng: -2.24 },
-  { id: 'lumendock', name: 'Lumendock', countryId: 'united-kingdom', lat: 55.0, lng: -3.0, fictional: true },
 
   { id: 'paris', name: 'Paris', countryId: 'france', lat: 48.86, lng: 2.35 },
   { id: 'lyon', name: 'Lyon', countryId: 'france', lat: 45.76, lng: 4.84 },
 
   { id: 'berlin', name: 'Berlin', countryId: 'germany', lat: 52.52, lng: 13.40 },
   { id: 'munich', name: 'Munich', countryId: 'germany', lat: 48.14, lng: 11.58 },
-  { id: 'nexus', name: 'Nexus', countryId: 'germany', lat: 50.0, lng: 10.0, fictional: true },
-  { id: 'ferrum', name: 'Ferrum', countryId: 'germany', lat: 51.0, lng: 9.0, fictional: true },
 
   { id: 'cairo', name: 'Cairo', countryId: 'egypt', lat: 30.04, lng: 31.24 },
   { id: 'lagos', name: 'Lagos', countryId: 'nigeria', lat: 6.52, lng: 3.38 },
 
   { id: 'johannesburg', name: 'Johannesburg', countryId: 'south-africa', lat: -26.20, lng: 28.05 },
   { id: 'cape-town', name: 'Cape Town', countryId: 'south-africa', lat: -33.92, lng: 18.42 },
-  { id: 'meridian-hold', name: 'Meridian Hold', countryId: 'south-africa', lat: -29.0, lng: 25.0, fictional: true },
-  { id: 'sunspire', name: 'Sunspire', countryId: 'south-africa', lat: -24.0, lng: 22.0, fictional: true },
 
   { id: 'nairobi', name: 'Nairobi', countryId: 'kenya', lat: -1.29, lng: 36.82 },
 
   { id: 'tokyo', name: 'Tokyo', countryId: 'japan', lat: 35.68, lng: 139.65 },
   { id: 'osaka', name: 'Osaka', countryId: 'japan', lat: 34.69, lng: 135.50 },
-  { id: 'helix-prime', name: 'Helix Prime', countryId: 'japan', lat: 36.0, lng: 138.0, fictional: true },
-  { id: 'orbital-down', name: 'Orbital Down', countryId: 'japan', lat: 35.0, lng: 136.0, fictional: true },
 
   { id: 'beijing', name: 'Beijing', countryId: 'china', lat: 39.90, lng: 116.41 },
   { id: 'shanghai', name: 'Shanghai', countryId: 'china', lat: 31.23, lng: 121.47 },
-  { id: 'tideworks', name: 'Tideworks', countryId: 'china', lat: 30.0, lng: 123.0, fictional: true },
 
   { id: 'mumbai', name: 'Mumbai', countryId: 'india', lat: 19.08, lng: 72.88 },
   { id: 'new-delhi', name: 'New Delhi', countryId: 'india', lat: 28.61, lng: 77.21 },
 
   { id: 'seoul', name: 'Seoul', countryId: 'south-korea', lat: 37.57, lng: 126.98 },
-  { id: 'redline', name: 'Redline', countryId: 'south-korea', lat: 36.5, lng: 127.5, fictional: true },
 
   { id: 'sydney', name: 'Sydney', countryId: 'australia', lat: -33.87, lng: 151.21 },
   { id: 'melbourne', name: 'Melbourne', countryId: 'australia', lat: -37.81, lng: 144.96 },
-  { id: 'farsight', name: 'Farsight', countryId: 'australia', lat: -25.0, lng: 133.0, fictional: true },
 
   { id: 'auckland', name: 'Auckland', countryId: 'new-zealand', lat: -36.85, lng: 174.76 },
 
@@ -151,21 +138,19 @@ const ERA_1_SPECIAL_SITES = [
     continentId: 'asia', countryId: 'japan', cityId: 'tokyo', lat: 35.68, lng: 139.65, status: 'UNKNOWN' },
   { id: 'storyborn-settlement-001', type: 'STORYBORN', name: 'Storyborn Settlement — Verdant Reach',
     continentId: 'south-america', countryId: 'brazil', cityId: 'verdant-reach', lat: -10.0, lng: -55.0, status: 'UNKNOWN' },
-  { id: 'angel-settlement-001', type: 'ANGEL', name: 'Angel Settlement — Lumendock',
-    continentId: 'europe', countryId: 'united-kingdom', cityId: 'lumendock', lat: 55.0, lng: -3.0, status: 'UNKNOWN' },
-  { id: 'demon-settlement-001', type: 'DEMON', name: 'Demon Settlement — Sunspire',
-    continentId: 'africa', countryId: 'south-africa', cityId: 'sunspire', lat: -24.0, lng: 22.0, status: 'UNKNOWN' }
+  { id: 'fallen-site-001', type: 'FALLEN', name: 'Fallen Site — The Forgotten Grove',
+    continentId: 'north-america', countryId: 'united-states', cityId: null, lat: 38.74, lng: -104.85, status: 'UNKNOWN' }
 ];
 
   const KINDS = ['city', 'ruin', 'temple', 'settlement', 'other'];
   const KIND_LABEL = { city: 'City', ruin: 'Ruin', temple: 'Temple', settlement: 'Settlement', other: 'Other' };
-  const siteKind = s => /temple|church/i.test(s.name) ? 'temple' : /settlement/i.test(s.name) ? 'settlement' : /ruin/i.test(s.name) ? 'ruin' : 'other';
+  const siteKind = s => /fallen site/i.test(s.name) ? 'settlement' : /temple|church/i.test(s.name) ? 'temple' : /settlement/i.test(s.name) ? 'settlement' : /ruin/i.test(s.name) ? 'ruin' : 'other';
 
   const BUILTIN_CONTINENTS = ERA_0_CONTINENTS.map(c => ({ ...c }));
   const continentOf = countryId => (ERA_0_COUNTRIES.find(c => c.id === countryId) || {}).continentId || null;
   const BUILTIN_COUNTRIES = ERA_0_COUNTRIES.map(c => ({ ...c, builtIn: true }));
   const BUILTIN_PLACES = ERA_0_CITIES.map(c => ({
-    ...c, continentId: continentOf(c.countryId), kind: 'city', eras: ['ERA_0', 'ERA_1'], builtIn: true
+    ...c, continentId: continentOf(c.countryId), kind: c.fictional ? 'settlement' : 'city', eras: c.fictional ? ['ERA_1'] : ['ERA_0', 'ERA_1'], builtIn: true
   })).concat(ERA_1_SPECIAL_SITES.map(s => ({
     id: s.id, name: s.name, countryId: s.countryId, continentId: s.continentId || continentOf(s.countryId),
     kind: siteKind(s), lat: s.lat, lng: s.lng, eras: ['ERA_1'], cityId: s.cityId || null,
