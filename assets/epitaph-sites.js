@@ -142,10 +142,10 @@
   const TL = () => global.EpitaphTimeline || null;
   /** Is an event id (or null = "since before the story") reached by a reader on `chapter`? */
   function reached(eventId, chapter) {
-    if (eventId == null) return true;
+    if (eventId == null) return true;                 // "since before the story": shown as soon as the place itself is
     const t = TL(); if (!t) return true;
     const e = t.byId(eventId);
-    return e ? t.isRevealed(e, chapter) : true;
+    return e ? t.isRevealed(e, chapter) : false;      // an id the timeline doesn't have reveals nothing (Checks flags it)
   }
   /** The place's state a reader on `chapter` sees: the last state whose start they've reached. */
   function stateAt(rec, chapter) {
@@ -164,7 +164,30 @@
     return out;
   }
   /** Has a reader on `chapter` reached this place? Its first state must have started; an entry with no states is hidden. */
-  function placeReached(rec, chapter) { return !!(rec && rec.states.length && reached(rec.states[0].from, chapter)); }
+  /** The chapter that reveals a place to readers (the author's rule): 0 if the entry is `open`; else the first published chapter
+   *  that names it in its `world:` list, or that reveals a timeline moment linked to it (`place:<id>` in the moment's refs).
+   *  null = no chapter has brought it up yet. */
+  function placeRevealChapter(rec) {
+    if (!rec) return null;
+    if (rec.open) return 0;
+    const t = TL(); if (!t) return 0;
+    const W = global.EpitaphWorld, p = W && W.place(rec.placeId), full = p ? p.name : rec.placeId;
+    let best = t.firstChapter('world', [full, full.split(/\s+[—–-]\s+/).pop(), rec.placeId]);
+    t.load().forEach(e => {
+      if (!(e.refs || []).includes('place:' + rec.placeId)) return;
+      const rc = t.revealChapter(e);
+      if (rc != null && (best == null || rc < best)) best = rc;
+    });
+    return best;
+  }
+  /** Has a reader on `chapter` read the chapter that reveals this place? */
+  function placeReached(rec, chapter) {
+    const rc = placeRevealChapter(rec);
+    if (rc == null) return false;
+    if (rc === 0) return true;
+    const t = TL(), r = chapter === undefined ? t.readerChapter() : chapter, at = r == null ? t.latestChapter() : r;
+    return at != null && at >= rc;
+  }
   /** Names a reader on `chapter` mustn't see yet: every unreached entry's place name, and its short form ("The Hollow Reach"). */
   function hiddenNames(chapter, list) {
     const W = global.EpitaphWorld, out = [];
@@ -202,6 +225,6 @@
 
   global.EpitaphSites = {
     KEY, VERSION, STATUS, SCALES, FORMS, ALLIANCE_KINDS, BEAST_RELATIONS, RESOURCE_CATEGORIES, RESOURCE_ROLES, FOUNDING_STAGES, TABS, DEFAULTS,
-    alliancesAt, placeReached, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, mergeData, empty, normalise, reached, stateAt, alliancesOf, label, step
+    alliancesAt, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, mergeData, empty, normalise, reached, stateAt, alliancesOf, label, step
   };
 })(typeof window !== 'undefined' ? window : globalThis);

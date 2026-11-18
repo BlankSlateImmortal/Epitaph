@@ -49,7 +49,7 @@
         rec.founding.forEach(f => { if (S.reached(f.when, chapter)) words.push(f.change, f.why, f.materials, f.reused); });
       }
       const safe = author ? (t => t) : (t => S.clean(t, chapter, recs, false));   // a reader's search never sees text that names a place they haven't reached
-      return { place, rec, state: visible ? state : null, allies, hidden: !!rec && !reachedByReader, faction: factionOf(place, visible ? rec : null), words: ' ' + words.filter(Boolean).map(safe).join(' ').toLowerCase().replace(/[^a-z0-9\u00c0-\u024f]+/g, ' ') };
+      return { place, rec, state: visible ? state : null, allies, hidden: !!rec && !reachedByReader, revealIn: rec ? S.placeRevealChapter(rec) : null, faction: factionOf(place, visible ? rec : null), words: ' ' + words.filter(Boolean).map(safe).join(' ').toLowerCase().replace(/[^a-z0-9\u00c0-\u024f]+/g, ' ') };
     });
   }
 
@@ -82,7 +82,9 @@
       const sz = st ? S.step('size', st.scales.size) : '';
       return `<li><button type="button" class="bk-si-row" data-ref="place:${esc(r.place.id)}">
         <b>${esc(r.place.name)}</b>
-        ${st ? `<span class="bk-si-status bk-si-${esc(st.status)}">${esc(S.label(S.STATUS, st.status))}</span>` : '<span class="bk-si-status bk-si-none">No entry yet</span>'}${r.hidden ? '<span class="bk-si-status bk-si-hidden" title="Readers have not reached this place yet">Hidden from readers</span>' : ''}
+        ${st ? `<span class="bk-si-status bk-si-${esc(st.status)}">${esc(S.label(S.STATUS, st.status))}</span>` : '<span class="bk-si-status bk-si-none">No entry yet</span>'}${r.hidden ? (r.revealIn == null
+          ? '<span class="bk-si-status bk-si-hidden" title="No published chapter lists this place in its world: list yet">Not revealed yet</span>'
+          : `<span class="bk-si-status bk-si-hidden" title="The first published chapter that brings it up">Readers see it from Ch ${esc(r.revealIn)}</span>`) : ''}
         <small>${st ? `${esc(rule)} · ${esc(sz)}${r.allies.length ? ` · ${r.allies.length} tie${r.allies.length === 1 ? '' : 's'}` : ''}${r.rec.draft && Object.values(r.rec.draft).some(Boolean) ? ' · draft' : ''}` : esc((W.country(r.place.countryId) || {}).name || '')}</small>
       </button></li>`;
     };
@@ -114,6 +116,7 @@
   /** Draw the index into `container` and keep it in step with the reader's chapter. Returns a stop function. */
   function mountIndex(container) {
     renderIndex(container);
+    if (TL() && TL().loadChapterIndex) TL().loadChapterIndex();   // what each published chapter reveals; redraws through the reader-change event
     const T = TL();
     let off = () => {};
     off = T ? T.onReaderChange(() => { if (container.isConnected) renderIndex(container); else off(); }) : off;
