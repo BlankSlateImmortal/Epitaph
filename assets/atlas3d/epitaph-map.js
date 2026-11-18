@@ -221,14 +221,16 @@ function loadCharacters() {
   const list = (st && Array.isArray(st.characters)) ? st.characters : [];
   const chars = list.map((c, i) => {
     const versions = (c.snapshots || []).filter(s => Number.isInteger(s.startChapter)).sort((a, b) => a.startChapter - b.startChapter);
-    const stops = versions.map(s => ({ ch: s.startChapter, presence: s.presence || 'alive', r: World.resolve(s.location), snapId: s.id, locked: !!s.locked })).filter(s => s.r && num(s.r.lat) && num(s.r.lng));
+    const stops = versions.map(s => ({ ch: s.startChapter, presence: s.presence || 'alive', r: World.resolve(s.location), snapId: s.id, locked: !!s.locked, objective: s.objective || '' })).filter(s => s.r && num(s.r.lat) && num(s.r.lng));
     if (!stops.length) {
       const snap = (c.snapshots || []).find(s => s.id === c.activeSnapshotId) || (c.snapshots || [])[0];
       const r = snap && World.resolve(snap.location);
-      if (r && num(r.lat)) stops.push({ ch: null, presence: snap.presence || 'alive', r, snapId: snap.id, locked: !!snap.locked });
+      if (r && num(r.lat)) stops.push({ ch: null, presence: snap.presence || 'alive', r, snapId: snap.id, locked: !!snap.locked, objective: snap.objective || '' });
     }
     return { id: c.id, name: c.name || 'Unnamed', race: c.race || '', color: CHAR_COLORS[i % CHAR_COLORS.length], stops };
-  }).filter(c => c.stops.length);
+  });
+  state.unplaced = chars.filter(c => !c.stops.length).map(c => c.name);       // in the Dossier, but no location yet
+  chars.splice(0, chars.length, ...chars.filter(c => c.stops.length));
   const chapters = new Set((st && st.chapters || []).map(c => c.number).filter(Number.isInteger));
   chars.forEach(c => c.stops.forEach(s => Number.isInteger(s.ch) && chapters.add(s.ch)));
   const titles = {}; (st && st.chapters || []).forEach(c => { if (Number.isInteger(c.number)) titles[c.number] = c.title || ''; });
@@ -922,11 +924,36 @@ function renderLegend() {
     li.querySelector('b').textContent = c.name;
     li.querySelector('span').textContent = cs ? (cs.stop.presence === 'dead' ? '† ' : '') + cs.stop.r.name : 'not in story yet';
     li.querySelector('button').disabled = !cs;
-    li.querySelector('button').addEventListener('click', () => { const tok = pickables.find(p => p.userData.char && p.userData.char.id === c.id); if (tok) focusOn(tok); });
+    li.querySelector('button').addEventListener('click', () => { const tok = pickables.find(p => p.userData.char && p.userData.char.id === c.id); if (tok) focusOn(tok); openRecord(c.id); });
     ul.appendChild(li);
   });
+  const un = state.unplaced || [];
+  $('unplaced').hidden = !un.length || state.demo;
+  $('unplaced').innerHTML = un.length ? `<b>Not on the map</b>${un.map(esc).join(', ')}. Set a location for them in the Dossier.` : '';
   $('demoNote').hidden = !state.demo;
+  if (recordId) openRecord(recordId);
 }
+// ---- a character's record (moved from the old 2D Atlas): where they are, how they are, their objective, their trail
+let recordId = null;
+function openRecord(id) {
+  const c = state.chars.find(x => x.id === id), box = $('record');
+  if (!c) { closeRecord(); return; }
+  recordId = id;
+  const cs = charStateAt(c, state.chapter), s = cs && cs.stop;
+  const PRESENCE = { alive: 'Alive', dead: 'Dead', missing: 'Missing' };
+  const ch = s && s.ch != null ? s.ch : state.chapter;
+  const trail = c.stops.map(st => `<li class="${s === st ? 'now' : ''}"><span>${st.ch != null ? 'CH ' + String(st.ch).padStart(2, '0') : 'Now'}</span><span>${esc(st.r.kind === 'point' ? st.r.name : st.r.label)}${st.presence === 'dead' ? ' · †' : ''}</span></li>`).join('');
+  box.style.setProperty('--c', c.color);
+  box.innerHTML = `<h4><span>${esc(c.name)}</span><button type="button" aria-label="Close the record" id="recordClose">×</button></h4>` +
+    (s ? `<dl><dt>Where</dt><dd>${esc(s.r.kind === 'point' ? s.r.name : s.r.path || s.r.label)}</dd><dt>State</dt><dd>${PRESENCE[s.presence] || 'Alive'}</dd>` +
+         (s.objective ? `<dt>Objective</dt><dd>${esc(s.objective)}</dd>` : '') + (s.ch != null ? `<dt>Since</dt><dd>Chapter ${s.ch}</dd>` : '') + `</dl>`
+       : `<p>Not in the story yet at this chapter.</p>`) +
+    `<dt style="font-family:'Bebas Neue',sans-serif;letter-spacing:.1em;font-size:13px;color:var(--amber)">Trail</dt><ol>${trail}</ol>` +
+    `<a href="index.html?char=${encodeURIComponent(c.id)}${Number.isInteger(ch) ? '&ch=' + ch : ''}">Open in the Dossier →</a>`;
+  box.hidden = false; $('lore').hidden = true;
+  $('recordClose').addEventListener('click', closeRecord);
+}
+function closeRecord() { recordId = null; $('record').hidden = true; $('lore').hidden = false; }
 function setChapterUI() {
   const idx = state.chapters.indexOf(state.chapter);
   $('chapterRange').max = Math.max(0, state.chapters.length - 1);
@@ -1037,6 +1064,16 @@ $('prevCh').addEventListener('click', () => { const i = state.chapters.indexOf(s
 $('nextCh').addEventListener('click', () => { const i = state.chapters.indexOf(state.chapter); if (i >= 0 && i < state.chapters.length - 1) setChapter(state.chapters[i + 1]); });
 $('homeBtn').addEventListener('click', () => { state.spin = true; goHome(false); });
 $('legendToggle').addEventListener('click', () => $('legend').classList.toggle('open'));
+const LibUI = window.EpitaphLibraryUI;
+if (LibUI) {
+  $('libraryBtn').addEventListener('click', () => LibUI.open());
+  LibUI.hooks.onChange = () => { const d = loadCharacters(); Object.assign(state, { chars: d.chars, chapters: d.chapters, titles: d.titles, demo: d.demo }); setChapterUI(); rebuildKeepCamera(); renderLegend(); };
+  LibUI.hooks.showPlace = id => {
+    const go = () => { const m = pickables.find(p => p.userData.place && p.userData.place.id === id); if (m) focusOn(m, 3.2); };
+    if (state.view !== 'earth') { setView('earth'); setTimeout(go, 2600); } else go();
+    if (matchMedia('(max-width:700px)').matches) LibUI.close();
+  };
+} else $('libraryBtn').hidden = true;
 
 // hover + click
 const tip = $('tip');
@@ -1763,6 +1800,16 @@ async function start() {
   if (isSmall()) $('legend').classList.remove('open');
   build(); goHome(true); renderLegend();
   $('boot').hidden = true;
+  // deep links (formerly the 2D Atlas): ?item=<id> opens it in the Library; ?char=<id>[&ch=<n>] opens their record there
+  const itemId = q.get('item');
+  if (itemId && LibUI && window.EpitaphLibrary && EpitaphLibrary.item(itemId)) LibUI.open('items', { mode: 'itemDetail', id: itemId });
+  const charId = q.get('char'), ch = parseInt(q.get('ch'), 10);
+  if (charId && state.chars.some(c => c.id === charId)) {
+    if (state.era !== 1) setEra(1);
+    if (Number.isInteger(ch) && state.chapters.includes(ch)) setChapter(ch);
+    openRecord(charId);
+    const tok = pickables.find(p => p.userData.char && p.userData.char.id === charId); if (tok) focusOn(tok);
+  }
 }
 start().catch(err => { $('boot').textContent = 'Could not load the map: ' + err; console.error(err); });
 addEventListener('storage', e => { if (e.key === 'epitaph-character-profiles' || e.key === 'epitaph-library') { const d = loadCharacters(); Object.assign(state, { chars: d.chars, chapters: d.chapters, titles: d.titles, demo: d.demo }); setChapterUI(); rebuildKeepCamera(); renderLegend(); } });

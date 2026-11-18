@@ -18,6 +18,8 @@ Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesig
 
 ## Map: sword pins (atlas-3d.html)
 
+- **The 2D Atlas is gone; the map has what was useful in it.** The **Library** (add, edit and delete your countries, places and items, with the tap-to-pin mini map, delete checks, reassigning and item history) is now a drawer on the map (`assets/epitaph-library-ui.js`); "Show on map" flies the map there. Clicking a name in the Characters list opens their **record** (where, state, objective, chapter trail, a link to the Dossier); characters with no location are listed as **Not on the map**. Links that went to `atlas.html` (the Dossier's Map button and item links, Muses, Powers, Read) now open `atlas-3d.html`, with the same `?char=` / `?item=` deep links. Continuity checks stay in the Dossier. `atlas.html` and `assets/terrain.js` are removed.
+
 - Every living character stands on the map as a jade greatsword stuck in the ground (`assets/atlas3d/pins/greatsword.glb`, about 2,900 polygons; rebuild with `tools/map/greatsword_pin.py` in Blender). The dead keep the grave cross.
 - **Drag a sword** to pick it up: it strains, pulls free in a puff of block dust and rises on a **golden thread** tied to the cursor. It hangs by its pommel and swings like a pendulum, so fast moves make it sway. **Scroll** to let the thread out (the sword drops lower and swings slower and wider) or reel it in (the map doesn't zoom while a sword is held). On release the thread snaps back to the cursor. A click without dragging still focuses the sword.
 - **Throwing:** on release the sword keeps its momentum (hand speed plus swing) and flies under gravity, spinning, its point turning into the direction of travel like a dart. It sticks in at the angle it hits, leaning at most 55°, and keeps that angle afterwards (remembered per character in `epitaph-map-pin-poses`).
@@ -74,7 +76,7 @@ The Atlas has one job now: show where each character is, chapter by chapter.
 - **Library** drawer: add / edit / delete your countries, places (tap a small map to drop the pin) and items (origin, pictures, marks, note, **history** of who carried it). Deleting something in use is blocked until you reassign it or confirm. Places show on the map; a place's record lists items from there.
 - **Checks** drawer (same rules as the Dossier).
 - Markers and trails are drawn inside the map itself, so they sit exactly on their place at every scale.
-- `atlas.html?item=<id>` opens an item; `?char=<id>&ch=<n>` opens a character at a chapter.
+- `atlas-3d.html?item=<id>` opens an item in the Library; `?char=<id>&ch=<n>` opens a character's record at a chapter (these were `atlas.html` links before the 2D Atlas was removed).
 
 ### Removed
 

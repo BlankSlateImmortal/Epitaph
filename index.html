@@ -1200,7 +1200,7 @@
     <div class="actions">
       <button class="btn primary" id="newChapterTopBtn" type="button">New chapter</button>
       <a class="btn ghost" id="readLink" href="read.html">Read</a>
-      <a class="btn ghost" id="atlasLink" href="atlas.html">Atlas</a>
+      <a class="btn ghost" id="atlasLink" href="atlas-3d.html">Map</a>
       <details class="nav-menu" id="dataMenu">
         <summary class="btn ghost">Data <span class="checks-badge" id="checksBadge" hidden></span> ▾</summary>
         <div class="nav-menu-panel">
@@ -1264,7 +1264,7 @@
         <h3>Storybook</h3>
         <ul class="book-links">
           <li><a href="index.html">Character Dossier</a></li>
-          <li><a href="atlas.html">World Map</a></li>
+          <li><a href="atlas-3d.html">World Map</a></li>
           <li><a href="muses.html">Muses</a></li>
           <li><a href="powers.html">Power systems</a></li>
           <li><a href="read.html">Read the chapters</a></li>
@@ -3579,7 +3579,7 @@ function renderPoster(){
   const atlasLink = document.getElementById('atlasLink');
   if(heroSphere){ heroSphere.stop(); heroSphere = null; }
   if(!char){
-    if(atlasLink) atlasLink.href = 'atlas.html';
+    if(atlasLink) atlasLink.href = 'atlas-3d.html';
     posterWrap.innerHTML = `
       <div class="empty-state">
         <div class="display">No profiles yet</div>
@@ -3588,7 +3588,7 @@ function renderPoster(){
       </div>`;
     return;
   }
-  if(atlasLink) atlasLink.href = 'atlas.html?char=' + encodeURIComponent(char.id);
+  if(atlasLink) atlasLink.href = 'atlas-3d.html?char=' + encodeURIComponent(char.id);
 
   const snap = getActiveSnapshot(char);
   const pPos = snap.portraitPosition || { x: 50, y: 50 };
@@ -5816,7 +5816,7 @@ function openChecks(){
         return;
       }
     }
-    if(i.itemId) window.location.href = 'atlas.html?item=' + encodeURIComponent(i.itemId);
+    if(i.itemId) window.location.href = 'atlas-3d.html?item=' + encodeURIComponent(i.itemId);
   }));
   openModal();
 }
@@ -6220,7 +6220,7 @@ const LEFT_PAGE_DEFAULT_HTML = `
         <h3>Storybook</h3>
         <ul class="book-links">
           <li><a href="index.html">Character Dossier</a></li>
-          <li><a href="atlas.html">World Map</a></li>
+          <li><a href="atlas-3d.html">World Map</a></li>
           <li><a href="muses.html">Muses</a></li>
           <li><a href="powers.html">Power systems</a></li>
           <li><a href="read.html">Read the chapters</a></li>
