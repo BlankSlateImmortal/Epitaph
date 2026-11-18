@@ -369,9 +369,10 @@ function addMarkers(T, markerScale, parent = root) {
     withOutline(m, T);
     parent.add(m); pickables.push(m);
   });
-  if (era !== 1) return;     // the story's chapters all take place in Era 1
+  // the story's chapters take place in Era 1; only Vale (sent about 100 years back) also stands in Era 0
+  const chars = era === 1 ? state.chars : state.chars.filter(stayInEra0);
   const stacks = {};
-  state.chars.forEach(c => {
+  chars.forEach(c => {
     const cs = charStateAt(c, state.chapter);
     if (!cs) return;
     const r = cs.stop.r, n = stacks[r.key] = (stacks[r.key] || 0) + 1;
@@ -820,7 +821,7 @@ function updateLabels() {
     l.obj.getWorldPosition(tmpV);
     const n = l.normal.clone().applyQuaternion(l.obj.parent.getWorldQuaternion(tmpQ));
     tmpV.addScaledVector(n, l.offset);
-    const facing = n.dot(camDir) < 0.15;
+    const facing = n.dot(camDir) < 0.15 && l.obj.visible !== false;     // a sunk sword takes its label with it
     tmpV.project(camera);
     const eraOk = l.era === undefined || l.era === 'both' || (l.era === 1 ? e > 0.6 : e < 0.4);
     const vis = eraOk && facing && tmpV.z < 1 && Math.abs(tmpV.x) < 1.1 && Math.abs(tmpV.y) < 1.1;
@@ -949,8 +950,29 @@ function setView(v) {
   build(); goHome(true); renderLegend();
 }
 let eraBusy = false;
+const stayInEra0 = c => designFor(c) === 'vale';
+// Era 0 clicked: every sword but Vale's sinks into the ground at once, one after another, in a puff of block dust
+function vanishPins() {
+  let i = 0;
+  pickables.forEach(h => {
+    const pin = h.userData.pin; if (!pin || !h.userData.char || stayInEra0(h.userData.char)) return;
+    if (reduceMotion) { pin.visible = false; return; }
+    const start = pin.position.clone(), n = state.view === 'planet' ? start.clone().normalize() : UP.clone(), down = pin.scale.x * 1.15, delay = i++ * .07;
+    pin.userData.travelling = true; let t = -delay, puffed = false;
+    travels.push({ step(dt) {
+      t += dt; if (t < 0) return false;
+      if (!puffed) { puffed = true; burst(start, n, h.userData.scale, false); }
+      const k = Math.min(1, t / .55), e = k * k * (3 - 2 * k);
+      pin.position.copy(start).addScaledVector(n, -down * e + Math.sin(k * Math.PI) * .03 * h.userData.scale);
+      pin.rotateOnAxis(UP, dt * 6 * (1 - k));                         // a twist as it goes
+      if (k >= 1) { this.finish(); return true; }
+      return false;
+    }, finish() { pin.visible = false; pin.userData.travelling = false; } });
+  });
+}
 function setEra(era) {
   if (state.era === era) return;
+  if (era === 0) vanishPins();
   state.era = era; remember();
   document.querySelectorAll('[data-era]').forEach(x => x.classList.toggle('on', +x.dataset.era === era));
   eraBusy = true;            // markers are rebuilt once the wave has finished
@@ -1630,7 +1652,10 @@ renderer.setAnimationLoop(() => {
     state.eraT += Math.sign(state.era - state.eraT) * Math.min(Math.abs(state.era - state.eraT), dt * 0.5);
     const prog = state.era === 1 ? state.eraT : 1 - state.eraT;
     eraHooks.forEach(f => f(state.era === 1 ? prog : 1 - prog, state.era));
-    if (state.eraT === state.era && eraBusy) { eraBusy = false; rebuildKeepCamera(); }
+    if (state.eraT === state.era && eraBusy) {
+      eraBusy = false; const before = pinPositions(); rebuildKeepCamera();
+      if (state.era === 1 && !reduceMotion) flyToChapter(before);        // back in Era 1, the swords drop back in (Vale's stays)
+    }
   }
   if (state.focus) {
     controls.target.x = damp(controls.target.x, state.focus.target.x, 5, dt);
