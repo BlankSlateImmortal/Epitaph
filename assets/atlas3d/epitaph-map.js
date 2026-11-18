@@ -907,7 +907,7 @@ function rebuildKeepCamera() {
 function renderKeys() {
   const T = THEMES[state.theme], k = [];
   k.push([T.city, 'City']);
-  if (state.era === 1) k.push([T.sunk, 'Sunk city (+60 m)'], [T.groups.STORYBORN, 'Storyborn'], [T.groups.VOIDED, 'Voided (hidden)'], [T.groups.FALLEN, 'Fallen (none yet)']);
+  if (state.era === 1) k.push([T.sunk, 'Sunk city (+60 m)'], [T.groups.STORYBORN, 'Storyborn'], [T.groups.VOIDED, 'Voided (hidden)'], [T.groups.FALLEN, 'Fallen']);
   $('keys').innerHTML = k.map(([c, t]) => `<span><em style="background:${c}"></em>${t}</span>`).join('');
 }
 function renderLore() {
