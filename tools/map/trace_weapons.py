@@ -107,6 +107,7 @@ for idx, name in zip(sorted(order, key=lambda i: np.nonzero(lab == i)[1].mean())
     tg = (guard - c0) @ ax; far = t.argmin() if tg > 0 else t.argmax(); tip = P[far]    # the tip: the end away from the guard
     if name == 'harvester_long': tip = P[np.argmin(P[:, 1])]                           # its blade runs up to the top of the image
     rg, inv = place(rings_of(comp), tip=tip, guard=guard)
+    if name == 'harvester_broad': continue                     # removed: Sils carries only the long blade
     out.append({'name': name, 'tex': hv_tex, 'size': [a.shape[1], a.shape[0]], 'rings': rg, 'inv': inv})
 
 # ---- Vale's Twin Serpents (a photo): silver by brightness, plus the black wrapped grips drawn in by hand
@@ -123,6 +124,49 @@ for idx, name, tip, guard in [(None, 'serpent_a', (11, 452), (528, 118)), (None,
     comp = lab == lab[guard[1], guard[0]]
     rg, inv = place(rings_of(comp), tip=tip, guard=guard)
     out.append({'name': name, 'tex': vs_tex, 'size': [a.shape[1], a.shape[0]], 'rings': rg, 'inv': inv})
+
+# ---- Lithia wounded: the scissor blade snapped, like the Fallen sword: a jagged break, chips out of both edges, and the
+# lost tip as its own piece with the matching break
+def clip(ring, B, keep_upper):
+    """Sutherland-Hodgman against the line y = B"""
+    inside = (lambda p: p[1] >= B) if keep_upper else (lambda p: p[1] <= B)
+    out = []
+    for i, cur in enumerate(ring):
+        prev = ring[i - 1]
+        if inside(cur):
+            if not inside(prev): t = (B - prev[1]) / (cur[1] - prev[1]); out.append([prev[0] + t * (cur[0] - prev[0]), B])
+            out.append(list(cur))
+        elif inside(prev): t = (B - prev[1]) / (cur[1] - prev[1]); out.append([prev[0] + t * (cur[0] - prev[0]), B])
+    return out
+def jag(x, B): return B + .016 * (abs(((x * 55 + .3) % 1) - .5) * 2 - .5) + .006 * math.sin(x * 160)
+def jagged(ring, B):
+    """replace the straight cut along y = B with a zigzag"""
+    out = []
+    for i, p in enumerate(ring):
+        q = ring[(i + 1) % len(ring)]
+        out.append([p[0], jag(p[0], B) if abs(p[1] - B) < 1e-9 else p[1]])
+        if abs(p[1] - B) < 1e-9 and abs(q[1] - B) < 1e-9:
+            n = max(2, int(abs(q[0] - p[0]) / .006))
+            for k in range(1, n): x = p[0] + (q[0] - p[0]) * k / n; out.append([x, jag(x, B)])
+    return out
+def chip(ring, y, side, depth=.013, h=.013):
+    """a V-shaped chip out of the edge at height y: side +1 the right edge, -1 the left"""
+    best = None
+    for i, p in enumerate(ring):
+        q = ring[(i + 1) % len(ring)]
+        if (p[1] - y) * (q[1] - y) <= 0 and p[1] != q[1]:
+            x = p[0] + (y - p[1]) / (q[1] - p[1]) * (q[0] - p[0])
+            if best is None or (x - best[1]) * side > 0: best = (i, x)
+    if best is None: return ring
+    i, x = best; p, q = ring[i], ring[(i + 1) % len(ring)]; d = 1 if q[1] > p[1] else -1
+    pts = [[x, y - d * h], [x - side * depth, y], [x, y + d * h]]
+    return ring[:i + 1] + pts + ring[i + 1:]
+sc = out[0]; B = .3
+up = [jagged(clip(r, B, True), B) for r in sc['rings']]; up = [r for r in up if len(r) >= 3]
+up[0] = chip(chip(chip(up[0], .41, 1), .5, -1), .36, -1, .009, .009)
+lo = [jagged(clip(r, B, False), B) for r in sc['rings']]; lo = [r for r in lo if len(r) >= 3 and max(p[1] for p in r) > .02]
+out.append({**sc, 'name': 'scissor_broken', 'rings': up, 'break': B})
+out.append({**sc, 'name': 'scissor_tip', 'rings': lo[:1] + [r for r in lo[1:] if max(p[1] for p in r) < B - .01], 'break': B})
 
 json.dump(out, open(sys.argv[1] if len(sys.argv) > 1 else 'traced.json', 'w'))
 for o in out:

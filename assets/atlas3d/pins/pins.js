@@ -51,13 +51,13 @@ export function designFor(char) {
 // ---------- the model ----------
 // Other sword shapes (tools/map/sword_shapes.py → swords.glb), same layout as the greatsword: tip at the origin,
 // guard at y = 0.63. Character weapons: grisha_katana, nera_scythe, moinera_dagger ×2; traced from their references with painted
-// textures (tools/map/trace_weapons.py): scissor (Lithia), harvester_long + harvester_broad (Sils), serpent_a + serpent_b (Vale);
+// textures (tools/map/trace_weapons.py): scissor (Lithia), harvester_long (Sils), scissor_broken + scissor_tip (wounded Lithia), serpent_a + serpent_b (Vale);
 // plus stiletto (Yona), zweihander (Gaia), executioner (Val), estoc (Antholonious).
 // Kept for future characters:
 export const SPARE_SHAPES = ['katana', 'rapier', 'sawback', 'falchion', 'sabre', 'flamberge', 'khopesh', 'scimitar', 'gladius'];
 const SHAPES = {};
 let TEMPLATE = null, loading = null;
-export function loadPins(url = new URL('greatsword.glb?v=1', import.meta.url).href, shapesUrl = new URL('swords.glb?v=4', import.meta.url).href) {
+export function loadPins(url = new URL('greatsword.glb?v=1', import.meta.url).href, shapesUrl = new URL('swords.glb?v=5', import.meta.url).href) {
   if (TEMPLATE) return Promise.resolve(TEMPLATE);
   const shapes = new GLTFLoader().loadAsync(shapesUrl).then(g => { g.scene.children.forEach(o => { SHAPES[o.name] = o; }); })
     .catch(e => console.warn('Sword shapes not loaded; pins fall back to the greatsword.', e));
@@ -345,8 +345,8 @@ const DESIGNS = {
     return { root: g, height: topOf(g), update: t => { spin(t * (1 + .5 * Math.sin(t * 2.3))); eyeMat.emissiveIntensity = .7 + .6 * Math.abs(Math.sin(t * 3.1)); } };
   },
 
-  // Sils: Nothing. The Terminus Harvester, two black blades crossed in the ground like a grave marker, white crosses on their
-  // guards, blue at the edges; both keep coming apart and reforming (his cycle of death)
+  // Sils: Nothing. The Terminus Harvester (traced from its reference): a long black blade with a white cross on its guard,
+  // which keeps coming apart and reforming (his cycle of death)
   sils() {
     const blade = patch(std('#ffffff', .5, .4, { emissive: '#e6dccb', emissiveIntensity: 1 }), { uTime: TIME }, `
       float cyc = .5 + .5*sin(uTime*.6);                              // apart … whole … apart
@@ -355,9 +355,7 @@ const DESIGNS = {
       float rim = smoothstep(.06, 0., n - (cyc*.6 - .05));
       totalEmissiveRadiance = emissive * rim * 1.5;`);
     const mats = { blade, grip: std('#ffffff', .4, .5) };
-    const g = new Group();
-    const a = base(mats, 'harvester_long', true).root; a.position.x = -.13; a.rotation.z = -.36; g.add(a);
-    const b = base(mats, 'harvester_broad', true).root; b.position.x = .13; b.rotation.z = .36; g.add(b);
+    const g = new Group(); g.add(base(mats, 'harvester_long', true).root);
     return { root: g, height: topOf(g), update: erasedGround(g, .3) };
   },
 
@@ -414,13 +412,15 @@ const DESIGNS = {
     return { root: g, sink: .06, height: topOf(b.root), bladeMat: blade, update: t => { pool.scale.setScalar(1 + .04 * Math.sin(t * 1.1)); } };
   },
 
-  // Lithia as an Unbound god, wounded from the war: her scissor blade with the blade broken off, nothing else
+  // Lithia as an Unbound god, wounded from the war: her scissor blade snapped like the Fallen sword: a jagged break, chips out
+  // of both edges, leaning a little, the lost tip lying on the ground beside it (both pieces traced, tools/map/trace_weapons.py)
   lithiaGod() {
-    const d = DESIGNS.lithia(), BRK = .22, blade = d.root.children[0];
-    const parts = []; blade.traverse(o => { if (o.isMesh && o.material === d.bladeMat) parts.push(o); });
-    parts.forEach(o => cut(o.geometry, BRK, true));
-    blade.position.y = -BRK;                                         // the jagged break stands in the ground
-    return { ...d, height: topOf(d.root) };
+    const d = DESIGNS.lithia(), B = .3, mats = { blade: d.bladeMat, grip: std('#ffffff', .3, .5) }, g = new Group();
+    const broken = base(mats, 'scissor_broken', true).root; broken.position.y = -(B + .005); broken.rotation.z = .1; g.add(broken);
+    const tip = base(mats, 'scissor_tip', true).root; tip.position.y = -B / 2; tip.rotation.x = -Math.PI / 2;
+    const lie = new Group(); lie.add(tip); lie.position.set(.2, .0065, .12); lie.rotation.y = .9; g.add(lie);
+    g.add(d.root.children[1]);                                       // her pool
+    return { root: g, sink: 0, height: topOf(broken), update: d.update };
   },
 };
 
