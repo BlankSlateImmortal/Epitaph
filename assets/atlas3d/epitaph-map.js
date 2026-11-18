@@ -359,8 +359,10 @@ function addMarkers(T, markerScale, parent = root) {
     const sunk = era === 1 && !p.group && !p.fictional && (here.kind === 'sunk' || here.kind === 'sea');
     const kind = markerGeo[p.kind] ? p.kind : 'other';
     const color = p.group ? (T.groups[p.group] || T.groups.OTHER) : sunk ? T.sunk : p.fictional ? T.groups.STORYBORN : T.city;
-    const storyborn = !sunk && (p.group === 'STORYBORN' || (p.fictional && !p.group));   // Storyborn sites and settlements: the praying angel
-    const m = storyborn ? statueMesh('storyborn', T, T.groups.STORYBORN)
+    // settlement statues (assets/atlas3d/statues.js): Storyborn the praying angel, Voided the veiled angel with broken wings,
+    // Fallen the broken sword (for Fallen sites, once there are any)
+    const statue = sunk ? null : (p.group === 'STORYBORN' || (p.fictional && !p.group)) ? 'storyborn' : p.group === 'VOIDED' ? 'voided' : p.group === 'FALLEN' ? 'fallen' : null;
+    const m = statue ? statueMesh(statue, T, T.groups[statue.toUpperCase()] || T.groups.OTHER)
       : new THREE.Mesh(sunk ? markerGeo.ruin : markerGeo[kind], mat(color, { roughness: 0.5, emissive: p.group ? color : '#000', emissiveIntensity: p.group ? 0.35 : 0, transparent: sunk, opacity: sunk ? 0.75 : 1 }));
     const k = p.lat.toFixed(1) + ',' + p.lng.toFixed(1);
     const n = byKey[k] = (byKey[k] || 0) + 1;
