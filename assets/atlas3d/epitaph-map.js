@@ -1042,7 +1042,27 @@ function vanishPins() {
     }, finish() { pin.visible = false; pin.userData.travelling = false; } });
   });
 }
+// Era 0 from a later chapter: first rewind the chapter slider, one chapter at a time from where it is now (not from the newest),
+// down to the first chapter, the swords flying back each step; then switch eras
+let rewinding = false;
 function setEra(era) {
+  if (state.era === era || rewinding) return;
+  const idx = state.chapter == null ? state.chapters.length - 1 : state.chapters.indexOf(state.chapter);
+  if (era === 0 && state.era === 1 && idx > 0 && !reduceMotion && !drag.active) {
+    rewinding = true; $('chapterRange').disabled = true;
+    const steps = idx, wait = Math.min(.45, Math.max(.12, 2.4 / steps)) * 1000;
+    let i = idx;
+    const tick = () => {
+      i -= 1; setChapter(state.chapters[i]); $('chapterRange').disabled = true;
+      if (i > 0) setTimeout(tick, wait);
+      else setTimeout(() => { rewinding = false; applyEra(0); }, 900);       // let the last flights land, then switch
+    };
+    setTimeout(tick, 60);
+    return;
+  }
+  applyEra(era);
+}
+function applyEra(era) {
   if (state.era === era) return;
   if (era === 0) vanishPins();
   state.era = era; remember();
@@ -1059,9 +1079,9 @@ document.querySelectorAll('[data-theme-btn]').forEach(b => b.addEventListener('c
   document.querySelectorAll('[data-theme-btn]').forEach(x => x.classList.toggle('on', x === b));
   rebuildKeepCamera();
 }));
-$('chapterRange').addEventListener('input', e => setChapter(state.chapters[+e.target.value] ?? null));
-$('prevCh').addEventListener('click', () => { const i = state.chapters.indexOf(state.chapter); if (i > 0) setChapter(state.chapters[i - 1]); });
-$('nextCh').addEventListener('click', () => { const i = state.chapters.indexOf(state.chapter); if (i >= 0 && i < state.chapters.length - 1) setChapter(state.chapters[i + 1]); });
+$('chapterRange').addEventListener('input', e => !rewinding && setChapter(state.chapters[+e.target.value] ?? null));
+$('prevCh').addEventListener('click', () => { if (rewinding) return; const i = state.chapters.indexOf(state.chapter); if (i > 0) setChapter(state.chapters[i - 1]); });
+$('nextCh').addEventListener('click', () => { if (rewinding) return; const i = state.chapters.indexOf(state.chapter); if (i >= 0 && i < state.chapters.length - 1) setChapter(state.chapters[i + 1]); });
 $('homeBtn').addEventListener('click', () => { state.spin = true; goHome(false); });
 $('legendToggle').addEventListener('click', () => $('legend').classList.toggle('open'));
 const LibUI = window.EpitaphLibraryUI;
