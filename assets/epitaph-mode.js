@@ -82,7 +82,50 @@
     } catch (e) {}
   }
 
+  // ---- the small vertical tag on the left edge (plan step 1.2); the map's corners and bottom bar are all in use ----
+  // Readers see "Reading". The author sees "Author" (a button: click to preview what a reader sees) or "Preview · reader" (click to go back).
+  // Nothing on the page tells a reader that an author view exists.
+  function tagText() {
+    if (!isAuthor()) return { label: 'Reading', title: 'You are reading the published site.', author: false };
+    return authorView()
+      ? { label: 'Author', title: 'You see everything. Click to preview what a reader sees.', author: true }
+      : { label: 'Preview · reader', title: 'You are previewing what a reader sees. Click to go back to the author view.', author: true };
+  }
+  function drawTag() {
+    const doc = global.document; if (!doc || !doc.body || typeof doc.getElementById !== 'function') return;
+    let el = doc.getElementById('epitaphModeTag');
+    const t = tagText();
+    if (!el || (el.tagName === 'BUTTON') !== t.author) {
+      if (el) el.remove();
+      el = doc.createElement(t.author ? 'button' : 'span');
+      el.id = 'epitaphModeTag'; if (t.author) el.type = 'button';
+      if (t.author) el.addEventListener('click', () => setAuthorView(!authorView()));
+      doc.body.appendChild(el);
+    }
+    el.textContent = t.label; el.title = t.title;
+    el.setAttribute('data-mode', !isAuthor() ? 'reader' : authorView() ? 'author' : 'preview');
+    if (t.author) el.setAttribute('aria-pressed', String(!authorView())); else el.removeAttribute('aria-pressed');
+    el.setAttribute('aria-label', t.title);
+  }
+  function mountTag() {
+    const doc = global.document; if (!doc || typeof doc.getElementById !== 'function') return;
+    if (!doc.getElementById('epitaphModeTagStyle') && doc.head) {
+      const st = doc.createElement('style'); st.id = 'epitaphModeTagStyle';
+      st.textContent = '#epitaphModeTag{position:fixed;z-index:60;left:env(safe-area-inset-left,0px);top:50%;transform:translateY(-50%) rotate(180deg);writing-mode:vertical-rl;'
+        + 'font:10px/1 "Space Mono",ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;white-space:nowrap;color:var(--amber,#ffb238);background:rgba(8,6,3,.78);'
+        + 'border:1px solid var(--amber-dim,rgba(255,178,56,.4));border-left:0;padding:9px 4px;opacity:.7;margin:0;border-radius:0}'
+        + 'button#epitaphModeTag{cursor:pointer}#epitaphModeTag:hover,#epitaphModeTag:focus-visible{opacity:1}#epitaphModeTag:focus-visible{outline:1px solid var(--amber,#ffb238);outline-offset:2px}'
+        + '#epitaphModeTag[data-mode=preview]{color:#8aa0c8;border-color:#8aa0c8;border-style:dashed}'
+        + '@media print{#epitaphModeTag{display:none}}';
+      doc.head.appendChild(st);
+    }
+    drawTag();
+  }
   fromAddress();
   apply();
+  if (global.document) {
+    if (global.document.readyState === 'loading') global.document.addEventListener('DOMContentLoaded', mountTag); else mountTag();
+    onChange(drawTag);
+  }
   global.EpitaphMode = { AUTHOR_KEY, VIEW_KEY, EVENT, isLocalHost, isAuthor, authorView, canEdit, setAuthor, setAuthorView, onChange, apply };
 })(typeof window !== 'undefined' ? window : globalThis);
