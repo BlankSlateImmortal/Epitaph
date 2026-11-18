@@ -362,16 +362,37 @@ function addMarkers(T, markerScale, parent = root) {
     // settlement statues (assets/atlas3d/statues.js): Storyborn the praying angel, Voided the veiled angel with broken wings,
     // Fallen the broken sword (for Fallen sites, once there are any)
     const statue = sunk ? null : (p.group === 'STORYBORN' || (p.fictional && !p.group)) ? 'storyborn' : p.group === 'VOIDED' ? 'voided' : p.group === 'FALLEN' ? 'fallen' : null;
-    const m = statue ? statueMesh(statue, T, T.groups[statue.toUpperCase()] || T.groups.OTHER)
-      : new THREE.Mesh(sunk ? markerGeo.ruin : markerGeo[kind], mat(color, { roughness: 0.5, emissive: p.group ? color : '#000', emissiveIntensity: p.group ? 0.35 : 0, transparent: sunk, opacity: sunk ? 0.75 : 1 }));
     const k = p.lat.toFixed(1) + ',' + p.lng.toFixed(1);
     const n = byKey[k] = (byKey[k] || 0) + 1;
     const spread = state.view === 'planet' ? 1.2 : 4.2;   // places sharing a spot (a temple in a city) sit side by side
-    placeOn(m, surface(p.lat - (n - 1) * spread * 0.55, p.lng + (n - 1) * spread), markerScale * (sunk ? 0.8 : 1));
-    m.castShadow = true;
-    m.userData.place = p; m.userData.sunk = sunk;
-    withOutline(m, T);
-    parent.add(m); pickables.push(m);
+    const at = surface(p.lat - (n - 1) * spread * 0.55, p.lng + (n - 1) * spread);
+    // places stay quiet so the swords stand out: a city is a flat glowing dot; a settlement a flat ring in its faction's colour
+    // whose statue rises out of the ground while a sword is carried, when it's hovered, or when the map is zoomed in close
+    const g = new THREE.Group(); placeOn(g, at, markerScale); g.userData.place = p; g.userData.sunk = sunk;
+    const flat = geo => geo.rotateX(-Math.PI / 2);
+    const hit = new THREE.Mesh(flat(new THREE.CircleGeometry(statue ? .3 : .16, 16)), new THREE.MeshBasicMaterial({ visible: false }));
+    hit.position.y = .02; hit.userData.place = p; hit.userData.sunk = sunk; g.add(hit); pickables.push(hit);
+    if (statue) {
+      const c = T.groups[statue.toUpperCase()] || T.groups.OTHER;
+      const ring = new THREE.Mesh(flat(new THREE.RingGeometry(.19, .25, 40)), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: .85, depthWrite: false }));
+      const core = new THREE.Mesh(flat(new THREE.CircleGeometry(.07, 20)), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: .55, depthWrite: false }));
+      ring.position.y = core.position.y = .025; g.add(ring, core);
+      const sm = statueMesh(statue, T, c); sm.castShadow = true; withOutline(sm, T); sm.userData.place = p; g.add(sm); pickables.push(sm);
+      let rise = 0;
+      markerAnim.push((time, dt) => {
+        const close = camera.zoom >= (state.view === 'planet' ? 2.4 : 2.6);
+        const want = drag.active || hovered === hit || hovered === sm || close ? 1 : 0;
+        rise += (want - rise) * (1 - Math.exp(-(want ? 7 : 4) * (dt || .016)));
+        const e = rise * rise * (3 - 2 * rise);
+        sm.visible = e > .01; sm.position.y = -STATUE_H * (1 - e) - .02 * (1 - e); sm.scale.setScalar(.6 + .4 * e);
+        ring.material.opacity = .85 - .35 * e; ring.rotation.y = time * .3;
+      });
+    } else {
+      const dot = new THREE.Mesh(flat(new THREE.CircleGeometry(.06, 16)), new THREE.MeshBasicMaterial({ color, transparent: sunk, opacity: sunk ? .7 : 1 }));
+      const halo = new THREE.Mesh(flat(new THREE.RingGeometry(.075, .09, 24)), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .45, depthWrite: false }));
+      dot.position.y = halo.position.y = .025; g.add(dot, halo);
+    }
+    parent.add(g);
   });
   // the story's chapters take place in Era 1; only Vale (sent about 100 years back) also stands in Era 0
   const chars = era === 1 ? state.chars : state.chars.filter(stayInEra0);
