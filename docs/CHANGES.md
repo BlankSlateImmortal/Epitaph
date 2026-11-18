@@ -2,6 +2,30 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Site Encyclopedia data (assets/epitaph-sites.js)
+
+- **Author view and Reader view:** you see everything (places readers haven't reached are marked "Hidden from readers"); the button in `opse`'s tool bar previews what a reader sees at your chapter. In Reader view a place you haven't reached is not listed at all, nor are ties to it, nor text that names it.
+- **`opse` is a real page now:** an index of every place on the map, grouped Storyborn · Voided · Fallen · Cities & others, with search ("who trades salt", a ruler's name) and filters for era, region, form of rule and status. It shows each place as it is at your chapter, so spoilers stay hidden: at Chapter 1 the secret ties aren't listed or searchable. Clicking a place opens it on the map for now; the 7-tab entry view comes next.
+- **The lore drafts are no longer in the code.** The public files (`epitaph-sites.js`, `epitaph-timeline.js`) ship empty; your drafts live in a private file in your vault and come in with **Data → Merge** (once per browser you write in). Until you merge it, `opse` lists every place as "No entry yet".
+- **Backups carry it:** the Dossier's Export now includes your site-encyclopedia and timeline edits (only what you changed). Import replaces them (a backup from before this leaves yours alone); Merge adds the places and timeline edits you don't have yet and lists them before you confirm.
+- **Checks:** the Checks list also flags alliances or entries pointing at missing places, an alliance that ends before it starts, dates on events that aren't on the timeline, and beasts missing from the Creature Log (once it exists). A note counts the Era 1 places with no entry yet.
+- **The schema you agreed** (`docs/plans/site-schema.md`): every place gets dated **states** (a place can be *standing*, then *erased*), each with a status and seven 1–7 scales: **Size, Hold, Stability, Supply, Defence, Secrecy, Written**. Plus its **rule** (7 forms, rulers with dates, laws), **alliances** (7 kinds, including *covert*, with start and end), **resources** (7 categories), **beasts** (7 relations) and **founding** (7 stages).
+- **Drafts for the six statue sites** from the vault: Aurelia, the Temple of the Voided, the Hollow Reach, the Church of the Storyborn, Verdant Reach and the Forgotten Grove. All marked draft. The Church and Verdant Reach are thin because their lore is still open; no Beasts yet, because the lore has no Era 1 creatures.
+- What a reader sees follows their chapter: a place's state, and alliances whose start or end they haven't reached.
+- Nothing shows it yet: the `opse` page is still a placeholder.
+
+## Shared timeline (assets/epitaph-timeline.js)
+
+- **One history for the whole site** (`window.EpitaphTimeline`), the first step of the Site Encyclopedia (`opse`) and Creature Log (`opcl`) plans in `docs/plans/`. It holds the vault's Timeline.md as drafts: 37 moments from before Epitaph through Era 0, the siege and Era 1, with years counted from the siege (Y 0) and links like `place:aurelia` or `char:Orin`.
+- **7 kinds:** Myth, Gods, World, Place, People, War, Story.
+- **Order:** era, then moments before the story (in story order), then moments with a chapter (by chapter), then story moments not given a chapter yet. A chapter in `chapters/index.json` that lists a moment under `moments:` gives it that chapter.
+- **Spoilers in one place:** `isRevealed(event, chapter)`. Chapter moments show from their chapter on. Twists marked `secret` stay hidden until a chapter reveals them (`revealedAt`) or the reader is on the latest chapter. Story moments with no chapter yet only show at the latest chapter. `view()` swaps a hidden moment for a "?".
+- **Reader position:** `readerChapter()` / `setReaderChapter(n)` under `epitaph-reader-chapter` (empty = the latest chapter), with `onReaderChange(fn)` for this tab and others. Nothing uses it yet; the map and book are wired to it next.
+- **The map and the book share your chapter now:** the map's chapter slider and the Library's chapter ruler start where you left off and move together (also across tabs). Picking the newest chapter saves "latest", so new chapters aren't hidden. The Era 0 rewind doesn't change it.
+- **Links** (`assets/epitaph-links.js`, `window.EpitaphLinks`): one format, `place:<id>`, `creature:<id>`, `char:<id or name>`. Anything with `data-ref="place:aurelia"` opens on click. Places open on the map (`atlas-3d.html?place=<id>` flies there), characters in the Dossier; creatures wait for the Creature Log. The encyclopedia pages will take these over later.
+- **Two new book commands:** `opse` (Site Encyclopedia) and `opcl` (Creature Log), also `open site encyclopedia` / `open sites` and `open creature log` / `open creatures`, and links in the storybook's list. They open placeholder pages for now; `help` lists them.
+- Your edits are stored under `epitaph-timeline` on top of the defaults (`save`, `remove`, `reset`). Loaded on the Dossier and the map; no screen shows it yet.
+
 ## Map: pin close-up (atlas-3d.html)
 
 - **Click a sword** on the map to open a big, turnable close-up of it. Drag still picks the sword up. Esc or Close goes back.

@@ -3,6 +3,8 @@
  *   opl / open library  -> every Library item as tiles in a pan/zoom sandbox
  *                          (left page) + an editor for the selected item
  *                          (right page). Edits save to the Library.
+ *   opse / open site encyclopedia -> every place on the map (placeholder page for now)
+ *   opcl / open creature log      -> the evolutionary creature log (placeholder page for now)
  *   ops / open skills   -> one radial skill tree built from every
  *                          character's current chapter: a single centre,
  *                          root skills around it, children further out
@@ -178,6 +180,7 @@
 
   function closeView(restore) {
     flushItem();
+    if (typeof stopSites === 'function' && stopSites) { stopSites(); stopSites = null; }
     if (viewport) viewport.stop();
     mode = ''; viewport = null; itemEditor = null;
     const book = $('#theBook');
@@ -261,7 +264,9 @@
     return map;
   }
   const chNumLabel = n => n == null ? 'NOW' : (typeof chapterLabel === 'function' ? chapterLabel(n) : 'CH ' + n);
-  let libCh = null; // chapter number shown by the web (null = latest)
+  const TL = () => window.EpitaphTimeline || null;
+  let libCh = TL() ? TL().readerChapter() : null; // chapter number shown by the web (null = latest); shared with the map via EpitaphTimeline
+  if (TL()) TL().onReaderChange(r => { if (r !== libCh) { libCh = r; redrawWeb(); } });
 
   // ---- RELIC VAULT ----
   const CASE_W = 176, CASE_H = 236, CASE_GAP = 30;
@@ -460,7 +465,7 @@
         return `<button type="button" role="option" class="bk-tuner-st" data-ch="${c}" tabindex="-1"><b>CH ${c}</b>${t && t.title ? `<small>${esc(t.title)}</small>` : ''}</button>`;
       }).join('')}</div><span class="bk-tuner-needle" aria-hidden="true"></span>`;
       const scale = el.querySelector('.bk-tuner-scale');
-      const pick = c => { if (c === (libCh == null ? libChapters().slice(-1)[0] : libCh)) return; libCh = c; redrawWeb(); };
+      const pick = c => { if (c === (libCh == null ? libChapters().slice(-1)[0] : libCh)) return; libCh = c; if (TL()) TL().setReaderChapter(c === libChapters().slice(-1)[0] ? null : c); redrawWeb(); };
       scale.querySelectorAll('[data-ch]').forEach(b => b.addEventListener('click', () => centreStop(scale, b, true)));
       let settle = null;
       scale.addEventListener('scroll', () => {
@@ -864,6 +869,47 @@
     return { root, nodes };
   }
 
+  // ==================================================================
+  // SITE ENCYCLOPEDIA and CREATURE LOG: placeholder pages until their plans (docs/plans/) are built
+  // ==================================================================
+  function placeholder(kind, title, jp, count, lines) {
+    flushItem();
+    mode = kind;
+    shell(kind, title, jp, count);
+    const sb = $('#bkSandbox');
+    if (viewport) { viewport.stop(); viewport = null; }
+    lastBox = null;
+    sb.innerHTML = `<div class="bk-jp" aria-hidden="true">${esc(jp)}</div><div class="bk-placeholder" style="padding:2.5rem 2rem;max-width:34rem;line-height:1.6">${lines.map(l => `<p>${l}</p>`).join('')}</div>`;
+    const sub = $('.bk-title small'); if (sub) sub.innerHTML = 'not built yet · type <b>back</b> to return';
+  }
+  let stopSites = null;
+  function openSites() {
+    const n = window.EpitaphWorld ? EpitaphWorld.places().length : 0;
+    if (window.EpitaphSitesUI) {
+      flushItem();
+      mode = 'sites';
+      shell('sites', 'Site Encyclopedia', '地誌', n);
+      if (viewport) { viewport.stop(); viewport = null; }
+      lastBox = null;
+      const sb = $('#bkSandbox');
+      sb.innerHTML = '<div class="bk-jp" aria-hidden="true">地誌</div><div id="bkSites"></div>';
+      const sub = $('.bk-title small'); if (sub) sub.innerHTML = 'search · filter · click a place';
+      if (stopSites) stopSites();
+      stopSites = EpitaphSitesUI.mountIndex($('#bkSites'));
+      return `Opening the site encyclopedia… ${n} places.`;
+    }
+    placeholder('sites', 'Site Encyclopedia', '地誌', n, [
+      `<b>The Site Encyclopedia isn't built yet.</b> It will hold every place on the map (${n} so far): how it is run, its alliances and their endings, its resources, its beasts and how it was built.`,
+      `The plan is in <code>docs/plans/site-encyclopedia.md</code>. Next up: the data for each place.`]);
+    return 'The Site Encyclopedia is not built yet. Opening its placeholder page.';
+  }
+  function openCreatures() {
+    placeholder('creatures', 'Creature Log', '生物誌', 0, [
+      `<b>The Creature Log isn't built yet.</b> It will trace how life developed on Epitaph and how its creatures mutated before the story, with their abilities, movements and lore.`,
+      `The plan is in <code>docs/plans/creature-log.md</code>. It starts after the Site Encyclopedia's data is in place.`]);
+    return 'The Creature Log is not built yet. Opening its placeholder page.';
+  }
+
   let tree = null;
   function openSkills() {
     flushItem();
@@ -1131,8 +1177,15 @@
   // Hooks for index.html
   // ------------------------------------------------------------------
   if (Lib) Lib.onChange(() => { if (mode === 'library') { drawLibrary(false); if (!itemEditor) renderItemPanel(); } });
+  document.addEventListener('click', (e) => {          // the storybook's link list: <a data-book="opse|opcl">
+    const a = e.target.closest && e.target.closest('[data-book]');
+    if (!a) return;
+    e.preventDefault();
+    const out = a.dataset.book === 'opse' ? openSites() : a.dataset.book === 'opcl' ? openCreatures() : '';
+    if (out && typeof window.logTerminal === 'function') window.logTerminal(out);
+  });
   window.EpitaphBook = {
-    openLibrary, openSkills,
+    openLibrary, openSkills, openSites, openCreatures,
     close: () => { if (mode) closeView(false); },
     back: () => { if (!mode) return 'Already on the storybook page.'; closeView(true); return 'Back to the storybook.'; },
     get mode() { return mode; }

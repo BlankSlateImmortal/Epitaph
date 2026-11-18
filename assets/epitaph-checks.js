@@ -15,6 +15,12 @@
  *   item-state      an inventory entry points at a state the Library item no longer has
  *   state-back      an item goes back to an earlier state in a character's later chapter
  *                   (a warning only: going back can be deliberate)
+ * Site encyclopedia (assets/epitaph-sites.js), added with `placeId` instead of a character:
+ *   site-place      an entry, or an alliance in it, points at a place that doesn't exist
+ *   site-order      an alliance ends before it starts on the timeline
+ *   site-event      a date in an entry points at a timeline event that doesn't exist
+ *   site-beast      a beast points at a creature that isn't in the Creature Log (once the log exists)
+ *   site-missing    Era 1 places that have no entry yet (information)
  * Needs assets/epitaph-world.js; uses assets/epitaph-library.js when loaded.
  */
 (function (global) {
@@ -163,7 +169,41 @@
         out.push({ level: 'warn', rule: 'missing-place', itemId: i.id, text: `Item “${i.name}” comes from a place that no longer exists.` });
     });
 
+    siteChecks(out);
+
     return out.sort((a, b) => (a.level === b.level ? 0 : a.level === 'warn' ? -1 : 1));
+  }
+
+  // ---- Site Encyclopedia: places, alliances and their dates ----
+  function siteChecks(out) {
+    const World = global.EpitaphWorld, Sites = global.EpitaphSites, TL = global.EpitaphTimeline, Cr = global.EpitaphCreatures;
+    if (!World || !Sites) return;
+    const recs = Sites.load(), placeName = id => { const p = World.place(id); return p ? p.name : id; };
+    const evOf = id => id == null ? null : (TL ? TL.byId(id) : null);
+    const bare = ref => String(ref || '').replace(/^place:/, '');
+    recs.forEach(r => {
+      const me = placeName(r.placeId), at = { placeId: r.placeId };
+      if (!World.place(r.placeId)) out.push({ level: 'warn', rule: 'site-place', ...at, text: `An encyclopedia entry is for “${r.placeId}”, which is not a place on the map.` });
+      const need = (id, where) => { if (id != null && TL && !TL.byId(id)) out.push({ level: 'warn', rule: 'site-event', ...at, text: `${me}: ${where} points at “${id}”, which is not on the timeline.` }); };
+      r.states.forEach(s => need(s.from, 'a state'));
+      r.rule.holders.forEach(h => { need(h.from, 'a ruler\'s start'); need(h.to, 'a ruler\'s end'); });
+      r.founding.forEach(f => need(f.when, 'a founding stage'));
+      r.alliances.forEach(a => {
+        const other = bare(a.with);
+        if (!World.place(other)) out.push({ level: 'warn', rule: 'site-place', ...at, text: `${me} has an alliance with “${other}”, which is not a place on the map.` });
+        need(a.from, 'an alliance\'s start'); need(a.to, 'an alliance\'s end');
+        const f = evOf(a.from), t = evOf(a.to);
+        if (f && t && TL.compare(f, t) > 0) out.push({ level: 'warn', rule: 'site-order', ...at, text: `${me}'s ${a.kind} with ${placeName(other)} ends (${t.title.slice(0, 40)}…) before it starts (${f.title.slice(0, 40)}…).` });
+      });
+      if (Cr && typeof Cr.byId === 'function') r.beasts.forEach(b => {
+        const id = String(b.ref || '').replace(/^creature:/, '');
+        if (!Cr.byId(id)) out.push({ level: 'warn', rule: 'site-beast', ...at, text: `${me} lists a beast (“${id}”) that is not in the Creature Log.` });
+      });
+      r.resources.forEach(x => { if (x.source && /^place:/.test(x.source) && !World.place(bare(x.source))) out.push({ level: 'warn', rule: 'site-place', ...at, text: `${me}: the resource “${x.name}” comes from “${bare(x.source)}”, which is not a place on the map.` }); });
+    });
+    const have = new Set(recs.map(r => r.placeId));
+    const missing = World.places().filter(p => (p.eras || []).includes('ERA_1') && !have.has(p.id));
+    if (missing.length) out.push({ level: 'info', rule: 'site-missing', text: `${missing.length} Era 1 place${missing.length === 1 ? ' has' : 's have'} no encyclopedia entry yet: ${missing.slice(0, 8).map(p => p.name).join(', ')}${missing.length > 8 ? '…' : ''}.` });
   }
   global.EpitaphChecks = { run };
 })(typeof window !== 'undefined' ? window : globalThis);
