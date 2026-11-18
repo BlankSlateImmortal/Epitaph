@@ -943,11 +943,56 @@ function setChapter(ch) {
   renderLegend();
 }
 const remember = () => { try { localStorage.setItem('epitaph-map-prefs', JSON.stringify({ view: state.view, theme: state.theme, era: state.era })); } catch (e) {} };
-function setView(v) {
-  if (state.view === v) return;
+// ---- switching views with a zoom: Epitaph → Earth dives onto the Earth patch, fades, and the board pulls back from close in;
+// Earth → Epitaph zooms in on the board, fades, and the planet pulls back out from its Earth patch
+const zfx = { cam: null, veil: null, busy: false };
+const veil = document.createElement('div');
+Object.assign(veil.style, { position: 'absolute', inset: '0', pointerEvents: 'none', opacity: '0', zIndex: '2' });
+canvas.parentElement.appendChild(veil);
+const easeInOut = k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2, easeOut = k => 1 - Math.pow(1 - k, 3), easeIn = k => k * k * k;
+function tweenCam(to, dur, ease, done) { zfx.cam = { t: 0, dur, ease, done, to, from: { target: controls.target.clone(), pos: camera.position.clone(), zoom: camera.zoom } }; }
+function fadeVeil(to, dur, done) { veil.style.background = THEMES[state.theme].bg; zfx.veil = { t: 0, dur, done, from: +veil.style.opacity || 0, to }; }
+function stepViewFx(dt) {
+  const c = zfx.cam;
+  if (c) {
+    c.t += dt; const k = c.ease(Math.min(1, c.t / c.dur));
+    controls.target.lerpVectors(c.from.target, c.to.target, k); camera.position.lerpVectors(c.from.pos, c.to.pos, k);
+    camera.zoom = c.from.zoom + (c.to.zoom - c.from.zoom) * k; camera.updateProjectionMatrix();
+    if (c.t >= c.dur) { zfx.cam = null; c.done && c.done(); }
+  }
+  const f = zfx.veil;
+  if (f) { f.t += dt; const k = Math.min(1, f.t / f.dur); veil.style.opacity = String(f.from + (f.to - f.from) * k); if (k >= 1) { zfx.veil = null; f.done && f.done(); } }
+}
+function switchView(v) {
   state.view = v; remember();
   document.querySelectorAll('[data-view]').forEach(x => x.classList.toggle('on', x.dataset.view === v));
   build(); goHome(true); renderLegend();
+}
+const camPose = () => ({ target: controls.target.clone(), pos: camera.position.clone(), zoom: camera.zoom });
+function setView(v) {
+  if (state.view === v || zfx.busy) return;
+  if (reduceMotion || !viewCfg || drag.active) { switchView(v); return; }
+  zfx.busy = true; controls.enabled = false; state.focus = null; state.spin = false;
+  const finish = () => { zfx.busy = false; controls.enabled = true; state.lastInteract = performance.now(); };
+  if (v === 'earth') {
+    // dive: face the Earth patch square on and zoom into it
+    const dir = EARTH_DIR.clone(); if (state.planet) dir.applyQuaternion(state.planet.quaternion);
+    const target = dir.clone().multiplyScalar(PR);
+    tweenCam({ target, pos: target.clone().addScaledVector(dir, 80), zoom: 3.6 }, 1.0, easeInOut, () => fadeVeil(1, .22, () => {
+      switchView('earth');
+      const home = camPose(); camera.zoom = home.zoom * 3.2; camera.updateProjectionMatrix();
+      fadeVeil(0, .3); tweenCam(home, 1.15, easeOut, finish);
+    }));
+  } else {
+    // out: push in on the board, then the planet pulls back from its Earth patch
+    const p = camPose();
+    tweenCam({ target: p.target, pos: p.pos, zoom: p.zoom * 2.6 }, .55, easeIn, () => fadeVeil(1, .2, () => {
+      switchView('planet');
+      const home = camPose(), dir = EARTH_DIR.clone(), target = dir.clone().multiplyScalar(PR);
+      controls.target.copy(target); camera.position.copy(target).addScaledVector(dir, 80); camera.zoom = 3.6; camera.updateProjectionMatrix();
+      fadeVeil(0, .3); tweenCam(home, 1.2, easeOut, () => { state.spin = true; finish(); });
+    }));
+  }
 }
 let eraBusy = false;
 const stayInEra0 = c => designFor(c) === 'vale';
@@ -1657,6 +1702,7 @@ renderer.setAnimationLoop(() => {
       if (state.era === 1 && !reduceMotion) flyToChapter(before);        // back in Era 1, the swords drop back in (Vale's stays)
     }
   }
+  stepViewFx(dt);
   if (state.focus) {
     controls.target.x = damp(controls.target.x, state.focus.target.x, 5, dt);
     controls.target.y = damp(controls.target.y, state.focus.target.y, 5, dt);
