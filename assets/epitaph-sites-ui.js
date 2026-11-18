@@ -98,7 +98,7 @@
           <select id="siContinent" aria-label="Region">${opt(W.continents(), filters.continent, 'Any region')}</select>
           <select id="siForm" aria-label="Form of rule">${opt(S.FORMS, filters.form, 'Any rule')}</select>
           <select id="siStatus" aria-label="Status">${opt(S.STATUS, filters.status, 'Any status')}</select>
-          ${T ? `<button type="button" class="slant-btn${author ? ' primary' : ''}" id="siMode" aria-pressed="${author}" title="${author ? 'You see everything. Click to preview what readers see.' : 'You see what a reader at this chapter sees. Click to see everything.'}">${author ? 'Author view' : 'Reader view'}</button>` : ''}
+          ${T && global.EpitaphMode && global.EpitaphMode.isAuthor() ? `<button type="button" class="slant-btn${author ? ' primary' : ''}" id="siMode" aria-pressed="${author}" title="${author ? 'You see everything. Click to preview what readers see.' : 'You see what a reader at this chapter sees. Click to see everything.'}">${author ? 'Author view' : 'Reader view'}</button>` : ''}
         </div>
         <p class="bk-si-note">${shown.length} of ${all.length} places · ${withEntry} with an entry · ${author ? `Author view${hiddenCount ? `, ${hiddenCount} hidden from readers at ${esc(readerText)}` : ''}` : `reader at ${esc(readerText)}`}</p>
         ${sections || '<p class="bk-si-empty">Nothing matches. Clear a filter or the search.</p>'}

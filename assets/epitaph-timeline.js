@@ -175,9 +175,15 @@
     if (typeof global.dispatchEvent === 'function' && typeof CustomEvent === 'function') global.dispatchEvent(new CustomEvent(READER_KEY, { detail: { chapter: v } }));
     return v;
   }
-  /** Author view (everything visible, hidden things marked) or Reader view (a reader's chapter gates it). Default: author. */
-  function authorMode() { try { return localStorage.getItem(AUTHOR_KEY) !== '0'; } catch (e) { return true; } }
+  /** Author view (everything visible, hidden things marked) or Reader view (a reader's chapter gates it).
+   *  Decided by EpitaphMode (assets/epitaph-mode.js): readers by default, the author's browser opts in. Without that module the old
+   *  rule applies: author view unless switched off. */
+  function authorMode() {
+    if (global.EpitaphMode) return global.EpitaphMode.authorView();
+    try { return localStorage.getItem(AUTHOR_KEY) !== '0'; } catch (e) { return true; }
+  }
   function setAuthorMode(on) {
+    if (global.EpitaphMode) return global.EpitaphMode.setAuthorView(!!on);   // it announces the change itself
     try { localStorage.setItem(AUTHOR_KEY, on ? '1' : '0'); } catch (e) {}
     if (typeof global.dispatchEvent === 'function' && typeof CustomEvent === 'function') global.dispatchEvent(new CustomEvent(READER_KEY, { detail: { chapter: readerChapter() } }));
     return !!on;
@@ -186,9 +192,10 @@
   function onReaderChange(fn) {
     if (typeof global.addEventListener !== 'function') return () => {};
     const local = e => fn(e.detail ? e.detail.chapter : readerChapter());
-    const other = e => { if (e.key === READER_KEY || e.key === AUTHOR_KEY) fn(readerChapter()); };
-    global.addEventListener(READER_KEY, local); global.addEventListener('storage', other);
-    return () => { global.removeEventListener(READER_KEY, local); global.removeEventListener('storage', other); };
+    const other = e => { if (e.key === READER_KEY || e.key === AUTHOR_KEY || e.key === 'epitaph-author') fn(readerChapter()); };
+    const mode = () => fn(readerChapter());                                   // EpitaphMode announced a change
+    global.addEventListener(READER_KEY, local); global.addEventListener('storage', other); global.addEventListener('epitaph-mode', mode);
+    return () => { global.removeEventListener(READER_KEY, local); global.removeEventListener('storage', other); global.removeEventListener('epitaph-mode', mode); };
   }
 
   /** Is this event (or a bare `when`) visible to a reader on `chapter`? Leave `chapter` out to use the
