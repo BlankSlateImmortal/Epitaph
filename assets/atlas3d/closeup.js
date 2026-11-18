@@ -13,7 +13,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { loadPins, buildPin, designFor, DESIGN_LABEL, patch } from './pins/pins.js?v=10';
-import { Vox, FIGS, FIG_COLORS } from './statues.js';
+import { buildStone, slotLocal } from './stones.js?v=1';
 
 export const REGION_LABEL = {
   plains: 'Plains', hills: 'Hills', mountains: 'Mountains', ice: 'Snowfield', rim: 'Impact mountains', pit: 'The crater',
@@ -269,19 +269,8 @@ let cur = null;
 export const isOpen = () => !!cur;
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-// a settlement's block statue (assets/atlas3d/statues.js), built from its visible blocks, `h` tall
-function statueMesh(name, h, groupColor, theme) {
-  const V = new Vox(); FIGS[name](V);
-  const all = [...V.m.values()], has = (x, y, z) => !!V.get(x, y, z);
-  const shown = all.filter(([x, y, z]) => !(has(x + 1, y, z) && has(x - 1, y, z) && has(x, y + 1, z) && has(x, y - 1, z) && has(x, y, z + 1) && has(x, y, z - 1)));
-  const top = Math.max(...all.map(b => b[1])) + 1, size = h / top, pal = FIG_COLORS[theme] || FIG_COLORS.crt;
-  const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(size, size, size).translate(0, size / 2, 0), new THREE.MeshStandardMaterial({ roughness: .8 }), shown.length);
-  const m4 = new THREE.Matrix4(), c = new THREE.Color(), glow = new THREE.Color(groupColor).lerp(new THREE.Color('#fff'), .35);
-  shown.forEach(([x, y, z, mat], i) => { m4.makeTranslation(x * size, y * size, z * size); mesh.setMatrixAt(i, m4); mesh.setColorAt(i, mat === 'group' ? c.set(groupColor) : mat === 'groupGlow' ? glow : c.set(pal[mat] || '#f0f')); });
-  mesh.castShadow = mesh.receiveShadow = true; return mesh;
-}
 // chars: everyone in the scene (the first is the one clicked; swords standing close together on the map come along).
-// title + statue: a settlement opened from its marker: its statue in the middle (no built site), its swords around it.
+// title + statue: a settlement opened from its marker: its Epitaph stone in the middle (no built site), its swords in the stone's slots.
 export async function openCloseup({ mount, char, chars, region, theme = 'crt', where = '', siteUrl = null, onClose = null, title = null, statue = null, statueColor = '#6fb3a3' }) {
   closeCloseup(true);
   if (!document.getElementById('cu-css')) { const st = document.createElement('style'); st.id = 'cu-css'; st.textContent = CSS; document.head.appendChild(st); }
@@ -339,20 +328,23 @@ export async function openCloseup({ mount, char, chars, region, theme = 'crt', w
 
   // the swords: alone, the clicked one stands in the middle; with company, the others ring it; at a settlement, all ring its statue
   const at = out.at || [0, 0], gy = out.ground ?? 0, parent = out.parent || scene;
-  if (statue) { const st = statueMesh(statue, 1.35, statueColor, theme); st.position.set(at[0], gy, at[1]); st.rotation.y = .3; parent.add(st); }
-  const ringR = statue ? .85 : .55, pins = [];
+  let stone = null; const STONE = 2.4;                           // the stone, about 1.6 tall: the swords stand in its slots
+  if (statue) { stone = buildStone(statue, statueColor).group; stone.scale.setScalar(STONE); stone.position.set(at[0], gy, at[1]); stone.rotation.y = .3; parent.add(stone); }
+  const ringR = .55, pins = [];
   chars.forEach((c, i) => {
     const pin = buildPin(designFor(c), { ring: c.color });
-    let x = at[0], z = at[1];
-    if (statue || i > 0) {
-      const n = statue ? chars.length : chars.length - 1, k = statue ? i : i - 1, a = .9 + k / Math.max(1, n) * Math.PI * 2;
+    let x = at[0], z = at[1], y = gy;
+    if (stone) {
+      const sp = slotLocal(i).multiplyScalar(STONE).applyQuaternion(stone.quaternion).add(stone.position); x = sp.x; y = sp.y; z = sp.z;
+    } else if (i > 0) {
+      const n = chars.length - 1, k = i - 1, a = .9 + k / Math.max(1, n) * Math.PI * 2;
       x += Math.cos(a) * ringR; z += Math.sin(a) * ringR;
     }
-    pin.group.position.set(x, gy, z); pin.group.rotation.y = .5 + i * 1.3;
+    pin.group.position.set(x, y, z); pin.group.rotation.y = stone ? stone.rotation.y : .5 + i * 1.3;
     pin.group.traverse(o => { if (o.isMesh) o.castShadow = true; });
     parent.add(pin.group); pins.push(pin);
   });
-  const spread = statue || chars.length > 1 ? 1 + .35 * Math.min(4, chars.length) : 1;     // pull the camera back for a crowd
+  const spread = statue ? 1.7 : chars.length > 1 ? 1 + .35 * Math.min(4, chars.length) : 1;     // pull the camera back for a crowd or a stone
   scene.fog.near *= spread; scene.fog.far *= spread;
 
   const camera = new THREE.PerspectiveCamera(35, 1, .05, 60);

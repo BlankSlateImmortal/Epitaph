@@ -18,8 +18,8 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { loadPins, buildPin, designFor } from './pins/pins.js?v=10';
-import { Vox, FIGS, FIG_COLORS } from './statues.js';
-import { openCloseup, isOpen as closeupOpen } from './closeup.js?v=10';
+import { buildStone, slotLocal } from './stones.js?v=1';
+import { openCloseup, isOpen as closeupOpen } from './closeup.js?v=11';
 
 const World = window.EpitaphWorld;
 const $ = id => document.getElementById(id);
@@ -317,37 +317,21 @@ const markerGeo = {};
   markerGeo.token = mergeGeometries([new THREE.CapsuleGeometry(0.09, 0.16, 4, 12).translate(0, 0.2, 0).toNonIndexed(), new THREE.TorusGeometry(0.14, 0.025, 6, 20).rotateX(Math.PI / 2).translate(0, 0.02, 0).toNonIndexed()]);
   markerGeo.dead = mergeGeometries([new THREE.BoxGeometry(0.06, 0.4, 0.06).translate(0, 0.2, 0).toNonIndexed(), new THREE.BoxGeometry(0.24, 0.06, 0.06).translate(0, 0.29, 0).toNonIndexed()]);
 })();
-// ---------- block statues for settlement markers (assets/atlas3d/statues.js): built once, only the blocks you can see
-const STATUE_H = 0.78;                          // statue height in marker units (a city marker is about 0.48)
-const PIN_GAP = 0.46;                           // how far a sword stands from its place's marker (clear of a statue's wings)
-const statueBlocks = {};
-function statueData(name) {
-  if (statueBlocks[name]) return statueBlocks[name];
-  const V = new Vox(); FIGS[name](V);
-  const all = [...V.m.values()], has = (x, y, z) => !!V.get(x, y, z);
-  const shown = all.filter(([x, y, z]) => !(has(x + 1, y, z) && has(x - 1, y, z) && has(x, y + 1, z) && has(x, y - 1, z) && has(x, y, z + 1) && has(x, y, z - 1)));
-  const top = Math.max(...all.map(b => b[1])) + 1;
-  return (statueBlocks[name] = { blocks: shown, size: STATUE_H / top });
-}
-function statueMesh(name, T, groupColor) {
-  const { blocks, size } = statueData(name), pal = FIG_COLORS[state.theme] || FIG_COLORS.crt;
-  const glow = new THREE.Color(groupColor).lerp(new THREE.Color('#ffffff'), 0.35);
-  const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(size, size, size).translate(0, size / 2, 0), toonMaterial(), blocks.length);
-  const m4 = new THREE.Matrix4(), c = new THREE.Color();
-  blocks.forEach(([x, y, z, mat], i) => {
-    m4.makeTranslation(x * size, y * size, z * size); mesh.setMatrixAt(i, m4);
-    mesh.setColorAt(i, mat === 'group' ? c.set(groupColor) : mat === 'groupGlow' ? glow : c.set(pal[mat] || '#ff00ff'));
-  });
-  mesh.material.emissive = new THREE.Color('#000000');           // the hover highlight lights it up
-  return mesh;
-}
+// ---------- settlement stones (assets/atlas3d/stones.js): an engraved standing stone on a plinth with sword slots
+const STONE_S = 1.25;                           // stone size in marker units (about 0.8 tall)
+const PIN_GAP = 0.46;                           // how far a sword stands from a plain place's marker
+let stones = {};                                // placeId → { g, scale, taken: Map(charId → slot) } for the current markers
+const stoneKind = p => (p.group === 'STORYBORN' || (p.fictional && !p.group)) ? 'storyborn' : p.group === 'VOIDED' ? 'voided' : p.group === 'FALLEN' ? 'fallen' : null;
+// slot k of a stone, in the markers' space (a sword's tip goes here)
+function slotPos(st, k) { return slotLocal(k).multiplyScalar(st.scale).applyQuaternion(st.g.quaternion).add(st.g.position); }
+function freeSlot(st, exceptId) { const used = new Set([...st.taken].filter(([id]) => id !== exceptId).map(([, k]) => k)); let k = 0; while (used.has(k)) k++; return k; }
 function placeOn(obj, at, scale = 1) { obj.position.copy(at.pos); obj.quaternion.setFromUnitVectors(UP, at.normal); obj.scale.setScalar(scale); }
 let arcBetween = null;
 
 // places + characters + trails on the current surface
 function addMarkers(T, markerScale, parent = root) {
   markerArgs = { T, markerScale, parent };
-  markerRoot = new THREE.Group(); parent.add(markerRoot); parent = markerRoot;
+  markerRoot = new THREE.Group(); parent.add(markerRoot); parent = markerRoot; stones = {};
   const era = state.era;
   const byKey = {};
   // a fictional city whose own Storyborn site stands inside it (Verdant Reach) is drawn once: the site's statue
@@ -359,35 +343,26 @@ function addMarkers(T, markerScale, parent = root) {
     const sunk = era === 1 && !p.group && !p.fictional && (here.kind === 'sunk' || here.kind === 'sea');
     const kind = markerGeo[p.kind] ? p.kind : 'other';
     const color = p.group ? (T.groups[p.group] || T.groups.OTHER) : sunk ? T.sunk : p.fictional ? T.groups.STORYBORN : T.city;
-    // settlement statues (assets/atlas3d/statues.js): Storyborn the praying angel, Voided the veiled angel with broken wings,
-    // Fallen the broken sword (for Fallen sites, once there are any)
-    const statue = sunk ? null : (p.group === 'STORYBORN' || (p.fictional && !p.group)) ? 'storyborn' : p.group === 'VOIDED' ? 'voided' : p.group === 'FALLEN' ? 'fallen' : null;
+    // settlements stand as Epitaph stones (assets/atlas3d/stones.js); cities are flat dots
+    const statue = sunk ? null : stoneKind(p);
     const k = p.lat.toFixed(1) + ',' + p.lng.toFixed(1);
     const n = byKey[k] = (byKey[k] || 0) + 1;
     const spread = state.view === 'planet' ? 1.2 : 4.2;   // places sharing a spot (a temple in a city) sit side by side
     const at = surface(p.lat - (n - 1) * spread * 0.55, p.lng + (n - 1) * spread);
-    // places stay quiet so the swords stand out: a city is a flat glowing dot; a settlement a flat ring in its faction's colour
-    // whose statue rises out of the ground while a sword is carried, when it's hovered, or when the map is zoomed in close
-    const g = new THREE.Group(); placeOn(g, at, markerScale); g.userData.place = p; g.userData.sunk = sunk;
     const flat = geo => geo.rotateX(-Math.PI / 2);
-    const hit = new THREE.Mesh(flat(new THREE.CircleGeometry(statue ? .3 : .16, 16)), new THREE.MeshBasicMaterial({ visible: false }));
-    hit.position.y = .02; hit.userData.place = p; hit.userData.sunk = sunk; g.add(hit); pickables.push(hit);
     if (statue) {
-      const c = T.groups[statue.toUpperCase()] || T.groups.OTHER;
-      const ring = new THREE.Mesh(flat(new THREE.RingGeometry(.19, .25, 40)), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: .85, depthWrite: false }));
-      const core = new THREE.Mesh(flat(new THREE.CircleGeometry(.07, 20)), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: .55, depthWrite: false }));
-      ring.position.y = core.position.y = .025; g.add(ring, core);
-      const sm = statueMesh(statue, T, c); sm.castShadow = true; withOutline(sm, T); sm.userData.place = p; g.add(sm); pickables.push(sm);
-      let rise = 0;
-      markerAnim.push((time, dt) => {
-        const close = camera.zoom >= (state.view === 'planet' ? 2.4 : 2.6);
-        const want = drag.active || hovered === hit || hovered === sm || close ? 1 : 0;
-        rise += (want - rise) * (1 - Math.exp(-(want ? 7 : 4) * (dt || .016)));
-        const e = rise * rise * (3 - 2 * rise);
-        sm.visible = e > .01; sm.position.y = -STATUE_H * (1 - e) - .02 * (1 - e); sm.scale.setScalar(.6 + .4 * e);
-        ring.material.opacity = .85 - .35 * e; ring.rotation.y = time * .3;
-      });
-    } else {
+      const c = T.groups[statue.toUpperCase()] || T.groups.OTHER, st = buildStone(statue, c);
+      const g = st.group; placeOn(g, at, markerScale * STONE_S); g.userData.place = p;
+      st.hit.userData.place = p; st.hit.userData.sunk = false; pickables.push(st.hit);
+      st.parts.forEach(m => { if (!m.material.isMeshBasicMaterial) withOutline(m, T); });
+      stones[p.id] = { g, scale: markerScale * STONE_S, taken: new Map() };
+      parent.add(g);
+      return;
+    }
+    const g = new THREE.Group(); placeOn(g, at, markerScale); g.userData.place = p; g.userData.sunk = sunk;
+    const hit = new THREE.Mesh(flat(new THREE.CircleGeometry(.16, 16)), new THREE.MeshBasicMaterial({ visible: false }));
+    hit.position.y = .02; hit.userData.place = p; hit.userData.sunk = sunk; g.add(hit); pickables.push(hit);
+    {
       const dot = new THREE.Mesh(flat(new THREE.CircleGeometry(.06, 16)), new THREE.MeshBasicMaterial({ color, transparent: sunk, opacity: sunk ? .7 : 1 }));
       const halo = new THREE.Mesh(flat(new THREE.RingGeometry(.075, .09, 24)), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .45, depthWrite: false }));
       dot.position.y = halo.position.y = .025; g.add(dot, halo);
@@ -396,7 +371,12 @@ function addMarkers(T, markerScale, parent = root) {
   });
   // the story's chapters take place in Era 1; only Vale (sent about 100 years back) also stands in Era 0
   const chars = era === 1 ? state.chars : state.chars.filter(stayInEra0);
-  const stacks = {};
+  const stacks = {}, poses = readPoses();
+  chars.forEach(c => {                                                 // swords that remember a slot claim it first
+    const cs = charStateAt(c, state.chapter), st = cs && cs.stop.r.kind !== 'point' && cs.stop.r.place && stones[cs.stop.r.place.id];
+    const pose = poses[c.id];
+    if (st && pose && pose.key === cs.stop.r.key && Number.isInteger(pose.slot) && ![...st.taken.values()].includes(pose.slot)) st.taken.set(c.id, pose.slot);
+  });
   chars.forEach(c => {
     const cs = charStateAt(c, state.chapter);
     if (!cs) return;
@@ -408,13 +388,17 @@ function addMarkers(T, markerScale, parent = root) {
     const side = new THREE.Vector3().crossVectors(at.normal, Math.abs(at.normal.y) > 0.9 ? new THREE.Vector3(1, 0, 0) : UP).normalize();
     const fwd = new THREE.Vector3().crossVectors(side, at.normal);
     const ang = 2.4 + (n - 1) * 2.1, rad = r.kind === 'point' && n === 1 ? 0 : PIN_GAP * markerScale;   // tokens stand beside the place marker, not on it
-    t.position.addScaledVector(side, Math.cos(ang) * rad).addScaledVector(fwd, Math.sin(ang) * rad).addScaledVector(at.normal, 0.04);
+    const st = r.kind !== 'point' && r.place && stones[r.place.id];
+    if (st && t.userData.isPin) {                                      // in the stone's sword slots, upright
+      if (!st.taken.has(c.id)) st.taken.set(c.id, freeSlot(st, c.id));
+      t.position.copy(slotPos(st, st.taken.get(c.id))); t.quaternion.copy(st.g.quaternion);
+    } else t.position.addScaledVector(side, Math.cos(ang) * rad).addScaledVector(fwd, Math.sin(ang) * rad).addScaledVector(at.normal, 0.04);
     t.castShadow = true; t.userData.char = c; t.userData.charState = cs;
     if (t.userData.isPin) {
-      const pose = readPoses()[c.id];
-      if (pose && (pose.key === r.key || (pose.placeId && 'place:' + pose.placeId === r.key)) && n === 1)   // keep the angle it landed at
+      const pose = poses[c.id];
+      if (!st && pose && (pose.key === r.key || (pose.placeId && 'place:' + pose.placeId === r.key)) && n === 1)   // keep the angle it landed at
         t.quaternion.setFromUnitVectors(UP, at.normal).multiply(new THREE.Quaternion().fromArray(pose.q));
-      t.position.addScaledVector(at.normal, -0.08 * markerScale);          // the point is buried a little
+      if (!st) t.position.addScaledVector(at.normal, -0.08 * markerScale);          // the point is buried a little
       t.userData.hit.userData = { char: c, charState: cs, pin: t, at, scale: markerScale };
       pickables.push(t.userData.hit);
       markerAnim.push(time => t.userData.update(reduceMotion ? 0 : time));          // the design's own effects (glyphs, fading glass, the seal)
@@ -1243,14 +1227,16 @@ function pointerToSurface(e, handH = 0) {
   const hand = parent.worldToLocal(air);
   return { pos: hand.clone().setY(hand.y - handH), hand, normal: UP.clone() };
 }
-function statueAnchors(scale) {
+function statueAnchors(scale, charId) {
   const ids = new Set(World.STATUES || []);
   return placesFor(state.era).filter(p => ids.has(p.id)).map(p => {
-    const at = surface(p.lat, p.lng), land = landingFor(at, scale);
+    const st = stones[p.id], slot = st ? freeSlot(st, charId) : null;
+    const at = st ? { pos: st.g.position.clone(), normal: UP.clone().applyQuaternion(st.g.quaternion) } : surface(p.lat, p.lng);
+    const land = st ? slotPos(st, slot) : landingFor(at, scale);
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.2, 0.26, 40), new THREE.MeshBasicMaterial({ color: THEMES[state.theme].glow, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
     ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), at.normal); ring.position.copy(at.pos).addScaledVector(at.normal, 0.02);
     ring.scale.setScalar(scale); markerRoot.add(ring);
-    return { place: p, at, land, ring };
+    return { place: p, at, land, ring, slot };
   });
 }
 // a puff of block dust and a ring where a pin leaves or hits the ground
@@ -1322,7 +1308,7 @@ function beginDrag(hitObj, e) {
   try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
   canvas.style.cursor = verdict.ok ? 'grabbing' : 'not-allowed';
   if (!verdict.ok) { say(`<b>${esc(char.name)}</b><span>${esc(verdict.why)}</span>`); return; }
-  d.anchors = statueAnchors(scale);
+  d.anchors = statueAnchors(scale, d.char.id);
   pin.userData.built?.setFree(true);                                // loose parts (Moinera's chain) swing free while held
   // the sword hangs from the cursor on a golden thread: the cursor end floats at anchorH above the ground,
   // and the scroll wheel lets thread out (sword lower, slower wider swing) or reels it in
@@ -1676,7 +1662,8 @@ function flyStep(d, dt) {
                   : { status: 'unknown', lat: +ll.lat.toFixed(3), lng: +ll.lng.toFixed(3), placeId: null };
     }
   }
-  d.stick = { from: tip.clone(), land, n: hitSite ? hitSite.at.normal.clone() : n, q: b.q.clone(), t: 0, site: hitSite, spinAxis: tmpA.crossVectors(n, up2).lengthSq() > 1e-6 ? tmpA.clone().normalize() : new THREE.Vector3(1, 0, 0), hard: Math.min(1, speed / (10 * d.scale)) };
+  d.stick = { from: tip.clone(), land, n: hitSite ? hitSite.at.normal.clone() : n, q: hitSite ? new THREE.Quaternion().setFromUnitVectors(UP, hitSite.at.normal) : b.q.clone(), t: 0,   // into a stone's slot: upright
+    site: hitSite, spinAxis: tmpA.crossVectors(n, up2).lengthSq() > 1e-6 ? tmpA.clone().normalize() : new THREE.Vector3(1, 0, 0), hard: Math.min(1, speed / (10 * d.scale)) };
   d.phase = 'stab'; d.t = 0;
   burst(land, d.stick.n, d.scale, true);
   impact(land, d.stick.n, b.v, 0.25 + 0.75 * Math.min(1, speed / (12 * d.scale)), d.scale);
@@ -1746,14 +1733,15 @@ function openSettlementCloseup(p) {
 // ---- landed sword poses, remembered per character so a thrown sword keeps its angle
 const POSE_KEY = 'epitaph-map-pin-poses';
 const readPoses = () => { try { return JSON.parse(localStorage.getItem(POSE_KEY) || '{}') || {}; } catch (e) { return {}; } };
-function savePose(charId, key, q, n) {
+function savePose(charId, key, q, n, slot = null) {
   const rel = new THREE.Quaternion().setFromUnitVectors(UP, n).invert().multiply(q);
   const all = readPoses(); all[charId] = { key, q: rel.toArray().map(x => +x.toFixed(4)) };
+  if (Number.isInteger(slot)) all[charId].slot = slot;
   try { localStorage.setItem(POSE_KEY, JSON.stringify(all)); } catch (e) {}
 }
 function settleAt(d, ref, q, n) {
   const r = World.resolve(ref);
-  if (r) savePose(d.char.id, r.key, q, n);
+  if (r) savePose(d.char.id, r.key, q, n, d.stick && d.stick.site ? d.stick.site.slot : null);
   const where = r ? (r.kind === 'point' ? r.name : 'Now at ' + r.name) : 'Here';
   if (d.verdict.demo) { say(`<b>${esc(d.char.name)}</b><span class="here">${esc(where)}</span><span>Demo pin, not saved. Add characters in the Dossier to keep moves.</span>`, 3200); return; }
   const err = saveLocation(d.char.id, d.cs.stop.snapId, ref);
