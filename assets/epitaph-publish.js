@@ -33,7 +33,7 @@
  */
 (function (global) {
   'use strict';
-  const SCHEMA = 2;   // 2: items carry stateTracks / history / rank / tier; inventory entries stateIds (plan item-system 4.1)
+  const SCHEMA = 3;   // 3: sites carry the seven v2 tabs, already gated for readers (plan site-encyclopedia 2.4); 2: items carry stateTracks / history / rank / tier; inventory entries stateIds (plan item-system 4.1)
   const TL = () => global.EpitaphTimeline, SITES = () => global.EpitaphSites, WORLD = () => global.EpitaphWorld;
 
   const CHAR_FIELDS = ['id', 'name', 'faction', 'glyph', 'portraitFigure', 'portraitStyle', 'portraitSeed', 'corruptionColor'];
@@ -241,24 +241,14 @@
         return out;
       });
 
-      // ---- the site encyclopedia ----
+      // ---- the site encyclopedia: every tab, through the one reader gate (EpitaphSites.forReader), so the in-book Reader view shows what is published ----
       const sites = [], heldSites = [];
+      const shownEvents = new Set(timeline.map(e => e.id));   // an event whose title was held back doesn't exist for readers, so nothing dated by it does either
+      const gate = { recs, scrub, charOk: ref => !!charRef(ref), placeOk: id => !hiddenPlace(id), reached: id => id == null || shownEvents.has(id) };
       recs.forEach(r => {
         if (!S.placeReached(r, N)) { heldSites.push(r.placeId); return; }
-        const states = r.overview.states.filter(st => S.reached(st.from, N)).map(st => ({ from: st.from, status: st.status, scales: clone(st.scales || {}), note: scrub(st.note) }));
-        const holders = (r.domestic.government.holders || []).filter(h => S.reached(h.from, N) && (!/^char:/.test(String(h.ref)) || charRef(h.ref)))
-          .map(h => ({ ref: scrub(String(h.ref).replace(/^char:/, '')) ? h.ref : '', title: scrub(h.title), from: h.from, to: S.reached(h.to, N) ? h.to : null })).filter(h => h.ref);
-        const alliances = S.alliancesAt(r.placeId, N, recs, false).filter(a => a.owner === r.placeId).map(a => ({
-          with: a.with, kind: a.kind, from: a.from, to: a.endHidden ? null : a.to, endsLater: !!a.endHidden, note: scrub(a.note) }));
-        const resources = (r.economy.resources || []).map(x => ({ name: scrub(x.name), category: x.category, role: x.role, source: x.source && !hiddenPlace(String(x.source).replace(/^place:/, '')) ? x.source : undefined })).filter(x => x.name).map(x => { if (x.source === undefined) delete x.source; return x; });
-        const beasts = (r.beasts || []).map(b => ({ ref: b.ref, relation: b.relation, note: scrub(b.note) }));
-        const founding = (r.history.founding || []).filter(f => S.reached(f.when, N)).map(f => ({ stage: f.stage, when: f.when, why: scrub(f.why), who: scrub(String(f.who || '').replace(/^char:/, '')), materials: scrub(f.materials), reused: scrub(f.reused), change: scrub(f.change) }));
-        sites.push({ placeId: r.placeId, revealedIn: S.placeRevealChapter(r), states,
-          rule: { form: r.domestic.government.form, holders, laws: (r.domestic.government.laws || []).map(l => scrub(l.text)).filter(Boolean), outsiders: scrub(r.domestic.government.outsiders), stance: r.domestic.government.stance || '' },
-          alliances, resources, beasts, founding });
+        sites.push(S.forReader(r, N, gate));
       });
-      // a tie must not name a place that was held back (alliancesAt already hides those), but a second pass is cheap
-      sites.forEach(s => { s.alliances = s.alliances.filter(a => !hiddenPlace(String(a.with).replace(/^place:/, ''))); });
 
       const data = { schemaVersion: SCHEMA, publishedThrough: N, builtAt: now,
         dossier: { schemaVersion: state.schemaVersion, characters: dossierChars, chapters }, library: { version: lib.version, countries, places, items }, timeline, sites };

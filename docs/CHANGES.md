@@ -2,6 +2,17 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Site Encyclopedia: the reader gate and the published snapshot (assets/epitaph-sites.js `forReader`, epitaph-publish.js) — step 2.4
+
+The published file now carries all seven tabs of every place readers have reached (snapshot schema 3), already gated, and the book's **Reader view** shows exactly that, through the same function.
+
+- **What a reader gets:** dated things follow their dates (a ruler, law, faction, tie, chronicle line, founding stage, era or resource appears once its event is revealed; an end they haven't reached shows as ongoing); anything `hidden` or carrying a `revealedIn` waits for that chapter; an Intrigue line appears only once its own reveal chapter is reached; a character is named only once introduced.
+- **Never published:** scenarios, drafts, agents, corruption, secret goals, fears, leverage, relationships, who wants a tie to fail, a tie's real reason, the truth behind an official story, evidence, setup and payoff notes. These keys are left out of the file, not blanked.
+- **A held-back event holds back what hangs on it:** if the builder withholds an event (its title names something unreached), nothing dated by it is published either, so the event's id can't leak through a state or a founding stage.
+- **Hold a block back** with `hidden: true` or `revealedIn` on purpose, settlers, myth, name, the government's prose, society, knowledge, military, or the economy's prose; the drafts mark the ones that would give a secret away.
+- **Drafting markers** like "(suggested)" and "(a guess)" are stripped from published text.
+- `tools/check-snapshot.py` has its own list for sites (so `secrets` and `knowledge` are fine as site tabs) and checks that no hidden faction, secret goal, secret tie or unrevealed Intrigue line is in the file. It also no longer mistakes a character's `weight` stat for an item field.
+
 ## Site Encyclopedia: a place's entry in the book (assets/epitaph-site-entry.js, epitaph-dither.js) — step 2.2
 
 Click a place in the book's Site Encyclopedia (`opse`) and its entry opens over the index: seven tabs down the left page (Overview · History · Domestic · Foreign · Economy · Beasts · Intrigue) and a **dither map** on the right page above the terminal. Built from the round-4 mockups.

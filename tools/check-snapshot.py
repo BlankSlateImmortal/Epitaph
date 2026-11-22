@@ -30,6 +30,10 @@ FORBIDDEN_KEYS = {
 }
 # item fields that are never published (docs/plans/item-system.md 4.1)
 ITEM_PRIVATE_KEYS = {'wip', 'weight', 'appearance', 'maker', 'price', 'terms', 'breach', 'lastsUntil'}
+# the site encyclopedia has its own never-published fields (the v2 tabs use names like `secrets` and `knowledge` on purpose):
+# author-only truths, notes and drafts. A revealed Intrigue line is published, but never its setup / payoff / evidence notes.
+SITE_FORBIDDEN_KEYS = {'draft', 'scenarios', 'agents', 'corruption', 'fears', 'leverage', 'relationships', 'wantsItToFail', 'real', 'target',
+                       'setup', 'payoff', 'evidence', 'unlocks', 'related', 'suspects', 'truth', 'fate', 'blackMarket', 'flashpoints', 'leaders', 'campaigns', 'dangers'}
 # fields whose name starts with these are never published either
 FORBIDDEN_PREFIXES = ('legacy',)
 # 'note' is allowed where the builder writes a scrubbed note of its own
@@ -93,12 +97,37 @@ def main():
     pub_max = max((c['chapter'] for c in published), default=None)
     text = json.dumps(data, ensure_ascii=False).lower()
 
-    # 1. fields that are never published
-    for k, parent in keys_with_parents(data):
+    # 1. fields that are never published (the Dossier's list; sites have their own, below)
+    sites_part = data.get('sites') or []
+    rest = {k: v for k, v in data.items() if k != 'sites'}
+    for k, parent in keys_with_parents(rest):
         if k == 'note' and parent in NOTE_OK_PARENTS:
             continue
         if k in FORBIDDEN_KEYS or k.startswith(FORBIDDEN_PREFIXES):
             problems.append(f'field "{k}" is never published (found under "{parent}")')
+
+    # sites: the v2 tabs, each checked against the site list (a secret goal, a truth or a scenario would mean the gate was skipped)
+    for k, parent in keys_with_parents(sites_part):
+        if k in SITE_FORBIDDEN_KEYS:
+            problems.append(f'site field "{k}" is never published (found under "{parent}")')
+    for rec in sites_part:
+        pid = rec.get('placeId')
+        for fac in (rec.get('domestic') or {}).get('factions', []):
+            if (fac.get('goals') or {}).get('secret'):
+                problems.append(f'{pid}: faction "{fac.get("name")}" publishes a secret goal')
+            if fac.get('hidden'):
+                problems.append(f'{pid}: a hidden faction ("{fac.get("name")}") is published')
+        for fig in (rec.get('domestic') or {}).get('figures', []):
+            if (fig.get('goals') or {}).get('secret'):
+                problems.append(f'{pid}: figure "{fig.get("name") or fig.get("ref")}" publishes a secret goal')
+        for tie in (rec.get('foreign') or {}).get('ties', []):
+            if tie.get('secret'):
+                problems.append(f'{pid}: a secret tie to {tie.get("with")} is published')
+        for kind, items in (rec.get('intrigue') or {}).items():
+            for it in items:
+                rv = it.get('revealedIn')
+                if not isinstance(rv, int) or (n is not None and rv > n):
+                    problems.append(f'{pid}: an Intrigue line ({kind}) is published without a reached reveal chapter (revealedIn {rv})')
 
     # 2. the snapshot can't be ahead of the published chapters
     if n is None:
@@ -143,8 +172,8 @@ def main():
         return min(cands) if cands else None
     def reached(rc):
         return rc is not None and n is not None and rc <= n
-    for k, parent in keys_with_parents(data):
-        if k in ITEM_PRIVATE_KEYS:
+    for k, parent in keys_with_parents({k0: v0 for k0, v0 in data.items() if k0 != 'sites'}):   # sites have their own list
+        if k in ITEM_PRIVATE_KEYS and not (k == 'weight' and parent == 'stats'):   # a character's `weight` stat is one of the seven, not an item's weight
             problems.append(f'item field "{k}" is never published (found under "{parent}")')
         if k == 'type' and parent == 'marks':
             problems.append('a curse\'s type is never published (found on a mark)')

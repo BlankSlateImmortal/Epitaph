@@ -196,3 +196,13 @@ fire; a Storyborn or Voided intervention).
 v1 data moves over without loss: `states` → `overview.states`, `rule` → `domestic.government` (`stance` and `outsiders` stay there, since the index groups places by stance; laws become `{ text, from, to }`),
 `alliances` → `foreign.ties` (kind kept; motive empty), `resources` → `economy.resources`, `beasts` → `beasts`, `founding` →
 `history.founding`. Storage keeps one record per place per tab, now per v2 tab. The schema version goes to 2 with a backup before the upgrade.
+
+## The reader gate (step 2.4)
+
+One function, `EpitaphSites.forReader(rec, chapter, opt)`, produces what a reader may see of a place; the published snapshot and the book's Reader view both use it.
+
+- **Dated:** an item with `from` / `when` appears once that event is revealed (`from: null`, or no date, means since the start); an end (`to`) shows only once reached.
+- **Held:** `hidden: true` keeps an item or block author-only until its `revealedIn` chapter; `revealedIn` alone holds it until then too. Blocks: purpose, settlers, myth, name, government (its prose), society, knowledge, military, economy (its prose).
+- **Intrigue:** every line needs a `revealedIn` that has been reached. Setup and payoff notes, evidence and the rumour's truth label are never published.
+- **Left out entirely:** scenarios, drafts, agents, corruption, secret goals, fears, leverage, relationships, wantsItToFail, a tie's `real` reason and `target`, record truth, suspects and evidence, fate, blackMarket, flashpoints, leaders, campaigns, dangers.
+- **Rule for the author:** a reader sees a field's text once its place and date are reached, so keep secrets in Intrigue and in the record's truth, never in a public field.

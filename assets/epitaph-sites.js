@@ -395,6 +395,119 @@
     });
     return { people, chapters: chaps };
   }
+  /** What a reader on `chapter` may see of one place: a v2 record with everything author-only taken out (docs/plans/site-schema-v2.md).
+   *  One gate for both the published snapshot (assets/epitaph-publish.js) and the book's Reader view, so a preview shows what is published.
+   *  Rules: dated things follow their dates (an undated one, or `from: null`, is "since the start"); an end the reader hasn't reached is dropped;
+   *  anything `hidden`, or carrying `revealedIn`, stays out until that chapter; a block (purpose, settlers, myth, name, government prose, society,
+   *  knowledge, military, economy prose) can be held back the same way; free text goes through `scrub`; a `char:` ref is kept only when
+   *  `charOk` says the character is introduced. Author-only, never passed on: scenarios, drafts, agents, corruption, secret goals, fears,
+   *  leverage, relationships, evidence, the truth behind a record, a tie's real reason and who wants it to fail, setup and payoff notes.
+   *  Intrigue lines appear only once their `revealedIn` is reached.
+   *  opt: { recs, scrub(text), charOk(ref), placeOk(placeId), reached(eventId) } (defaults: this module's own clean / hiddenNames; no characters;
+   *  reached places and events). */
+  function forReader(rec, chapter, opt) {
+    const o = opt || {}, T = TL(), recs = o.recs || load(), r = normalise(rec);
+    const at = chapter == null ? (T && T.latestChapter ? T.latestChapter() : null) : chapter;
+    const scrub = o.scrub || (t => clean(t, chapter, recs, false));
+    const charOk = o.charOk || (() => false);
+    const placeOk = o.placeOk || (id => { const x = get(id, recs); return !x || placeReached(x, chapter); });
+    const isRef = (x, k) => new RegExp('^' + k + ':').test(String(x || ''));
+    const refOk = x => isRef(x, 'char') ? charOk(x) : isRef(x, 'place') ? placeOk(String(x).replace(/^place:/, '')) : true;
+    const rch = o.reached || (w => reached(w, chapter));                 // the publisher passes its own: an event whose title was held back is not reached
+    const R = it => !!it && it.revealedIn != null && at != null && it.revealedIn <= at;
+    const held = it => !!it && (it.hidden || it.revealedIn != null) && !R(it);
+    const live = it => !!it && !held(it);
+    const when = (it, k) => it[k] === undefined || rch(it[k]);       // undated = since the start
+    const end = (it, k) => (it[k] != null && rch(it[k])) ? it[k] : null;
+    // drafting markers ("(suggested)", "(a guess)") are notes to the author, not lore
+    const tx = t => scrub((t == null ? '' : String(t)).replace(/\s*\((?:suggested|a guess|sugg\.)\)/gi, '').trim());
+    const who = (x, name) => isRef(x, 'char') ? (charOk(x) ? x : '') : (x ? tx(x) : (name ? tx(name) : ''));
+    const keep = (list, f) => (Array.isArray(list) ? list : []).filter(f);
+    const block = b => (b && !held(b)) ? b : null;
+    const strs = a => (Array.isArray(a) ? a : []).map(tx).filter(Boolean);
+    const out = { placeId: r.placeId, revealedIn: placeRevealChapter(r), model: hasModel(r) };
+    // overview
+    out.overview = { states: keep(r.overview.states, st => rch(st.from)).map(st => ({ from: st.from, status: st.status, scales: clone(st.scales || {}), techLevel: st.techLevel, note: tx(st.note) })) };
+    // history
+    const h = r.history, pu = block(h.purpose), se = block(h.settlers), my = block(h.myth), nm = block(h.name);
+    out.history = {
+      purpose: pu ? { original: tx(pu.original), now: tx(pu.now), drift: tx(pu.drift) } : { original: '', now: '', drift: '' },
+      founders: keep(h.founders, live).map(f => ({ ref: f.ref && refOk(f.ref) ? f.ref : '', name: who(f.ref ? '' : f.name), role: tx(f.role) })).filter(f => f.ref || f.name),
+      settlers: se ? { who: tx(se.who), from: tx(se.from), why: tx(se.why) } : { who: '', from: '', why: '' },
+      founding: keep(h.founding, f => rch(f.when)).map(f => ({ stage: f.stage, when: f.when, why: tx(f.why), who: who(f.who), materials: tx(f.materials), reused: tx(f.reused), change: tx(f.change) })),
+      myth: my ? { text: tx(my.text), true: '', secret: false } : { text: '', true: '', secret: false },
+      name: nm ? { meaning: tx(nm.meaning), older: strs(nm.older), outsiders: strs(nm.outsiders) } : { meaning: '', older: [], outsiders: [] },
+      chronicle: keep(h.chronicle, e => live(e) && rch(e.when)).map(e => ({ id: e.id, when: e.when, title: tx(e.title), kind: e.kind, text: tx(e.text), turningPoint: !!e.turningPoint, refs: keep(e.refs, refOk) })),
+      eras: keep(h.eras, e => live(e) && rch(e.from)).map(e => ({ name: tx(e.name), from: e.from, to: end(e, 'to'), note: tx(e.note) })),
+      landmarks: keep(h.landmarks, l => live(l) && (!l.built || rch(l.built))).map(l => ({ id: l.id, name: tx(l.name), built: l.built || '', by: who(l.by), story: tx(l.story), sealed: !!l.sealed })),
+      lost: keep(h.lost, l => live(l) && rch(l.when)).map(l => ({ name: tx(l.name), when: l.when, how: tx(l.how) })),
+      record: keep(h.record, live).map(x => ({ topic: tx(x.topic), official: tx(x.official) }))
+    };
+    // domestic
+    const d = r.domestic, g = d.government, gp = block({ hidden: g.hidden, revealedIn: g.revealedIn }) !== null;
+    out.domestic = {
+      government: { form: g.form, stance: g.stance,
+        offices: keep(g.offices, live).map(x => ({ title: tx(x.title), holds: tx(x.holds), holder: who(x.holder) })),
+        holders: keep(g.holders, x => live(x) && rch(x.from) && (!isRef(x.ref, 'char') || charOk(x.ref))).map(x => ({ ref: isRef(x.ref, 'char') ? x.ref : tx(x.ref), title: tx(x.title), from: x.from, to: end(x, 'to') })).filter(x => x.ref),
+        succession: gp ? tx(g.succession) : '', justice: gp ? tx(g.justice) : '', citizenship: gp ? tx(g.citizenship) : '', outsiders: gp ? tx(g.outsiders) : '',
+        laws: keep(g.laws, l => live(l) && rch(l.from)).map(l => ({ text: tx(l.text), from: l.from, to: end(l, 'to') })).filter(l => l.text) },
+      factions: keep(d.factions, f => live(f) && rch(f.from)).map(f => ({ id: f.id, name: tx(f.name), kind: f.kind, leader: who(f.leader), goals: { public: tx((f.goals || {}).public) },
+        members: keep(f.members, refOk), size: tx(f.size), strength: f.strength, stance: tx(f.stance), ties: keep(f.ties, x => refOk(x.ref)).map(x => ({ ref: x.ref, how: tx(x.how) })),
+        controls: strs(f.controls), hidden: false, from: f.from, to: end(f, 'to') })),
+      figures: keep(d.figures, f => live(f) && !held(d.factions.find(x => x.id === f.faction)) && (!f.ref || refOk(f.ref))).map(f => ({ id: f.id, ref: f.ref || '', name: f.ref ? '' : tx(f.name), role: tx(f.role), faction: f.faction || '',
+        goals: { public: tx((f.goals || {}).public) }, status: keep(f.status, x => rch(x.from)) })),
+      unrest: keep(d.unrest, u => live(u) && rch(u.from)).map(u => ({ id: u.id, from: u.from, to: end(u, 'to'), causes: strs(u.causes), response: tx(u.response), outcome: end(u, 'to') ? tx(u.outcome) : '' })),
+      society: (b => b ? { daily: tx(b.daily), customs: tx(b.customs), festivals: tx(b.festivals), taboos: tx(b.taboos), faith: tx(b.faith), culture: tx(b.culture),
+        outsiders: { storyborn: tx((b.outsiders || {}).storyborn), voided: tx((b.outsiders || {}).voided), fallen: tx((b.outsiders || {}).fallen), foreign: tx((b.outsiders || {}).foreign) } } : TAB_DEFAULTS().domestic.society)(block(d.society)),
+      knowledge: (b => b ? { era0: keep(b.era0, x => true).map(x => ({ what: tx(x.what), works: !!x.works, who: who(x.who) })), energy: tx(b.energy), medicine: tx(b.medicine), communication: tx(b.communication), weapons: tx(b.weapons), education: tx(b.education),
+        forbidden: keep(b.forbidden, x => true).map(x => ({ what: tx(x.what), why: '' })) } : TAB_DEFAULTS().domestic.knowledge)(block(d.knowledge)),
+      military: (b => b ? { forces: keep(b.forces, x => true).map(x => ({ name: tx(x.name), size: tx(x.size) })), ranks: strs(b.ranks), doctrine: tx(b.doctrine), commanders: keep(b.commanders, refOk) } : { forces: [], ranks: [], doctrine: '', commanders: [] })(block(d.military))
+    };
+    // foreign: ties are stored on one side and shown on both; only this place's own are kept (the other side's record holds the rest)
+    const f0 = r.foreign;
+    out.foreign = {
+      ties: alliancesAt(r.placeId, chapter, recs, false).filter(a => a.owner === r.placeId && (a.from == null || rch(a.from))).map(a => { a = Object.assign({}, a, { endHidden: a.endHidden || (a.to != null && !rch(a.to)) }); const t = (f0.ties || []).find(x => x.id === a.id) || a;
+        return { id: a.id, with: a.with, kind: a.kind, motive: t.motive || '', motiveDetail: tx(t.motiveDetail),
+          terms: keep(t.terms, x => true).map(x => ({ side: tx(x.side), gives: tx(x.gives), gets: tx(x.gets) })),
+          signed: t.signed ? { when: t.signed.when || '', by: keep(t.signed.by, refOk), where: tx(t.signed.where) } : { when: '', by: [], where: '' },
+          renewal: t.renewal ? { expires: tx(t.renewal.expires), conditions: tx(t.renewal.conditions) } : { expires: '', conditions: '' },
+          public: tx(t.public), ends: a.endHidden || !t.ends ? { when: '', how: '', note: '' } : { when: t.ends.when || '', how: t.ends.how || '', note: '' },
+          secret: false, from: a.from, to: a.endHidden ? null : a.to, endsLater: !!a.endHidden, note: tx(a.note) }; }),
+      blocs: keep(f0.blocs, b => live(b)).map(b => ({ id: b.id, name: tx(b.name), charter: tx(b.charter), seat: b.seat && refOk(b.seat) ? b.seat : '', purpose: tx(b.purpose), rival: b.rival || '', tension: tx(b.tension),
+        members: keep(b.members, m => rch(m.from) && placeOk(String(m.place || '').replace(/^place:/, ''))).map(m => ({ place: m.place, from: m.from, to: end(m, 'to') })) })),
+      envoys: keep(f0.envoys, x => live(x) && rch(x.from) && (!x.ref || refOk(x.ref))).map(x => ({ ref: x.ref || '', name: x.ref ? '' : tx(x.name), to: x.to, from: x.from, to_: end(x, 'to_') })),
+      hostages: keep(f0.hostages, x => live(x) && rch(x.from) && (!x.ref || refOk(x.ref))).map(x => ({ ref: x.ref || '', name: x.ref ? '' : tx(x.name), heldBy: x.heldBy, why: tx(x.why), from: x.from, to: end(x, 'to') })),
+      borders: keep(f0.borders, live).map(x => ({ with: x.with, land: tx(x.land), disputed: !!x.disputed })),
+      routes: keep(f0.routes, x => live(x) && placeOk(String(x.to || '').replace(/^place:/, ''))).map(x => ({ id: x.id, to: x.to, carries: strs(x.carries) })),
+      migration: keep(f0.migration, x => live(x) && (x.when === undefined || rch(x.when))).map(x => ({ who: tx(x.who), from: x.from, to: x.to, why: tx(x.why), when: x.when })),
+      reputation: keep(f0.reputation, x => live(x) && placeOk(String(x.place || '').replace(/^place:/, ''))).map(x => ({ place: x.place, view: tx(x.view) }))
+    };
+    // economy
+    const e = r.economy, eb = block({ hidden: e.hidden, revealedIn: e.revealedIn }) !== null;
+    out.economy = {
+      resources: keep(e.resources, x => live(x) && when(x, 'from')).map(x => ({ id: x.id, name: tx(x.name), category: x.category, role: x.role, core: !!x.core, importance: x.importance,
+        partners: keep(x.partners, refOk), route: tx(x.route), controlledBy: x.controlledBy && refOk(x.controlledBy) ? x.controlledBy : '', reserves: tx(x.reserves), ifCutOff: tx(x.ifCutOff), source: x.source && refOk(x.source) ? x.source : '', seasonal: tx(x.seasonal) })).filter(x => x.name),
+      currency: eb ? tx(e.currency) : '', markets: eb ? tx(e.markets) : '', taxes: eb ? tx(e.taxes) : '', labour: eb ? tx(e.labour) : '', wealthGap: eb ? tx(e.wealthGap) : '',
+      debts: keep(e.debts, x => live(x) && placeOk(String(x.place || '').replace(/^place:/, ''))).map(x => ({ place: x.place, owes: x.owes, owed: x.owed, what: tx(x.what) }))
+    };
+    out.beasts = keep(r.beasts, live).map(b => ({ ref: b.ref, relation: b.relation, wards: Array.isArray(b.wards) ? b.wards.slice() : [], incidents: keep(b.incidents, i => i.when === undefined || rch(i.when)).map(i => ({ when: i.when, text: tx(i.text) })),
+      trade: tx(b.trade), keepers: tx(b.keepers), pact: b.pact && rch(b.pact.from) ? { terms: tx(b.pact.terms), from: b.pact.from, to: end(b.pact, 'to') } : null, note: tx(b.note) }));
+    // intrigue: only lines whose own reveal chapter has been reached
+    const shownI = list => keep(list, R);
+    const i0 = r.intrigue;
+    out.intrigue = {
+      secrets: shownI(i0.secrets).map(x => ({ id: x.id, text: tx(x.text), about: keep(x.about, refOk), keepers: keep(x.keepers, k => !isRef(k.ref, 'char') || charOk(k.ref)).map(k => ({ ref: k.ref, why: tx(k.why) })),
+        revealedIn: x.revealedIn, discoverable: x.discoverable && x.discoverable.where ? { where: x.discoverable.where, how: tx(x.discoverable.how) } : { where: '', how: '' } })),
+      rumours: shownI(i0.rumours).map(x => ({ id: x.id, text: tx(x.text), aboutSecret: x.aboutSecret && R((i0.secrets || []).find(s => 'secret:' + r.placeId + '/' + s.id === x.aboutSecret)) ? x.aboutSecret : '', about: keep(x.about, refOk),
+        origin: { where: tx((x.origin || {}).where), who: who((x.origin || {}).who), when: (x.origin || {}).when == null ? null : ((x.origin || {}).when), intent: (x.origin || {}).intent || '' },
+        spread: keep(x.spread, y => (!y.when || rch(y.when)) && refOk(y.to)).map(y => ({ when: y.when, to: y.to, by: who(y.by) })), believers: keep(x.believers, refOk), effect: tx(x.effect), revealedIn: x.revealedIn })),
+      questions: shownI(i0.questions).map(x => ({ id: x.id, text: tx(x.text), about: keep(x.about, refOk), revealedIn: x.revealedIn })),
+      hooks: shownI(i0.hooks).map(x => ({ id: x.id, for: x.for && refOk(x.for) ? x.for : '', text: tx(x.text), revealedIn: x.revealedIn })),
+      foreshadow: shownI(i0.foreshadow).map(x => ({ id: x.id, text: tx(x.text), revealedIn: x.revealedIn })),
+      sealed: shownI(i0.sealed).map(x => ({ id: x.id, place: x.place, why: tx(x.why), whoHasKey: who(x.whoHasKey), revealedIn: x.revealedIn }))
+    };
+    return out;
+  }
   const label = (set, id) => (set.find(x => x.id === id) || {}).label || id || '';
   const step = (scaleId, n) => { const s = SCALES.find(x => x.id === scaleId); return s && n >= 1 && n <= 7 ? s.steps[n - 1] : '?'; };
 
@@ -402,6 +515,6 @@
     KEY, VERSION, BACKUP_KEY, STATUS, SCALES, SCALE_SETS, FORMS, ALLIANCE_KINDS, BEAST_RELATIONS, RESOURCE_CATEGORIES, RESOURCE_ROLES, FOUNDING_STAGES,
     MOTIVES, FACTION_KINDS, TIE_ENDINGS, TEMPERAMENTS, SOCIAL_SHAPES, WARD_KINDS, RUMOUR_INTENTS, TRIGGER_GROUPS,
     TABS, TAB_LABEL, DATA_TABS, DEFAULTS,
-    alliancesAt, storyOf, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, draftUpdatesIn, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
+    alliancesAt, storyOf, forReader, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, draftUpdatesIn, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
   };
 })(typeof window !== 'undefined' ? window : globalThis);

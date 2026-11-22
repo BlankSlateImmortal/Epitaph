@@ -24,10 +24,15 @@
 
   // ---------------------------------------------------------------- context: who is reading, and what they may see
   function context(placeId) {
-    const Si = S(), T = TL(), recs = Si.load(), rec = Si.get(placeId, recs) || Si.empty(placeId);
+    const Si = S(), T = TL(), recs = Si.load(), full = Si.get(placeId, recs) || Si.empty(placeId);
     const place = (Wd() && Wd().place(placeId)) || { id: placeId, name: placeId };
     const author = T ? T.authorMode() : true, chapter = T ? T.readerChapter() : null;
     const at = chapter == null ? (T && T.latestChapter ? T.latestChapter() : null) : chapter;
+    // a reader (or the author's Reader view) gets the record through the same gate the published snapshot uses, so a preview is what is published
+    const dossier = (typeof state !== 'undefined' && state) ? state : (() => { try { return JSON.parse(localStorage.getItem('epitaph-character-profiles') || 'null') || {}; } catch (e) { return {}; } })();
+    const charOk = ref => { const k = String(ref || '').replace(/^char:/, '').toLowerCase(); const ch = (dossier.characters || []).find(x => x.id === ref.replace(/^char:/, '') || String(x.name || '').toLowerCase() === k);
+      return !!ch && (ch.snapshots || []).some(v => Number.isInteger(v.startChapter) && (at == null || v.startChapter <= at)); };
+    const rec = author ? full : Si.forReader(full, chapter, { recs, charOk });
     const c = { Si, T, recs, rec, place, author, chapter, at, pid: placeId };
     c.seen = when => Si.reached(when, chapter);
     c.revealed = it => !!it && it.revealedIn != null && at != null && it.revealedIn <= at;
@@ -125,12 +130,12 @@
     const chron = (h.chronicle || []).filter(e => c.author || c.seen(e.when));
     const html = `
       <div class="se-g2">
-        ${card('Original purpose → now', `<span>${esc(c.txt(h.purpose.original)) || '<span class="se-dim">—</span>'}</span>${h.purpose.now ? `<span class="se-dim">Now: ${esc(c.txt(h.purpose.now))}</span>` : ''}${h.purpose.drift ? `<span class="se-dim">Drift: ${esc(c.txt(h.purpose.drift))}</span>` : ''}`)}
+        ${(c.author || h.purpose.original || h.purpose.now || h.purpose.drift) ? card('Original purpose → now', `<span>${esc(c.txt(h.purpose.original)) || '<span class="se-dim">—</span>'}</span>${h.purpose.now ? `<span class="se-dim">Now: ${esc(c.txt(h.purpose.now))}</span>` : ''}${h.purpose.drift ? `<span class="se-dim">Drift: ${esc(c.txt(h.purpose.drift))}</span>` : ''}`) : ''}
         ${card('Founders · first settlers', `${(h.founders || []).map(f => `<span>${chip(c.name(f.ref || f.name), 'am')} <span class="se-dim">${esc(f.role)}</span></span>`).join('')}${h.settlers.who ? `<span>${esc(c.txt(h.settlers.who))}${h.settlers.from ? ` <span class="se-dim">from ${esc(c.txt(h.settlers.from))}</span>` : ''}</span>` : ''}` || '<span class="se-dim">—</span>')}
         ${card('The founding myth', h.myth.text ? `<span>“${esc(c.txt(h.myth.text))}”</span>${c.author && h.myth.true ? `<span class="se-row">${chip(h.myth.true === 'half' ? 'Half-true' : h.myth.true === 'true' ? 'True' : 'False', 'am')}</span>` : ''}` : '<span class="se-dim">—</span>')}
         ${card('The name · eras', `<span>${esc(h.name.meaning) || '<span class="se-dim">—</span>'}</span>${(h.name.outsiders || []).length ? `<span class="se-dim">Outsiders: ${esc(h.name.outsiders.join(', '))}</span>` : ''}<span class="se-row">${(h.eras || []).filter(e => c.author || c.seen(e.from)).map(e => chip(e.name, c.seen(e.from) ? '' : 'dash')).join('')}</span>`)}
       </div>
-      ${card('Chronicle · ◆ turning point · dashed = readers haven\'t reached it', chron.length ? `<div class="se-tl">${chron.map(e => `<b class="${e.turningPoint ? 'tp' : ''}"></b><span class="${c.seen(e.when) ? '' : 'se-hidtxt'}"><span class="se-hi">${esc(c.txt(e.title))}</span>${e.text ? ` <span class="se-dim">${esc(c.txt(e.text))}</span>` : ''} ${markers(c, 'chronicle:' + e.id)}</span>`).join('')}</div>` : empty('No dated events yet.'))}
+      ${card('Chronicle · ◆ turning point' + (c.author ? ' · dashed = readers haven\'t reached it' : ''), chron.length ? `<div class="se-tl">${chron.map(e => `<b class="${e.turningPoint ? 'tp' : ''}"></b><span class="${c.seen(e.when) ? '' : 'se-hidtxt'}"><span class="se-hi">${esc(c.txt(e.title))}</span>${e.text ? ` <span class="se-dim">${esc(c.txt(e.text))}</span>` : ''} ${markers(c, 'chronicle:' + e.id)}</span>`).join('')}</div>` : empty('No dated events yet.'))}
       ${(h.record || []).length ? card('The record · official version' + (c.author ? ' vs what really happened' : ''), `<div class="se-rec${c.author ? '' : ' one'}"><span class="se-lbl">topic</span><span class="se-lbl">official</span>${c.author ? '<span class="se-lbl">truth · author only</span>' : ''}${h.record.map(r => `<span class="se-hi">${esc(r.topic)} ${markers(c, 'record:' + slug(r.topic))}</span><span>${esc(c.txt(r.official))}</span>${c.author ? `<span class="se-dim">${esc(r.truth)}</span>` : ''}`).join('')}</div>${c.author ? `<div class="se-row">${h.record.flatMap(r => (r.evidence || []).map(e => chip(e.what))).join('')}${h.record.filter(r => r.forbidden).map(r => chip('Forbidden: ' + r.forbidden, 'dash')).join('')}</div>` : ''}`) : ''}
       <div class="se-row"><span class="se-lbl">Landmarks</span>${(h.landmarks || []).map(l => chip(l.name, l.sealed ? 'dash' : '') + markers(c, 'landmark:' + l.id)).join('') || '<span class="se-dim">none yet</span>'}</div>
       ${(h.lost || []).length ? `<div class="se-row"><span class="se-lbl">Lost</span>${h.lost.filter(l => c.author || c.seen(l.when)).map(l => chip(l.name + (l.how ? ' · ' + l.how : ''), c.seen(l.when) ? '' : 'dash')).join('')}</div>` : ''}`;
