@@ -269,3 +269,16 @@ button.se-tbar{ cursor:pointer; } button.se-tbar:hover, button.se-tbar:focus-vis
 .wf-mark{ position:absolute; top:22px; transform:translateX(-50%); font-size:16px; line-height:1; } .wf-mark.sign{ color:var(--verdigris); } .wf-mark.sign.late{ color:var(--ember); } .wf-mark.hap{ color:var(--ember); font-size:20px; top:19px; }
 .wf-skey{ position:absolute; left:2%; bottom:4px; font-family:var(--f-crt); font-size:14px; color:var(--dust); }
 @media (max-width:900px){ .wf-flow{ grid-template-columns:1fr; } .wf-arrow{ transform:rotate(90deg); } .wf-piles{ grid-template-columns:1fr; } }
+
+/* ---- how it was built (5.1) ---- */
+.se-found{ display:flex; flex-direction:column; position:relative; }
+.se-found::before{ content:""; position:absolute; left:15px; top:12px; bottom:12px; border-left:1px solid var(--amber-dim); }
+.se-fs{ display:grid; grid-template-columns:150px 1fr; gap:10px; padding:6px 0; position:relative; border-bottom:1px solid rgba(255,178,56,.07); }
+.se-fs.empty{ opacity:.6; } .se-fs.se-hid .se-fs-b{ opacity:.7; }
+.se-fs-n{ display:flex; align-items:flex-start; gap:8px; background:transparent; border:0; padding:0; text-align:left; cursor:pointer; color:var(--amber-hi); font-family:var(--f-crt); font-size:18px; line-height:1.1; }
+.se-fs-n b{ flex:none; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:var(--ink-deep); border:1px solid var(--amber); color:var(--amber); font-weight:400; position:relative; z-index:1; }
+.se-fs-n span{ padding-top:5px; } .se-fs.empty .se-fs-n b{ border-style:dashed; color:var(--dust); border-color:var(--amber-dim); }
+.se-fs-n.on b{ background:var(--amber); color:var(--ink-deep); } .se-fs-n:hover b, .se-fs-n:focus-visible b{ box-shadow:0 0 0 3px rgba(255,178,56,.3); } .se-fs-n:focus-visible{ outline:none; }
+.se-fs-b{ display:flex; flex-direction:column; gap:3px; min-width:0; } .se-fs-w{ font-family:var(--f-crt); font-size:16px; color:var(--amber); }
+.se-fs .se-kv{ grid-template-columns:150px 1fr; }
+@media (max-width:900px){ .se-fs{ grid-template-columns:1fr; } .se-fs .se-kv{ grid-template-columns:110px 1fr; } }

@@ -2,6 +2,14 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Site Encyclopedia: how it was built (History tab, epitaph-sites.js `foundingProblems`) — step 5.1
+
+The History tab now tells a place's founding as the **seven stages** top to bottom (The reason · Ground broken · First walls · Growth · Disaster · Rebuilt · As it stands), each dated on the shared timeline ("Aurelia rises under Gaia · Ch 1"), with why here, who, materials, **what was reused from the drowned world**, and what changed. Click a stage to turn the founding model on the right page to it; the map's stage buttons and the list stay in step.
+
+- Readers see only the stages they've reached; the rest show as "? ? ?" so the seven keep their places. The date line shows the event's title only up to its first colon or semicolon.
+- Checks: `founding-order` (a stage dated before an earlier stage), `founding-dup` (a stage written twice), `founding-stage` (not one of the seven).
+- The stage texts themselves are author drafts from the lore, kept outside the repo (merged through Dossier → Data → Merge).
+
 ## Site Encyclopedia: the what-if board (assets/epitaph-site-whatif.js) — step 4.5
 
 Every place's what-ifs in one place, **author only** (never published: the reader gate leaves `scenarios` out and the snapshot checker refuses the key). Open it with **What-ifs** on the places index (author view) or **Open the what-if board** on a place's Intrigue tab (it starts filtered to that place; Back returns there).

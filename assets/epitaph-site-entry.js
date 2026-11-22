@@ -132,6 +132,25 @@
     return { html, map: { ring: true } };
   }
 
+  /** How it was built (step 5.1): the seven founding stages top to bottom, each dated on the shared timeline. Clicking a stage turns the
+   *  founding model on the right page to it. A reader sees only stages they've reached (the gate filters them); a stage they haven't
+   *  reached, or that isn't written, shows as "? ? ?" so the seven stay in place. */
+  function foundingHtml(c, founding) {
+    const T = c.T, stages = c.Si.FOUNDING_STAGES;
+    if (!founding.length && !c.author) return '';
+    const when = id => { if (id == null) return 'from the start'; const e = T && T.byId(id); if (!e) return '?'; const ch = T.revealChapter ? T.revealChapter(e) : null;
+      return String(e.title || id).replace(/[:;].*$/, '').slice(0, 54) + (Number.isInteger(ch) && ch > 0 ? ' · Ch ' + ch : ''); };
+    const rows = stages.map((st, i) => {
+      const f = founding.find(x => x.stage === st.id), on = cur && cur.stage === i;
+      const head = `<button type="button" class="se-fs-n${on ? ' on' : ''}" data-se-stage="${i}" aria-pressed="${on}" title="Show this stage on the founding model"><b>${i + 1}</b><span>${esc(f || c.author ? st.label : '? ? ?')}</span></button>`;
+      if (!f) return `<div class="se-fs empty">${head}<div class="se-fs-b"><span class="se-dim">${c.author ? 'Not written yet.' : 'Not known yet.'}</span></div></div>`;
+      const who = f.who ? (/^(char|place):/.test(f.who) ? c.name(f.who) : c.txt(f.who)) : '';
+      const kvs = [['Why here', c.txt(f.why)], ['Who', who], ['Materials', c.txt(f.materials)], ['From the drowned world', c.txt(f.reused)], ['What changed', c.txt(f.change)]].filter(r => r[1]);
+      return `<div class="se-fs${c.seen(f.when) ? '' : ' se-hid'}">${head}<div class="se-fs-b"><span class="se-fs-w">${esc(when(f.when))}${c.author && !c.seen(f.when) ? ' · readers haven’t reached it' : ''}</span>
+        ${kvs.length ? `<div class="se-kv">${kvs.map(r => `<span>${esc(r[0])}</span><span>${esc(r[1])}</span>`).join('')}</div>` : '<span class="se-dim">Only the date so far.</span>'}</div></div>`;
+    }).join('');
+    return ecard('history.founding', 'How it was built · seven stages, dated on the timeline · click one to see it on the model', `<div class="se-found">${rows}</div>`);
+  }
   function history(c) {
     const h = c.rec.history, Si = c.Si;
     const founding = (h.founding || []).filter(f => c.author || c.seen(f.when));
@@ -143,6 +162,7 @@
         ${ecard('history.myth', 'The founding myth', h.myth.text ? `<span>“${esc(c.txt(h.myth.text))}”</span>${c.author && h.myth.true ? `<span class="se-row">${chip(h.myth.true === 'half' ? 'Half-true' : h.myth.true === 'true' ? 'True' : 'False', 'am')}</span>` : ''}` : '<span class="se-dim">—</span>')}
         ${ecard('history.name', 'The name · eras', `<span>${esc(h.name.meaning) || '<span class="se-dim">—</span>'}</span>${(h.name.outsiders || []).length ? `<span class="se-dim">Outsiders: ${esc(h.name.outsiders.join(', '))}</span>` : ''}<span class="se-row">${(h.eras || []).filter(e => c.author || c.seen(e.from)).map(e => chip(e.name, c.seen(e.from) ? '' : 'dash')).join('')}</span>`)}
       </div>
+      ${foundingHtml(c, founding)}
       ${ecard('history.chronicle', 'Chronicle · ◆ turning point' + (c.author ? ' · dashed = readers haven\'t reached it' : ''), chron.length ? `<div class="se-tl">${chron.map(e => `<b class="${e.turningPoint ? 'tp' : ''}"></b><span class="${c.seen(e.when) ? '' : 'se-hidtxt'}"><span class="se-hi">${esc(c.txt(e.title))}</span>${e.text ? ` <span class="se-dim">${esc(c.txt(e.text))}</span>` : ''} ${markers(c, 'chronicle:' + e.id)}</span>`).join('')}</div>` : empty('No dated events yet.'))}
       ${(h.record || []).length ? ecard('history.record', 'The record · official version' + (c.author ? ' vs what really happened' : ''), `<div class="se-rec${c.author ? '' : ' one'}"><span class="se-lbl">topic</span><span class="se-lbl">official</span>${c.author ? '<span class="se-lbl">truth · author only</span>' : ''}${h.record.map(r => `<span class="se-hi">${esc(r.topic)} ${markers(c, 'record:' + slug(r.topic))}</span><span>${esc(c.txt(r.official))}</span>${c.author ? `<span class="se-dim">${esc(r.truth)}</span>` : ''}`).join('')}</div>${c.author ? `<div class="se-row">${h.record.flatMap(r => (r.evidence || []).map(e => chip(e.what))).join('')}${h.record.filter(r => r.forbidden).map(r => chip('Forbidden: ' + r.forbidden, 'dash')).join('')}</div>` : ''}`) : ''}
       <div class="se-row"><span class="se-lbl">Landmarks</span>${(h.landmarks || []).map(l => chip(l.name, l.sealed ? 'dash' : '') + markers(c, 'landmark:' + l.id)).join('') || '<span class="se-dim">none yet</span>'}</div>
@@ -471,7 +491,7 @@ ${r.state === 'ongoing' ? 'still going' : r.state === 'unknown' ? 'ends later (n
       const tabBtn = t.closest('[data-se-tab]'); if (tabBtn && t.closest('#seEntry')) { if (global.EpitaphSiteEdit && tabBtn.dataset.seTab !== cur.tab) global.EpitaphSiteEdit.cancel(cur.placeId); cur.tab = tabBtn.dataset.seTab; render(); return; }
       if (t.closest('[data-se-back]')) { close(); return; }
       const f = t.closest('[data-se-focus]'); if (f) { cur.tab = 'intrigue'; cur.focus = f.dataset.seFocus; render(); return; }
-      const st = t.closest('[data-se-stage]'); if (st) { cur.stage = +st.dataset.seStage; drawMap(context(cur.placeId), RENDER[cur.tab](context(cur.placeId))); return; }
+      const st = t.closest('[data-se-stage]'); if (st) { cur.stage = +st.dataset.seStage; document.querySelectorAll('[data-se-stage]').forEach(b => { const on = +b.dataset.seStage === cur.stage; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }); if (st.closest('#seEntry') && cur.tab !== 'history') { cur.tab = 'history'; render(); return; } drawMap(context(cur.placeId), RENDER[cur.tab](context(cur.placeId))); return; }
       const tu = t.closest('[data-se-turn]'); if (tu) { cur.angle += (+tu.dataset.seTurn) * 0.35; drawMap(context(cur.placeId), RENDER[cur.tab](context(cur.placeId))); }
     });
     document.addEventListener('input', e => {

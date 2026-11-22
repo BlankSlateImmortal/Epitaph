@@ -222,6 +222,25 @@
     o.likelihood = Number.isInteger(o.likelihood) && o.likelihood >= 1 && o.likelihood <= 7 ? o.likelihood : 3;
     return o;
   }
+  /** Founding stages in order (step 5.1): problems a stage list can have, for the Checks list.
+   *  compare(a, b): the timeline's order for two event ids (< 0 when a comes first); events it can't place are skipped.
+   *  -> [{ rule: 'founding-dup' | 'founding-order' | 'founding-stage', stage, other?, text }] */
+  function foundingProblems(rec, compare) {
+    const list = ((rec && rec.history && rec.history.founding) || []), ids = FOUNDING_STAGES.map(x => x.id), out = [];
+    const lab = id => (FOUNDING_STAGES.find(x => x.id === id) || {}).label || id;
+    const seen = new Set();
+    list.forEach(f => {
+      if (!ids.includes(f.stage)) { out.push({ rule: 'founding-stage', stage: f.stage, text: `a founding stage “${f.stage}” is not one of the seven` }); return; }
+      if (seen.has(f.stage)) out.push({ rule: 'founding-dup', stage: f.stage, text: `the founding stage “${lab(f.stage)}” is written twice` });
+      seen.add(f.stage);
+    });
+    const dated = list.filter(f => ids.includes(f.stage) && f.when != null).sort((a, b) => ids.indexOf(a.stage) - ids.indexOf(b.stage));
+    for (let i = 0; i < dated.length; i++) for (let j = i + 1; j < dated.length; j++) {
+      const c = compare ? compare(dated[i].when, dated[j].when) : 0;
+      if (c > 0) out.push({ rule: 'founding-order', stage: dated[j].stage, other: dated[i].stage, text: `the founding stage “${lab(dated[j].stage)}” is dated before “${lab(dated[i].stage)}”, which comes earlier in the seven` });
+    }
+    return out;
+  }
   // ---------------------------------------------------------------- what-ifs across places (step 4.5; author only, never published)
   const whatIfRef = (placeId, id) => 'scenario:' + placeId + '/' + id;
   /** Every what-if from every place, flattened: [{ key ('scenario:<place>/<id>'), placeId, …the what-if }]. */
@@ -732,6 +751,6 @@
     KEY, VERSION, BACKUP_KEY, STATUS, SCALES, SCALE_SETS, FORMS, ALLIANCE_KINDS, BEAST_RELATIONS, RESOURCE_CATEGORIES, RESOURCE_ROLES, FOUNDING_STAGES,
     MOTIVES, FACTION_KINDS, TIE_ENDINGS, TEMPERAMENTS, SOCIAL_SHAPES, WARD_KINDS, RUMOUR_INTENTS, TRIGGER_GROUPS,
     TABS, TAB_LABEL, DATA_TABS, DEFAULTS,
-    alliancesAt, tieBars, webAt, blocsAt, ringSeats, WHATIF_STATUS, normWhatIf, whatIfRef, whatIfList, whatIfPile, whatIfLinks, whatIfLoops, storyOf, forReader, secretHolders, couldFind, plantPayoff, SECRET_REF, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, draftUpdatesIn, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
+    alliancesAt, tieBars, webAt, blocsAt, ringSeats, WHATIF_STATUS, normWhatIf, foundingProblems, whatIfRef, whatIfList, whatIfPile, whatIfLinks, whatIfLoops, storyOf, forReader, secretHolders, couldFind, plantPayoff, SECRET_REF, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, draftUpdatesIn, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
   };
 })(typeof window !== 'undefined' ? window : globalThis);

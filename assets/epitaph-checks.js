@@ -29,6 +29,7 @@
  *   site-event      a date in an entry points at a timeline event that doesn't exist
  *   site-beast      a beast points at a creature that isn't in the Creature Log (once the log exists)
  *   site-missing    Era 1 places that have no entry yet (information)
+ *   founding-order  a founding stage is dated before an earlier stage;  founding-dup  a stage written twice;  founding-stage  not one of the seven
  *   bloc-small      a bloc lists fewer than three places;  bloc-dup  a place listed twice in one bloc
  *   whatif-link     a what-if's 'then what?' points at a what-if that doesn't exist;  whatif-loop  what-ifs set each other off in a loop
  * Chekhov's gun, across the encyclopedia (secrets, foreshadowing, evidence, what-if warning signs; nothing is checked until a chapter is set):
@@ -314,6 +315,7 @@
         const f = evOf(a.from), t = evOf(a.to);
         if (f && t && TL.compare(f, t) > 0) out.push({ level: 'warn', rule: 'site-order', ...at, text: `${me}'s ${a.kind} with ${placeName(other)} ends (${t.title.slice(0, 40)}…) before it starts (${f.title.slice(0, 40)}…).` });
       });
+      if (Sites.foundingProblems) Sites.foundingProblems(r, (a, b) => { const x = evOf(a), y = evOf(b); return x && y && TL ? TL.compare(x, y) : 0; }).forEach(pb => out.push({ level: 'warn', rule: pb.rule, ...at, text: `${me}: ${pb.text}.` }));
       (r.foreign.blocs || []).forEach(bl => {
         const nm = bl.name || bl.id || 'a bloc', ms = bl.members || [], ids = ms.map(m => bare(m.place));
         if (ids.length < 3) out.push({ level: 'warn', rule: 'bloc-small', ...at, text: `${me}: the bloc “${nm}” has ${ids.length} member${ids.length === 1 ? '' : 's'}; a bloc is a pact of three or more places (use a tie for two).` });
