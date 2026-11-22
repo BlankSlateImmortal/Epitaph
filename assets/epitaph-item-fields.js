@@ -18,7 +18,6 @@
   const L = () => global.EpitaphLibrary;
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const ERA_LABEL = { BEFORE: 'Before Epitaph', ERA_0: 'Era 0', ERA_1: 'Era 1' };
-  const ERA_RANK = { BEFORE: 0, ERA_0: 1, ERA_1: 2 };
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
   const newId = () => 'hist_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
   const int = v => (v === '' || v == null || !isFinite(Number(v)) ? undefined : Math.trunc(Number(v)));
@@ -140,9 +139,7 @@
         const out = list.map(e => ({ id: e.id, when: { era: e.era, ...(e.year != null ? { year: e.year } : {}), ...(e.chapter != null ? { chapter: e.chapter } : {}) },
           holder: e.holder.trim(), stateIds: Object.fromEntries(Object.entries(e.stateIds).filter(([, id]) => valid.has(id))), text: e.text.trim() }))
           .filter(e => e.text || e.holder || Object.keys(e.stateIds).length || e.when.year != null || e.when.chapter != null);
-        const tl = global.EpitaphTimeline;
-        const order = (a, b) => { try { if (tl && tl.compare) return tl.compare(a.when, b.when); } catch (err) { /* fall through */ }
-          return (ERA_RANK[a.when.era] - ERA_RANK[b.when.era]) || ((a.when.year == null ? 1e9 : a.when.year) - (b.when.year == null ? 1e9 : b.when.year)); };
+        const order = (a, b) => L().compareWhen(a.when, b.when);
         return out.map((e, i) => ({ e, i })).sort((x, y) => order(x.e, y.e) || x.i - y.i).map(x => x.e);   // stable: ties keep your order
       }
     };

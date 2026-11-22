@@ -167,10 +167,17 @@ Not every item has every part: a blade may have no usage states; many items have
   (raw v2 copy kept once as `epitaph-library-backup-v2`) and **Dossier schema 9** (raw copy kept once as
   `epitaph-character-profiles-backup-v9`). Tested: 25 Node tests, and in the real page the three editors plus the upgrade of a v8 Dossier
   with old marks (folded correctly, backup written, saved shapes right).
-- [ ] **2.4 Checks (Opus).** *(The removed-state and one-way-goes-backwards rules for chapters were done in 2.2; still to do: the same for
-  history entries.)* New rules in `assets/epitaph-checks.js`: tier below the rank's floor (`tierProblem`), a blessing on an item or
-  a binding on a person (kind locked by holder), a one-way track that goes backwards in a history entry, a curse stage that goes down, a curse with fewer than three stage texts (info only), an
-  unknown source on a published item. Blessing consent is a written rule on the Powers page, not a check.
+- [x] **2.4 Checks (Opus).** *(Done 2026-11-21, Opus; the chapter part of the state rules was done in 2.2.)* New rules in
+  `assets/epitaph-checks.js` (`itemSystemChecks`): **item-tier** (warn: tier below what the highest reachable rank needs), **mark-kind**
+  (info, once per mark: a blessing on an item, its states or a chapter copy of it; a binding on a person), **history-back** (warn: a one-way
+  track goes back inside an item's history) and **item-state** for history entries in a removed state, **curse-stage-back** (warn: a curse's
+  stage goes down in a later chapter, on a person or on a carried item; "a curse doesn't recover"), **curse-gone** (warn, new, from the
+  lore that curses can't be removed: a person's own curse disappears in a later chapter; a carried item's curse may leave with the item, so
+  it isn't checked), **curse-stages** (info, once per curse: fewer than three stage texts). **Dropped:** "unknown source on a published
+  item": the author writes `???` on purpose, so it would only be noise. Blessing consent stays a written rule (3.4). Found and fixed on
+  the way: history entries were not really sorted by date (EpitaphTimeline.compare orders timeline events and ignores years); new
+  `EpitaphLibrary.compareWhen` (era, then year, then chapter-only, then undated) is used by the editor and the checks. Tested: 7 Node
+  tests of the checks, 25 of the Library, and the checks and the history order in the real Dossier page. **Phase 2 is complete.**
 
 ## Phase 3 — Views
 
@@ -274,6 +281,10 @@ When the user says "get back to it" / "back to the plan":
 ## Tweak log
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-21 — **2.4 done; Phase 2 complete (Opus).** Added curse-gone (not in the plan, follows the lore); dropped the unknown-source rule.
+  Fixed history sorting from 2.1 (it kept the typed order). Next: Phase 3 (views), all Sonnet except none; 3.4's wording on the Powers page
+  is written lore, so check it with the user.
 
 - 2026-11-21 — **2.3 done (Sonnet).** 1.4 left old `cost` / `ends` untouched because three editors still wrote them; with one editor now, the
   fold could safely move into the code (with backups), so **5.1 no longer has to move every old cost / ends**: it only refines the automatic

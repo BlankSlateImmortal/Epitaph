@@ -156,6 +156,15 @@
   // The place an item came from, or '' when its origin is none, unknown or not filled in.
   const placeIdOf = it => (it && it.origin && !ORIGIN_WORDS.includes(it.origin) ? it.origin : '');
   function normalizeOrigin(i) { return typeof i.origin === 'string' ? i.origin : str(i.originPlaceId); }
+  // Orders two history moments: by era, then year; within an era, moments with only a chapter come after the dated ones,
+  // in chapter order; undated ones last. (EpitaphTimeline.compare orders timeline EVENTS and ignores years.)
+  const ERA_RANK = { BEFORE: 0, ERA_0: 1, ERA_1: 2 };
+  function compareWhen(a, b) {
+    const k = w => { w = w || {}; return [ERA_RANK.hasOwnProperty(w.era) ? ERA_RANK[w.era] : 2, w.year != null ? 0 : w.chapter != null ? 1 : 2, w.year != null ? w.year : (w.chapter != null ? w.chapter : 0)]; };
+    const x = k(a), y = k(b);
+    for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] < y[i] ? -1 : 1;
+    return 0;
+  }
   // One dated entry in an item's life before (or off) the story: [{ id, when, holder, stateIds, text }]
   // `when` is a timeline moment (era, optional year, optional chapter); `holder` is a character id or a plain name.
   function normalizeHistoryEntry(h) {
@@ -307,7 +316,7 @@
     newId, normalizeMark, normalizeState, normalizeTrack, normalizeStateIds, get, update, item, place: placeById,
     stateOf, trackOf, itemTrack, currentStates, uses, marksFor, stateIdOf, itemStates, primaryStateIds, stateKeyOf,
     CURSE_TYPES, STAGE_NAMES, markKindsFor, markDetailLines,
-    ERAS, ORIGIN_WORDS, placeIdOf, normalizeHistoryEntry, OFFLINE_FIELDS, fieldOn,
+    ERAS, ORIGIN_WORDS, placeIdOf, normalizeHistoryEntry, compareWhen, OFFLINE_FIELDS, fieldOn,
     RANKS, TIERS, rankName, tierFloor, allowedTiers, maxRank, rankAt, tierProblem,
     replace(data) { return save(data); },
     onChange(fn) { listeners.push(fn); }

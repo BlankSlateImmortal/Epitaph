@@ -12,9 +12,15 @@
  *   missing-place   a location or an item's origin points at a place that no longer exists
  *   one-sided       a relationship is set from one side only (information)
  *   progression     saved data breaks the type rules (faction, skills, Cuts, branch cap)
- *   item-state      an inventory entry points at a state the Library item no longer has
- *   state-back      an item goes back to an earlier state in a character's later chapter
- *                   (a warning only: going back can be deliberate)
+ *   item-state      an inventory entry or a history entry points at a state the Library item no longer has
+ *   state-back      on a track marked one-way, an item goes back to an earlier state in a later chapter
+ * The item system (docs/plans/item-system.md 2.4):
+ *   item-tier       an item's tier is below what the highest rank it can reach needs (rank 4+ transcendent, 7 divine)
+ *   history-back    on a track marked one-way, an item's history goes back to an earlier state
+ *   curse-stage-back a curse's stage goes down in a later chapter (a curse doesn't recover)
+ *   curse-gone      a person's own curse disappears in a later chapter (curses can't be removed)
+ *   mark-kind       a blessing on an item, or a binding on a person (information: older data may have them)
+ *   curse-stages    a curse with fewer than its three stages written (information)
  * Site encyclopedia (assets/epitaph-sites.js), added with `placeId` instead of a character:
  *   site-place      an entry, or an alliance in it, points at a place that doesn't exist
  *   site-order      an alliance ends before it starts on the timeline
@@ -175,9 +181,79 @@
         out.push({ level: 'warn', rule: 'missing-place', itemId: i.id, text: `Item “${i.name}” comes from a place that no longer exists.` });
     });
 
+    if (Lib) itemSystemChecks(out, chars, Lib, at);
     siteChecks(out);
 
     return out.sort((a, b) => (a.level === b.level ? 0 : a.level === 'warn' ? -1 : 1));
+  }
+
+  // ---- The item system: tiers, mark kinds, history states, curse stages ----
+  function itemSystemChecks(out, chars, Lib, at) {
+    const TL = global.EpitaphTimeline, lc = x => String(x || '').trim().toLowerCase();
+    const itemKinds = Lib.markKindsFor('item'), personKinds = Lib.markKindsFor('character');
+    const a = { blessing: 'a blessing', curse: 'a curse', binding: 'a binding' };
+    const whenText = w => (TL && TL.label ? TL.label(w) : (w && w.era) || '') + (w && w.year != null ? ' · Y' + w.year : '') + (w && w.chapter != null ? ' · CH ' + w.chapter : '');
+    const stagesWritten = m => (m.stages || []).filter(x => x && String(x.text || '').trim()).length;
+    const curseInfo = (m, who, extra) => { const n = stagesWritten(m); if (n < 3) out.push({ level: 'info', rule: 'curse-stages', ...extra, text: `${who}: the curse “${m.name || 'unnamed'}” has ${n} of its 3 stages written.` }); };
+
+    Lib.get().items.forEach(it => {
+      const me = `Item “${it.name || 'Unnamed'}”`;
+      const tp = Lib.tierProblem(it);
+      if (tp) out.push({ level: 'warn', rule: 'item-tier', itemId: it.id, text: `${me}: ${tp}` });
+      const marks = [...(it.marks || []).map(m => ({ m, where: '' })),
+        ...(it.stateTracks || []).flatMap(t => t.states.flatMap(st => (st.marks || []).map(m => ({ m, where: ` in its ${st.name} state` }))))];
+      marks.forEach(({ m, where }) => {
+        if (!itemKinds.includes(m.kind)) out.push({ level: 'info', rule: 'mark-kind', itemId: it.id,
+          text: `${me} has ${a[m.kind] || m.kind}${where}, “${m.name || 'unnamed'}”: items take bindings and curses; blessings are given to people.` });
+        if (m.kind === 'curse') curseInfo(m, me, { itemId: it.id });
+      });
+      // the item's own history, in timeline order: removed states, and going back on a one-way track
+      const hist = (it.history || []).map((h, i) => ({ h, i }))
+        .sort((x, y) => Lib.compareWhen(x.h.when, y.h.when) || x.i - y.i).map(x => x.h);
+      (it.stateTracks || []).forEach(t => {
+        let prev = null; const which = t.kind === 'item' ? me : `${me} (${t.name})`;
+        hist.forEach(h => {
+          const id = (h.stateIds || {})[t.kind]; if (!id) return;
+          const idx = t.states.findIndex(x => x.id === id);
+          if (idx < 0) { out.push({ level: 'warn', rule: 'item-state', itemId: it.id, text: `${which}: a history entry (${whenText(h.when)}) is in a state that was removed.` }); return; }
+          if (t.oneWay && prev && idx < prev.idx) out.push({ level: 'warn', rule: 'history-back', itemId: it.id,
+            text: `${which} goes back from ${prev.name} (${whenText(prev.when)}) to ${t.states[idx].name} (${whenText(h.when)}) in its history, but that track is one-way.` });
+          prev = { idx, name: t.states[idx].name, when: h.when };
+        });
+      });
+    });
+
+    chars.forEach(c => {
+      const nm = (c && c.name) || 'Unnamed', told = new Set(), last = {};
+      const isInt = Number.isInteger, label = s => s.chapterRange || (isInt(s.startChapter) ? 'CH ' + s.startChapter : 'an unnumbered version');
+      const versions = (c.snapshots || []).filter(s => isInt(s.startChapter)).sort((x, y) => x.startChapter - y.startChapter);
+      versions.forEach(s => {
+        const present = new Set();
+        const look = (scope, m, holderText) => {
+          if (!m || !String(m.name || '').trim()) return;
+          const key = scope + '|' + lc(m.name);
+          // a mark of a kind this holder can't take: said once per character and mark
+          const allowed = scope === 'char' ? personKinds : itemKinds;
+          if (!allowed.includes(m.kind) && !told.has('k' + key)) { told.add('k' + key); out.push({ level: 'info', rule: 'mark-kind', ...at(c, s),
+            text: scope === 'char' ? `${nm} has ${a[m.kind] || m.kind}, “${m.name}” (${label(s)}): bindings go on items; a person takes blessings and curses.`
+              : `${nm}'s ${holderText} carries ${a[m.kind] || m.kind}, “${m.name}” (${label(s)}): items take bindings and curses.` }); }
+          if (m.kind !== 'curse') return;
+          present.add(key);
+          const st = isInt(m.stage) ? m.stage : 0, p = last[key];
+          if (p && st < p.stage) out.push({ level: 'warn', rule: 'curse-stage-back', ...at(c, s),
+            text: `${nm}'s curse “${m.name}” goes back from stage ${p.stage} (${label(p.s)}) to ${st} in ${label(s)}: a curse doesn't recover.` });
+          last[key] = { stage: st, s, m, scope };
+        };
+        (s.marks || []).forEach(m => look('char', m));
+        (s.inventory || []).forEach(e => { const it = e.itemId && Lib.item(e.itemId); (e.marks || []).forEach(m => look('item:' + (e.itemId || lc(e.name)), m, it ? it.name : (e.name || 'item'))); });
+        // a person's own curse from an earlier chapter that is gone now
+        Object.keys(last).forEach(key => { const p = last[key];
+          if (p.scope === 'char' && p.s !== s && !present.has(key) && !p.gone) { p.gone = true; out.push({ level: 'warn', rule: 'curse-gone', ...at(c, s),
+            text: `${nm}'s curse “${p.m.name}” (since ${label(p.s)}) is gone in ${label(s)}: curses can't be removed.` }); } });
+      });
+      // stages not written yet: once per curse, from the latest version that has it
+      Object.values(last).forEach(p => { if (p.scope === 'char') curseInfo(p.m, nm, at(c, p.s)); });
+    });
   }
 
   // ---- Site Encyclopedia: places, alliances and their dates ----
