@@ -8,6 +8,13 @@ Sister plans: [site-encyclopedia.md](site-encyclopedia.md) (places), [creature-l
 > **`docs/` is public.** Examples in this file stay generic. The real items live only in a private Merge file under
 > `~/Downloads/Epitaph/Site work/files/` (step 5.1), never in the repo.
 
+## Status (2026-11-21)
+
+Phases 0–5 are done: the design, the data (Library v3, Dossier schema 9), the editors and checks, the views, the reader snapshot and its checker, Merge's update option,
+the author's items converted, cross-links, the phone check and the docs. **What is left: Phase 6** (prospective skills `opsp` and the shared mark library, 6 steps), and
+two things that wait for other plans: the "items made here" list (site-encyclopedia entry view) and the Creature Log link. The lore clashes found along the way are
+in the vault note `Exploratory Ideas/Lore/Continuity Issues - Items 2026-11-21.md` (kept out of this public file on purpose).
+
 ## Purpose (from the user, 2026-11-21)
 
 Items get more than a description. Each has a **rank** (how far its effect reaches), a **tier** (who could make it), up to three
@@ -261,7 +268,9 @@ Not every item has every part: a blade may have no usage states; many items have
   have one theme (Signal). The only other, **Paper**, belongs to the Atlas map page; the Library drawer is a dark panel there too (it has no Paper
   styling of its own), and the new fields use the same palette variables, so they match in both. The Atlas page needs WebGL and a CDN, so it was
   not opened headless; the drawer's markup was tested inside the Dossier page instead.
-- [ ] **5.4 Docs.** `docs/CHANGES.md`, help text, this plan's status.
+- [x] **5.4 Docs.** *(Done 2026-11-21, Sonnet.)* `docs/CHANGES.md`: the item section was rewritten as one topic-by-topic summary (what an item has, where you see
+  and edit it, what readers see, your data, what is not built) instead of step-by-step notes, dropping stale "temporary" lines. The terminal `help` needs no new
+  command (Phase 6 adds `opsp`). This plan's status is below. `HANDOFF.md` is an old document from the first two pages and was left alone.
 
 ## Phase 6 — Free creation: prospective skills and a shared mark library
 
@@ -328,6 +337,8 @@ When the user says "get back to it" / "back to the plan":
 ## Tweak log
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-21 — **5.4 done (Sonnet); Phase 5 complete.** Left: Phase 6 (6 steps), Sonnet except 6.4 (Opus).
 
 - 2026-11-21 — **5.3 done (Sonnet).** Only the checkbox tap rows needed a fix. Next: 5.4 docs (Sonnet).
 
