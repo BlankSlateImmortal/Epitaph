@@ -22,12 +22,17 @@
  *   characters: secrets, notes, backstory, knowledge, lore, objective, headingToward, archetype(+Reason), copiedFrom, locked, legacy*, museIds
  *   marks: source, effect, cost, ends (they carry plot) · power: everything but threat and name · skills: the corrupted flag
  *   relationships: notes, and any tie to someone who isn't a published character · inventory: notes, boundTo
+ *   items (docs/plans/item-system.md 4.1): W.I.P items entirely; an item's note, weight, appearance, maker; a state no published
+ *     chapter has reached (except a track's normal state, and states a revealed history entry names); the origin circumstance until a
+ *     chapter reveals "<Item>: origin"; history before the story until "<Item>: history" (an entry tied to a published chapter shows
+ *     from that chapter); a blessing's price / terms / breach / lasts until; a curse's type and stage texts, and stage names past the
+ *     furthest stage a published chapter reached. A mark is revealed by its own name or by "<Item>: <mark>".
  *   text: any line that names a place or character readers haven't reached ("scrub")
  * After building, the whole snapshot is searched for those hidden names (report.leaks); the author sees any hit before downloading.
  */
 (function (global) {
   'use strict';
-  const SCHEMA = 1;
+  const SCHEMA = 2;   // 2: items carry stateTracks / history / rank / tier; inventory entries stateIds (plan item-system 4.1)
   const TL = () => global.EpitaphTimeline, SITES = () => global.EpitaphSites, WORLD = () => global.EpitaphWorld;
 
   const CHAR_FIELDS = ['id', 'name', 'faction', 'glyph', 'portraitFigure', 'portraitStyle', 'portraitSeed', 'corruptionColor'];
@@ -82,6 +87,11 @@
       // ---- items and marks: shown only once a published chapter's `reveals:` names them (or they are `open`) ----
       const revealOf = (name, id, obj) => obj && obj.open ? 0 : T.firstChapter('reveal', [name, id].filter(Boolean));
       const shown = (name, id, obj) => { const n = revealOf(name, id, obj); return n != null && n <= N; };
+      // a mark is revealed by its own name, or (on an item) by "<Item>: <mark>"
+      const markReveal = (m, item) => { const a = revealOf(m.name, m.id, m), b = item ? T.firstChapter('reveal', [item.name + ': ' + m.name]) : null;
+        return a == null ? b : (b == null ? a : Math.min(a, b)); };
+      const markShown = (m, item) => { const r = markReveal(m, item); return r != null && r <= N; };
+      const noteHeldMark = (m, item) => { if (m && !markShown(m, item) && String(m.name || '').trim().length >= 3) heldThings.add(String(m.name).trim()); };
       const libItem = id => (lib.items || []).find(i => i && i.id === id) || null;
       const heldThings = new Set();
       // a character's race: revealed when a chapter lists it (alone, "Name: race" or "Name race"), or it is plain
@@ -94,15 +104,18 @@
       const noteHeld = (name, id, obj) => { if (!shown(name, id, obj) && String(name || '').trim().length >= 3) heldThings.add(String(name).trim()); };
       published.forEach(c => pubVersions(c).forEach(s => {
         (s.marks || []).forEach(m => m && noteHeld(m.name, m.id, m));
-        (s.inventory || []).forEach(e => { if (!e) return; const it = libItem(e.itemId); noteHeld(it ? it.name : e.name, e.itemId, it); (e.marks || []).forEach(m => m && noteHeld(m.name, m.id, m)); });
+        (s.inventory || []).forEach(e => { if (!e) return; const it = libItem(e.itemId); noteHeld(it ? it.name : e.name, e.itemId, it); (e.marks || []).forEach(m => noteHeldMark(m, it)); });
       }));
-      (lib.items || []).forEach(i => { if (!i) return; noteHeld(i.name, i.id, i); (i.marks || []).forEach(m => m && noteHeld(m.name, m.id, m)); (i.stateTracks || []).forEach(tr => (tr.states || []).forEach(st => (st.marks || []).forEach(m => m && noteHeld(m.name, m.id, m)))); });
+      (lib.items || []).forEach(i => { if (!i) return; noteHeld(i.name, i.id, i); (i.marks || []).forEach(m => noteHeldMark(m, i)); (i.stateTracks || []).forEach(tr => (tr.states || []).forEach(st => (st.marks || []).forEach(m => noteHeldMark(m, i)))); });
       published.forEach(c => { const r = String(c.race || '').trim().toLowerCase(); if (r && !raceShown(c) && DISTINCT_RACES.includes(r)) heldThings.add(r); });
       // a held thing whose name is also a shown thing's name (two marks both called "Taint") isn't a secret
       const shownNames = new Set();
       published.forEach(c => pubVersions(c).forEach(s => (s.marks || []).forEach(m => { if (m && shown(m.name, m.id, m)) shownNames.add(String(m.name).trim().toLowerCase()); })));
-      (lib.items || []).forEach(i => { if (i && shown(i.name, i.id, i)) shownNames.add(String(i.name).trim().toLowerCase()); });
+      (lib.items || []).forEach(i => { if (!i) return; if (shown(i.name, i.id, i)) shownNames.add(String(i.name).trim().toLowerCase());
+        [...(i.marks || []), ...(i.stateTracks || []).flatMap(tr => (tr.states || []).flatMap(st => st.marks || []))].forEach(m => { if (m && markShown(m, i)) shownNames.add(String(m.name).trim().toLowerCase()); }); });
       [...heldThings].forEach(n => { if (shownNames.has(n.toLowerCase())) heldThings.delete(n); });
+      // a W.I.P item is never published, so its name stays held even if a chapter revealed it
+      (lib.items || []).forEach(i => { if (i && i.wip && String(i.name || '').trim().length >= 3) heldThings.add(String(i.name).trim()); });
 
       // ---- names readers must not see: places they haven't reached, characters not yet introduced, items and marks not yet revealed ----
       const placeNames = S.hiddenNames(N, recs);
@@ -113,8 +126,25 @@
       const scrub = t => (t == null || t === '') ? '' : (mentions(t) ? '' : String(t));
       const hiddenPlace = id => { const r = recs.find(x => x.placeId === id); return !!r && !S.placeReached(r, N); };
 
-      const marks = list => (Array.isArray(list) ? list : []).filter(m => m && shown(m.name, m.id, m))
-        .map(m => ({ id: m.id, kind: m.kind, name: scrub(m.name), image: m.image || '', revealedIn: revealOf(m.name, m.id, m) })).filter(m => m.name);
+      // ---- marks: name, kind and picture as before; a binding's reach; a curse's stage and the names of the stages reached ----
+      const lcName = x => String(x || '').trim().toLowerCase();
+      const curseTop = new Map();   // curse name -> the furthest stage any published chapter reached
+      published.forEach(c => pubVersions(c).forEach(s => [...(s.marks || []), ...(s.inventory || []).flatMap(e => (e && e.marks) || [])].forEach(m => {
+        if (m && m.kind === 'curse') curseTop.set(lcName(m.name), Math.max(curseTop.get(lcName(m.name)) || 0, isInt(m.stage) ? m.stage : 0));
+      })));
+      // holder = true for a chapter's copy (its own stage), false for an item's definition (stages up to the furthest reached)
+      const marks = (list, item, holder) => (Array.isArray(list) ? list : []).filter(m => m && markShown(m, item))
+        .map(m => {
+          const o = { id: m.id, kind: m.kind, name: scrub(m.name), image: m.image || '', revealedIn: markReveal(m, item) };
+          if (m.kind === 'binding' && isInt(m.rank) && m.rank > 0) o.rank = m.rank;
+          if (m.kind === 'curse') {
+            const top = holder ? (isInt(m.stage) ? m.stage : 0) : (curseTop.get(lcName(m.name)) || 0);
+            if (holder) o.stage = top;
+            o.initial = { name: scrub((m.initial || {}).name) };
+            o.stages = [0, 1, 2].map(i => ({ name: i < top ? scrub(((m.stages || [])[i] || {}).name) : '' }));
+          }
+          return o;
+        }).filter(m => m.name);
       const location = l => {
         if (!l || typeof l !== 'object') return l == null ? null : undefined;
         if ([l.placeId, l.toPlaceId].filter(Boolean).some(hiddenPlace)) return { status: 'unknown' };
@@ -130,12 +160,12 @@
           v.condition = (Array.isArray(s.condition) ? s.condition : []).map(scrub).filter(Boolean);
           v.titles = (Array.isArray(s.titles) ? s.titles : []).map(t => ({ name: scrub(t.name), rankTier: t.rankTier, blurb: scrub(t.blurb) })).filter(t => t.name);
           v.skills = (Array.isArray(s.skills) ? s.skills : []).map(k => ({ name: scrub(k.name), desc: scrub(k.desc), level: k.level, parent: k.parent || '' })).filter(k => k.name);
-          v.marks = marks(s.marks);
+          v.marks = marks(s.marks, null, true);
           v.stats = pick(s.stats || {}, STAT_KEYS);
           v.power = pick(s.power || {}, ['threat', 'name']);
           v.relationships = (Array.isArray(s.relationships) ? s.relationships : []).filter(r => r && r.charId && pubIds.has(r.charId)).map(r => ({ name: r.name, relation: scrub(r.relation), charId: r.charId }));
           v.inventory = (Array.isArray(s.inventory) ? s.inventory : []).filter(e => { if (!e || !e.itemId) return false; const it = libItem(e.itemId); return shown(it ? it.name : e.name, e.itemId, it); })
-            .map(e => { keptItemIds.add(e.itemId); return { id: e.id, itemId: e.itemId, stateId: ((e.stateIds || {}).item) || '', name: scrub(e.name), marks: marks(e.marks) }; });
+            .map(e => { keptItemIds.add(e.itemId); return { id: e.id, itemId: e.itemId, stateIds: { ...(e.stateIds || {}) }, name: scrub(e.name), marks: marks(e.marks, libItem(e.itemId), true) }; });
           return v;
         });
         const out = pick(c, CHAR_FIELDS);
@@ -146,15 +176,43 @@
         return out;
       });
 
-      // ---- the Library: only items someone published holds, and only user places they are standing in ----
-      const items = (lib.items || []).filter(i => i && keptItemIds.has(i.id)).map(i => {
-        const out = { id: i.id, name: scrub(i.name), desc: scrub(i.desc), icon: i.icon || '', image: i.image || '', marks: marks(i.marks), revealedIn: revealOf(i.name, i.id, i) };
-        // snapshot format unchanged (plan 4.1 will move it to the new fields): `originPlaceId` is the place when the origin is one
+      // ---- the Library: only items someone published holds (never a W.I.P item), and only user places they are standing in ----
+      const partReveal = (i, part) => T.firstChapter('reveal', [i.name + ': ' + part, i.id + ': ' + part]);
+      const partShown = (i, part) => { const r = partReveal(i, part); return r != null && r <= N; };
+      const holderText = h => { const c = published.find(x => x.id === h); return c ? c.id : scrub(h); };
+      const items = (lib.items || []).filter(i => i && keptItemIds.has(i.id) && !i.wip).map(i => {
+        const out = { id: i.id, name: scrub(i.name), desc: scrub(i.desc), icon: i.icon || '', image: i.image || '', marks: marks(i.marks, i, false), revealedIn: revealOf(i.name, i.id, i),
+          rank: isInt(i.rank) ? i.rank : 0, tier: i.tier || '' };
         const pid = i.origin !== undefined ? (['none', 'unknown'].includes(i.origin) ? '' : i.origin) : i.originPlaceId;
-        if (pid && !hiddenPlace(pid)) out.originPlaceId = pid;
-        out.states = (((i.stateTracks || []).find(tr => tr.kind === 'item') || { states: [] }).states).map(st => ({ id: st.id, name: scrub(st.name), desc: scrub(st.desc), marks: marks(st.marks), image: st.image || '' }));
+        out.origin = pid ? (hiddenPlace(pid) ? 'unknown' : pid) : (['none', 'unknown'].includes(i.origin) ? i.origin : '');
+        if (i.originCircumstance && partShown(i, 'origin')) { out.originCircumstance = scrub(i.originCircumstance); out.originRevealedIn = partReveal(i, 'origin'); }
+        // history: an entry tied to a published chapter, or (before the story) once a chapter reveals "<Item>: history"
+        const histReveal = partReveal(i, 'history');
+        const history = (i.history || []).map(h => {
+          const w = h.when || {}, at = isInt(w.chapter) ? w.chapter : histReveal;
+          if (at == null || at > N) return null;
+          return { id: h.id, when: pick(w, ['era', 'year', 'approx', 'chapter']), holder: holderText(h.holder || ''), stateIds: { ...(h.stateIds || {}) }, text: scrub(h.text), revealedIn: at };
+        }).filter(Boolean);
+        // states: reached by a published chapter, a track's normal state, or named by a revealed history entry
+        const reached = new Set();
+        dossierChars.forEach(c => c.snapshots.forEach(v => v.inventory.forEach(e => { if (e.itemId === i.id) Object.values(e.stateIds || {}).forEach(id => reached.add(id)); })));
+        history.forEach(h => Object.values(h.stateIds).forEach(id => reached.add(id)));
+        out.stateTracks = (i.stateTracks || []).map(tr => {
+          const normal = (tr.states || []).find(x => x.id === tr.primaryStateId) || (tr.states || [])[0];
+          if (normal) reached.add(normal.id);
+          const states = (tr.states || []).filter(st => reached.has(st.id))
+            .map(st => ({ id: st.id, name: scrub(st.name), desc: scrub(st.desc), image: st.image || '', color: st.color || '', marks: marks(st.marks, i, false) }));
+          return { kind: tr.kind, name: scrub(tr.name), oneWay: !!tr.oneWay, primaryStateId: normal ? normal.id : '', states };
+        }).filter(tr => tr.states.length);
+        const kept = new Set(out.stateTracks.flatMap(tr => tr.states.map(st => st.id)));
+        history.forEach(h => { Object.keys(h.stateIds).forEach(k => { if (!kept.has(h.stateIds[k])) delete h.stateIds[k]; }); });
+        out.history = history;
         return out;
       }).filter(i => i.name);
+      // an inventory entry only points at states that are published
+      const pubStates = new Map(items.map(it => [it.id, new Set(it.stateTracks.flatMap(tr => tr.states.map(st => st.id)))]));
+      dossierChars.forEach(c => c.snapshots.forEach(v => v.inventory.forEach(e => { const ok = pubStates.get(e.itemId);
+        Object.keys(e.stateIds).forEach(k => { if (!ok || !ok.has(e.stateIds[k])) delete e.stateIds[k]; }); })));
       const itemIds = new Set(items.map(i => i.id));
       dossierChars.forEach(c => c.snapshots.forEach(v => { v.inventory = v.inventory.filter(e => itemIds.has(e.itemId)); }));
       const usedPlaces = new Set();

@@ -28,6 +28,8 @@ FORBIDDEN_KEYS = {
     'herald', 'plane', 'planeLevel', 'planeName', 'voidedRank', 'black', 'grafts', 'gift', 'rings', 'cuts', 'domain',
     'corrupted', 'boundTo', 'draft', 'removed', 'note',
 }
+# item fields that are never published (docs/plans/item-system.md 4.1)
+ITEM_PRIVATE_KEYS = {'wip', 'weight', 'appearance', 'maker', 'price', 'terms', 'breach', 'lastsUntil'}
 # fields whose name starts with these are never published either
 FORBIDDEN_PREFIXES = ('legacy',)
 # 'note' is allowed where the builder writes a scrubbed note of its own
@@ -127,6 +129,52 @@ def main():
             if rc is None or rc > n:
                 problems.append(f'timeline moment "{e.get("id")}" is published, but no published chapter reveals it')
 
+    # 3b. items (docs/plans/item-system.md 4.1): private fields, and parts that need their own reveal
+    revealed_at = {}
+    for c in published:
+        for x in c.get('reveals') or []:
+            k = norm(x)
+            revealed_at[k] = min(revealed_at.get(k, 99999), c['chapter'])
+    def reveal_ch(*keys):
+        cands = [revealed_at[norm(k)] for k in keys if norm(k) in revealed_at]
+        return min(cands) if cands else None
+    def reached(rc):
+        return rc is not None and n is not None and rc <= n
+    for k, parent in keys_with_parents(data):
+        if k in ITEM_PRIVATE_KEYS:
+            problems.append(f'item field "{k}" is never published (found under "{parent}")')
+        if k == 'type' and parent == 'marks':
+            problems.append('a curse\'s type is never published (found on a mark)')
+        if k == 'text' and parent in ('stages', 'initial'):
+            problems.append('a curse\'s stage text is never published')
+    items = data.get('library', {}).get('items', [])
+    item_states = {}
+    for it in items:
+        name, iid = it.get('name', ''), it.get('id', '')
+        item_states[iid] = {st.get('id') for tr in it.get('stateTracks', []) for st in tr.get('states', [])}
+        if it.get('originCircumstance') and not reached(reveal_ch(f'{name}: origin', f'{iid}: origin')):
+            problems.append(f'item "{name}": its origin circumstance is published, but no published chapter reveals "{name}: origin"')
+        hist_rc = reveal_ch(f'{name}: history', f'{iid}: history')
+        for h in it.get('history', []):
+            w = h.get('when') or {}
+            ch = w.get('chapter')
+            if not ((isinstance(ch, int) and n is not None and ch <= n) or (ch is None and reached(hist_rc))):
+                problems.append(f'item "{name}": a history entry ({w.get("era")}{" Y" + str(w.get("year")) if w.get("year") is not None else ""}) is published, but no published chapter reveals it')
+            for sid in (h.get('stateIds') or {}).values():
+                if sid not in item_states[iid]:
+                    problems.append(f'item "{name}": a history entry points at a state that is not published')
+    for ch in data.get('dossier', {}).get('characters', []):
+        for v in ch.get('snapshots', []):
+            for e in v.get('inventory', []):
+                for sid in (e.get('stateIds') or {}).values():
+                    if sid not in item_states.get(e.get('itemId'), set()):
+                        problems.append(f'{ch.get("name")}: a chapter\'s copy of an item points at a state that is not published')
+            for m in (v.get('marks') or []) + [x for e in v.get('inventory', []) for x in (e.get('marks') or [])]:
+                if m.get('kind') == 'curse' and isinstance(m.get('stage'), int):
+                    for i, st in enumerate(m.get('stages') or []):
+                        if i >= m['stage'] and (st or {}).get('name'):
+                            problems.append(f'{ch.get("name")}: the curse "{m.get("name")}" names a stage it has not reached')
+
     # 4. with the private drafts: what must not be in the file at all
     drafts_path = Path(a.drafts)
     checked_drafts = False
@@ -184,7 +232,17 @@ def main():
         bpath = found[-1] if found else None
     if bpath and bpath.exists() and n is not None:
         backup_name = bpath.name
-        chars = json.loads(bpath.read_text(encoding='utf-8')).get('characters', [])
+        backup = json.loads(bpath.read_text(encoding='utf-8'))
+        chars = backup.get('characters', [])
+        # W.I.P items are never published: neither their id nor their name may appear
+        for it in (backup.get('library') or {}).get('items', []):
+            if not it.get('wip'):
+                continue
+            iname = str(it.get('name') or '').strip()
+            if it.get('id') and f'"{str(it["id"]).lower()}"' in text:
+                problems.append(f'the W.I.P item "{iname}" is in the file')
+            elif len(iname) >= 3 and re.search(r'(^|[^a-z0-9])' + re.escape(iname.lower()) + r'($|[^a-z0-9])', text):
+                problems.append(f'the W.I.P item "{iname}" is named in the file')
         revealed = set()
         for c in published:
             if c['chapter'] <= n:

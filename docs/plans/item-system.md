@@ -208,12 +208,27 @@ Not every item has every part: a blade may have no usage states; many items have
   `Exploratory Ideas/Power Systems/Item Curses.md`. A curse's **source** field is now labelled **Cause** in the mark editor.
 ## Phase 4 — Publish and reveal (Opus)
 
-- [ ] **4.1 Allowlist.** The snapshot builder (`assets/epitaph-publish.js`) lists every new field explicitly; hidden by default, published
-  only when the item is revealed (`reveals:`) and then per 0.4: states and curse stages not yet reached don't exist for readers; origin
-  circumstance (`reveals: <Item>: origin`), each binding or curse (`<Item>: <mark>`) and each history entry (by its `when`) are revealed
-  separately; `note`, W.I.P items and the offline fields never reach readers; the rank shown is the rank at the reader's chapter.
-- [ ] **4.2 Checker.** `tools/check-snapshot.py` fails on any new field present before its reveal chapter, or on text naming a held item.
-- [ ] **4.3 Reader views.** Read-only versions of the Inventory tab and the Library, using only what the snapshot holds.
+- [x] **4.1 Allowlist.** *(Done 2026-11-21, Opus.)* `assets/epitaph-publish.js`, snapshot schema 2. Items are published only when a published chapter
+  holds and `reveals:` them, **never when W.I.P** (their names are held, so text naming them is scrubbed). Per item: name, desc, pictures,
+  **rank, tier, origin** (a hidden place becomes "unknown"); **origin circumstance** only from the chapter that reveals `<Item>: origin`;
+  **history**: an entry tied to a published chapter from that chapter, entries before the story once a chapter reveals `<Item>: history`,
+  each with `revealedIn`; **stateTracks** with only the states a published chapter reached, each track's normal state, and states a
+  revealed history entry names. Marks stay minimal (name, kind, picture) plus a binding's **reach** and a curse's **stage** (chapter copies)
+  and the **names** of the stages reached so far (definitions: up to the furthest stage any published chapter reached). Never: note, weight,
+  appearance, maker, wip, a blessing's price / terms / breach / lasts until, a curse's type or stage texts. A mark is revealed by its name or
+  by `<Item>: <mark>`. Inventory entries carry `stateIds` (published states only). So a reader's rank follows only revealed bindings: a
+  hidden binding hides its reach too. 7 Node tests (chapters 1, 2, 3).
+- [x] **4.2 Checker.** *(Done 2026-11-21, Opus.)* `tools/check-snapshot.py` section 3b, independent of the builder (reads `chapters/index.json`
+  itself): fails on item private fields, a curse type or stage text, an origin circumstance or history entry no published chapter reveals,
+  a state id that isn't published (entries and history), a curse naming a stage it hasn't reached, and (with the Dossier backup) a W.I.P
+  item's id or name anywhere. Tested: a clean chapter-2 snapshot passes; a tampered one fails on all 7 planted leaks; an origin circumstance
+  published at chapter 1 fails.
+- [x] **4.3 Reader views.** *(Done 2026-11-21, Opus; the book's reader card is the publish plan's.)* Verified in the real Dossier as a reader
+  (`?author=0`) with the built chapter-2 snapshot: the inventory monitor shows rank 1 (God's Eye not revealed yet), tier, no W.I.P, only the
+  reached states, the curse ladder at Fluctuation with only the reached stage names and no texts; nothing private in the page; nothing saved
+  to the reader's storage but the mode. The Atlas Library drawer stays author-only (publish plan 3.2). The book's read-only Library card
+  for readers is being built in publish-readonly **3.3** (another session's uncommitted work in `epitaph-book.js`); what it should show
+  from items is written into that plan's tweak log instead of being built here.
 
 ## Phase 5 — Data and finish
 
@@ -298,6 +313,12 @@ When the user says "get back to it" / "back to the plan":
 ## Tweak log
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-21 — **Phase 4 complete (Opus).** Judgment calls: marks stay minimal as the publish plan decided (only reach and reached stage
+  names added); a hidden binding hides its reach, so a reader's rank can be lower than the author's; `<Item>: history` reveals all
+  pre-story entries at once (per-entry reveal can come later if wanted). 4.3 did not touch the book's reader card (other session's work).
+  User, same day: Repentance's Dormant/Seeding/Budding/Propagating and the curse stage names are the same process (maybe slang vs scholarly,
+  undecided); god-sourced curses wait until the site work is finished.
 
 - 2026-11-21 — **3.4 done; Phase 3 complete (Sonnet).** Two lore clarifications from the user while approving the text: Realm stays out of item
   ranks, and curses are not applied by gods or Storyborn. The second changes how 5.1 reads curse **sources** (causes). Repentance's
