@@ -222,6 +222,21 @@
     o.likelihood = Number.isInteger(o.likelihood) && o.likelihood >= 1 && o.likelihood <= 7 ? o.likelihood : 3;
     return o;
   }
+  /** What the illustrated founding model draws at a stage (step 5.3), from the stages that are written (and, for a reader, reached).
+   *  founding: the place's history.founding (already gated); at: 0..6, the stage being looked at.
+   *  -> { here, cleared, first, walls, town, scar, rebuilt, ruins, stage, label, text }
+   *     here: the spot is marked (always); cleared + first: ground broken; walls: first walls; town: growth (or an 'as it stands' with no
+   *     disaster before it); scar: a disaster has struck by `at` and nothing rebuilt it yet; rebuilt: rebuilt over the scar;
+   *     ruins: some written stage up to `at` reuses the drowned world. text: what changed at the stage looked at (or why, when no change). */
+  function foundingLayers(founding, at) {
+    const ids = FOUNDING_STAGES.map(x => x.id), list = Array.isArray(founding) ? founding : [], n = Number.isInteger(at) ? Math.max(0, Math.min(6, at)) : 6;
+    const by = id => list.find(f => f.stage === id), has = id => ids.indexOf(id) <= n && !!by(id);
+    const scar = has('disaster'), rebuilt = scar && has('rebuilt'), town = has('growth') || (has('present') && !scar && (has('ground') || has('walls')));
+    const ruins = list.some(f => ids.indexOf(f.stage) >= 0 && ids.indexOf(f.stage) <= n && String(f.reused || '').trim());
+    const here = by(ids[n]);
+    return { here: true, cleared: has('ground'), first: has('ground'), walls: has('walls'), town,
+      scar: scar && !rebuilt, rebuilt, ruins, stage: n, label: FOUNDING_STAGES[n].label, text: here ? String(here.change || here.why || '').trim() : '' };
+  }
   /** Founding stages in order (step 5.1): problems a stage list can have, for the Checks list.
    *  compare(a, b): the timeline's order for two event ids (< 0 when a comes first); events it can't place are skipped.
    *  -> [{ rule: 'founding-dup' | 'founding-order' | 'founding-stage', stage, other?, text }] */
@@ -751,6 +766,6 @@
     KEY, VERSION, BACKUP_KEY, STATUS, SCALES, SCALE_SETS, FORMS, ALLIANCE_KINDS, BEAST_RELATIONS, RESOURCE_CATEGORIES, RESOURCE_ROLES, FOUNDING_STAGES,
     MOTIVES, FACTION_KINDS, TIE_ENDINGS, TEMPERAMENTS, SOCIAL_SHAPES, WARD_KINDS, RUMOUR_INTENTS, TRIGGER_GROUPS,
     TABS, TAB_LABEL, DATA_TABS, DEFAULTS,
-    alliancesAt, tieBars, webAt, blocsAt, ringSeats, WHATIF_STATUS, normWhatIf, foundingProblems, whatIfRef, whatIfList, whatIfPile, whatIfLinks, whatIfLoops, storyOf, forReader, secretHolders, couldFind, plantPayoff, SECRET_REF, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, draftUpdatesIn, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
+    alliancesAt, tieBars, webAt, blocsAt, ringSeats, WHATIF_STATUS, normWhatIf, foundingProblems, foundingLayers, whatIfRef, whatIfList, whatIfPile, whatIfLinks, whatIfLoops, storyOf, forReader, secretHolders, couldFind, plantPayoff, SECRET_REF, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, draftUpdatesIn, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
   };
 })(typeof window !== 'undefined' ? window : globalThis);

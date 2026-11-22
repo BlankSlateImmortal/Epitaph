@@ -2,6 +2,14 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Illustrated founding stages (epitaph-dither.js, epitaph-sites.js `foundingLayers`) — step 5.3
+
+The dither **founding model** on the right page now illustrates each stage from what the place's founding stages say, for every place with a model (and the ones with a 3D site too, which also link to it). The stage buttons pick the stage; a caption names it and what changed.
+
+- **What it draws:** 1 the spot is ringed · 2 the heart is cleared and paved, with the first buildings · 3 a ring wall with a gate · 4 the town · 5 a disaster's scar (a smooth black wound, its rim glowing, everything inside gone) · 6 rebuilt blocks over the scar in another tone · 7 everything as it now stands. **Grey ruins** of the drowned world appear when a stage up to here reuses something from it. Buildings take the place's colour: Storyborn gold, Voided violet, Fallen ember.
+- **Only what's written:** a stage that isn't written adds nothing, and readers get the stages they've reached, so no scar appears before its chapter ("Not known yet" in the caption).
+- Without the new options the model draws as before.
+
 ## 3D sites by founding stage (sites/aurelia.html, sites/hollow-reach.html) — step 5.2
 
 Both 3D sites can show the place **as it stood at a founding stage**: a **Built** picker in the header ("as built", or 1 · The reason … 7 · As it stands), or `?stage=N` in the address (1–7). Every piece of the scene is filed under the stage that built it (the scene kit keeps one mesh per material *and stage*), and the labels follow; the note panel names the stage and what it added. "As built" (the default) is exactly the old scene.

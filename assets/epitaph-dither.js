@@ -138,7 +138,8 @@
     models.set(seed, m);
     return m;
   }
-  /** Draw the model at `angle` (radians). opt.stage: 0..6 founding stage; buildings appear from stage 3 (growth). */
+  /** Draw the model at `angle` (radians). opt.stage: 0..6 founding stage; without opt.layers, buildings appear from stage 3 (growth).
+   *  opt.layers (EpitaphSites.foundingLayers) + opt.tint: the illustrated stages (step 5.3). */
   function site(canvas, seed, opt) {
     const o = Object.assign({ angle: 0.6, stage: 6 }, opt || {});
     const { g, w, h } = sizeCanvas(canvas), col = colours(canvas), m = terrain(seed), N = m.N;
@@ -154,14 +155,50 @@
       g.fillStyle = k < 5 ? col.land + '88' : col.land;
       for (let n = 0; n < L.edge.length; n += 2) { const p = proj(L.edge[n], L.edge[n + 1], lift); g.fillRect(p[0] - 0.8, p[1] - 0.8, 1.6, 1.6); }
     });
-    if (o.stage >= 3) {
+    const lvl = v => { let k = 0; m.levels.forEach((lv, n) => { if (v >= lv) k = n; }); return k; };
+    const L = o.layers;
+    if (!L && o.stage >= 3) {
       g.fillStyle = '#ffd58a';
-      const lvl = v => { let k = 0; m.levels.forEach((lv, n) => { if (v >= lv) k = n; }); return k; };
       for (let n = 0; n < m.top.length; n += 3) { const p = proj(m.top[n], m.top[n + 1], lvl(m.top[n + 2]) * K); const hh = 3 + ((n * 7) % 9); g.fillRect(p[0], p[1] - hh, 2.2, hh); }
     }
+    if (L) drawStage(g, m, L, o.tint || '#ffd58a', proj, lvl, K, s, seed);
     const topLift = lv => { let k = 0; m.levels.forEach((l, n) => { if (lv >= l) k = n; }); return k * K; };
     return { angle: o.angle, project: (u, v) => { const i = u * N, j = v * N, hh = m.H[Math.max(0, Math.min(N - 1, Math.round(j))) * N + Math.max(0, Math.min(N - 1, Math.round(i)))]; return proj(i, j, topLift(hh)); }, centre: m.centre };
   }
 
+  /** The illustrated founding stages (step 5.3) on top of the model: what EpitaphSites.foundingLayers says stands at the stage.
+   *  Ruins of the drowned world in grey, the cleared heart, a ring wall with a gate, the first blocks then the town in the place's colour,
+   *  a disaster's scar (blocks inside it gone, an ember rim), rebuilt blocks over it in another tone, and a ring marking the spot. */
+  function drawStage(g, m, L, tint, proj, lvl, K, s, seed) {
+    const N = m.N, cx = m.centre[0] * N, cy = m.centre[1] * N, rad = m.rad * N, H = (i, j) => m.H[Math.max(0, Math.min(N - 1, Math.round(j))) * N + Math.max(0, Math.min(N - 1, Math.round(i)))];
+    const at = (i, j, up) => proj(i, j, lvl(H(i, j)) * K + (up || 0)), dist = (i, j) => Math.hypot(i - cx, (j - cy) / 0.85);
+    const R = rng(seed + ':stages'), SCAR = rad * 0.78, inScar = (i, j) => dist(i, j) < SCAR;
+    const BW = Math.max(2.4, s * 1.7), BH = Math.max(1, s * 0.55);
+    const block = (i, j, hh, col, w) => { const p = at(i, j), ww = Math.max(w || 0, BW), h2 = hh * BH * 1.3; g.fillStyle = col; g.fillRect(p[0] - ww / 2, p[1] - h2, ww, h2); g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(p[0] + ww / 2 - ww * 0.3, p[1] - h2, ww * 0.3, h2); };
+    const ring = (r, col, lw, dash, up) => { g.save(); g.strokeStyle = col; g.lineWidth = lw; g.setLineDash(dash || []); g.beginPath();
+      for (let k = 0; k <= 72; k++) { const a = k / 72 * Math.PI * 2, i = cx + Math.cos(a) * r, j = cy + Math.sin(a) * r * 0.85, p = at(i, j, up); k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); } g.stroke(); g.restore(); };
+    if (L.ruins) {                                   // the drowned world's leftovers, out beyond the new heart
+      for (let k = 0; k < 52; k++) { const a = R() * Math.PI * 2, r = rad * (1.02 + R() * 0.6), i = cx + Math.cos(a) * r, j = cy + Math.sin(a) * r * 0.85;
+        if (Math.hypot(i / N - 0.5, j / N - 0.5) > 0.47) continue; const hh = 2 + R() * 5; block(i, j, hh, '#c9c3b1'); if (R() < 0.5) { const p = at(i, j); g.fillStyle = '#5c5a54'; g.fillRect(p[0] - 1.6, p[1] - hh - 1.2, 1.2, 1.2); } }
+    }
+    if (L.cleared) {                                 // the cleared, paved heart
+      g.fillStyle = 'rgba(255,213,138,.20)';
+      for (let j = Math.floor(cy - rad); j <= cy + rad; j++) for (let i = Math.floor(cx - rad); i <= cx + rad; i++) if (dist(i, j) < rad * 0.6 && !(L.scar && inScar(i, j))) { const p = at(i, j); g.fillRect(p[0] - 1.1, p[1] - 1.1, 2.2, 2.2); }
+    }
+    if (L.scar) {                                    // a smooth black wound, its rim still glowing
+      g.fillStyle = 'rgba(4,3,2,.92)';
+      for (let j = Math.floor(cy - SCAR); j <= cy + SCAR; j++) for (let i = Math.floor(cx - SCAR); i <= cx + SCAR; i++) if (inScar(i, j)) { const p = at(i, j); g.fillRect(p[0] - 1.6, p[1] - 1.6, 3.2, 3.2); }
+      ring(SCAR, 'rgba(224,101,74,.9)', 1.6, [3, 3]);
+    }
+    if (L.walls) {                                   // a ring wall, with a gate facing the viewer's side
+      for (let k = 0; k < 64; k++) { const a = k / 64 * Math.PI * 2; if (Math.abs(((a - Math.PI / 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI) < 0.22) continue;
+        const i = cx + Math.cos(a) * rad * 0.9, j = cy + Math.sin(a) * rad * 0.9 * 0.85; if (L.scar && inScar(i, j)) continue; block(i, j, 4 + (k % 8 === 0 ? 3 : 0), tint, 2.6); }
+    }
+    const tops = []; for (let n = 0; n < m.top.length; n += 3) tops.push([m.top[n], m.top[n + 1], n]);
+    if (L.first && !L.town) tops.filter(t => dist(t[0], t[1]) < rad * 0.55).filter((t, k) => k % 3 === 0).forEach(t => { if (!(L.scar && inScar(t[0], t[1]))) block(t[0], t[1], 3 + (t[2] % 4), tint); });
+    if (L.town) tops.forEach(t => { if (L.scar && inScar(t[0], t[1])) return; block(t[0], t[1], 3 + ((t[2] * 7) % 9), tint); });
+    if (L.rebuilt) tops.filter(t => inScar(t[0], t[1])).filter((t, k) => k % 2 === 0).forEach(t => block(t[0], t[1], 2 + (t[2] % 5), '#6fb8a8'));
+    ring(rad * 0.3, 'rgba(255,213,138,.85)', 1.2, [2, 4], 1);   // the spot
+  }
   global.EpitaphDither = { load, world, region, site, toPix, elevAt, terrain };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -283,3 +283,5 @@ button.se-tbar{ cursor:pointer; } button.se-tbar:hover, button.se-tbar:focus-vis
 .se-fs .se-kv{ grid-template-columns:150px 1fr; }
 @media (max-width:900px){ .se-fs{ grid-template-columns:1fr; } .se-fs .se-kv{ grid-template-columns:110px 1fr; } }
 .se-fs-3d{ margin-bottom:6px; gap:10px; }
+.se-cap{ position:absolute; left:12px; top:44px; max-width:min(330px, 55%); display:flex; flex-direction:column; gap:3px; padding:6px 10px; background:rgba(5,4,3,.88); border:1px solid var(--amber-dim); font-size:11.5px; line-height:1.35; color:var(--bone); pointer-events:none; }
+.se-cap b{ font-family:var(--f-crt); font-weight:400; font-size:18px; color:var(--amber-hi); }

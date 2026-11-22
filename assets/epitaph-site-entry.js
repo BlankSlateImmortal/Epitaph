@@ -415,7 +415,12 @@ ${r.state === 'ongoing' ? 'still going' : r.state === 'unknown' ? 'ends later (n
       (m.resources || []).forEach((r, i, a) => { const xy = around(me[0], me[1], 120, i, a.length); html += pin(xy[0] - 13, xy[1] - 13, i + 1, r.name.split(/[:,(]/)[0].slice(0, 22).toUpperCase()); });
       leg = m.resources ? 'numbers match the table<br>dot size = height' : m.beasts ? (global.EpitaphCreatures ? 'ranges from the Creature Log' : 'creature ranges arrive with the Creature Log') : (m.noModel ? 'no founding model for this place<br>(switch one on in its entry)' : 'dot size = height<br>teal = land the sea took');
     } else {
-      const draw = () => { const sv = D().site(cv, c.pid, { angle: cur.angle, stage: cur.stage }); return sv; };
+      // the illustrated stages (5.3): what the written (and, for a reader, reached) founding stages say stands at the stage picked
+      const fstages = m.stages || (c.rec.history.founding || []).filter(f => c.author || c.seen(f.when));
+      const lay = S().foundingLayers(fstages, cur.stage), typ = String(c.place.group || c.rec.domestic.government.stance || '').toUpperCase();
+      const tint = { STORYBORN: '#ffd58a', VOIDED: '#b98ad8', FALLEN: '#e0654a' }[typ] || '#ffb238';
+      const draw = () => { const sv = D().site(cv, c.pid, { angle: cur.angle, stage: cur.stage, layers: lay, tint }); return sv; };
+      html += `<div class="se-cap" aria-live="polite"><b>${cur.stage + 1} · ${esc(lay.label)}</b>${lay.text ? `<span>${esc(c.txt(lay.text)).slice(0, 220)}</span>` : `<span class="se-dim">${c.author ? 'This stage isn\'t written yet.' : 'Not known yet.'}</span>`}</div>`;
       const sv = draw(), [cx, cy] = sv.centre || [0.5, 0.4];
       const list = m.landmarks || (m.factions || []);
       list.forEach((x, i, a) => { const uv = around(cx, cy, 0.26, i, a.length); const xy = sv.project(Math.min(.95, Math.max(.05, uv[0])), Math.min(.95, Math.max(.05, uv[1]))); html += pin(xy[0] - 13, xy[1] - 30, i + 1, (x.name || '').replace(/^the\s+/i, '').split(/\s+(?:and|of|·)\s+/i)[0].slice(0, 20).toUpperCase(), (x.hidden ? 'hid' : '') + (x.sealed ? ' sealed' : '')); });
