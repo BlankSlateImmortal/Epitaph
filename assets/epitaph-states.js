@@ -35,7 +35,7 @@
     return [...by].map(([who, chs]) => `${who} · CH ${chs.join(', ')}`).join(' · ');
   }
   // state ids are unique across an item's tracks, so a row uses a state when any of its picks is that id
-  const rowHas = (u, stateId) => (u.stateIds && Object.values(u.stateIds).includes(stateId)) || u.stateId === stateId;
+  const rowHas = (u, stateId) => !!(u.stateIds && Object.values(u.stateIds).includes(stateId));
   function usesOf(uses, stateId) { return (uses || []).filter(u => rowHas(u, stateId)); }
   const dot = c => `<i class="state-dot sc-${COLORS.includes(c) ? c : 'none'}" aria-hidden="true"></i>`;
 
@@ -125,7 +125,7 @@
   function tracksEditor(container, tracks, uses) {
     const data = {}, eds = {};
     (tracks || []).forEach(t => { data[t.kind] = { name: t.name, oneWay: !!t.oneWay, primaryStateId: t.primaryStateId || '', states: (t.states || []).slice() }; });
-    const used = new Set(); (uses || []).forEach(u => { Object.values(u.stateIds || {}).forEach(id => used.add(id)); if (u.stateId) used.add(u.stateId); });
+    const used = new Set(); (uses || []).forEach(u => { Object.values(u.stateIds || {}).forEach(id => used.add(id)); });
     function capture(final) {
       KINDS.forEach(k => {
         const d = data[k.kind], sec = container.querySelector(`[data-tk="${k.kind}"]`); if (!d || !sec) return;

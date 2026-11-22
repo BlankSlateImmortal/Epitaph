@@ -208,8 +208,8 @@
       const it = Lib.item(itemId);
       const chs = [];
       (c.snapshots || []).forEach(s => (s.inventory || []).filter(e => e.itemId === itemId).forEach(e => {
-        const st = Lib.stateOf(it, e.stateId);
-        chs.push((s.chapterRange || ('CH ' + (s.startChapter || '?'))) + (st ? ' (' + st.name + ')' : ''));
+        const cur = Lib.currentStates(it, e);
+        chs.push((s.chapterRange || ('CH ' + (s.startChapter || '?'))) + (cur.length ? ' (' + cur.map(x => x.state.name).join(', ') + ')' : ''));
       }));
       if (chs.length) out.push({ name: c.name || 'Unnamed', chapters: chs });
     });
@@ -238,12 +238,12 @@
     if (mode === 'library') { $('#theBook').dataset.look = libLook; webPos.clear(); drawLibrary(true); }
   }
   const MARK_ORDER = ['curse', 'binding', 'blessing'];
-  function itemMarkKinds(it, stateId) {
-    const st = Lib.stateOf(it, stateId);
-    return [...new Set([...(it.marks || []), ...((st && st.marks) || [])].map(m => m.kind))];
+  function itemMarkKinds(it, stateIds) {
+    const extra = Lib.currentStates(it, { stateIds }).flatMap(x => x.state.marks || []);
+    return [...new Set([...(it.marks || []), ...extra].map(m => m.kind))];
   }
   const markClass = kinds => MARK_ORDER.find(k => kinds.includes(k)) || '';
-  const itemPic = (it, stateId) => { const st = Lib.stateOf(it, stateId); return [st && st.image, it.image, it.icon].find(isImg) || ''; };
+  const itemPic = (it, stateIds) => [...Lib.currentStates(it, { stateIds }).map(x => x.state.image), it.image, it.icon].find(isImg) || '';
   const itemInitial = it => esc((it.name || '?').trim().charAt(0).toUpperCase() || '◈');
   function clearLibExtras() { ['#bkScrub', '#bkItemLog'].forEach(s => { const el = $(s); if (el) el.remove(); }); cancelAnimationFrame(webAnim); }
 
@@ -277,8 +277,8 @@
     content.innerHTML = list.map((it, i) => {
       const x = (i % gridCols) * (CASE_W + CASE_GAP), y = Math.floor(i / gridCols) * (CASE_H + CASE_GAP);
       const hs = now.get(it.id) || [];
-      const stId = hs[0] && hs[0].entry.stateId;
-      const st = Lib.stateOf(it, stId);
+      const stId = hs[0] && hs[0].entry.stateIds;
+      const st = Lib.stateOf(it, Lib.stateIdOf(hs[0] && hs[0].entry));
       const kinds = itemMarkKinds(it, stId);
       const pic = itemPic(it, stId);
       return `<button type="button" class="bk-case ${markClass(kinds)}${it.id === selItem ? ' on' : ''}${hs.length ? '' : ' unheld'}" data-id="${attr(it.id)}" data-cx="${x + CASE_W / 2}" data-cy="${y + CASE_H / 2}" style="left:${x}px;top:${y}px;--d:${(i % 7) * -0.6}s" title="${attr(it.name)}">
@@ -352,7 +352,7 @@
     if (!before.length) return 'new';
     const ids = a => a.map(h => h.c.id).sort().join(',');
     if (ids(now) !== ids(before)) return 'moved';
-    const sts = a => a.map(h => h.c.id + ':' + (h.entry.stateId || '')).sort().join(',');
+    const sts = a => a.map(h => h.c.id + ':' + Lib.stateKeyOf(h.entry)).sort().join(',');
     return sts(now) !== sts(before) ? 'state' : '';
   }
   function drawWeb(list, animate) {
@@ -392,7 +392,7 @@
       targets.set('c:' + h.c.id, { x: h.x, y: h.y });
     });
     L.nodes.forEach(nd => {
-      const it = nd.it, stId = nd.hs[0] && nd.hs[0].entry.stateId, st = Lib.stateOf(it, stId);
+      const it = nd.it, stId = nd.hs[0] && nd.hs[0].entry.stateIds, st = Lib.stateOf(it, Lib.stateIdOf(nd.hs[0] && nd.hs[0].entry));
       const kinds = itemMarkKinds(it, stId), pic = itemPic(it, stId), mc = markClass(kinds);
       const on = it.id === selItem, ch = changeOf(it.id, n, prevN);
       const el = ensure('i:' + it.id, `bk-wn bk-node${mc ? ' ' + mc : ''}${mc === 'curse' ? ' corrupt' : ''}${on ? ' on' : ''}${nd.loose ? ' loose' : ''}${ch ? ' changed' : ''}`,
@@ -503,10 +503,10 @@
       const cur = new Map((holdersAt(ch).get(itemId) || []).map(h => [h.c.id, h]));
       const it = Lib.item(itemId);
       cur.forEach((h, id) => {
-        const p = prev.get(id), st = Lib.stateOf(it, h.entry.stateId);
-        if (!p) out.push({ ch, tag: 'Acquired', text: (h.c.name || 'Unnamed') + (st ? ' · ' + st.name : '') });
+        const p = prev.get(id), names = Lib.currentStates(it, h.entry).map(x => x.state.name).join(' · ');
+        if (!p) out.push({ ch, tag: 'Acquired', text: (h.c.name || 'Unnamed') + (names ? ' · ' + names : '') });
         else {
-          if ((p.entry.stateId || '') !== (h.entry.stateId || '')) out.push({ ch, tag: 'State', text: (st ? st.name : 'no state') + ' · ' + (h.c.name || 'Unnamed') });
+          if (Lib.stateKeyOf(p.entry) !== Lib.stateKeyOf(h.entry)) out.push({ ch, tag: 'State', text: (names || 'no state') + ' · ' + (h.c.name || 'Unnamed') });
           if (!(p.entry.boundTo || '').trim() && (h.entry.boundTo || '').trim()) out.push({ ch, tag: 'Bound', text: 'to ' + h.entry.boundTo.trim() });
         }
       });
@@ -720,7 +720,7 @@
     const into = $('#bfInto'), stateIn = $('#bfState'), tgtIn = $('#bfTgtState'), nameIn = $('#bfName');
     function syncTarget() {
       const t = Lib.item(into.value);
-      $('#bfTgtWrap').hidden = !!(t && t.states.length);
+      $('#bfTgtWrap').hidden = !!(t && Lib.itemStates(t).length);
       tgtIn.value = t ? (paren(t.name) || 'Original') : '';
       nameIn.value = t ? (baseName(t.name) || t.name) : '';
       plan();
@@ -729,16 +729,16 @@
       const t = Lib.item(into.value);
       const picked = free.filter((f, i) => { const cb = panel.querySelector(`[data-free="${i}"]`); return cb && cb.checked; });
       const srcRows = [], tgtRows = [];
-      eachEntry((e, c, s) => { if (e.itemId === src.id) srcRows.push({ e, c, s }); if (t && e.itemId === t.id && !e.stateId) tgtRows.push({ e, c, s }); });
+      eachEntry((e, c, s) => { if (e.itemId === src.id) srcRows.push({ e, c, s }); if (t && e.itemId === t.id && !Lib.stateIdOf(e)) tgtRows.push({ e, c, s }); });
       return { t, picked, srcRows, tgtRows, stateName: stateIn.value.trim() || 'New state', tgtState: tgtIn.value.trim() || 'Original', name: nameIn.value.trim() || (t && t.name) || 'Untitled' };
     }
     function plan() {
       const P = readPlan(); if (!P.t) return;
       const rows = [];
       if (P.name !== P.t.name) rows.push(`Rename “${P.t.name}” to “${P.name}”.`);
-      if (!P.t.states.length) rows.push(`Add state <b>${esc(P.tgtState)}</b> (01) to it${P.tgtRows.length ? ` and set it on ${P.tgtRows.map(r => esc((r.c.name || 'Unnamed') + ' ' + chLabel(r.s))).join(', ')}` : ''}.`);
+      if (!Lib.itemStates(P.t).length) rows.push(`Add state <b>${esc(P.tgtState)}</b> (01) to it${P.tgtRows.length ? ` and set it on ${P.tgtRows.map(r => esc((r.c.name || 'Unnamed') + ' ' + chLabel(r.s))).join(', ')}` : ''}.`);
       else if (P.tgtRows.length) rows.push(`${P.tgtRows.length} chapter${P.tgtRows.length === 1 ? '' : 's'} holding it with no state set stay unset.`);
-      rows.push(`Add state <b>${esc(P.stateName)}</b> (${pad2((P.t.states.length || 1) + 1)}) with this item’s description${(src.marks || []).length ? ', marks' : ''}${isImg(src.image) || isImg(src.icon) ? ' and picture' : ''}.`);
+      rows.push(`Add state <b>${esc(P.stateName)}</b> (${pad2((Lib.itemStates(P.t).length || 1) + 1)}) with this item’s description${(src.marks || []).length ? ', marks' : ''}${isImg(src.image) || isImg(src.icon) ? ' and picture' : ''}.`);
       P.srcRows.concat(P.picked).forEach(r => rows.push(`${esc(r.c.name || 'Unnamed')} ${esc(chLabel(r.s))}: ${r.e.itemId ? '' : 'typed-in entry '}→ ${esc(P.name)} · ${esc(P.stateName)}.`));
       rows.push(`Remove “${esc(src.name)}” from the Library.`);
       $('#bfPlan').innerHTML = rows.map(r => `<li>${r}</li>`).join('');
@@ -758,20 +758,20 @@
 
   function doFold(src, P) {
     const t = P.t; if (!t) return 'Pick an item to fold into.';
-    const tgtStateId = t.states.length ? '' : Lib.newId('state');
+    const tgtStateId = Lib.itemStates(t).length ? '' : Lib.newId('state');
     const newState = { id: Lib.newId('state'), name: P.stateName, desc: [src.desc, src.note].map(x => (x || '').trim()).filter(Boolean).join('\n\n'),
       marks: src.marks || [], image: isImg(src.image) ? src.image : (isImg(src.icon) ? src.icon : '') };
     // 1) relink the chapters (Dossier store), keeping a copy to roll back
     const before = JSON.stringify(state);
-    P.srcRows.forEach(({ e }) => { e.itemId = t.id; e.stateId = newState.id; e.name = P.name; });
-    if (tgtStateId) P.tgtRows.forEach(({ e }) => { e.stateId = tgtStateId; e.name = P.name; });
+    P.srcRows.forEach(({ e }) => { e.itemId = t.id; e.stateIds = { ...(e.stateIds || {}), item: newState.id }; e.name = P.name; });
+    if (tgtStateId) P.tgtRows.forEach(({ e }) => { e.stateIds = { ...(e.stateIds || {}), item: tgtStateId }; e.name = P.name; });
     P.picked.forEach(({ e }) => {
       // its own description goes to the chapter note, unless the state already says the same
       const own = (e.desc || '').trim();
       const note = [own && !newState.desc.includes(own) ? own : '', (e.note || '').trim()].filter(Boolean).join(' — ');
       if (!newState.image && isImg(e.image)) newState.image = e.image;
       Object.keys(e).forEach(k => { if (!['id', 'marks', 'boundTo'].includes(k)) delete e[k]; });
-      Object.assign(e, { itemId: t.id, stateId: newState.id, note, name: P.name });
+      Object.assign(e, { itemId: t.id, stateIds: { item: newState.id }, note, name: P.name });
     });
     const rollback = () => { const old = JSON.parse(before); Object.keys(state).forEach(k => delete state[k]); Object.assign(state, old); };
     persistState();

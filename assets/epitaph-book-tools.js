@@ -300,7 +300,7 @@
         if ((s.inventory || []).some(it => lc(invView(it).name) === lc(p.item))) return 'already carried';
         const li = Lib && Lib.get().items.find(i => lc(i.name) === lc(p.item));
         s.inventory = s.inventory || [];
-        if (li) { const st = (li.states || [])[0]; s.inventory.push({ id: newId('inv'), itemId: li.id, stateId: st ? st.id : '', note: `CH ${p.ch}`, boundTo: '', marks: Lib.marksFor(li, st ? st.id : ''), name: li.name }); }
+        if (li) { const ids = Lib.primaryStateIds(li); s.inventory.push({ id: newId('inv'), itemId: li.id, stateIds: ids, note: `CH ${p.ch}`, boundTo: '', marks: Lib.marksFor(li, ids), name: li.name }); }
         else s.inventory.push({ id: newId('inv'), name: p.item, desc: '', icon: '', image: '', note: `CH ${p.ch}`, boundTo: '', marks: [] });
       } else s.inventory = (s.inventory || []).filter(it => lc(invView(it).name) !== lc(p.item));
       return 'done';

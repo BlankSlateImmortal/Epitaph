@@ -96,7 +96,7 @@
         (s.marks || []).forEach(m => m && noteHeld(m.name, m.id, m));
         (s.inventory || []).forEach(e => { if (!e) return; const it = libItem(e.itemId); noteHeld(it ? it.name : e.name, e.itemId, it); (e.marks || []).forEach(m => m && noteHeld(m.name, m.id, m)); });
       }));
-      (lib.items || []).forEach(i => { if (!i) return; noteHeld(i.name, i.id, i); (i.marks || []).forEach(m => m && noteHeld(m.name, m.id, m)); (i.states || []).forEach(st => (st.marks || []).forEach(m => m && noteHeld(m.name, m.id, m))); });
+      (lib.items || []).forEach(i => { if (!i) return; noteHeld(i.name, i.id, i); (i.marks || []).forEach(m => m && noteHeld(m.name, m.id, m)); (i.stateTracks || []).forEach(tr => (tr.states || []).forEach(st => (st.marks || []).forEach(m => m && noteHeld(m.name, m.id, m)))); });
       published.forEach(c => { const r = String(c.race || '').trim().toLowerCase(); if (r && !raceShown(c) && DISTINCT_RACES.includes(r)) heldThings.add(r); });
       // a held thing whose name is also a shown thing's name (two marks both called "Taint") isn't a secret
       const shownNames = new Set();
@@ -135,7 +135,7 @@
           v.power = pick(s.power || {}, ['threat', 'name']);
           v.relationships = (Array.isArray(s.relationships) ? s.relationships : []).filter(r => r && r.charId && pubIds.has(r.charId)).map(r => ({ name: r.name, relation: scrub(r.relation), charId: r.charId }));
           v.inventory = (Array.isArray(s.inventory) ? s.inventory : []).filter(e => { if (!e || !e.itemId) return false; const it = libItem(e.itemId); return shown(it ? it.name : e.name, e.itemId, it); })
-            .map(e => { keptItemIds.add(e.itemId); return { id: e.id, itemId: e.itemId, stateId: e.stateId || '', name: scrub(e.name), marks: marks(e.marks) }; });
+            .map(e => { keptItemIds.add(e.itemId); return { id: e.id, itemId: e.itemId, stateId: ((e.stateIds || {}).item) || '', name: scrub(e.name), marks: marks(e.marks) }; });
           return v;
         });
         const out = pick(c, CHAR_FIELDS);
@@ -152,7 +152,7 @@
         // snapshot format unchanged (plan 4.1 will move it to the new fields): `originPlaceId` is the place when the origin is one
         const pid = i.origin !== undefined ? (['none', 'unknown'].includes(i.origin) ? '' : i.origin) : i.originPlaceId;
         if (pid && !hiddenPlace(pid)) out.originPlaceId = pid;
-        out.states = (Array.isArray(i.states) ? i.states : []).map(st => ({ id: st.id, name: scrub(st.name), desc: scrub(st.desc), marks: marks(st.marks), image: st.image || '' }));
+        out.states = (((i.stateTracks || []).find(tr => tr.kind === 'item') || { states: [] }).states).map(st => ({ id: st.id, name: scrub(st.name), desc: scrub(st.desc), marks: marks(st.marks), image: st.image || '' }));
         return out;
       }).filter(i => i.name);
       const itemIds = new Set(items.map(i => i.id));

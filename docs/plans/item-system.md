@@ -144,17 +144,25 @@ Not every item has every part: a blade may have no usage states; many items have
   **Kept until 2.2, on purpose:** the read-only `item.states` alias (= the Item track), because the Dossier's inventory editor, the
   chapter checks and the publish builder still read it. Tested in the real page (headless Chromium): the book panel and the drawer, with a
   v1 item, rank locks, a new usage and third track, a history entry, save, and the stored shape; 22 Node tests for the Library.
-- [ ] **2.2 Inventory editor.** Pick the current state in each track the item has; nothing shown for tracks it doesn't have. **Remove the
-  inventory `stateId` mirror and the read-only `item.states` alias** (move the checks in `epitaph-checks.js`, the inventory editor, and `epitaph-publish.js` to tracks), (`index.html`, `epitaph-editors.js`, `epitaph-book.js`, `epitaph-book-tools.js`) and bump the Dossier
-  schema if the stored shape needs it.
+- [x] **2.2 Inventory editor.** *(Done 2026-11-21, Sonnet.)* A chapter's copy of an item now picks one state **per track** (one select per
+  track the item has, labelled with the track's name, "not set (normal: X)" for none), in both the classic inventory form and the wide
+  editor; a new copy starts every track in its normal state; changing a state still offers "Replace marks / Keep current marks", now with the
+  marks of all current states. Entries are stored with `stateIds` only: **the `stateId` mirror and the read-only `item.states` alias are
+  gone** (old saved `stateId`s convert once when the Dossier loads). The monitor shows one strip per track; the item's current state text
+  and the "changes since last chapter" list read all tracks. New Library helpers `stateIdOf`, `itemStates`, `primaryStateIds`,
+  `stateKeyOf`. The book's Holder web, Relic vault, item log and Fold, book-tools' "item" command, the checks and the publish builder were
+  moved too. **The checks' state rules were rewritten by track** (a removed state on any track; going back only on a track marked
+  one-way), which was part of 2.4. Publish still writes the Item track only, in the old snapshot format (4.1 redesigns it). Tested: 23 Node
+  tests and the real inventory editor in headless Chromium (old `stateId` converted, one select per track, switching Connection to No
+  Signal and replacing marks left only the Parade binding, saved with no `stateId`, rank read Soul instead of Planet).
 - [ ] **2.3 Mark editor.** Replace all three mark editors (`epitaph-marks.js`, `epitaph-editors.js` ~line 800, the Dossier's own in
   `index.html` ~4570) with one; remove `cost` / `ends` from the mark shape. Fields change with the kind; the kind picker is locked by
   holder (`markKindsFor`: an item takes binding or curse, a person blessing or curse); binding rank picker; blessing Price / Terms /
   Breach (shown only with terms) / Lasts until; curse type picker, initial state and three stage rows with the fixed broad name beside each
   unique name and text, and the holder's current stage.
-- [ ] **2.4 Checks (Opus).** New rules in `assets/epitaph-checks.js`: tier below the rank's floor (`tierProblem`), a blessing on an item or
-  a binding on a person (kind locked by holder), an inventory state pointing at a missing track or state, a one-way track that goes
-  backwards in a later chapter or history entry, a curse stage that goes down, a curse with fewer than three stage texts (info only), an
+- [ ] **2.4 Checks (Opus).** *(The removed-state and one-way-goes-backwards rules for chapters were done in 2.2; still to do: the same for
+  history entries.)* New rules in `assets/epitaph-checks.js`: tier below the rank's floor (`tierProblem`), a blessing on an item or
+  a binding on a person (kind locked by holder), a one-way track that goes backwards in a history entry, a curse stage that goes down, a curse with fewer than three stage texts (info only), an
   unknown source on a published item. Blessing consent is a written rule on the Powers page, not a check.
 
 ## Phase 3 — Views
@@ -259,6 +267,11 @@ When the user says "get back to it" / "back to the plan":
 ## Tweak log
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-21 — **2.2 done (Sonnet).** Aliases and mirrors removed as promised. Moved the checks' state rules to tracks here (they had to
+  change anyway); this takes the chapter part of two 2.4 rules off 2.4. One behaviour change: a **migrated** Item track is not one-way,
+  so old items no longer raise "goes back" warnings until you mark the track one-way. The earlier first-draft harness that read
+  `item.states` fails by design.
 
 - 2026-11-21 — **2.1 done (Sonnet).** Deviation from the plan text: `item.states` is NOT removed yet, only `originPlaceId` is. Removing `states`
   now would break the inventory editor (`index.html`, ~3 places), the checks and the publish builder, which 2.2 / 2.4 / 4.1 move; so the

@@ -31,10 +31,8 @@
  *     `cost`/`ends` are the old text fields, kept until the 2.3 editors / 5.1 data file move them.
  *   An item's rank now = the highest of its base rank and its active bindings' ranks (rankAt).
  *
- *   TEMPORARY compatibility (removed with the inventory editor, plan step 2.2): an item still reads
- *   `item.states` (= its Item track's states; read-only, not stored, not enumerable). Old data converts on
- *   load: a v1 `states[]` (with no stateTracks) becomes the Item track, a v1 `originPlaceId` becomes `origin`. Inventory entries
- *   still mirror the Item-track pick as `stateId`.
+ *   Old data converts on load: a v1 `states[]` (with no stateTracks) becomes the Item track, a v1
+ *   `originPlaceId` becomes `origin`. (Old inventory `stateId`s convert in the Dossier, see normalizeStateIds.)
  *   Version 1 libraries (a plain `states[]` per item) are converted on load; the raw v1 copy
  *   is kept once under `epitaph-library-backup-v1`.
  *
@@ -159,12 +157,6 @@
       when: { era: ERAS.includes(w.era) ? w.era : 'ERA_1', ...(num(w.year) ? { year: w.year } : {}), ...(Number.isInteger(w.chapter) ? { chapter: w.chapter } : {}) },
       holder: str(h.holder), stateIds: normalizeStateIds(h.stateIds), text: str(h.text) };
   }
-  // `item.states` (= the Item track's states) stays readable, not stored, until the inventory editor moves to tracks (plan 2.2).
-  function withAliases(item) {
-    Object.defineProperty(item, 'states', { enumerable: false, configurable: true,
-      get() { const t = itemTrack(this); return t ? t.states : []; } });
-    return item;
-  }
   function normalize(raw) {
     const d = raw && typeof raw === 'object' ? raw : {};
     return {
@@ -174,7 +166,7 @@
       places: (Array.isArray(d.places) ? d.places : []).filter(p => p && p.id).map(p => ({
         id: p.id, name: str(p.name), countryId: str(p.countryId), kind: str(p.kind) || 'other',
         lat: num(p.lat) ? p.lat : null, lon: num(p.lon) ? p.lon : null, note: str(p.note), ...(p.era ? { era: p.era } : {}) })),
-      items: (Array.isArray(d.items) ? d.items : []).filter(i => i && i.id).map(i => withAliases({
+      items: (Array.isArray(d.items) ? d.items : []).filter(i => i && i.id).map(i => ({
         id: i.id, name: str(i.name), desc: str(i.desc), origin: normalizeOrigin(i), originCircumstance: str(i.originCircumstance),
         history: (Array.isArray(i.history) ? i.history : []).map(normalizeHistoryEntry), wip: i.wip === true,
         weight: str(i.weight), appearance: str(i.appearance), maker: str(i.maker),
@@ -232,17 +224,16 @@
   const trackOf = (it, stateId) => (it && stateId && (it.stateTracks || []).find(t => t.states.some(s => s.id === stateId))) || null;
   // The current state in every track an entry picks: [{ track, state }] in Item → Usage → custom order.
   function currentStates(it, entry) {
-    const ids = normalizeStateIds(entry && entry.stateIds, entry && entry.stateId);
+    const ids = normalizeStateIds(entry && entry.stateIds);
     return ((it && it.stateTracks) || []).map(t => ({ track: t, state: t.states.find(s => s.id === ids[t.kind]) || null })).filter(x => x.state);
   }
   // Every chapter version that carries the item, in chapter order:
-  // [{ charId, who, snapId, ch, label, stateId (Item track), stateIds }]
+  // [{ charId, who, snapId, ch, label, stateIds }]
   function uses(itemId, characters) {
     const rows = [];
     (characters || []).forEach(c => (c.snapshots || []).forEach(s => (s.inventory || []).forEach(e => {
-      if (e.itemId === itemId) { const ids = normalizeStateIds(e.stateIds, e.stateId);
-        rows.push({ charId: c.id, who: c.name || 'Unnamed', snapId: s.id,
-          ch: Number.isInteger(s.startChapter) ? s.startChapter : null, label: s.chapterRange || '', stateId: ids.item || '', stateIds: ids }); }
+      if (e.itemId === itemId) rows.push({ charId: c.id, who: c.name || 'Unnamed', snapId: s.id,
+        ch: Number.isInteger(s.startChapter) ? s.startChapter : null, label: s.chapterRange || '', stateIds: normalizeStateIds(e.stateIds) });
     })));
     rows.sort((a, b) => (a.ch == null) - (b.ch == null) || (a.ch || 0) - (b.ch || 0) || a.who.localeCompare(b.who));
     return rows;
@@ -269,7 +260,7 @@
     let r = rankNum(it.rank);
     (it.marks || []).forEach(m => { r = Math.max(r, bindingRank(m)); });
     // a track the entry doesn't pick counts as its primary (normal) state
-    const ids = normalizeStateIds(entry && entry.stateIds, entry && entry.stateId);
+    const ids = normalizeStateIds(entry && entry.stateIds);
     const states = (it.stateTracks || []).map(t =>
       t.states.find(s => s.id === ids[t.kind]) || t.states.find(s => s.id === t.primaryStateId) || t.states[0]).filter(Boolean);
     states.forEach(s => (s.marks || []).forEach(m => { r = Math.max(r, bindingRank(m)); }));
@@ -283,6 +274,17 @@
       ? `Rank ${mx} (${rankName(mx)}) needs at least ${tierFloor(mx)}, but the tier is ${it.tier}.` : '';
   }
 
+  // ---- helpers for an inventory entry's states (entry.stateIds = { item, usage, custom }) ----
+  const stateIdOf = (entry, kind) => normalizeStateIds(entry && entry.stateIds)[kind || 'item'] || '';
+  const itemStates = it => { const t = itemTrack(it); return t ? t.states : []; };
+  // the normal state of every track an item has: { item: id, usage: id, ... } (a new chapter's copy starts there)
+  function primaryStateIds(it) {
+    const out = {};
+    ((it && it.stateTracks) || []).forEach(t => { const s = t.states.find(x => x.id === t.primaryStateId) || t.states[0]; if (s) out[t.kind] = s.id; });
+    return out;
+  }
+  // one string that changes when any track's state changes (for comparing two chapters)
+  const stateKeyOf = entry => { const ids = normalizeStateIds(entry && entry.stateIds); return TRACK_KINDS.map(k => ids[k] || '').join('|'); };
   // A chapter's marks when it is in a state: the item's own marks plus the current states', as fresh copies.
   // `picked` is one state id (the Item track, as before) or a { item, usage, custom } object.
   function marksFor(it, picked) {
@@ -295,7 +297,7 @@
   global.EpitaphLibrary = {
     KEY, BACKUP_V1, STATE_COLORS, TRACK_KINDS, TRACK_NAMES, MAX_STATES,
     newId, normalizeMark, normalizeState, normalizeTrack, normalizeStateIds, get, update, item, place: placeById,
-    stateOf, trackOf, itemTrack, currentStates, uses, marksFor,
+    stateOf, trackOf, itemTrack, currentStates, uses, marksFor, stateIdOf, itemStates, primaryStateIds, stateKeyOf,
     CURSE_TYPES, STAGE_NAMES, markKindsFor, markDetailLines,
     ERAS, ORIGIN_WORDS, placeIdOf, normalizeHistoryEntry, OFFLINE_FIELDS, fieldOn,
     RANKS, TIERS, rankName, tierFloor, allowedTiers, maxRank, rankAt, tierProblem,

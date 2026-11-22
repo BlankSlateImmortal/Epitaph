@@ -486,14 +486,15 @@ ${L.crowded ? (() => {
     on('select[data-inv-state]', 'change', sel => {
       syncInventoryFromDOM();
       const e = pendingInventoryItems[+sel.dataset.invState]; if (!e) return;
-      const from = e.stateId || ''; e.stateId = sel.value;
+      const kind = sel.dataset.track || 'item', from = (e.stateIds || {})[kind] || '';
+      e.stateIds = { ...(e.stateIds || {}) }; if (sel.value) e.stateIds[kind] = sel.value; else delete e.stateIds[kind];
       if (sel.value !== from) invStateAsk.add(e.id); else invStateAsk.delete(e.id);
       renderBench(wrap);
     });
     on('[data-state-marks]', 'click', b => {
       syncInventoryFromDOM();
       const [idx, how] = b.dataset.stateMarks.split(':'), e = pendingInventoryItems[+idx]; if (!e) return;
-      if (how === 'replace') e.marks = Lib.marksFor(Lib.item(e.itemId), e.stateId);
+      if (how === 'replace') e.marks = Lib.marksFor(Lib.item(e.itemId), e.stateIds);
       invStateAsk.delete(e.id); renderBench(wrap);
     });
   }

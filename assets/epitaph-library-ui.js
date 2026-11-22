@@ -213,7 +213,7 @@ function deleteNow(kind, id){
   });
 }
 // History: who held an item in each chapter, in chapter order.
-// Each row also carries the item's state in that chapter (stateId).
+// Each row also carries the item's states in that chapter (stateIds).
 function itemHistory(itemId){ return Lib.uses(itemId, freshDossier().characters); }
 
 // ---- small map: tap to drop a pin ----
@@ -478,7 +478,7 @@ function renderItemDetail(v){
     ${it.stateTracks.length ? `<div class="lib-sec">STATES</div>${EpitaphStates.trackHtml(it, hist)}` : ''}
     ${it.history.length ? `<div class="lib-sec">BEFORE THE STORY</div><ol class="lib-history">${it.history.map(h => `<li><span>${escapeHud(historyWhen(h.when))}</span>${escapeHud(h.holder)} ${escapeHud(h.text)}</li>`).join('')}</ol>` : ''}
     <div class="lib-sec">HISTORY</div>
-    ${hist.length ? `<ol class="lib-history">${hist.map(h => { const st = Lib.stateOf(it, h.stateId); return `<li><span>${h.ch != null ? 'CH ' + h.ch : escapeHud(h.label || 'CH ?')}</span>${escapeHud(h.who)}${st ? ` <span class="state-tag">${escapeHud(st.name.toUpperCase())}</span>` : ''}</li>`; }).join('')}</ol>` : '<p class="lib-empty">Nobody has carried it yet. Add it to an inventory in the Dossier.</p>'}
+    ${hist.length ? `<ol class="lib-history">${hist.map(h => { const cur = Lib.currentStates(it, h); return `<li><span>${h.ch != null ? 'CH ' + h.ch : escapeHud(h.label || 'CH ?')}</span>${escapeHud(h.who)}${cur.map(x => ` <span class="state-tag">${escapeHud(x.state.name.toUpperCase())}</span>`).join('')}</li>`; }).join('')}</ol>` : '<p class="lib-empty">Nobody has carried it yet. Add it to an inventory in the Dossier.</p>'}
     <div class="lib-actions"><button type="button" class="lib-btn" data-edit-item="${escapeHud(it.id)}">Edit</button><button type="button" class="lib-btn danger" data-del="item:${escapeHud(it.id)}">Delete</button></div>`;
   document.getElementById('libBack').addEventListener('click', () => { libView = { mode: 'list' }; renderLibrary(); });
   const go = document.getElementById('liGoOrigin'); if(go) go.addEventListener('click', () => selectPlace(Lib.placeIdOf(it)));

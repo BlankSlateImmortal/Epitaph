@@ -147,19 +147,24 @@
       }));
     });
 
-    // item states: removed states, and going back to an earlier state
+    // item states: a removed state, and going back to an earlier state on a one-way track
     if (Lib) chars.forEach(c => {
-      const seen = {};   // itemId -> last { idx, name, s }
+      const seen = {};   // itemId:track -> last { idx, name, s }
       ordered(c).forEach(s => (s.inventory || []).forEach(e => {
         const it = e.itemId && Lib.item(e.itemId);
-        if (!it || !e.stateId || !(it.states || []).length) return;
-        const idx = it.states.findIndex(x => x.id === e.stateId);
-        if (idx < 0) { out.push({ level: 'warn', rule: 'item-state', ...at(c, s), itemId: it.id,
-          text: `${name(c)}'s ${it.name} in ${label(s)} is in a state that was removed from the Library item.` }); return; }
-        const prev = seen[it.id];
-        if (prev && idx < prev.idx) out.push({ level: 'warn', rule: 'state-back', ...at(c, s), itemId: it.id,
-          text: `${it.name} goes back from ${prev.name} (${label(prev.s)}) to ${it.states[idx].name} in ${name(c)}'s ${label(s)}.` });
-        seen[it.id] = { idx, name: it.states[idx].name, s };
+        if (!it) return;
+        (it.stateTracks || []).forEach(t => {
+          const id = (e.stateIds || {})[t.kind];
+          if (!id) return;
+          const idx = t.states.findIndex(x => x.id === id), which = t.kind === 'item' ? it.name : `${it.name} (${t.name})`;
+          if (idx < 0) { out.push({ level: 'warn', rule: 'item-state', ...at(c, s), itemId: it.id,
+            text: `${name(c)}'s ${which} in ${label(s)} is in a state that was removed from the Library item.` }); return; }
+          if (!t.oneWay) return;
+          const key = it.id + ':' + t.kind, prev = seen[key];
+          if (prev && idx < prev.idx) out.push({ level: 'warn', rule: 'state-back', ...at(c, s), itemId: it.id,
+            text: `${which} goes back from ${prev.name} (${label(prev.s)}) to ${t.states[idx].name} in ${name(c)}'s ${label(s)}, but that track is one-way.` });
+          seen[key] = { idx, name: t.states[idx].name, s };
+        });
       }));
     });
 

@@ -1194,12 +1194,12 @@
 <script src="assets/epitaph-links.js?v=1"></script>
 <script src="assets/epitaph-sites.js?v=9"></script>
 <script src="assets/epitaph-sites-ui.js?v=5"></script>
-<script src="assets/epitaph-publish.js?v=3"></script>
-<script src="assets/epitaph-library.js?v=9"></script>
+<script src="assets/epitaph-publish.js?v=4"></script>
+<script src="assets/epitaph-library.js?v=10"></script>
 <script src="assets/epitaph-marks.js?v=4"></script>
-<script src="assets/epitaph-states.js?v=2"></script>
+<script src="assets/epitaph-states.js?v=3"></script>
 <script src="assets/epitaph-item-fields.js?v=1"></script>
-<script src="assets/epitaph-checks.js?v=8"></script>
+<script src="assets/epitaph-checks.js?v=9"></script>
 <script src="assets/epitaph-codex-views.js?v=2"></script>
 <script src="assets/epitaph-mode.js?v=5"></script>
 <script src="published/epitaph-data.js"></script>
@@ -1738,7 +1738,7 @@ function migrateCharacter(c){
       };
       // a Library item: name, description and pictures come from the Library
       // (`name` is kept only as a fallback label if that item is ever deleted)
-      if(it.itemId){ const ids = EpitaphLibrary.normalizeStateIds(it.stateIds, typeof it.stateId === 'string' ? it.stateId : undefined); return { ...base, itemId: it.itemId, stateIds: ids, stateId: ids.item || '', note: typeof it.note === 'string' ? it.note : '', name: it.name || '' }; }
+      if(it.itemId){ const ids = EpitaphLibrary.normalizeStateIds(it.stateIds, typeof it.stateId === 'string' ? it.stateId : undefined); return { ...base, itemId: it.itemId, stateIds: ids, note: typeof it.note === 'string' ? it.note : '', name: it.name || '' }; }
       return { ...base, name: it.name || '', desc: it.desc || '', icon: it.icon || '', image: it.image || '' };
     }),
     skills: (s.skills || []).map(sk => ({ name: sk.name, desc: sk.desc || '', level: sk.level != null ? sk.level : 0, corrupted: !!sk.corrupted, parent: sk.parent || '', glyph: typeof sk.glyph === 'string' ? sk.glyph : '' })),
@@ -4641,13 +4641,14 @@ const Lib = window.EpitaphLibrary;
 function invView(entry){
   const li = entry.itemId && Lib ? Lib.item(entry.itemId) : null;
   const origin = li && Lib.placeIdOf(li) ? World.place(Lib.placeIdOf(li)) : null;
-  const st = li && entry.stateId ? Lib.stateOf(li, entry.stateId) : null;
+  const cur = li ? Lib.currentStates(li, entry) : [];
+  const picked = Object.values((entry && entry.stateIds) || {});
   return {
     linked: !!li, missing: !!entry.itemId && !li,
     name: li ? li.name : (entry.name || (entry.itemId ? 'Missing Library item' : 'Untitled')),
     // the item's state in this chapter (Seal · Locked); a state's picture replaces the photo
-    state: st ? st.name : '', stateDesc: st ? st.desc : '', stateMissing: !!(li && entry.stateId && !st),
-    desc: li ? li.desc : (entry.desc || ''), icon: li ? li.icon : (entry.icon || ''), image: st && st.image ? st.image : (li ? li.image : (entry.image || '')),
+    state: cur.map(x => x.state.name).join(' · '), stateDesc: cur.map(x => x.state.desc).filter(Boolean).join(' '), stateMissing: !!(li && picked.some(id => !Lib.stateOf(li, id))),
+    desc: li ? li.desc : (entry.desc || ''), icon: li ? li.icon : (entry.icon || ''), image: (cur.find(x => x.state.image) || {}).state ? cur.find(x => x.state.image).state.image : (li ? li.image : (entry.image || '')),
     origin: origin ? origin.name : (li && Lib.placeIdOf(li) ? 'a deleted place' : ''),
     note: entry.note || '', marks: entry.marks || [], boundTo: entry.boundTo || ''
   };
@@ -4764,8 +4765,7 @@ function wireItemTuner(root, char, snap){
 function itemMonitorHtml(char, snap, sel, idx){
   const v = invView(sel), twice = heldTwice(char, snap, sel.itemId);
   const li = sel.itemId && Lib ? Lib.item(sel.itemId) : null;
-  const states = (li && li.states) || [];
-  const si = states.findIndex(s => s.id === sel.stateId);
+  const tracks = (li && li.stateTracks) || [];
   const marks = sel.marks || [];
   const pic = v.image || v.icon || '';
   const known = pic && ITEM_ALPHA.has(pic) ? (ITEM_ALPHA.get(pic) ? 'float' : 'solid') : 'solid';
@@ -4791,7 +4791,7 @@ function itemMonitorHtml(char, snap, sel, idx){
       <div class="item-text">
         <span class="item-meta">&gt;&gt;&gt;&gt;&gt;&gt;&gt; ${v.linked ? 'LIBRARY ITEM' : (v.missing ? 'MISSING FROM LIBRARY' : 'TYPED-IN ITEM')}</span>
         <h4 class="item-name">${escapeHtml(v.name)}</h4>
-        ${states.length ? `<ol class="item-track">${states.map((s, i) => `${i ? '<li class="arrow" aria-hidden="true">▸</li>' : ''}<li class="${i === si ? 'on' : ''}">${String(i + 1).padStart(2, '0')} ${escapeHtml(s.name.toUpperCase())}</li>`).join('')}</ol>` : ''}
+        ${tracks.map(t => { const on = (sel.stateIds || {})[t.kind]; return `${tracks.length > 1 ? `<span class="item-meta">${escapeHtml(t.name.toUpperCase())}</span>` : ''}<ol class="item-track">${t.states.map((s, i) => `${i ? '<li class="arrow" aria-hidden="true">▸</li>' : ''}<li class="${s.id === on ? 'on' : ''}">${String(i + 1).padStart(2, '0')} ${escapeHtml(s.name.toUpperCase())}</li>`).join('')}</ol>`; }).join('')}
         ${v.missing ? '<p class="inv-warn">⚠ This item is no longer in the Library.</p>' : ''}${v.stateMissing ? '<p class="inv-warn">⚠ Its state was removed from the Library item.</p>' : ''}${twice.length ? `<p class="inv-warn">⚠ Also held by ${escapeHtml(twice.join(', '))} in the same chapter.</p>` : ''}
         <p class="item-prose">${v.desc ? escapeHtml(v.desc) : '<span class="dim">No description.</span>'}</p>
         ${v.stateDesc ? `<p class="item-prose"><em>${escapeHtml(v.state)} ·</em> ${escapeHtml(v.stateDesc)}</p>` : ''}
@@ -4833,7 +4833,7 @@ function finalizeInventory(list){
   return list
     .filter(it => it.itemId || (it.name || '').trim() || (it.desc || '').trim() || it.icon || it.image || cleanMarks(it.marks).length || (it.boundTo || '').trim())
     .map(it => it.itemId
-      ? { id: it.id, itemId: it.itemId, stateId: it.stateId || '', note: (it.note || '').trim(), boundTo: (it.boundTo || '').trim(), marks: cleanMarks(it.marks), name: it.name || '' }
+      ? { id: it.id, itemId: it.itemId, stateIds: Lib.normalizeStateIds(it.stateIds), note: (it.note || '').trim(), boundTo: (it.boundTo || '').trim(), marks: cleanMarks(it.marks), name: it.name || '' }
       : { ...it, name: (it.name || '').trim(), desc: (it.desc || '').trim(), icon: it.icon || '', image: it.image || '', marks: cleanMarks(it.marks), boundTo: (it.boundTo || '').trim() });
 }
 
@@ -4842,19 +4842,21 @@ function finalizeInventory(list){
 const invStateAsk = new Set();
 function invStateHtml(item, idx){
   const li = Lib && Lib.item(item.itemId);
-  const states = (li && li.states) || [];
-  if(!states.length) return '';
-  const missing = item.stateId && !states.some(s => s.id === item.stateId);
-  const st = Lib.stateOf(li, item.stateId);
-  return `<label class="inv-state-row">State
-      <select data-inv-state="${idx}" aria-label="State in this chapter">
-        <option value=""${item.stateId ? '' : ' selected'}>— not set —</option>
-        ${missing ? '<option value="' + escapeAttr(item.stateId) + '" selected>⚠ removed state</option>' : ''}
-        ${states.map(s => `<option value="${escapeAttr(s.id)}"${s.id === item.stateId ? ' selected' : ''}>${escapeHtml(s.name)}</option>`).join('')}
-      </select></label>
-    ${invStateAsk.has(item.id) ? `<div class="inv-state-ask">Use ${st ? `the <b>${escapeHtml(st.name)}</b>` : 'the item’s base'} marks in this chapter?
+  const tracks = ((li && li.stateTracks) || []).filter(t => t.states.length);
+  if(!tracks.length) return '';
+  const ids = (item && item.stateIds) || {};
+  return tracks.map(t => {
+    const picked = ids[t.kind] || '', missing = picked && !t.states.some(s => s.id === picked);
+    const normal = t.states.find(s => s.id === t.primaryStateId) || t.states[0];
+    return `<label class="inv-state-row">${escapeHtml(tracks.length > 1 || t.kind !== 'item' ? t.name : 'State')}
+      <select data-inv-state="${idx}" data-track="${escapeAttr(t.kind)}" aria-label="${escapeAttr(t.name)} in this chapter">
+        <option value=""${picked ? '' : ' selected'}>— not set${normal && tracks.length > 0 && t.states.length > 1 ? ' (normal: ' + escapeHtml(normal.name) + ')' : ''} —</option>
+        ${missing ? '<option value="' + escapeAttr(picked) + '" selected>⚠ removed state</option>' : ''}
+        ${t.states.map(s => `<option value="${escapeAttr(s.id)}"${s.id === picked ? ' selected' : ''}>${escapeHtml(s.name)}</option>`).join('')}
+      </select></label>`;
+  }).join('') + (invStateAsk.has(item.id) ? `<div class="inv-state-ask">Use the marks of ${Lib.currentStates(li, item).length ? Lib.currentStates(li, item).map(x => `the <b>${escapeHtml(x.state.name)}</b>`).join(' + ') : 'the item’s base'} in this chapter?
       <button type="button" class="btn ghost" data-state-marks="${idx}:replace">Replace marks</button>
-      <button type="button" class="btn ghost" data-state-marks="${idx}:keep">Keep current marks</button></div>` : ''}`;
+      <button type="button" class="btn ghost" data-state-marks="${idx}:keep">Keep current marks</button></div>` : '');
 }
 function markedItems(snap){ return (snap.inventory || []).filter(it => (it.marks || []).length || it.boundTo); }
 const invMarksOpen = new Set();
@@ -4939,8 +4941,9 @@ function renderInventoryEditor(){
     syncInventoryFromDOM();
     const e = pendingInventoryItems[+sel.dataset.invState];
     if(!e) return;
-    const from = e.stateId || '';
-    e.stateId = sel.value;
+    const kind = sel.dataset.track || 'item', from = (e.stateIds || {})[kind] || '';
+    e.stateIds = { ...(e.stateIds || {}) };
+    if(sel.value) e.stateIds[kind] = sel.value; else delete e.stateIds[kind];
     if(sel.value !== from) invStateAsk.add(e.id); else invStateAsk.delete(e.id);
     renderInventoryEditor();
   }));
@@ -4949,7 +4952,7 @@ function renderInventoryEditor(){
     const [idx, how] = b.dataset.stateMarks.split(':');
     const e = pendingInventoryItems[+idx];
     if(!e) return;
-    if(how === 'replace'){ e.marks = Lib.marksFor(Lib.item(e.itemId), e.stateId); invMarksOpen.add(e.id); }
+    if(how === 'replace'){ e.marks = Lib.marksFor(Lib.item(e.itemId), e.stateIds); invMarksOpen.add(e.id); }
     invStateAsk.delete(e.id);
     renderInventoryEditor();
   }));
@@ -4960,9 +4963,9 @@ function addLibraryEntry(itemId){
   syncInventoryFromDOM();
   const li = Lib.item(itemId);
   if(!li) return;
-  // an item with states starts in its first state, with that state's marks
-  const stateId = (li.states || [])[0] ? li.states[0].id : '';
-  pendingInventoryItems.push({ id: newId('inv'), itemId, stateId, note: '', boundTo: '', marks: Lib.marksFor(li, stateId), name: li.name });
+  // each of the item's tracks starts in its normal state, with those states' marks
+  const stateIds = Lib.primaryStateIds(li);
+  pendingInventoryItems.push({ id: newId('inv'), itemId, stateIds, note: '', boundTo: '', marks: Lib.marksFor(li, stateIds), name: li.name });
   renderInventoryEditor();
 }
 // "New item…": the quick form saves to the Library, then adds it here.
@@ -6330,9 +6333,9 @@ function restoreLeftPage(){
 
 
 </script>
-<script src="assets/epitaph-book.js?v=11"></script>
+<script src="assets/epitaph-book.js?v=12"></script>
 
-<script src="assets/epitaph-editors.js?v=12"></script>
-<script src="assets/epitaph-book-tools.js?v=4"></script>
+<script src="assets/epitaph-editors.js?v=13"></script>
+<script src="assets/epitaph-book-tools.js?v=6"></script>
 </body>
 </html>
