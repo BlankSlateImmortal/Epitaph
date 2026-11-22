@@ -7,7 +7,7 @@
  *   h.read()   -> [history entry] in timeline order, empty rows dropped
  *   EpitaphItemFields.cleanItem(draft)      -> the saved shape of an item (trimmed, marks and tracks cleaned)
  *   EpitaphItemFields.originText(item, placeName)  -> "from Aurelia" | "no origin" | "origin unknown"
- *   EpitaphItemFields.badgesHtml(item)      -> rank, tier and W.I.P tags
+ *   EpitaphItemFields.badgesHtml(item, entry?, { wip })  -> rank (now, for an inventory entry), tier and W.I.P tags
  *
  * `getMarks()` and `getTracks()` return the host editor's current (unsaved) marks and tracks, so the
  * highest rank the item can reach (and the tiers that rank locks) follows what is on screen.
@@ -28,12 +28,15 @@
     if (!o || o === 'unknown') return 'origin unknown';
     return 'from ' + ((placeName && placeName(o)) || 'a missing place');
   }
-  function badgesHtml(it) {
+  // Rank, tier and W.I.P tags. With an inventory `entry` the rank is the rank NOW (the active bindings), and when the item can reach
+  // higher in another state that is shown too. `opts.wip === false` hides W.I.P (it is for the author's eyes only).
+  function badgesHtml(it, entry, opts) {
     if (!it) return '';
-    const lib = L(), r = lib.maxRank(it);
-    return [r ? `<span class="if-badge rank">RANK ${r} · ${esc(lib.rankName(r).toUpperCase())}</span>` : '',
-      it.tier ? `<span class="if-badge tier ${esc(it.tier)}">${esc(it.tier.toUpperCase())}</span>` : '',
-      it.wip ? '<span class="if-badge wip">W.I.P</span>' : ''].join('');
+    const lib = L(), mx = lib.maxRank(it), now = entry ? lib.rankAt(it, entry) : mx, tag = n => `${n} · ${lib.rankName(n).toUpperCase()}`;
+    return [now ? `<span class="if-badge rank" title="How far its effect reaches${entry ? ' in this chapter' : ''}">RANK ${esc(tag(now))}</span>` : '',
+      entry && mx > now ? `<span class="if-badge dim" title="The highest rank it can reach in any state">CAN REACH ${esc(tag(mx))}</span>` : '',
+      it.tier ? `<span class="if-badge tier ${esc(it.tier)}" title="Who could make it">${esc(it.tier.toUpperCase())}</span>` : '',
+      it.wip && !(opts && opts.wip === false) ? '<span class="if-badge wip">W.I.P</span>' : ''].join('');
   }
 
   // ---- the details block --------------------------------------------------------

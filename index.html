@@ -1180,7 +1180,7 @@
   .mode-reader #mwOpenArc, .mode-reader #mwOpenKnowledge,
   .mode-reader a[href="#generationSection"], .mode-reader #generationSection{ display:none !important; }
 </style>
-<link rel="stylesheet" href="assets/epitaph-theme.css?v=23">
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=24">
 <link rel="stylesheet" href="assets/epitaph-editors.css?v=8">
 <link rel="stylesheet" href="assets/epitaph-book.css?v=6">
 <link rel="stylesheet" href="assets/epitaph-codex-views.css?v=2">
@@ -1198,7 +1198,7 @@
 <script src="assets/epitaph-library.js?v=13"></script>
 <script src="assets/epitaph-marks.js?v=5"></script>
 <script src="assets/epitaph-states.js?v=3"></script>
-<script src="assets/epitaph-item-fields.js?v=3"></script>
+<script src="assets/epitaph-item-fields.js?v=4"></script>
 <script src="assets/epitaph-checks.js?v=11"></script>
 <script src="assets/epitaph-codex-views.js?v=2"></script>
 <script src="assets/epitaph-mode.js?v=5"></script>
@@ -4732,13 +4732,24 @@ function inventoryTimelineHtml(char, snap, sel){
     <ol class="inv-rail">${shown.map(r => r.html).join('')}</ol>
     ${after ? `<p class="inv-tl-more">${after} later chapter${after === 1 ? '' : 's'}</p>` : ''}</div>`;
 }
+// A short, quiet change of item on the monitor: the plate settles in, the text slides in after it, the screen brightens once.
+// Skipped for people who ask for less motion.
+function animateItemSwitch(){
+  if(!HAS_GSAP || REDUCED_MOTION) return;
+  const body = document.querySelector('.item-crt .item-scr-body'); if(!body) return;
+  const plate = body.querySelector('.item-plate'), text = body.querySelector('.item-text');
+  gsap.killTweensOf([body, plate, text && text.children]);
+  gsap.fromTo(body, { filter: 'brightness(1.7)' }, { filter: 'brightness(1)', duration: 0.3, ease: 'power2.out', clearProps: 'filter' });
+  if(plate) gsap.fromTo(plate, { opacity: 0, scale: 0.93 }, { opacity: 1, scale: 1, duration: 0.38, ease: 'power2.out', clearProps: 'opacity,transform' });
+  if(text) gsap.fromTo(text.children, { opacity: 0, x: 10 }, { opacity: 1, x: 0, duration: 0.28, stagger: 0.035, delay: 0.06, ease: 'power2.out', clearProps: 'opacity,transform' });
+}
 function wireItemTuner(root, char, snap){
   const tuner = root.querySelector('[data-tuner]');
   if(!tuner) return;
   const scale = tuner.querySelector('.item-tuner-scale');
   const centre = (el, smooth) => scale.scrollTo({ left: el.offsetLeft - (scale.clientWidth - el.offsetWidth) / 2, behavior: smooth ? 'smooth' : 'auto' });
   const on = scale.querySelector('.on'); if(on) centre(on, false);
-  const pick = id => { if(id === invFocus[char.id] || (!invFocus[char.id] && on && on.dataset.tune === id)) return; invFocus[char.id] = id; renderCodexPage(char, snap, false); const s2 = document.querySelector('.item-tuner-scale'); if(s2) s2.focus({ preventScroll: true }); };
+  const pick = id => { if(id === invFocus[char.id] || (!invFocus[char.id] && on && on.dataset.tune === id)) return; invFocus[char.id] = id; renderCodexPage(char, snap, false); animateItemSwitch(); const s2 = document.querySelector('.item-tuner-scale'); if(s2) s2.focus({ preventScroll: true }); };
   scale.querySelectorAll('[data-tune]').forEach(b => b.addEventListener('click', () => { centre(b, true); }));
   let settle = null;
   scale.addEventListener('scroll', () => {
@@ -4788,6 +4799,7 @@ function itemMonitorHtml(char, snap, sel, idx){
       <div class="item-text">
         <span class="item-meta">&gt;&gt;&gt;&gt;&gt;&gt;&gt; ${v.linked ? 'LIBRARY ITEM' : (v.missing ? 'MISSING FROM LIBRARY' : 'TYPED-IN ITEM')}</span>
         <h4 class="item-name">${escapeHtml(v.name)}</h4>
+        ${li ? (b => b ? `<div class="item-badges">${b}</div>` : '')(EpitaphItemFields.badgesHtml(li, sel, { wip: !(window.EpitaphMode && !EpitaphMode.canEdit()) })) : ''}
         ${tracks.map(t => { const on = (sel.stateIds || {})[t.kind]; return `${tracks.length > 1 ? `<span class="item-meta">${escapeHtml(t.name.toUpperCase())}</span>` : ''}<ol class="item-track">${t.states.map((s, i) => `${i ? '<li class="arrow" aria-hidden="true">▸</li>' : ''}<li class="${s.id === on ? 'on' : ''}">${String(i + 1).padStart(2, '0')} ${escapeHtml(s.name.toUpperCase())}</li>`).join('')}</ol>`; }).join('')}
         ${v.missing ? '<p class="inv-warn">⚠ This item is no longer in the Library.</p>' : ''}${v.stateMissing ? '<p class="inv-warn">⚠ Its state was removed from the Library item.</p>' : ''}${twice.length ? `<p class="inv-warn">⚠ Also held by ${escapeHtml(twice.join(', '))} in the same chapter.</p>` : ''}
         <p class="item-prose">${v.desc ? escapeHtml(v.desc) : '<span class="dim">No description.</span>'}</p>

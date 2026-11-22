@@ -847,3 +847,6 @@ input, select, textarea{ accent-color:var(--amber); }
 .mark-detail b{ font-weight:400; color:var(--amber); }
 .mk-fields{ border:0; padding:0; display:flex; flex-direction:column; gap:10px; }
 .if-approx{ display:inline-flex; align-items:center; gap:4px; font-size:13px; color:var(--dust); }
+.item-badges{ display:flex; flex-wrap:wrap; gap:6px; margin:-2px 0 6px; }
+.item-badges .if-badge{ margin-left:0; }
+.if-badge.dim{ color:var(--dust); border-style:dashed; }

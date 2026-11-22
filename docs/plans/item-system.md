@@ -181,8 +181,12 @@ Not every item has every part: a blade may have no usage states; many items have
 
 ## Phase 3 — Views
 
-- [ ] **3.1 Inventory tab.** Rank and tier badges; the tracks shown as small state strips; **an animation when switching items** (the
-  author's "subtle site addition"; the item panel itself stays as it is: user, 2026-11-11, "keeping the item panel… should not change").
+- [x] **3.1 Inventory tab.** *(Done 2026-11-21, Sonnet.)* The item monitor shows **rank now** (the active bindings, so Observance reads
+  "RANK 7 · PLANET" while Connected and "RANK 1 · SOUL" at No Signal), a dashed "CAN REACH 7 · PLANET" when another state reaches higher, the
+  **tier**, and **W.I.P** (author only: hidden when the page is a reader's). The strips per track came in 2.2. Changing item now plays a short
+  quiet animation (the screen brightens once, the plate settles in, the text slides in after it); it is skipped for "reduce motion". The item
+  panel itself was not redesigned (user, 2026-11-11). Reader rank and tier wait for Phase 4 (the snapshot doesn't carry them yet, so readers
+  see no badges). Tested in the real Dossier: both states of Observance, a plain item, the animation function.
 - [ ] **3.2 Book `opl`.** Holder web and Relic vault show track tags (NEW / MOVED / STATE already exist), the rank badge, and history
   entries on the item log in timeline order.
 - [ ] **3.3 Curse stages.** A stage ladder on the item and on a character's marks: which stage a curse is at in the chapter you're on.
@@ -281,6 +285,8 @@ When the user says "get back to it" / "back to the plan":
 ## Tweak log
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-21 — **3.1 done (Sonnet).** The "subtle site addition" from the Notion page (animation when switching items) is in.
 
 - 2026-11-21 — **Very old years (user: "what about −Y4219")** worked already (a negative number is stored, sorted and checked correctly) but
   displayed as "Y-4219" and had no approximate flag. History entries now take **≈** (`when.approx`, only with a year) and every view
