@@ -797,18 +797,14 @@ ${L.crowded ? (() => {
         <div class="mk-editor-body">
           <div class="mk-top">${EpitaphMarks.sigilPickerHtml(m, `data-sigil-path="char" data-sigil-idx="${mkSel}"`)}
             <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px">
-              <div class="ed-chips">${MARK_KINDS.map(k => `<button type="button" class="ed-chip${m.kind === k ? ' on' : ''}" data-mk-kind="${k}" style="${m.kind === k ? `background:${KIND_COLOR[k]};border-color:${KIND_COLOR[k]}` : ''}">${esc(MARK_KIND_LABEL[k].toUpperCase())}</button>`).join('')}</div>
+              <div class="ed-chips">${(EpitaphMarks.kindsFor('character').includes(m.kind) ? EpitaphMarks.kindsFor('character') : EpitaphMarks.kindsFor('character').concat(m.kind)).map(k => `<button type="button" class="ed-chip${m.kind === k ? ' on' : ''}" data-mk-kind="${k}" style="${m.kind === k ? `background:${KIND_COLOR[k]};border-color:${KIND_COLOR[k]}` : ''}">${esc(MARK_KIND_LABEL[k].toUpperCase())}${EpitaphMarks.kindsFor('character').includes(k) ? '' : ' ⚠'}</button>`).join('')}</div>
               <label class="ed-field">Name<input type="text" ${a('name')} value="${attr(m.name)}" placeholder="Name of the mark" style="font-family:'Pirata One',serif;font-size:20px"></label></div></div>
-          <label class="ed-field">Source — who or what placed it<input type="text" ${a('source')} value="${attr(m.source)}"></label>
-          <label class="ed-field">Effect — what it does<textarea ${a('effect')}>${esc(m.effect)}</textarea></label>
-          <div class="pf-identity" style="grid-template-columns:repeat(2,minmax(0,1fr))">
-            <label class="ed-field">Cost<input type="text" ${a('cost')} value="${attr(m.cost)}" placeholder="What it takes (text only)"></label>
-            <label class="ed-field">Ends<input type="text" ${a('ends')} value="${attr(m.ends)}" placeholder="How it ends"></label></div>
+          <div class="mark-edit mk-fields kind-${esc(m.kind)}">${EpitaphMarks.fieldsHtml(m, { ctx: 'character', attr: a, top: false })}</div>
           <div class="ed-acts"><button type="button" class="ed-slant danger" onclick="removeMark('char', ${mkSel})">Remove mark</button></div>
         </div></div>` : `<div class="mk-editor"><div class="iv-empty">&gt; No marks this chapter.<span class="sig-cursor"></span></div></div>`;
     const n = k => list.filter(x => x.kind === k).length;
     wrap.innerHTML = `<div class="ed-cols">
-      <div class="ed-side"><div><div class="ed-kicker">Page 02 · marks</div><div class="ed-big">Marks</div><p class="ed-copy">Bindings a higher being places on someone. Costs are text only; nothing is calculated.</p></div>
+      <div class="ed-side"><div><div class="ed-kicker">Page 02 · marks</div><div class="ed-big">Marks</div><p class="ed-copy">Blessings and curses on a person. A blessing has a price, terms, a breach and what it lasts until; a curse has a type and three stages. Nothing is calculated.</p></div>
         <div class="mk-list">${cards}</div><button type="button" class="ed-chip" onclick="addMark('char')" style="min-height:46px;transform:none;border-style:dashed;color:var(--amber)">+ NEW MARK</button></div>
       <div class="ed-main">${editor}</div>
       <div class="ed-panel"><div class="ed-counters"><div class="ed-counter"><b style="color:var(--gold)">${n('blessing')}</b><span>BLESSINGS</span></div><div class="ed-counter"><b style="color:#f08a74">${n('curse')}</b><span>CURSES</span></div><div class="ed-counter"><b style="color:var(--verdigris)">${n('binding')}</b><span>BINDINGS</span></div></div>

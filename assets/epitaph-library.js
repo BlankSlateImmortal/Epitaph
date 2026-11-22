@@ -8,7 +8,7 @@
  *   Library.replace(data)  -> overwrite with an imported library
  *   Library.onChange(fn)   -> called when another tab changes the library
  *
- * Shape (version 2):
+ * Shape (version 3; v2 → v3 folded the old mark cost / ends text, raw v2 copy kept once as `epitaph-library-backup-v2`):
  *   countries: [{ id, name, lat, lon, note }]
  *   places:    [{ id, name, countryId, kind, lat, lon, note, era? }]
  *   items:     [{ id, name, desc, origin, originCircumstance, history: [Entry], wip, marks: [Mark], note, icon, image, stateTracks: [Track] }]
@@ -23,12 +23,12 @@
  *   State = { id, name, desc, marks: [Mark], image, color }   (ordered: first → last)
  *   An inventory entry picks one state per track: `stateIds: { item: stateId, usage: … }`;
  *   marks on the item apply in every state, the current states' marks are added on top.
- *   Mark = { id, kind: 'blessing'|'curse'|'binding', name, source, effect, cost, ends, image? } plus, by kind:
+ *   Mark = { id, kind: 'blessing'|'curse'|'binding', name, source, effect, image? } plus, by kind:
  *     binding:  rank?  (the reach it gives)
  *     blessing: price, terms, breach (only with terms), lastsUntil
  *     curse:    type (mutation|enhancement|distortion|fragmentation), initial {name,text}, stages [3 × {name,text}]
  *               (Awakening, Fluctuation, Stabilization), stage (0 = initial, 1–3: this holder's stage)
- *     `cost`/`ends` are the old text fields, kept until the 2.3 editors / 5.1 data file move them.
+ *     The old `cost` / `ends` text no longer exists as fields: it is folded into price / lasts until (blessings) or the effect (plan 2.3).
  *   An item's rank now = the highest of its base rank and its active bindings' ranks (rankAt).
  *
  *   Old data converts on load: a v1 `states[]` (with no stateTracks) becomes the Item track, a v1
@@ -43,7 +43,7 @@
 (function (global) {
   'use strict';
   const KEY = 'epitaph-library';
-  const BACKUP_V1 = 'epitaph-library-backup-v1';
+  const BACKUP_V1 = 'epitaph-library-backup-v1', BACKUP_V2 = 'epitaph-library-backup-v2';   // raw copies kept once before an upgrade
   const MARK_KINDS = ['blessing', 'curse', 'binding'];
   const num = v => typeof v === 'number' && isFinite(v);
   const str = v => (typeof v === 'string' ? v : '');
@@ -67,13 +67,20 @@
     m = m || {};
     const kind = MARK_KINDS.includes(m.kind) ? m.kind : 'blessing';
     const out = { id: m.id || newId('mark'), kind,
-      name: str(m.name), source: str(m.source), effect: str(m.effect), cost: str(m.cost), ends: str(m.ends), image: str(m.image) };
+      name: str(m.name), source: str(m.source), effect: str(m.effect), image: str(m.image) };
+    // The old free-text `cost` / `ends` are folded in so no text is lost (plan 2.3; step 5.1 refines each one by hand):
+    // a blessing's cost becomes its price and its ends "lasts until"; on a binding or curse they are added to the effect.
+    let oldCost = str(m.cost).trim(), oldEnds = str(m.ends).trim();
     if (kind === 'binding' && rankNum(m.rank)) out.rank = rankNum(m.rank);          // only bindings carry a rank
     if (kind === 'blessing') {
       out.price = str(m.price); out.terms = str(m.terms);
       out.breach = out.terms.trim() ? str(m.breach) : '';                          // a breach needs terms to break
       out.lastsUntil = str(m.lastsUntil);
+      if (oldCost && !out.price.trim()) { out.price = oldCost; oldCost = ''; }
+      if (oldEnds && !out.lastsUntil.trim()) { out.lastsUntil = oldEnds; oldEnds = ''; }
     }
+    const extra = [oldCost && 'Cost: ' + oldCost, oldEnds && 'Ends: ' + oldEnds].filter(Boolean).join('\n');
+    if (extra && !out.effect.includes(extra)) out.effect = out.effect.trim() ? out.effect.trim() + '\n\n' + extra : extra;
     if (kind === 'curse') {
       out.type = CURSE_TYPES.includes(m.type) ? m.type : '';
       out.initial = stageText(m.initial);
@@ -160,7 +167,7 @@
   function normalize(raw) {
     const d = raw && typeof raw === 'object' ? raw : {};
     return {
-      version: 2,
+      version: 3,
       countries: (Array.isArray(d.countries) ? d.countries : []).filter(c => c && c.id).map(c => ({
         id: c.id, name: str(c.name), lat: num(c.lat) ? c.lat : null, lon: num(c.lon) ? c.lon : null, note: str(c.note) })),
       places: (Array.isArray(d.places) ? d.places : []).filter(p => p && p.id).map(p => ({
@@ -184,8 +191,9 @@
     let parsed = null;
     try { parsed = raw ? JSON.parse(raw) : null; } catch (e) { parsed = null; }
     // first load of a version 1 library: keep the raw copy once so the conversion can always be undone
-    if (parsed && (parsed.version || 1) < 2) {
-      try { if (localStorage.getItem(BACKUP_V1) == null) localStorage.setItem(BACKUP_V1, raw); } catch (e) { /* storage refused */ }
+    if (parsed && (parsed.version || 1) < 3) {
+      const key = (parsed.version || 1) < 2 ? BACKUP_V1 : BACKUP_V2;
+      try { if (localStorage.getItem(key) == null) localStorage.setItem(key, raw); } catch (e) { /* storage refused */ }
     }
     cache = normalize(parsed); cacheRaw = raw;
     return cache;
@@ -295,7 +303,7 @@
   }
 
   global.EpitaphLibrary = {
-    KEY, BACKUP_V1, STATE_COLORS, TRACK_KINDS, TRACK_NAMES, MAX_STATES,
+    KEY, BACKUP_V1, BACKUP_V2, STATE_COLORS, TRACK_KINDS, TRACK_NAMES, MAX_STATES,
     newId, normalizeMark, normalizeState, normalizeTrack, normalizeStateIds, get, update, item, place: placeById,
     stateOf, trackOf, itemTrack, currentStates, uses, marksFor, stateIdOf, itemStates, primaryStateIds, stateKeyOf,
     CURSE_TYPES, STAGE_NAMES, markKindsFor, markDetailLines,

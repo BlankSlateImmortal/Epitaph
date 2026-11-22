@@ -155,11 +155,18 @@ Not every item has every part: a blade may have no usage states; many items have
   one-way), which was part of 2.4. Publish still writes the Item track only, in the old snapshot format (4.1 redesigns it). Tested: 23 Node
   tests and the real inventory editor in headless Chromium (old `stateId` converted, one select per track, switching Connection to No
   Signal and replacing marks left only the Parade binding, saved with no `stateId`, rank read Soul instead of Planet).
-- [ ] **2.3 Mark editor.** Replace all three mark editors (`epitaph-marks.js`, `epitaph-editors.js` ~line 800, the Dossier's own in
-  `index.html` ~4570) with one; remove `cost` / `ends` from the mark shape. Fields change with the kind; the kind picker is locked by
-  holder (`markKindsFor`: an item takes binding or curse, a person blessing or curse); binding rank picker; blessing Price / Terms /
-  Breach (shown only with terms) / Lasts until; curse type picker, initial state and three stage rows with the fixed broad name beside each
-  unique name and text, and the holder's current stage.
+- [x] **2.3 Mark editor.** *(Done 2026-11-21, Sonnet.)* One implementation of the mark fields, `EpitaphMarks.fieldsHtml` + `setField`
+  (`assets/epitaph-marks.js`), now used by all three hosts: the shared editor (item and state marks in the book and the Atlas drawer), the
+  Dossier's classic mark rows (a person's marks and a chapter's copy of an item), and the wide marks editor. The kind is locked by where
+  the mark lives (`markKindsFor`: an item or a chapter copy of one takes binding or curse, a person blessing or curse); a mark already of
+  another kind stays visible, flagged "not allowed here" (2.4 flags it too). Fields by kind: binding **Reach** (rank 1–7); blessing **Price,
+  Terms, Breach, Lasts until**; curse **Type**, **Stage now** (chapter copies only) and a collapsible **Stages** block with an
+  optional own name and text for Initial state, Awakening, Fluctuation and Stabilization. Changing a mark's kind redraws its row.
+  **`cost` / `ends` are gone from the mark shape.** Existing text is folded in, nothing lost: a blessing's cost becomes its price and its ends
+  "lasts until"; on a binding or curse they are added to the effect as "Cost: …" / "Ends: …" (5.1 refines each by hand). Library version 3
+  (raw v2 copy kept once as `epitaph-library-backup-v2`) and **Dossier schema 9** (raw copy kept once as
+  `epitaph-character-profiles-backup-v9`). Tested: 25 Node tests, and in the real page the three editors plus the upgrade of a v8 Dossier
+  with old marks (folded correctly, backup written, saved shapes right).
 - [ ] **2.4 Checks (Opus).** *(The removed-state and one-way-goes-backwards rules for chapters were done in 2.2; still to do: the same for
   history entries.)* New rules in `assets/epitaph-checks.js`: tier below the rank's floor (`tierProblem`), a blessing on an item or
   a binding on a person (kind locked by holder), a one-way track that goes backwards in a history entry, a curse stage that goes down, a curse with fewer than three stage texts (info only), an
@@ -193,8 +200,8 @@ Not every item has every part: a blade may have no usage states; many items have
   `epitaph-library-backup-before-merge` in the browser. Characters, chapters, sites and the timeline keep today's rules (never
   overwritten). Library only; places and countries are not updated by this option. Sonnet (UI); test with the Seal-style case.
 - [ ] **5.1 Converted data file (Opus).** The user exports their current data; Claude converts every existing item and mark to the new
-  layout (blessing cost → price or terms, ends → lastsUntil or breach; curse and binding text → effect or stage text; duplicate marks
-  folded into the library once Phase 6 exists) and adds the author's Items-page items, then saves one file in `Site work/files/` (never in
+  layout (the automatic fold of cost / ends is already done by 2.3; this refines it by judgment: blessing cost → price or terms, ends →
+  lasts until or breach; curse and binding text → effect or stage text; duplicate marks folded into the library once Phase 6 exists) and adds the author's Items-page items, then saves one file in `Site work/files/` (never in
   the repo). It is loaded with **Merge → "Also update items that already exist"** (step 5.0). W.I.P items flagged. List every judgment
   call made in the conversion.
 - [ ] **5.2 Cross-links.** Items' origin places link to the Site Encyclopedia; items that are organisms can link to a Creature Log entry
@@ -267,6 +274,12 @@ When the user says "get back to it" / "back to the plan":
 ## Tweak log
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-21 — **2.3 done (Sonnet).** 1.4 left old `cost` / `ends` untouched because three editors still wrote them; with one editor now, the
+  fold could safely move into the code (with backups), so **5.1 no longer has to move every old cost / ends**: it only refines the automatic
+  default (blessing cost → price, ends → lasts until; binding and curse text → effect) where the author wants terms, a breach or a stage
+  text instead. The Dossier schema went to 9 for this. The Powers page and the classic marks form's help text still mention "Binding"
+  for people (3.4 rewrites them).
 
 - 2026-11-21 — **2.2 done (Sonnet).** Aliases and mirrors removed as promised. Moved the checks' state rules to tracks here (they had to
   change anyway); this takes the chapter part of two 2.4 rules off 2.4. One behaviour change: a **migrated** Item track is not one-way,

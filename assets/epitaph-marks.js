@@ -1,35 +1,77 @@
-/* Epitaph — mark editor and display (blessing / curse / binding), text only.
- * Same fields and markup as the Dossier's mark form; styles live in
- * epitaph-theme.css.
+/* Epitaph — the mark editor and display (blessing / curse / binding). One implementation of the fields, shared by every
+ * place that edits marks. Styles live in epitaph-theme.css. Plan: docs/plans/item-system.md, step 2.3.
  *
- *   const ed = EpitaphMarks.editor(containerEl, marks)   // renders, handles add/remove
- *   ed.read()                                            // -> cleaned copy of the marks
- *   EpitaphMarks.linesHtml(marks)                        // read-only display
- *   EpitaphMarks.readImage(file, maxDim?) -> Promise<dataURL>  // resized image (default 256px)
+ *   const ed = EpitaphMarks.editor(containerEl, marks, { ctx })   // renders, handles add/remove; ed.read() -> cleaned marks
+ *   EpitaphMarks.fieldsHtml(m, { ctx, attr, sigil, top })          // the inputs for one mark (host supplies the data attributes; top:false = no kind/name row)
+ *   EpitaphMarks.setField(m, field, value)                         // writes one input's value ('stages.1.text', 'rank', ...)
+ *   EpitaphMarks.newMark(ctx)  EpitaphMarks.kindsFor(ctx)          // a blank mark, the kinds allowed there
+ *   EpitaphMarks.linesHtml(marks)                                  // read-only display
+ *   EpitaphMarks.readImage(file, maxDim?) -> Promise<dataURL>      // resized image (default 256px)
  *
+ * ctx = where the marks live: 'library' (an item's or a state's marks), 'entry' (a chapter's copy of an item), 'character'
+ * (a person's own marks). An item takes bindings and curses, a person blessings and curses; a mark already of another
+ * kind is kept and shown flagged. The shape of a mark belongs to EpitaphLibrary.normalizeMark.
  * A mark may carry an optional `image` (a small data-URL sigil, max 256px).
  */
 (function (global) {
   'use strict';
   const KINDS = ['blessing', 'curse', 'binding'];
   const LABEL = { blessing: 'Blessing', curse: 'Curse', binding: 'Binding' };
-  const FIELDS = ['name', 'source', 'effect', 'cost', 'ends'];
+  const FIELDS = ['name', 'source', 'effect'];   // the text every mark has
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const lib = () => global.EpitaphLibrary;
   const newId = () => 'mark_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
   function normalize(m) {
     m = m || {};
-    // the Library owns the mark shape (per-kind fields: rank, price/terms/breach, curse stages); fall back to the old fields alone
-    if (global.EpitaphLibrary && global.EpitaphLibrary.normalizeMark) return global.EpitaphLibrary.normalizeMark(m);
-    const out = { id: m.id || newId(), kind: KINDS.includes(m.kind) ? m.kind : 'blessing' };
-    FIELDS.forEach(f => { out[f] = typeof m[f] === 'string' ? m[f] : ''; });
-    out.image = typeof m.image === 'string' ? m.image : '';
-    return out;
+    if (lib() && lib().normalizeMark) return lib().normalizeMark(m);
+    return { id: m.id || newId(), kind: KINDS.includes(m.kind) ? m.kind : 'blessing', name: String(m.name || ''), source: String(m.source || ''), effect: String(m.effect || ''), image: String(m.image || '') };
   }
-  // keeps marks that have any text or an image, trimmed
+  const trimDeep = v => (typeof v === 'string' ? v.trim() : Array.isArray(v) ? v.map(trimDeep) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, trimDeep(x)])) : v);
+  // keeps marks that have any text, a detail line or an image, trimmed
   function clean(list) {
-    const extra = m => !!(global.EpitaphLibrary && global.EpitaphLibrary.markDetailLines && global.EpitaphLibrary.markDetailLines(m).length);
-    return (list || []).map(normalize).filter(m => m.image || FIELDS.some(f => m[f].trim()) || extra(m))
-      .map(m => { const o = { ...m }; FIELDS.forEach(f => { o[f] = o[f].trim(); }); return o; });
+    const extra = m => !!(lib() && lib().markDetailLines && lib().markDetailLines(m).length);
+    return (list || []).map(normalize).filter(m => m.image || FIELDS.some(f => m[f].trim()) || extra(m)).map(m => ({ ...trimDeep(m), image: m.image }));
+  }
+  const kindsFor = ctx => (lib() ? lib().markKindsFor(ctx === 'character' ? 'character' : 'item') : KINDS.slice());
+  const newMark = ctx => normalize({ kind: ctx === 'character' ? 'blessing' : 'binding' });
+  const STAGES = ['Initial state', 'Awakening', 'Fluctuation', 'Stabilization'];
+  const CURSE_TYPES = ['mutation', 'enhancement', 'distortion', 'fragmentation'];
+  // Writes one input's value into a mark draft. `stages.2.text` / `initial.name` reach into the curse's stages; rank and stage are numbers.
+  function setField(m, f, v) {
+    const p = String(f).split('.');
+    if (p.length === 1) { m[f] = (f === 'rank' || f === 'stage') ? (parseInt(v, 10) || 0) : v; return; }
+    if (p[0] === 'initial') { m.initial = m.initial || { name: '', text: '' }; m.initial[p[1]] = v; return; }
+    if (p[0] === 'stages') {
+      m.stages = Array.isArray(m.stages) ? m.stages : []; const i = +p[1];
+      while (m.stages.length <= i) m.stages.push({ name: '', text: '' });
+      m.stages[i] = m.stages[i] || { name: '', text: '' }; m.stages[i][p[2]] = v;
+    }
+  }
+  // The inputs for one mark. `attr(field)` returns the data attributes the host reads back with setField; `sigil` is the host's image picker.
+  function fieldsHtml(m, o) {
+    o = o || {}; const a = o.attr || (() => ''), ctx = o.ctx || 'library', allowed = kindsFor(ctx);
+    const kinds = allowed.includes(m.kind) ? allowed : allowed.concat(m.kind);
+    const rankN = lib() ? lib().RANKS : [];
+    const stageRow = (label, f, val) => `<div class="mark-stage-row"><b>${esc(label)}</b>
+      <input type="text" ${a(f + '.name')} value="${esc((val || {}).name)}" placeholder="Your own name for it (optional)" aria-label="${esc(label)} name">
+      <textarea ${a(f + '.text')} placeholder="What happens at this stage" aria-label="${esc(label)}">${esc((val || {}).text)}</textarea></div>`;
+    const stagesFilled = !!((m.initial && (m.initial.name || m.initial.text)) || (m.stages || []).some(x => x && (x.name || x.text)));
+    return `${o.top === false ? '' : `<div class="mark-edit-top">${o.sigil || ''}
+        <select ${a('kind')} aria-label="Kind">${kinds.map(k => `<option value="${k}"${m.kind === k ? ' selected' : ''}>${LABEL[k]}${allowed.includes(k) ? '' : ' (not allowed here)'}</option>`).join('')}</select>
+        <input type="text" ${a('name')} value="${esc(m.name)}" placeholder="Name" aria-label="Name"></div>`}
+      <input type="text" ${a('source')} value="${esc(m.source)}" placeholder="Source — who or what placed it (??? if unknown)" aria-label="Source">
+      <textarea ${a('effect')} placeholder="Effect — what it does" aria-label="Effect">${esc(m.effect)}</textarea>
+      ${m.kind === 'binding' ? `<label class="mark-field">Reach <em>— the rank this binding gives the item</em><select ${a('rank')} aria-label="Rank"><option value="0">— none —</option>${rankN.slice(1).map((n, i) => `<option value="${i + 1}"${m.rank === i + 1 ? ' selected' : ''}>${i + 1} · ${esc(n)}</option>`).join('')}</select></label>` : ''}
+      ${m.kind === 'blessing' ? `<div class="mark-grid">
+          <input type="text" ${a('price')} value="${esc(m.price)}" placeholder="Price — what holding it always takes" aria-label="Price">
+          <input type="text" ${a('terms')} value="${esc(m.terms)}" placeholder="Terms — the condition to keep" aria-label="Terms">
+          <input type="text" ${a('breach')} value="${esc(m.breach)}" placeholder="Breach — what happens if the terms are broken (needs terms)" aria-label="Breach">
+          <input type="text" ${a('lastsUntil')} value="${esc(m.lastsUntil)}" placeholder="Lasts until — how it stops, normally" aria-label="Lasts until"></div>` : ''}
+      ${m.kind === 'curse' ? `<div class="mark-grid">
+          <label class="mark-field">Type<select ${a('type')} aria-label="Curse type"><option value="">— not set —</option>${CURSE_TYPES.map(t => `<option value="${t}"${m.type === t ? ' selected' : ''}>${t.charAt(0).toUpperCase() + t.slice(1)}</option>`).join('')}</select></label>
+          ${ctx === 'library' ? '' : `<label class="mark-field">Stage now<select ${a('stage')} aria-label="Stage now">${STAGES.map((n, i) => `<option value="${i}"${(m.stage || 0) === i ? ' selected' : ''}>${i ? i + ' · ' : ''}${n}</option>`).join('')}</select></label>`}</div>
+        <details class="mark-stages"${stagesFilled ? ' open' : ''}><summary>Stages <em>— Awakening, Fluctuation, Stabilization; give each your own name and text</em></summary>
+          ${stageRow(STAGES[0], 'initial', m.initial)}${[0, 1, 2].map(i => stageRow(`${i + 1} · ${STAGES[i + 1]}`, 'stages.' + i, (m.stages || [])[i])).join('')}</details>` : ''}`;
   }
   // Sigils are small: 256px max, JPEG unless the image has transparency.
   const SIGIL_MAX = 256;
@@ -62,28 +104,21 @@
       ${m.image ? `<button type="button" class="mark-sigil-clear" ${attrs} data-clear="1" aria-label="Remove image">×</button>` : ''}
     </span>`;
   }
-  function editor(container, marks) {
+  function editor(container, marks, opts) {
+    const ctx = (opts && opts.ctx) || 'library';
     let list = (marks || []).map(normalize);
     function sync() {
-      container.querySelectorAll('[data-mi]').forEach(el => { const m = list[+el.dataset.mi]; if (m) m[el.dataset.f] = el.value; });
+      container.querySelectorAll('[data-mi]').forEach(el => { const m = list[+el.dataset.mi]; if (m) setField(m, el.dataset.f, el.value); });
     }
     function render() {
       container.innerHTML = '<div class="marks-editor">' + list.map((m, i) => `
         <div class="mark-edit kind-${esc(m.kind)}">
-          <div class="mark-edit-top">
-            ${sigilPickerHtml(m, `data-img="${i}"`)}
-            <select data-mi="${i}" data-f="kind" aria-label="Kind">${KINDS.map(k => `<option value="${k}"${m.kind === k ? ' selected' : ''}>${LABEL[k]}</option>`).join('')}</select>
-            <input type="text" data-mi="${i}" data-f="name" value="${esc(m.name)}" placeholder="Name" aria-label="Name">
-          </div>
-          <input type="text" data-mi="${i}" data-f="source" value="${esc(m.source)}" placeholder="Source — who or what placed it" aria-label="Source">
-          <textarea data-mi="${i}" data-f="effect" placeholder="Effect — what it does" aria-label="Effect">${esc(m.effect)}</textarea>
-          <input type="text" data-mi="${i}" data-f="cost" value="${esc(m.cost)}" placeholder="Cost — what it takes (text only)" aria-label="Cost">
-          <input type="text" data-mi="${i}" data-f="ends" value="${esc(m.ends)}" placeholder="Ends — how it ends" aria-label="Ends">
+          ${fieldsHtml(m, { ctx, attr: f => `data-mi="${i}" data-f="${f}"`, sigil: sigilPickerHtml(m, `data-img="${i}"`) })}
           <button type="button" class="btn ghost mark-remove" data-remove="${i}">Remove mark</button>
         </div>`).join('') + '<button type="button" class="btn ghost mark-add">+ Add mark</button></div>';
       container.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', () => { sync(); list.splice(+b.dataset.remove, 1); render(); }));
-      container.querySelector('.mark-add').addEventListener('click', () => { sync(); list.push(normalize({ kind: 'curse' })); render(); });
-      container.querySelectorAll('select[data-mi]').forEach(s => s.addEventListener('change', () => { sync(); render(); }));
+      container.querySelector('.mark-add').addEventListener('click', () => { sync(); list.push(newMark(ctx)); render(); });
+      container.querySelectorAll('select[data-mi][data-f="kind"]').forEach(s => s.addEventListener('change', () => { sync(); render(); }));
       container.querySelectorAll('input[type=file][data-img]').forEach(inp => inp.addEventListener('change', async () => {
         const f = inp.files && inp.files[0]; if (!f) return;
         sync();
@@ -107,10 +142,8 @@
       <div><span class="mark-tag ${esc(m.kind)}">${esc((LABEL[m.kind] || m.kind).toUpperCase())}</span> <b>${esc(m.name || 'Unnamed mark')}</b></div>
       ${m.source ? `<small>Source: ${esc(m.source)}</small>` : ''}
       ${m.effect ? `<p>${esc(m.effect)}</p>` : ''}
-      ${m.cost ? `<small class="cost">Cost: ${esc(m.cost)}</small>` : ''}
-      ${m.ends ? `<small>Ends: ${esc(m.ends)}</small>` : ''}
       ${detailHtml(m)}
     </div></div>`).join('');
   }
-  global.EpitaphMarks = { KINDS, LABEL, normalize, clean, editor, linesHtml, readImage, sigilPickerHtml, sigilHtml };
+  global.EpitaphMarks = { KINDS, LABEL, normalize, clean, editor, linesHtml, readImage, sigilPickerHtml, sigilHtml, fieldsHtml, setField, newMark, kindsFor };
 })(typeof window !== 'undefined' ? window : globalThis);

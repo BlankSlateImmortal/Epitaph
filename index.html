@@ -1180,7 +1180,7 @@
   .mode-reader #mwOpenArc, .mode-reader #mwOpenKnowledge,
   .mode-reader a[href="#generationSection"], .mode-reader #generationSection{ display:none !important; }
 </style>
-<link rel="stylesheet" href="assets/epitaph-theme.css?v=21">
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=22">
 <link rel="stylesheet" href="assets/epitaph-editors.css?v=8">
 <link rel="stylesheet" href="assets/epitaph-book.css?v=6">
 <link rel="stylesheet" href="assets/epitaph-codex-views.css?v=2">
@@ -1195,8 +1195,8 @@
 <script src="assets/epitaph-sites.js?v=9"></script>
 <script src="assets/epitaph-sites-ui.js?v=5"></script>
 <script src="assets/epitaph-publish.js?v=4"></script>
-<script src="assets/epitaph-library.js?v=10"></script>
-<script src="assets/epitaph-marks.js?v=4"></script>
+<script src="assets/epitaph-library.js?v=11"></script>
+<script src="assets/epitaph-marks.js?v=5"></script>
 <script src="assets/epitaph-states.js?v=3"></script>
 <script src="assets/epitaph-item-fields.js?v=1"></script>
 <script src="assets/epitaph-checks.js?v=9"></script>
@@ -2043,11 +2043,12 @@ const linesOf = (text) => String(text || '').split('\n').map(x => x.trim()).filt
 // ---- One-time state migration to per-chapter state (schema v2) ----
 // Additive only: every replaced value is copied to a legacy* property and the
 // original fields stay in place until the UI stops reading them.
-const STATE_SCHEMA_VERSION = 8;
+const STATE_SCHEMA_VERSION = 9;
 const BACKUP_STORAGE_KEY = 'epitaph-character-profiles-backup-v1';    // before the chapter-state upgrade
 const BACKUP_STORAGE_KEY_V2 = 'epitaph-character-profiles-backup-v2'; // before the atlas-tracker upgrade
 const BACKUP_STORAGE_KEY_V7 = 'epitaph-character-profiles-backup-v7'; // before the power-systems upgrade
 const BACKUP_STORAGE_KEY_V8 = 'epitaph-character-profiles-backup-v8'; // before the type-driven profile upgrade
+const BACKUP_STORAGE_KEY_V9 = 'epitaph-character-profiles-backup-v9'; // before the item-system upgrade (old mark cost / ends text folded into the new fields)
 const GEN_NOTE_FIELDS = ['currentAffiliations', 'recentEvents', 'characterDevelopment', 'politicalSocialStatus', 'possessions', 'currentRelationships', 'currentKnowledge', 'knownSecrets'];
 function migrateStateV2(st){
   if((st.schemaVersion || 1) >= 2) return st;
@@ -2216,7 +2217,9 @@ function migrateStateV8(st){
   st.schemaVersion = 8;
   return st;
 }
-function migrateState(st){ return migrateStateV8(migrateStateV7(migrateStateV6(migrateStateV5(migrateStateV4(migrateStateV3(migrateStateV2(st))))))); }
+// v9: marks have per-kind fields (old cost / ends are folded in by normalizeMark, which migrateCharacter already ran); inventory entries carry stateIds
+function migrateStateV9(st){ if((st.schemaVersion || 1) >= 9) return st; st.schemaVersion = 9; return st; }
+function migrateState(st){ return migrateStateV9(migrateStateV8(migrateStateV7(migrateStateV6(migrateStateV5(migrateStateV4(migrateStateV3(migrateStateV2(st)))))))); }
 
 // ---- Relationships ----
 // Stored as {name, relation, note, charId}. charId links to another Dossier
@@ -2298,7 +2301,7 @@ async function loadState(){
 // browser has no room for a second copy, the migration still runs (it only
 // adds fields) and the user is told to Export a file backup.
 function backupBeforeMigration(raw, fromVersion){
-  const key = fromVersion < 2 ? BACKUP_STORAGE_KEY : fromVersion === 6 ? BACKUP_STORAGE_KEY_V7 : fromVersion === 7 ? BACKUP_STORAGE_KEY_V8 : BACKUP_STORAGE_KEY_V2;
+  const key = fromVersion < 2 ? BACKUP_STORAGE_KEY : fromVersion === 6 ? BACKUP_STORAGE_KEY_V7 : fromVersion === 7 ? BACKUP_STORAGE_KEY_V8 : fromVersion === 8 ? BACKUP_STORAGE_KEY_V9 : BACKUP_STORAGE_KEY_V2;
   try{
     if(localStorage.getItem(key)) return;
     localStorage.setItem(key, raw);
@@ -3293,7 +3296,7 @@ function locationPath(ref){
 function buildBrief(char, snap){
   const prev = previousSnapshot(char, snap);
   const chg = changesFor(char, snap);
-  const markText = m => `${m.kind}: ${m.name || 'unnamed'}${m.effect ? ' — ' + m.effect : ''}${m.cost ? ' (cost: ' + m.cost + ')' : ''}${m.ends ? ' (ends: ' + m.ends + ')' : ''}${EpitaphLibrary.markDetailLines(m).map(l => ' (' + l.label.toLowerCase() + ': ' + l.text + ')').join('')}`;
+  const markText = m => `${m.kind}: ${m.name || 'unnamed'}${m.effect ? ' — ' + m.effect : ''}${EpitaphLibrary.markDetailLines(m).map(l => ' (' + l.label.toLowerCase() + ': ' + l.text + ')').join('')}`;
   const relText = r => `${relationshipDisplayName(r) || 'Unnamed'}${r.relation ? ' — ' + r.relation : ''}${r.note ? ', ' + r.note : ''}`;
   const rels = (snap.relationships || []).map(r => ({ text: relText(r), tag: chg.isNew('relationships', r) ? 'new' : '' }));
   if(prev){
@@ -4542,13 +4545,13 @@ function markList(path){
 function syncMarksFromDOM(){
   document.querySelectorAll('[data-mark-path]').forEach(el => {
     const m = markList(el.dataset.markPath)[parseInt(el.dataset.markIdx)];
-    if(m) m[el.dataset.f] = el.value;
+    if(m) EpitaphMarks.setField(m, el.dataset.f, el.value);
   });
 }
 function rerenderMarks(path){ if(path === 'char') renderMarksEditor(); else renderInventoryEditor(); }
 function addMark(path){
   syncInventoryFromDOM();
-  markList(path).push(normalizeMark({ kind: path === 'char' ? 'blessing' : 'curse' }));
+  markList(path).push(EpitaphMarks.newMark(path === 'char' ? 'character' : 'entry'));
   if(path !== 'char'){ const it = pendingInventoryItems[parseInt(path.split(':')[1])]; if(it) invMarksOpen.add(it.id); }
   rerenderMarks(path);
 }
@@ -4558,21 +4561,20 @@ function removeMark(path, idx){
   rerenderMarks(path);
 }
 function markRowsHtml(path, list){
-  const a = (i, f) => `data-mark-path="${path}" data-mark-idx="${i}" data-f="${f}"`;
+  const a = (i, f) => `data-mark-path="${path}" data-mark-idx="${i}" data-f="${f}"`, ctx = path === 'char' ? 'character' : 'entry';
   return list.map((m, i) => `
     <div class="mark-edit kind-${escapeAttr(m.kind)}">
-      <div class="mark-edit-top">
-        ${EpitaphMarks.sigilPickerHtml(m, `data-sigil-path="${path}" data-sigil-idx="${i}"`)}
-        <select ${a(i, 'kind')} aria-label="Kind">${MARK_KINDS.map(k => `<option value="${k}"${m.kind === k ? ' selected' : ''}>${MARK_KIND_LABEL[k]}</option>`).join('')}</select>
-        <input type="text" ${a(i, 'name')} value="${escapeAttr(m.name)}" placeholder="Name" aria-label="Name">
-      </div>
-      <input type="text" ${a(i, 'source')} value="${escapeAttr(m.source)}" placeholder="Source — who or what placed it" aria-label="Source">
-      <textarea ${a(i, 'effect')} placeholder="Effect — what it does" aria-label="Effect">${escapeHtml(m.effect)}</textarea>
-      <input type="text" ${a(i, 'cost')} value="${escapeAttr(m.cost)}" placeholder="Cost — what it takes (text only)" aria-label="Cost">
-      <input type="text" ${a(i, 'ends')} value="${escapeAttr(m.ends)}" placeholder="Ends — how it ends" aria-label="Ends">
+      ${EpitaphMarks.fieldsHtml(m, { ctx, attr: f => a(i, f), sigil: EpitaphMarks.sigilPickerHtml(m, `data-sigil-path="${path}" data-sigil-idx="${i}"`) })}
       <button type="button" class="btn ghost mark-remove" onclick="removeMark('${path}', ${i})">Remove mark</button>
     </div>`).join('') + `<button type="button" class="btn ghost mark-add" onclick="addMark('${path}')">+ Add mark</button>`;
 }
+// A mark's kind decides which fields it has, so changing it redraws the row.
+document.addEventListener('change', (e) => {
+  const sel = e.target;
+  if(!sel.matches || !sel.matches('select[data-mark-path][data-f="kind"]')) return;
+  syncInventoryFromDOM();
+  rerenderMarks(sel.dataset.markPath);
+});
 // Mark images: one delegated handler covers every mark editor on screen
 // (character marks and item marks), so re-renders need no rebinding.
 document.addEventListener('change', async (e) => {
@@ -4593,11 +4595,8 @@ document.addEventListener('click', (e) => {
   if(m) m.image = '';
   rerenderMarks(b.dataset.sigilPath);
 });
-// keeps marks that have any text or an image
-function cleanMarks(list){
-  return (list || []).map(normalizeMark).filter(m => m.image || [m.name, m.source, m.effect, m.cost, m.ends].some(x => String(x).trim()) || EpitaphLibrary.markDetailLines(m).length)
-    .map(m => ({ ...m, name: m.name.trim(), source: m.source.trim(), effect: m.effect.trim(), cost: m.cost.trim(), ends: m.ends.trim() }));
-}
+// keeps marks that have any text, a detail line or an image
+function cleanMarks(list){ return EpitaphMarks.clean(list); }
 function renderMarksEditor(){
   const wrap = document.getElementById('marksEditorWrap');
   if(wrap) wrap.innerHTML = markRowsHtml('char', pendingMarks);
@@ -4631,8 +4630,6 @@ function markLinesHtml(list, isNew){
     <div>${markTag(m.kind)} <b>${escapeHtml(m.name || 'Unnamed mark')}</b>${isNew && isNew(m) ? ' ' + NEW_TAG : ''}</div>
     ${m.source ? `<small>Source: ${escapeHtml(m.source)}</small>` : ''}
     ${m.effect ? `<p>${escapeHtml(m.effect)}</p>` : ''}
-    ${m.cost ? `<small class="cost">Cost: ${escapeHtml(m.cost)}</small>` : ''}
-    ${m.ends ? `<small>Ends: ${escapeHtml(m.ends)}</small>` : ''}
     ${EpitaphLibrary.markDetailLines(m).map(l => `<small class="mark-detail"><b>${escapeHtml(l.label)}:</b> ${escapeHtml(l.text)}</small>`).join('')}
   </div></div>`).join('');
 }
@@ -4796,7 +4793,7 @@ function itemMonitorHtml(char, snap, sel, idx){
         <p class="item-prose">${v.desc ? escapeHtml(v.desc) : '<span class="dim">No description.</span>'}</p>
         ${v.stateDesc ? `<p class="item-prose"><em>${escapeHtml(v.state)} ·</em> ${escapeHtml(v.stateDesc)}</p>` : ''}
         ${v.note ? `<p class="item-prose dim">${escapeHtml(v.note)}</p>` : ''}
-        ${marks.length ? `<div class="item-marks">${marks.map(m => `<div class="item-mk kind-${escapeAttr(m.kind)}"><div><span class="item-kind">${escapeHtml((MARK_KIND_LABEL[m.kind] || m.kind).toUpperCase())}</span><h5>${escapeHtml(m.name || 'Unnamed mark')}</h5>${m.effect ? `<p>${escapeHtml(m.effect)}</p>` : ''}<dl>${row('SOURCE', m.source)}${row('COST', m.cost, 'cost')}${row('ENDS', m.ends)}</dl></div>${sigil(m)}</div>`).join('')}</div>` : ''}
+        ${marks.length ? `<div class="item-marks">${marks.map(m => `<div class="item-mk kind-${escapeAttr(m.kind)}"><div><span class="item-kind">${escapeHtml((MARK_KIND_LABEL[m.kind] || m.kind).toUpperCase())}</span><h5>${escapeHtml(m.name || 'Unnamed mark')}</h5>${m.effect ? `<p>${escapeHtml(m.effect)}</p>` : ''}<dl>${row('SOURCE', m.source)}${EpitaphLibrary.markDetailLines(m).map(l => row(l.label.toUpperCase(), l.text)).join('')}</dl></div>${sigil(m)}</div>`).join('')}</div>` : ''}
       </div>
     </div>
   </div><span class="item-led" aria-hidden="true"></span></div>`;
@@ -6335,7 +6332,7 @@ function restoreLeftPage(){
 </script>
 <script src="assets/epitaph-book.js?v=12"></script>
 
-<script src="assets/epitaph-editors.js?v=13"></script>
+<script src="assets/epitaph-editors.js?v=14"></script>
 <script src="assets/epitaph-book-tools.js?v=6"></script>
 </body>
 </html>

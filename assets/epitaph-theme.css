@@ -831,3 +831,18 @@ input, select, textarea{ accent-color:var(--amber); }
 .state-dot.sc-red{ background:#d9534f; border-color:#d9534f; } .state-dot.sc-purple{ background:#a06cd5; border-color:#a06cd5; }
 .state-dot.sc-blue{ background:#4a90d9; border-color:#4a90d9; }
 .state-color{ min-height:40px; max-width:110px; }
+
+/* ---- Mark fields (assets/epitaph-marks.js fieldsHtml): per-kind inputs, curse stages ---- */
+.mark-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+@media (max-width:560px){ .mark-grid{ grid-template-columns:1fr; } }
+.mark-field{ display:flex; flex-direction:column; gap:4px; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--dust); }
+.mark-field em{ text-transform:none; letter-spacing:0; font-style:normal; opacity:.8; }
+.mark-field select, .mark-grid input, .mark-stage-row input, .mark-stage-row textarea{ background:var(--ink); border:1px solid var(--line); color:var(--bone); padding:8px 10px; font:inherit; font-size:14px; min-height:40px; text-transform:none; letter-spacing:0; width:100%; box-sizing:border-box; }
+.mark-stages{ border:1px solid var(--line); padding:8px 10px; display:flex; flex-direction:column; gap:8px; }
+.mark-stages summary{ cursor:pointer; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--amber); }
+.mark-stages summary em{ text-transform:none; letter-spacing:0; font-style:normal; color:var(--dust); }
+.mark-stage-row{ display:flex; flex-direction:column; gap:4px; margin-top:8px; }
+.mark-stage-row b{ font-weight:400; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--dust); }
+.mark-stage-row textarea{ min-height:56px; resize:vertical; }
+.mark-detail b{ font-weight:400; color:var(--amber); }
+.mk-fields{ border:0; padding:0; display:flex; flex-direction:column; gap:10px; }
