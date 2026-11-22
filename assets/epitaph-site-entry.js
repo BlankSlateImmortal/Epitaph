@@ -228,7 +228,6 @@
     const secrets = (it.secrets || []).filter(c.show), rumours = (it.rumours || []).filter(c.show);
     const q = (it.questions || []).filter(c.show), hooks = (it.hooks || []).filter(c.show), fore = (it.foreshadow || []).filter(c.show), sealed = (it.sealed || []).filter(c.show);
     const whatIfs = c.author ? (c.rec.scenarios || []) : [];
-    const loaded = (it.secrets || []).concat(it.foreshadow || []).filter(x => x.setup != null && x.payoff == null);
     const aboutLinks = refs => (refs || []).map(r => {
       const m = /^(faction|landmark|record|chronicle|resource|tie):/.exec(r);
       const tab = m ? ({ faction: 'domestic', landmark: 'history', record: 'history', chronicle: 'history', resource: 'economy', tie: 'foreign' })[m[1]] : null;
@@ -252,7 +251,7 @@
       ${rumours.length ? `<div class="se-g2">${rumours.map(r => card('', `<div class="se-row"><span class="se-hi">“${esc(r.text)}”</span>${c.author ? chip(r.truth === 'half' ? 'Half-true' : r.truth === 'true' ? 'True' : 'False', 'am') : ''}</div>
         ${kv([['Origin', esc([c.name(r.origin.where), c.name(r.origin.who), r.origin.when].filter(Boolean).join(' · '))], ['Intent', c.author && r.origin.intent ? chip(label('RUMOUR_INTENTS', r.origin.intent)) : ''],
               ['Spread', esc((r.spread || []).map(x => c.name(x.to)).join(' → '))], ['Distorts', r.aboutSecret ? jump(r.aboutSecret) : ''], ['Effect', esc(r.effect)]])}`, '', 'rumour:' + r.id)).join('')}</div>` : ''}
-      ${c.author ? card('Setup → payoff', `<div class="se-row">${chip(loaded.length + ' loaded gun' + (loaded.length === 1 ? '' : 's'), loaded.length ? 'fill' : '')}${loaded.map(x => `<span>${esc((x.text || '').slice(0, 60))} <span class="se-dim">set up Ch ${esc(x.setup)}, not paid off</span></span>`).join('')}</div><span class="se-dim">The full check across every place goes into the Dossier's Checks list in step 2.7.</span>`, 'se-gun') : ''}
+      ${c.author ? card('Setup → payoff · the same check as the Dossier\'s Checks list', plantHtml(c), plantCls(c)) : ''}
       ${whatIfs.map(w => card('What-if', `<div class="se-row"><span class="se-hi">${esc(w.trigger)}</span>${chip(label('TRIGGER_GROUPS', w.triggerKind))}${dots(w.likelihood)}${chip(w.status, 'dash')}</div>
         ${kv([['Causes', (w.causes || []).map(x => chip(x.cause)).join('')], ['Fallout', esc((w.fallout || []).map(x => c.name(x.place) + ': ' + x.what).join(' · '))], ['Warning signs', esc((w.warnings || []).map(x => x.text + (x.plantIn ? ' (Ch ' + x.plantIn + ')' : '')).join(' · ')) || '<span class="se-dim">none planted yet</span>']])}`, 'se-hid')).join('')}
       <div class="se-g2">
@@ -260,6 +259,14 @@
         ${card('Foreshadow · sealed', `${fore.map(x => `<span>${esc(x.text)}</span>`).join('')}${sealed.map(x => `<span class="se-dim">Sealed: ${esc(c.name(x.place))} · ${esc(x.why)}</span>`).join('')}` || '<span class="se-dim">—</span>')}
       </div>`;
     return { html, map: { rumours } };
+  }
+  /** The setup → payoff card: this place's part of the Checks list (EpitaphSites.plantPayoff). */
+  const plantItems = c => c.Si.plantPayoff([c.rec], id => id).map(x => Object.assign({}, x, { text: x.text.replace(/^[^:]*: /, '') }));
+  const plantCls = c => plantItems(c).some(x => x.level === 'warn') ? 'se-gun' : '';
+  function plantHtml(c) {
+    const it = plantItems(c), n = r => it.filter(x => x.rule === r).length;
+    if (!it.length) return '<span class="se-dim">Nothing is planted without a payoff, or paid off without a plant, so far. Set a setup or payoff chapter on a secret, foreshadowing or what-if warning sign to track it.</span>';
+    return `<div class="se-row">${chip(n('gun-loaded') + ' loaded', n('gun-loaded') ? 'fill' : '')}${chip(n('gun-unplanted') + ' with no setup', n('gun-unplanted') ? 'red' : '')}${chip(n('gun-order') + ' out of order', n('gun-order') ? 'red' : '')}</div>${it.map(x => `<span>${esc(x.text)}</span>`).join('')}`;
   }
   /** "Known by": who carries this secret in their Dossier file and when they learned it (their first chapter that says they know it). */
   function knownByHtml(c, s) {

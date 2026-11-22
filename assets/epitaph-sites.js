@@ -424,6 +424,45 @@
     return out;
   }
   const SECRET_REF = /^secret:[\w-]+\/[\w-]+$/;
+  /** Chekhov's gun across places: what is planted and never paid off, and what pays off without being planted.
+   *  Reads secrets (setup, payoff), foreshadowing (plantIn, pointsTo), the evidence a secret leans on (the chapter it is found in counts as
+   *  a setup when the secret has none) and what-if warning signs (plantIn). Chapters are numbers; nothing is checked until one is set.
+   *  -> [{ level: 'warn'|'info', rule: 'gun-loaded'|'gun-unplanted'|'gun-order', placeId, text }]. `nameOf(placeId)` names a place in the text. */
+  function plantPayoff(recs, nameOf) {
+    const out = [], isInt = Number.isInteger, nm = nameOf || (id => id);
+    const short = t => { t = String(t || '').trim(); return '“' + (t.length > 50 ? t.slice(0, 49) + '…' : t) + '”'; };
+    const slugOf = t => String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'x';
+    (recs || []).forEach(r => {
+      const rec = normalise(r), at = nm(rec.placeId), push = (level, rule, text) => out.push({ level, rule, placeId: rec.placeId, text: at + ': ' + text });
+      const records = rec.history.record || [];
+      const found = ref => { const m = /^record:(?:[\w-]+\/)?(.+)$/.exec(String(ref || '')); const x = m && records.find(y => slugOf(y.topic) === m[1]); return x ? (x.evidence || []).map(e => e.revealedIn).filter(isInt) : []; };
+      const secrets = rec.intrigue.secrets || [];
+      secrets.forEach(x => {
+        const ev = (x.evidence || []).flatMap(found), setup = isInt(x.setup) ? x.setup : (ev.length ? Math.min(...ev) : null), payoff = isInt(x.payoff) ? x.payoff : null;
+        if (setup != null && payoff == null) push('info', 'gun-loaded', `the secret ${short(x.text)} is set up in Ch ${setup} but has no payoff chapter yet.`);
+        else if (payoff != null && setup == null) push('warn', 'gun-unplanted', `the secret ${short(x.text)} pays off in Ch ${payoff} but is never set up: plant it earlier (a rumour, evidence or foreshadowing).`);
+        else if (setup != null && payoff != null && setup > payoff) push('warn', 'gun-order', `the secret ${short(x.text)} pays off in Ch ${payoff}, before it is set up in Ch ${setup}.`);
+      });
+      (rec.intrigue.foreshadow || []).forEach(f => {
+        if (!isInt(f.plantIn)) return;                                       // not planted yet: nothing to check
+        const m = /^secret:(?:([\w-]+)\/)?(.+)$/.exec(String(f.pointsTo || ''));
+        const target = m ? (m[1] && m[1] !== rec.placeId ? null : secrets.find(y => y.id === m[2])) : null;
+        if (!target) return;
+        const pay = isInt(target.payoff) ? target.payoff : null;
+        if (pay == null) push('info', 'gun-loaded', `the foreshadowing ${short(f.text)} is planted in Ch ${f.plantIn} toward ${short(target.text)}, which has no payoff chapter yet.`);
+        else if (f.plantIn > pay) push('warn', 'gun-order', `the foreshadowing ${short(f.text)} is planted in Ch ${f.plantIn}, after the payoff in Ch ${pay}.`);
+      });
+      (rec.scenarios || []).forEach(w => {
+        const planted = (w.warnings || []).map(x => x.plantIn).filter(isInt);
+        if (w.status === 'dropped' && planted.length) push('warn', 'gun-loaded', `the what-if ${short(w.trigger)} is dropped, but its warning signs are planted (Ch ${planted.join(', ')}).`);
+        else if (w.status === 'written' && isInt(w.chapter)) {
+          if (!planted.some(n => n < w.chapter)) push('warn', 'gun-unplanted', `the what-if ${short(w.trigger)} happens in Ch ${w.chapter} with no warning sign planted before it.`);
+          else if (planted.some(n => n >= w.chapter)) push('warn', 'gun-order', `the what-if ${short(w.trigger)} happens in Ch ${w.chapter}, but a warning sign is planted in or after it.`);
+        } else if ((w.status === 'idea' || w.status === 'planned') && planted.length) push('info', 'gun-loaded', `warning signs are planted (Ch ${planted.join(', ')}) for the what-if ${short(w.trigger)}, which isn't written yet.`);
+      });
+    });
+    return out;
+  }
   /** What a reader on `chapter` may see of one place: a v2 record with everything author-only taken out (docs/plans/site-schema-v2.md).
    *  One gate for both the published snapshot (assets/epitaph-publish.js) and the book's Reader view, so a preview shows what is published.
    *  Rules: dated things follow their dates (an undated one, or `from: null`, is "since the start"); an end the reader hasn't reached is dropped;
@@ -544,6 +583,6 @@
     KEY, VERSION, BACKUP_KEY, STATUS, SCALES, SCALE_SETS, FORMS, ALLIANCE_KINDS, BEAST_RELATIONS, RESOURCE_CATEGORIES, RESOURCE_ROLES, FOUNDING_STAGES,
     MOTIVES, FACTION_KINDS, TIE_ENDINGS, TEMPERAMENTS, SOCIAL_SHAPES, WARD_KINDS, RUMOUR_INTENTS, TRIGGER_GROUPS,
     TABS, TAB_LABEL, DATA_TABS, DEFAULTS,
-    alliancesAt, storyOf, forReader, secretHolders, couldFind, SECRET_REF, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, draftUpdatesIn, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
+    alliancesAt, storyOf, forReader, secretHolders, couldFind, plantPayoff, SECRET_REF, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, draftUpdatesIn, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
   };
 })(typeof window !== 'undefined' ? window : globalThis);

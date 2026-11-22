@@ -29,6 +29,10 @@
  *   site-event      a date in an entry points at a timeline event that doesn't exist
  *   site-beast      a beast points at a creature that isn't in the Creature Log (once the log exists)
  *   site-missing    Era 1 places that have no entry yet (information)
+ * Chekhov's gun, across the encyclopedia (secrets, foreshadowing, evidence, what-if warning signs; nothing is checked until a chapter is set):
+ *   gun-loaded      planted in a chapter but no payoff chapter yet, or planted for a what-if that was dropped (information; a warning for a dropped what-if)
+ *   gun-unplanted   pays off (a secret, or a what-if written into a chapter) with nothing planted before it (warning)
+ *   gun-order       paid off before it is set up, or planted after the payoff (warning)
  * Needs assets/epitaph-world.js; uses assets/epitaph-library.js when loaded.
  */
 (function (global) {
@@ -185,6 +189,7 @@
 
     if (Lib) { itemSystemChecks(out, chars, Lib, at); skillProspectChecks(out, chars, Lib); }
     siteChecks(out);
+    plantChecks(out);
 
     return out.sort((a, b) => (a.level === b.level ? 0 : a.level === 'warn' ? -1 : 1));
   }
@@ -276,6 +281,14 @@
       // stages not written yet: once per curse, from the latest version that has it
       Object.values(last).forEach(p => { if (p.scope === 'char') curseInfo(p.m, nm, at(c, p.s)); });
     });
+  }
+
+  // ---- Chekhov's gun: what is planted and never paid off, and what pays off without being planted (plan site-encyclopedia 2.7) ----
+  function plantChecks(out) {
+    const World = global.EpitaphWorld, Sites = global.EpitaphSites;
+    if (!Sites || !Sites.plantPayoff) return;
+    const nameOf = id => { const p = World && World.place(id); return p ? p.name.split(/\s+[—–-]\s+/).pop() : id; };
+    Sites.plantPayoff(Sites.load(), nameOf).forEach(x => out.push(x));
   }
 
   // ---- Site Encyclopedia: places, alliances and their dates ----
