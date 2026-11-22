@@ -2,6 +2,15 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Site Encyclopedia: ties over time (assets/epitaph-site-entry.js, epitaph-sites.js `tieBars`) — step 4.1
+
+The top of a place's **Foreign** tab now draws its ties on a timeline: one row per tie, a bar from where it starts to where it ends (the timeline's own event order), coloured by kind (alliance, trade, war and the rest), with a "latest" or "Ch N" marker for where the reader is. Hover a bar for the tie's start and end events. The author can click a bar to edit that tie.
+
+- **Dashed bar** = a secret tie (author only; a secret tie a reader hasn't reached isn't drawn at all).
+- **A bar that fades into a "?"** = the end isn't reached yet: a reader sees it run as far as they have read and never learns where it stops, and the end event is not named anywhere on the page. The author sees the real end, with a dashed edge, marked as not yet visible to readers.
+- **A bar with an arrow** = no end (still going); a solid end cap = an end the reader has reached.
+- The axis names only events that bars use, so a reader's axis can't name an event they haven't reached.
+
 ## Site Encyclopedia: the editor (assets/epitaph-site-edit.js) — step 3.1
 
 In the author's view every card of a place's entry gets a ✎, and each tab has an **Edit bar** at the top. Pick a card's ✎ and it opens into its form right where it was (a list card opens just that item); pick a chip in the bar to edit a whole list or block, or **+** to add one. Nothing is deleted without a second click. Readers never get any of it.

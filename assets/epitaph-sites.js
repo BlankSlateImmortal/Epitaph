@@ -351,6 +351,25 @@
     return alliancesOf(placeId, recs).filter(a => asAuthor || seen(a))
       .map(a => Object.assign({}, a, { hidden: !seen(a), ended: a.to != null && reached(a.to, chapter), endHidden: a.to != null && !reached(a.to, chapter) }));
   }
+  /** The bars of a place's ties on a timeline (step 4.1). `ties` are alliancesAt results; `order` is the timeline's event ids in order;
+   *  `nowIdx` is the index of the last event the reader has reached (-1 = none). Positions are indices into `order` (0..N).
+   *  state: 'ongoing' (no end), 'ended' (a reached end), 'unknown' (the end isn't reached: a reader sees the bar run as far as they know and
+   *  never learns where it stops), 'hidden-end' (author view: the real end, which readers can't see yet).
+   *  -> { N, rows: [{ id, other, owner, kind, state, start, end, secret, hidden, from, to }] } sorted by start. */
+  function tieBars(ties, order, nowIdx, author) {
+    const ord = order || [], N = Math.max(1, ord.length - 1), ix = id => { const i = ord.indexOf(id); return i < 0 ? null : i; };
+    const now = Number.isInteger(nowIdx) ? nowIdx : -1;
+    const rows = (ties || []).map(t => {
+      const s = t.from == null ? 0 : (ix(t.from) == null ? 0 : ix(t.from)), toI = t.to == null ? null : ix(t.to), hiddenEnd = !!t.endHidden;
+      let state, end;
+      if (t.to == null) { state = 'ongoing'; end = N; }
+      else if (hiddenEnd && !author) { state = 'unknown'; end = Math.max(s, now); }
+      else { state = hiddenEnd ? 'hidden-end' : 'ended'; end = toI == null ? N : toI; }
+      return { id: t.id, other: t.other, owner: t.owner, kind: t.kind, state, start: s, end: Math.max(end, s), secret: !!t.secret, hidden: !!t.hidden, from: t.from == null ? null : t.from, to: state === 'unknown' || t.to == null ? null : t.to };
+    });
+    rows.sort((a, b) => a.start - b.start || a.end - b.end || String(a.other).localeCompare(String(b.other)));
+    return { N, rows };
+  }
   /** "In the story", derived from the Dossier (nothing is typed in): who was at a place and when, and which chapters were set there.
    *  opt: { placeId, characters, chapters: [{ number, title }], resolve(location) -> placeId|null, at (the reader's chapter; null = everything), author }
    *  A character's location is kept per version (snapshots[].location from startChapter on). A stay runs from the version that puts them
@@ -583,6 +602,6 @@
     KEY, VERSION, BACKUP_KEY, STATUS, SCALES, SCALE_SETS, FORMS, ALLIANCE_KINDS, BEAST_RELATIONS, RESOURCE_CATEGORIES, RESOURCE_ROLES, FOUNDING_STAGES,
     MOTIVES, FACTION_KINDS, TIE_ENDINGS, TEMPERAMENTS, SOCIAL_SHAPES, WARD_KINDS, RUMOUR_INTENTS, TRIGGER_GROUPS,
     TABS, TAB_LABEL, DATA_TABS, DEFAULTS,
-    alliancesAt, storyOf, forReader, secretHolders, couldFind, plantPayoff, SECRET_REF, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, draftUpdatesIn, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
+    alliancesAt, tieBars, storyOf, forReader, secretHolders, couldFind, plantPayoff, SECRET_REF, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, draftUpdatesIn, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
   };
 })(typeof window !== 'undefined' ? window : globalThis);

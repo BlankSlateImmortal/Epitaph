@@ -174,6 +174,33 @@
     return { html, map: { model: true, factions } };
   }
 
+  /** Ties over time: one bar per tie from its start to its end on the timeline, coloured by kind (EpitaphSites.tieBars lays it out).
+   *  A secret tie is dashed (author only); an end the reader hasn't reached is an open, fading bar with a "?". */
+  function tieTimelineHtml(c, ties) {
+    const T = TL(); if (!T || !ties.length) return '';
+    const evs = T.load().slice().sort((a, b) => T.compare(a, b)), order = evs.map(e => e.id);
+    if (order.length < 2) return '';
+    let now = -1; evs.forEach((e, i) => { if (T.isRevealed(e, c.chapter)) now = i; });
+    const L = c.Si.tieBars(ties, order, now, c.author), N = L.N, pct = i => i / N * 100, ROW = 28;
+    const own = c.rec.foreign.ties, titleOf = id => { const e = evs.find(x => x.id === id); return e ? String(e.title || id) : ''; };
+    const kinds = [...new Set(L.rows.map(r => r.kind))];
+    const bars = L.rows.map((r, i) => {
+      const left = pct(r.start), w = Math.max(1.4, pct(r.end) - pct(r.start)), col = KIND_COL[r.kind] || 'var(--amber)', kn = c.Si.label(c.Si.ALLIANCE_KINDS, r.kind);
+      const idx = r.owner === c.pid ? own.findIndex(x => x.id === r.id) : -1;
+      const tip = `${c.name('place:' + r.other)} · ${kn}
+from ${r.from == null ? 'the start' : titleOf(r.from) || r.from}
+${r.state === 'ongoing' ? 'still going' : r.state === 'unknown' ? 'ends later (not reached)' : 'to ' + (titleOf(r.to) || r.to)}${r.state === 'hidden-end' ? ' (readers can\'t see this end yet)' : ''}${r.secret ? '\nSecret tie' : ''}`;
+      const cls = `se-tbar ${r.state}${r.secret || r.hidden ? ' sec' : ''}`, st = `style="top:${i * ROW + 3}px;left:${left.toFixed(2)}%;width:${w.toFixed(2)}%;--k:${col}"`;
+      const inner = `<span>${esc(kn)}</span>${r.state === 'unknown' ? '<i>?</i>' : r.state === 'ongoing' ? '<i>▸</i>' : ''}`;
+      return c.author && idx >= 0 ? `<button type="button" class="${cls}" ${st} data-se-open="foreign.ties.${idx}" title="${esc(tip)}">${inner}</button>` : `<div class="${cls}" ${st} title="${esc(tip)}">${inner}</div>`;
+    }).join('');
+    const used = new Set(); L.rows.forEach(r => { if (r.from != null) used.add(r.from); if (r.to != null) used.add(r.to); });
+    const ticks = [...used].map(id => order.indexOf(id)).filter(i => i >= 0).sort((a, b) => a - b).map((i, k) => `<span class="se-tick" style="left:${pct(i).toFixed(2)}%"><b></b><em class="${pct(i) > 62 ? 'rt' : ''}" style="top:${(k % 3) * 13 + 3}px">${esc(titleOf(order[i]).replace(/:.*$/, '').slice(0, 24))}</em></span>`).join('');
+    const nowLine = now >= 0 ? `<span class="se-now" style="left:${pct(now).toFixed(2)}%"><em>${c.chapter == null ? 'latest' : 'Ch ' + c.chapter}</em></span>` : '';
+    const labels = L.rows.map(r => `<span class="se-tlab" style="height:${ROW}px"><button type="button" class="se-link" data-ref="place:${esc(r.other)}">${esc(c.name('place:' + r.other))}</button></span>`).join('');
+    return `<div class="se-tl2"><div class="se-tlabs">${labels}</div><div class="se-tltrack" style="height:${L.rows.length * ROW + 52}px"><div class="se-tlrows" style="height:${L.rows.length * ROW}px">${bars}${nowLine}</div><div class="se-tlaxis" style="top:${L.rows.length * ROW + 4}px">${ticks}</div></div></div>
+      <div class="se-row se-tlleg">${kinds.map(k => `<span class="se-lg"><i style="background:${KIND_COL[k] || 'var(--amber)'}"></i>${esc(c.Si.label(c.Si.ALLIANCE_KINDS, k))}</span>`).join('')}<span class="se-dim">dashed = secret${c.author ? '' : ' or not yet revealed'} · ? = it ends later</span></div>`;
+  }
   function foreign(c) {
     const Si = c.Si, f = c.rec.foreign;
     const ties = Si.alliancesAt(c.pid, c.chapter, c.recs);
@@ -189,6 +216,7 @@
               ['Ends', t.to == null ? '' : (t.endHidden ? (c.author ? chip('? · ' + t.to + ' · hidden from readers', 'dash') : chip('?', 'dash')) : esc((full.ends && full.ends.how ? label('TIE_ENDINGS', full.ends.how) + ' · ' : '') + t.to))],
               ['Wants it to fail', c.author ? (full.wantsItToFail || []).map(r => chip(c.name(r), 'red')).join('') : '']])}`, t.hidden ? 'se-hid' : ''); };
     const html = `
+      ${ties.length ? card('Ties over time · bars run from where a tie starts to where it ends', tieTimelineHtml(c, ties)) : ''}
       ${ties.length ? ties.map(tieCard).join('') : empty('No ties written yet.')}
       ${blocs.map(b => ecard(f.blocs.indexOf(b) >= 0 ? 'foreign.blocs.' + f.blocs.indexOf(b) : '', 'Bloc · ' + b.name, kv([['Members', esc(b.members.map(m => c.name(m.place) + (m.to ? ' (left)' : '')).join(' · '))], ['Purpose', esc(b.purpose)], ['Seat', esc(c.name(b.seat))], ['Rival', esc(c.name(b.rival))], ['Tension', esc(b.tension)]]))).join('')}
       <div class="se-g2">
