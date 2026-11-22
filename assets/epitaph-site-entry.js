@@ -34,6 +34,7 @@
       return !!ch && (ch.snapshots || []).some(v => Number.isInteger(v.startChapter) && (at == null || v.startChapter <= at)); };
     const rec = author ? full : Si.forReader(full, chapter, { recs, charOk });
     const c = { Si, T, recs, rec, place, author, chapter, at, pid: placeId };
+    c.latest = T && T.latestChapter ? T.latestChapter() : null;
     c.seen = when => Si.reached(when, chapter);
     c.revealed = it => !!it && it.revealedIn != null && at != null && it.revealedIn <= at;
     c.show = it => author || c.revealed(it);
@@ -41,14 +42,16 @@
     c.name = ref => {
       const r = String(ref || '');
       if (/^(char|place):/.test(r) && global.EpitaphLinks) { const x = global.EpitaphLinks.resolve(r); const n = x ? x.name : r.replace(/^\w+:/, ''); return /^place:/.test(r) ? shortName(n) : n; }
-      const m = /^(faction|landmark|figure|secret|rumour|record|chronicle|resource):(?:([\w-]+)\/)?(.+)$/.exec(r);
+      const m = /^(faction|landmark|figure|secret|rumour|record|chronicle|resource|tie|question):(?:([\w-]+)\/)?(.+)$/.exec(r);
       if (m) {
         const owner = m[2] ? Si.get(m[2], recs) : rec, id = m[3];
         const find = (list, key) => { const x = (list || []).find(y => (key ? slug(y[key]) : y.id) === id); return x || null; };
         const hit = owner && ({
           faction: () => find(owner.domestic.factions), figure: () => find(owner.domestic.figures), landmark: () => find(owner.history.landmarks),
           secret: () => find(owner.intrigue.secrets), rumour: () => find(owner.intrigue.rumours), chronicle: () => find(owner.history.chronicle),
-          resource: () => find(owner.economy.resources), record: () => find(owner.history.record, 'topic') })[m[1]]();
+          resource: () => find(owner.economy.resources), record: () => find(owner.history.record, 'topic'),
+          tie: () => find(owner.foreign.ties), question: () => find(owner.intrigue.questions) })[m[1]]();
+        if (hit && m[1] === 'tie') return shortName(c.name('place:' + String(hit.with).replace(/^place:/, ''))) + ' · ' + (Si.label(Si.ALLIANCE_KINDS, hit.kind) || '').toLowerCase();
         if (hit) return hit.name || hit.title || hit.topic || (hit.text ? hit.text.slice(0, 48) + (hit.text.length > 48 ? '…' : '') : id);
         return id.replace(/-/g, ' ');
       }
@@ -69,6 +72,7 @@
     const add = (ref, kind, it) => { if (!c.pins.has(ref)) c.pins.set(ref, []); c.pins.get(ref).push({ kind, it }); };
     (rec.intrigue.secrets || []).filter(c.show).forEach(s => (s.about || []).forEach(r => add(r, 'secret', s)));
     (rec.intrigue.rumours || []).filter(c.show).forEach(s => (s.about || []).forEach(r => add(r, 'rumour', s)));
+    if (author) (rec.intrigue.secrets || []).forEach(s => (s.evidence || []).forEach(r => { if (!(c.pins.get(r) || []).some(p => p.it === s)) add(r, 'secret', s); }));
     return c;
   }
   /** "Voided Settlement — The Hollow Reach" -> "The Hollow Reach" */
@@ -173,7 +177,7 @@
     const agentsIn = c.author ? c.recs.flatMap(r => (r.foreign.agents || []).filter(a => String(a.in || '').replace(/^place:/, '') === c.pid).map(a => Object.assign({ from: r.placeId }, a))) : [];
     const blocs = c.recs.flatMap(r => (r.foreign.blocs || []).filter(b => (b.members || []).some(m => String(m.place || '').replace(/^place:/, '') === c.pid)));
     const tieCard = t => { const full = t.owner === c.pid ? Object.assign({}, own(t.id), t) : t; const other = c.name('place:' + t.other);
-      return card('', `<div class="se-row"><button type="button" class="se-link" data-ref="place:${esc(t.other)}">${esc(other)}</button>${chip(label('ALLIANCE_KINDS', t.kind), { alliance: 'teal', trade: 'am', vassal: 'am', truce: '', rivalry: 'red', war: 'red', covert: 'red' }[t.kind] || '')}${full.motive ? chip('Motive · ' + label('MOTIVES', full.motive), 'am') : ''}${t.owner !== c.pid ? chip('stored on ' + c.name('place:' + t.owner)) : ''}${t.hidden ? chip('Hidden from readers', 'dash') : ''}</div>
+      return card('', `<div class="se-row"><button type="button" class="se-link" data-ref="place:${esc(t.other)}">${esc(other)}</button>${chip(label('ALLIANCE_KINDS', t.kind), { alliance: 'teal', trade: 'am', vassal: 'am', truce: '', rivalry: 'red', war: 'red', covert: 'red' }[t.kind] || '')}${full.motive ? chip('Motive · ' + label('MOTIVES', full.motive), 'am') : ''}${t.owner !== c.pid ? chip('stored on ' + c.name('place:' + t.owner)) : ''}${t.hidden ? chip('Hidden from readers', 'dash') : ''}${markers(c, 'tie:' + t.owner + '/' + t.id)}</div>
         ${kv([['Terms', (full.terms || []).map(x => esc(`${x.side || ''}: gives ${x.gives || '—'}, gets ${x.gets || '—'}`)).join('<br>') || esc(c.txt(full.note))],
               ['Signed', full.signed && (full.signed.when || full.signed.by) ? esc([full.signed.when, (full.signed.by || []).map(c.name).join(', '), full.signed.where].filter(Boolean).join(' · ')) : ''],
               ['Renewal', full.renewal && (full.renewal.expires || full.renewal.conditions) ? esc([full.renewal.expires, full.renewal.conditions].filter(Boolean).join(' · ')) : ''],
@@ -224,10 +228,13 @@
     const whatIfs = c.author ? (c.rec.scenarios || []) : [];
     const loaded = (it.secrets || []).concat(it.foreshadow || []).filter(x => x.setup != null && x.payoff == null);
     const aboutLinks = refs => (refs || []).map(r => {
-      const m = /^(faction|landmark|record|chronicle|resource):/.exec(r);
-      const tab = m ? ({ faction: 'domestic', landmark: 'history', record: 'history', chronicle: 'history', resource: 'economy' })[m[1]] : null;
+      const m = /^(faction|landmark|record|chronicle|resource|tie):/.exec(r);
+      const tab = m ? ({ faction: 'domestic', landmark: 'history', record: 'history', chronicle: 'history', resource: 'economy', tie: 'foreign' })[m[1]] : null;
       return tab ? `<button type="button" class="se-link" data-se-tab="${tab}">${esc(ROMAN[S().TABS.indexOf(tab)] + ' › ' + c.name(r))}</button>` : chip(c.name(r));
     }).join('');
+    const mine = ref => { const m = /^(secret|question):(?:([\w-]+)\/)?(.+)$/.exec(String(ref || '')); return m && (!m[2] || m[2] === c.pid) ? { kind: m[1], id: m[3] } : null; };
+    const jump = (ref, text) => { const m = mine(ref); return m ? `<button type="button" class="se-mk" data-se-focus="${esc(m.kind + ':' + m.id)}">${esc(text || ('◆ ' + c.name(ref)))}</button>` : chip(c.name(ref)); };
+    const answers = id => c.author ? (it.questions || []).filter(q => q.answeredBy === 'secret:' + c.pid + '/' + id) : [];
     const reveal = x => c.revealed(x) ? chip('Revealed · Ch ' + x.revealedIn, 'am') : chip('Not revealed · hidden from readers', 'dash');
     if (!c.author && !secrets.length && !rumours.length && !q.length && !hooks.length && !fore.length && !sealed.length) return { html: empty('Nothing here has come to light yet.'), map: { rumours: [] } };
     const html = `
@@ -235,30 +242,37 @@
       ${secrets.map(s => card('', `<div class="se-row"><span class="se-red">◆</span><span class="se-hi">${esc(s.text)}</span></div>
         ${kv([['About', aboutLinks(s.about)], ['Keepers · why', esc((s.keepers || []).map(k => c.name(k.ref) + (k.why ? ' (' + k.why + ')' : '')).join(', '))],
               ['Discoverable', s.discoverable && s.discoverable.where ? esc(c.name(s.discoverable.where) + (s.discoverable.how ? ' · ' + s.discoverable.how : '')) : ''],
+              ['Evidence', c.author ? aboutLinks(s.evidence) : ''], ['Related', c.author ? (s.related || []).map(r => jump(r)).join('') : ''],
+              ['Unlocks', c.author ? (s.unlocks || []).map(r => isRefPlace(r) ? `<button type="button" class="se-link" data-ref="${esc(r)}">${esc(c.name(r))}</button>` : chip(c.name(r))).join('') : ''],
+              ['Answers', answers(s.id).map(q => `<button type="button" class="se-link" data-se-focus="question:${esc(q.id)}">${esc((q.text || '').slice(0, 48))}</button>`).join('')],
               ['Known by', c.author ? '<span class="se-dim">from the Dossier\'s knowledge: step 2.6</span>' : ''],
               ['Setup → payoff', c.author ? chip('setup ' + (s.setup == null ? '—' : 'Ch ' + s.setup), 'dash') + chip('payoff ' + (s.payoff == null ? '—' : 'Ch ' + s.payoff), 'dash') + reveal(s) : '']])}`, 'se-sec', 'secret:' + s.id)).join('')}
       ${rumours.length ? `<div class="se-g2">${rumours.map(r => card('', `<div class="se-row"><span class="se-hi">“${esc(r.text)}”</span>${c.author ? chip(r.truth === 'half' ? 'Half-true' : r.truth === 'true' ? 'True' : 'False', 'am') : ''}</div>
         ${kv([['Origin', esc([c.name(r.origin.where), c.name(r.origin.who), r.origin.when].filter(Boolean).join(' · '))], ['Intent', c.author && r.origin.intent ? chip(label('RUMOUR_INTENTS', r.origin.intent)) : ''],
-              ['Spread', esc((r.spread || []).map(x => c.name(x.to)).join(' → '))], ['Distorts', c.author && r.aboutSecret ? chip('◆ ' + c.name(r.aboutSecret), 'red') : ''], ['Effect', esc(r.effect)]])}`, '', 'rumour:' + r.id)).join('')}</div>` : ''}
+              ['Spread', esc((r.spread || []).map(x => c.name(x.to)).join(' → '))], ['Distorts', r.aboutSecret ? jump(r.aboutSecret) : ''], ['Effect', esc(r.effect)]])}`, '', 'rumour:' + r.id)).join('')}</div>` : ''}
       ${c.author ? card('Setup → payoff', `<div class="se-row">${chip(loaded.length + ' loaded gun' + (loaded.length === 1 ? '' : 's'), loaded.length ? 'fill' : '')}${loaded.map(x => `<span>${esc((x.text || '').slice(0, 60))} <span class="se-dim">set up Ch ${esc(x.setup)}, not paid off</span></span>`).join('')}</div><span class="se-dim">The full check across every place goes into the Dossier's Checks list in step 2.7.</span>`, 'se-gun') : ''}
       ${whatIfs.map(w => card('What-if', `<div class="se-row"><span class="se-hi">${esc(w.trigger)}</span>${chip(label('TRIGGER_GROUPS', w.triggerKind))}${dots(w.likelihood)}${chip(w.status, 'dash')}</div>
         ${kv([['Causes', (w.causes || []).map(x => chip(x.cause)).join('')], ['Fallout', esc((w.fallout || []).map(x => c.name(x.place) + ': ' + x.what).join(' · '))], ['Warning signs', esc((w.warnings || []).map(x => x.text + (x.plantIn ? ' (Ch ' + x.plantIn + ')' : '')).join(' · ')) || '<span class="se-dim">none planted yet</span>']])}`, 'se-hid')).join('')}
       <div class="se-g2">
-        ${card('Questions · hooks', `${q.map(x => `<span>${esc(x.text)}</span>`).join('')}${hooks.map(x => `<span class="se-dim">Hook${x.for ? ' for ' + esc(c.name(x.for)) : ''}: ${esc(x.text)}</span>`).join('')}` || '<span class="se-dim">—</span>')}
+        ${card('Questions · hooks', `${q.map(x => `<span data-se-id="question:${esc(x.id)}">${esc(x.text)}${c.author && x.answeredBy ? ' ' + jump(x.answeredBy, '◆ answered') : ''}</span>`).join('')}${hooks.map(x => `<span class="se-dim">Hook${x.for ? ' for ' + esc(c.name(x.for)) : ''}: ${esc(x.text)}</span>`).join('')}` || '<span class="se-dim">—</span>')}
         ${card('Foreshadow · sealed', `${fore.map(x => `<span>${esc(x.text)}</span>`).join('')}${sealed.map(x => `<span class="se-dim">Sealed: ${esc(c.name(x.place))} · ${esc(x.why)}</span>`).join('')}` || '<span class="se-dim">—</span>')}
       </div>`;
     return { html, map: { rumours } };
   }
+  const isRefPlace = r => /^place:/.test(String(r || ''));
   const RENDER = { overview, history, domestic, foreign, economy, beasts, intrigue };
 
   // ---------------------------------------------------------------- the map
-  function mapHtml(tab) {
+  function mapHtml(tab, c) {
     const z = ZOOM[tab];
+    const top = c ? (c.author ? (c.latest || c.at) : c.at) : null;
+    const sv = top ? Math.max(1, Math.min(top, cur && cur.spreadCh != null ? cur.spreadCh : top)) : null;
+    const slider = tab === 'intrigue' && top ? `<div class="se-slide"><label for="seSl">Chapter</label><input id="seSl" type="range" min="1" max="${top}" value="${sv}" aria-label="Scrub the chapter to see how rumours spread"><output id="seSlO" for="seSl">Ch ${sv}</output></div>` : '';
     return `<div class="se-map" data-zoom="${z}">
       <canvas class="se-cv" tabindex="${z === 'site' ? 0 : -1}" aria-label="${z === 'site' ? 'Founding model. Drag or use the arrow keys to turn it.' : 'Dither map'}"></canvas>
       <svg class="se-svg" aria-hidden="true"></svg><div class="se-pins"></div>
       <div class="se-zoom" aria-hidden="true">${['world', 'region', 'site'].map(k => `<span class="${k === z ? 'on' : ''}">${k.toUpperCase()}</span>`).join('')}</div>
-      <div class="se-legend"></div>
+      <div class="se-legend"></div>${slider}
       <p class="se-maploading">Drawing the map…</p>
     </div>`;
   }
@@ -294,8 +308,15 @@
       (m.ties || []).forEach(t => { const o = ll(t.other); if (!me || !o) return; paths += arc(me, o, KIND_COL[t.kind] || 'var(--amber)', t.kind === 'covert' ? '2 6' : (t.hidden ? '4 6' : '8 6')); paths += `<circle cx="${o[0]}" cy="${o[1]}" r="5" fill="${KIND_COL[t.kind] || 'var(--amber)'}"/>`; html += pin(o[0] + 8, o[1] + 4, null, c.name('place:' + t.other) + ' · ' + S().label(S().ALLIANCE_KINDS, t.kind), t.hidden ? 'hid' : ''); });
       (m.agentsIn || []).forEach(a => { const o = ll(a.from); if (me && o) paths += arc(o, me, 'var(--ember)', '1 6', 1.6); });
       (m.blocs || []).forEach(b => { const pts = b.members.map(x => ll(x.place)).filter(Boolean); if (pts.length > 1) paths += `<polygon points="${pts.map(q => q.join(',')).join(' ')}" fill="rgba(111,179,163,.08)" stroke="var(--verdigris)" stroke-dasharray="3 5"/>`; });
-      (m.rumours || []).forEach(r => (r.spread || []).forEach(s => { const o = ll(s.to); if (me && o) { paths += arc(me, o, 'var(--ember)', '1 6', 2); html += pin(o[0] + 8, o[1] - 18, null, '“' + (r.text || '').slice(0, 34) + '”', 'red'); } }));
-      leg = m.rumours ? 'how rumours spread from here<br>author view shows every line' : '<span style="color:var(--verdigris)">- - -</span> alliance · <span style="color:var(--gold)">——</span> trade · <span style="color:var(--ember)">· · ·</span> covert or war<br>ties you haven\'t reached are not drawn';
+      const sch = cur && cur.spreadCh != null ? cur.spreadCh : null;        // null = every step (the author's default); a number = the chapter the slider is on
+      (m.rumours || []).forEach(r => {
+        if (sch != null && r.origin && r.origin.when && !S().reached(r.origin.when, sch)) return;      // not yet started
+        const start = r.origin && isRefPlace(r.origin.where) ? ll(r.origin.where) : me;
+        if (start) paths += `<circle cx="${start[0]}" cy="${start[1]}" r="15" fill="rgba(212,69,43,.14)" stroke="var(--ember)" stroke-dasharray="3 3"/>`;
+        (r.spread || []).forEach(x => { if (sch != null && x.when && !S().reached(x.when, sch)) return; const o = ll(x.to);
+          if (start && o) { paths += arc(start, o, 'var(--ember)', '1 6', 2); html += pin(o[0] + 8, o[1] - 18, null, '“' + (r.text || '').slice(0, 34) + '”', 'red'); } });
+      });
+      leg = m.rumours ? 'how rumours spread from here<br>slide to a chapter' + (c.author ? '<br>author view shows every line' : '') : '<span style="color:var(--verdigris)">- - -</span> alliance · <span style="color:var(--gold)">——</span> trade · <span style="color:var(--ember)">· · ·</span> covert or war<br>ties you haven\'t reached are not drawn';
     } else if (z === 'region') {
       if (!hasLL) { pins.innerHTML = ''; legend.innerHTML = 'This place has no position on the map.'; return; }
       const pr = D().region(cv, p.lng, p.lat).project, me = pr(p.lng, p.lat);
@@ -346,7 +367,7 @@
     const panel = document.getElementById('bookPanel');
     if (panel) {
       panel.hidden = false; panel.classList.add('se-panel');
-      panel.innerHTML = mapHtml(tab);
+      panel.innerHTML = mapHtml(tab, c);
       drawMap(c, out);
       if (ro) ro.disconnect();
       let t = 0; ro = new ResizeObserver(() => { clearTimeout(t); t = setTimeout(() => { if (cur && document.querySelector('#bookPanel .se-map')) drawMap(context(cur.placeId), RENDER[cur.tab](context(cur.placeId))); }, 120); });
@@ -371,7 +392,7 @@
   }
   function open(placeId, tab) {
     if (!S() || !inEncyclopedia()) return false;
-    cur = { placeId, tab: S().TABS.includes(tab) ? tab : 'overview', angle: 0.6, stage: 6, focus: null };
+    cur = { placeId, tab: S().TABS.includes(tab) ? tab : 'overview', angle: 0.6, stage: 6, focus: null, spreadCh: null };
     return render();
   }
 
@@ -384,6 +405,11 @@
       const f = t.closest('[data-se-focus]'); if (f) { cur.tab = 'intrigue'; cur.focus = f.dataset.seFocus; render(); return; }
       const st = t.closest('[data-se-stage]'); if (st) { cur.stage = +st.dataset.seStage; drawMap(context(cur.placeId), RENDER[cur.tab](context(cur.placeId))); return; }
       const tu = t.closest('[data-se-turn]'); if (tu) { cur.angle += (+tu.dataset.seTurn) * 0.35; drawMap(context(cur.placeId), RENDER[cur.tab](context(cur.placeId))); }
+    });
+    document.addEventListener('input', e => {
+      const t = e.target; if (!cur || !t || t.id !== 'seSl') return;
+      cur.spreadCh = +t.value; const o = document.getElementById('seSlO'); if (o) o.textContent = 'Ch ' + t.value;
+      const c = context(cur.placeId); drawMap(c, RENDER[cur.tab](c));
     });
     let drag = null;
     document.addEventListener('pointerdown', e => { const cv = e.target.closest && e.target.closest('#bookPanel .se-map[data-zoom="site"] .se-cv'); if (cv && cur) { drag = { x: e.clientX, a: cur.angle }; cv.setPointerCapture(e.pointerId); } });
