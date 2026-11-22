@@ -63,6 +63,10 @@ It should show how deeply the world has been thought through, not just list plac
   upgrades. *Done when:* an edit survives a reload and an export/import round trip.
 - [x] **1.4 Checks.** Add to `assets/epitaph-checks.js`: alliances that point at missing places, an alliance whose end comes before its
   start, beasts that point at missing creatures, places with no entry. *Done when:* the checks page lists them.
+- [ ] **1.5 Schema v2.** *(Added 2026-11-22.)* Build [site-schema-v2.md](site-schema-v2.md) in `assets/epitaph-sites.js`: tabs Overview · History ·
+  Domestic · Foreign · Economy · Beasts · Intrigue, the new 7-sets and scales, refs for factions, figures, ties, blocs, secrets, rumours and
+  scenarios, and the v1 → v2 upgrade with a backup. *Done when:* v1 data loads as v2 with nothing lost, and the checks know the new refs.
+- [ ] **1.6 Redraft the statue sites in v2 (Opus).** Fill the new tabs for the six statue sites from the lore, all marked draft.
 
 ## Phase 2 — The book page (reading)
 
@@ -73,6 +77,12 @@ It should show how deeply the world has been thought through, not just list plac
 - [ ] **2.3 In the story (derived).** Chapters where something happened there, and the characters who passed through, pulled from
   Dossier locations (the same data the map's sword trails use). *Done when:* no hand entry is needed for it.
 - [~] **2.4 Spoiler gate.** *(Started in 2.1: places, alliances and the index search are gated, and an Author view exists. The tabs still need it.)* Apply 0.2 across every tab: future rulers, alliances' hidden endings and later founding stages show as "?".
+- [ ] **2.5 Intrigue links.** Markers in every tab for the secrets and rumours pinned to a field, rumour origin and spread (drawn on the map
+  as it spreads by chapter), evidence and unanswered questions linked to their secrets.
+- [ ] **2.6 Dossier knowledge link.** A Dossier secret or fact can point at an encyclopedia secret; "known by X since chapter N" is derived from
+  the per-chapter knowledge; "could be discovered here" from Dossier locations.
+- [ ] **2.7 Setup → payoff check.** Setup and payoff chapters on secrets, foreshadowing, evidence and scenario warning signs; the Checks list
+  shows loaded guns (set up, never paid off) and payoffs with no setup.
 
 ## Phase 3 — Editing
 
@@ -86,6 +96,9 @@ It should show how deeply the world has been thought through, not just list plac
   revealed.
 - [ ] **4.2 Relations web.** All places as nodes, lines coloured by relation, changing with the reader's chapter (scrubbable).
 - [ ] **4.3 On the map.** A "Politics" toggle in `atlas-3d.html` draws the same relation lines between places at the current chapter.
+- [ ] **4.4 Blocs.** Named pacts of three or more places, members joining and leaving on dates, shown on every member and in the web.
+- [ ] **4.5 What-if board (Opus design).** Scenarios per place and across places: trigger, causes weighed, fallout per place, warning signs,
+  likelihood, status; the cause and outcome menus from the schema as suggestions.
 
 ## Phase 5 — Founding ("how it was built")
 
@@ -115,7 +128,7 @@ It should show how deeply the world has been thought through, not just list plac
 The user saves their weekly limit by running plumbing steps on **Sonnet** and switching to **Opus** only where judgment matters.
 Check your model at the start of every resume.
 
-**Opus steps** in this plan: 1.1 (schema), 1.2 (lore defaults), 2.2 (entry view design), 4.2 (relations web), 5.1 (founding stages from the lore), 5.2 (built scenes by stage), 5.3 (illustrated stages). Every other step is a Sonnet step.
+**Opus steps** in this plan: 1.1 (schema), 1.6 (v2 redraft), 4.5 (what-if board design), 1.2 (lore defaults), 2.2 (entry view design), 4.2 (relations web), 5.1 (founding stages from the lore), 5.2 (built scenes by stage), 5.3 (illustrated stages). Every other step is a Sonnet step.
 
 **If you are Sonnet**, stop and tell the user to switch to Opus (`/model`) before you:
 - start an Opus step (listed above);
@@ -146,6 +159,7 @@ When the user says "get back to it" / "back to the plan":
 
 Newest first. One line each: date, what changed, and what it does to the plan.
 
+- 2026-11-22 — **Schema v2 drafted (Opus) from the user's picks:** [site-schema-v2.md](site-schema-v2.md). Tabs become Overview · History · Domestic · Foreign · Economy · Beasts · Intrigue (In the story moves into Overview). Intrigue pins every secret and rumour to the field it is about; rumours record origin, intent and spread; secrets get setup and payoff chapters (a Chekhov check) and link to the Dossier's per-chapter knowledge, which gives "known by X since chapter N" for free. **Lists over seven were merged into sevens (motives, faction kinds, tie endings, temperament, social shape), waiting on the user's yes**, plus four new scales (technology, faction strength, resource importance, scenario likelihood). **New steps:** 1.5, 1.6, 2.5, 2.6, 2.7, 4.4, 4.5 (34 steps now). 2.2 resumes after 1.5, with the new tabs.
 - 2026-11-22 — **User approved three design rules:** multi-place **blocs** (one named pact, members join and leave on dates), beast **ranges on the creature** with places deriving who else is affected, and **founding models only for places switched on** (statue sites by default) until the world is fully fleshed out. The rest of schema v2 waits on the tick-box picks.
 - 2026-11-22 — **Schema v2 under discussion (Opus), 2.2 paused.** The user wants a place entry as detailed as the Dossier or more: **domestic affairs** (factions and parties, key figures and their goals, unrest and rebellion, technology, education, faith, military), **history** (original purpose, founders and first members, chronicle, official story vs truth), richer **foreign affairs** (motive, terms, target, renewal, how it ends, multi-place blocs), a deeper **economy** (core exports, partners, routes, what happens if cut off), **what-if scenarios** with many causes, and **beast dynamics** (temperament, nests, wards, sapient monster nations that could have their own entries). Decided: beast ranges live on the creature (Creature Log) and places work out who else is affected; **founding models only for places the user switches on, statue sites on by default**. The options are on a tick-box page for the user; the schema rewrite (1.1 again, Opus) waits for their picks and will change the seven tabs.
 - 2026-11-22 — **2.2 design, round 3 (Opus).** The user wants everything **inside the book** (the `opse` spread), with a simpler **dither map** in the style of their Webdesign refs (halftone dot map, campaign-book map with locks, dossier page beside a line map, tactical range rings, stacked contour terrain). Layout G: entry on the left page with the seven tabs as a numbered rail; the right page's empty panel holds the map above the terminal, and each tab picks the zoom (world for ties and story trails, region for resources and beasts, a contour model of the site for rule and founding). The dither maps come from the Atlas's own `earth.png` heightmap (Equal Earth, same projection), so a 2D canvas can draw them with no WebGL. The scales are drawn as 7 growing dots, the map's own language. Waiting on the user's verdict. Mockup scripts: `~/Downloads/claude-info/dither-mockups/`.
