@@ -21,6 +21,9 @@
   const gp = (o, p) => String(p).split('.').reduce((a, k) => a == null ? a : a[k], o);
   const sp = (o, p, v) => { const ks = String(p).split('.'); let a = o; ks.slice(0, -1).forEach(k => { if (a[k] == null || typeof a[k] !== 'object') a[k] = {}; a = a[k]; }); a[ks[ks.length - 1]] = v; };
   const UNDO_KEY = 'epitaph-sites-undo', UNDO_MAX = 30;
+  const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
+  /** b over a: objects merge key by key (so editing `goals.public` keeps `goals.secret`); arrays and values are replaced. */
+  const deepMerge = (a, b) => { const out = Object.assign({}, a); Object.keys(b || {}).forEach(k => { out[k] = isObj(out[k]) && isObj(b[k]) ? deepMerge(out[k], b[k]) : b[k]; }); return out; };
 
   // ---------------------------------------------------------------- field builders
   const F = {
@@ -219,13 +222,13 @@
     const Sx = Si(), rec = clone(Sx.get(c.pid) || Sx.empty(c.pid)), tabKey = tabKeyOf(u), before = clone(rec[tabKey]), wasDraft = !!(rec.draft || {})[tabKey];
     const tab = clone(rec[tabKey]);
     if (!u.list) {
-      const cur = u.at === tabKey ? tab : gp(tab, u.at.split('.').slice(1).join('.')), merged = Object.assign({}, cur, blocks[0].values);
+      const cur = u.at === tabKey ? tab : gp(tab, u.at.split('.').slice(1).join('.')), merged = deepMerge(cur, blocks[0].values);
       if (u.at === tabKey) Object.assign(tab, merged); else sp(tab, u.at.split('.').slice(1).join('.'), merged);
     } else {
       const arr = u.at === tabKey ? tab : gp(tab, u.at.split('.').slice(1).join('.'));
       const list = Array.isArray(arr) ? arr : [];
       const out = [];
-      list.forEach((it, i) => { const b = blocks.find(x => x.orig === i); if (removed.includes(i)) return; out.push(b ? Object.assign({}, it, b.values) : it); });
+      list.forEach((it, i) => { const b = blocks.find(x => x.orig === i); if (removed.includes(i)) return; out.push(b ? deepMerge(it, b.values) : it); });
       blocks.filter(b => b.orig == null && !b.removed).forEach(b => { const it = Object.assign(u.make(), b.values); if (u.ids) it.id = Sx.uid(it[u.need || 'name'] || it.title || u.noun, out); out.push(it); });
       // keep the author's order when they only edited one item; a list form keeps list order, new items last
       if (u.at === tabKey) { tab.length = 0; out.forEach(x => tab.push(x)); } else sp(tab, u.at.split('.').slice(1).join('.'), out);
@@ -244,6 +247,68 @@
     const ok = Si().save({ placeId: e.placeId, [e.tab]: e.before, draft: { [e.tab]: !!e.wasDraft } });
     try { localStorage.setItem(UNDO_KEY, JSON.stringify(s)); } catch (x) { /* ignore */ }
     return ok ? e : false;
+  }
+
+  // ---------------------------------------------------------------- approving drafts
+  const draftTabs = rec => Si().TABS.concat(['scenarios']).filter(t => (rec.draft || {})[t]);
+  function setDraft(placeId, tabs, draft) {
+    const Sx = Si(), rec = Sx.get(placeId) || Sx.empty(placeId), ch = tabs.filter(t => !!(rec.draft || {})[t] !== draft); if (!ch.length) return false;
+    const d = {}; ch.forEach(t => { d[t] = draft; pushUndo({ placeId, tab: t, before: clone(rec[t]), wasDraft: !draft, at: Date.now(), label: draft ? 'Mark as draft' : 'Approve' }); });
+    return Sx.save({ placeId, draft: d });
+  }
+  const tabGroup = tab => tab === 'intrigue' ? ['intrigue', 'scenarios'] : [tab];       // what-ifs show on the Intrigue tab
+
+  // ---------------------------------------------------------------- the bulk sheet (layout L): one row per item, pick rows, then reveal, hide, delete
+  const sheets = {};          // placeId -> unit key while a sheet is open
+  const SHEET_OK = ['text', 'area', 'chap', 'bool', 'pick', 'sel', 'when', 'ref', 'lines'];
+  /** Columns for a unit's sheet: its main text first, up to three more simple fields, then Hidden and Reveal (where the unit has them). */
+  function sheetCols(u) {
+    const asSel = f => f.t === 'pick' ? { t: 'sel', k: f.k, l: f.l, opts: [['', '—']].concat(SET(f.set).map(o => [o.id, o.label])) } : f;
+    const base = u.fields.filter(f => SHEET_OK.includes(f.t) && !f.author && f.k !== 'hidden' && f.k !== 'revealedIn');
+    const first = u.need ? base.find(f => f.k === u.need) : null;
+    const cols = (first ? [first] : []).concat(base.filter(f => f !== first)).slice(0, 3).map(asSel);
+    const hold = ['hidden', 'revealedIn'].map(k => u.fields.find(f => f.k === k)).filter(Boolean);
+    return { cols, hold, all: cols.concat(hold), hasHidden: hold.some(f => f.k === 'hidden') };
+  }
+  function sheetHtml(c, u) {
+    const Sx = Si(), rec = Sx.get(c.pid) || Sx.empty(c.pid), items = dataOf(rec, u), ctx = { rec, ch: cache || (cache = choices(c)), compact: true };
+    const { all } = sheetCols(u), units = UNITS.filter(x => x.tab === u.tab && x.list), n = all.length;
+    const grid = `style="grid-template-columns:repeat(${n},minmax(0,1fr))"`;
+    const row = (it, i) => `<div class="se-srow" data-block data-orig="${i}"><label class="se-spick"><input type="checkbox" data-pick aria-label="Pick ${esc(u.title ? u.title(it) : 'row')}"></label><div class="se-fgrid" ${grid}>${all.map(f => fieldHtml(f, gp(it, f.k), ctx)).join('')}</div></div>`;
+    const { hasHidden } = sheetCols(u);
+    return `<div class="se-sheet" data-se-sheet data-unit="${esc(u.key)}">
+      <div class="se-sh"><span class="se-lbl">▦ Sheet</span><select data-se-sheetunit aria-label="Which list">${units.map(x => `<option value="${esc(x.key)}"${x.key === u.key ? ' selected' : ''}>${esc(x.label)}</option>`).join('')}</select><span class="se-dim">${(items || []).length} row${(items || []).length === 1 ? '' : 's'} · pick rows, then act on them · Save sheet keeps all your changes as one undo</span></div>
+      <div class="se-bulk" role="toolbar" aria-label="Bulk actions"><label class="se-all"><input type="checkbox" data-se-pickall> all</label><b data-se-npick>0 picked</b>
+        <span class="se-lbl">Reveal in Ch</span><input type="number" min="1" step="1" class="se-bn" data-se-bulkch aria-label="Chapter to reveal in" placeholder="Ch"><button type="button" class="se-edc" data-se-bulk="reveal">Reveal</button>
+        <button type="button" class="se-edc" data-se-bulk="hide">${hasHidden ? 'Hide' : 'Un-reveal'}</button>${hasHidden ? '<button type="button" class="se-edc" data-se-bulk="show">Show now</button>' : ''}<button type="button" class="se-edc danger" data-se-bulk="delete">Delete</button></div>
+      <div class="se-shead"><span></span><div class="se-fgrid" ${grid}>${all.map(f => `<span class="se-lbl">${esc(f.l)}</span>`).join('')}</div></div>
+      <div class="se-srows">${(items || []).map(row).join('') || '<p class="se-empty">Nothing in this list yet.</p>'}</div>
+      <p class="se-err" role="alert" hidden></p>
+      <div class="se-eb"><button type="button" class="se-btn ghost" data-se-sheetclose>Back to reading</button><button type="button" class="se-btn" data-se-sheetsave>Save sheet</button></div>
+      ${datalists(ctx.ch)}</div>`;
+  }
+  const pickedRows = form => [...form.querySelectorAll('[data-block]')].filter(r => !r.classList.contains('gone') && r.querySelector('[data-pick]').checked);
+  function bulk(form, action) {
+    const rows = pickedRows(form); if (!rows.length) { errorIn(form, 'Pick at least one row first.'); return; }
+    const u = BYKEY[form.dataset.unit], hasHidden = sheetCols(u).hasHidden; errorIn(form, '');
+    const ch = parseInt(form.querySelector('[data-se-bulkch]').value, 10);
+    rows.forEach(r => {
+      const hid = r.querySelector('[data-fk="hidden"] input'), rev = r.querySelector('[data-fk="revealedIn"] input');
+      if (action === 'reveal') { if (!(ch > 0)) return; if (rev) rev.value = String(ch); }
+      else if (action === 'hide') { if (hid) hid.checked = true; else if (rev) rev.value = ''; }          // a line with no hidden flag is hidden until it has a reveal chapter
+      else if (action === 'show') { if (hid) hid.checked = false; if (rev) rev.value = ''; }
+      else if (action === 'delete') { r.classList.add('gone'); r.hidden = true; }
+    });
+    if (action === 'reveal' && !(ch > 0)) errorIn(form, 'Type the chapter to reveal in first.');
+    void hasHidden; countPicked(form);
+  }
+  function countPicked(form) { const n = pickedRows(form).length, b = form.querySelector('[data-se-npick]'); if (b) b.textContent = n + ' picked'; }
+  function saveSheet(form) {
+    const E = En(), cur = E.current(), c = E.context(cur.placeId), u = BYKEY[form.dataset.unit], cols = sheetCols(u).all;
+    const blocks = [...form.querySelectorAll('[data-block]')].map(b => ({ orig: parseInt(b.dataset.orig, 10), values: readBlock(b, cols), removed: b.classList.contains('gone') }));
+    const removed = blocks.filter(b => b.removed).map(b => b.orig);
+    if (!saveUnit(c, u, blocks.filter(b => !b.removed), removed)) { errorIn(form, 'Could not save: the browser\'s storage may be full. Export a backup first.'); return; }
+    refresh();
   }
 
   // ---------------------------------------------------------------- the form
@@ -274,11 +339,18 @@
     const chips = us.map(u => u.list ? `<span class="se-edg"><button type="button" class="se-edc" data-se-open="${esc(u.key)}" title="Edit all ${esc(u.label.toLowerCase())}">${esc(u.label)}</button><button type="button" class="se-edc plus" data-se-new="${esc(u.key)}" aria-label="Add ${esc(u.noun)}">+</button></span>`
       : `<button type="button" class="se-edc" data-se-open="${esc(u.key)}">${esc(u.label)}</button>`).join('');
     const model = tab === 'overview' ? `<button type="button" class="se-edc${Si().hasModel(Si().get(c.pid) || {}) ? ' on' : ''}" data-se-model title="A rotatable founding model on the map (the statue sites have one by default)">Founding model: ${Si().hasModel(Si().get(c.pid) || {}) ? 'on' : 'off'}</button>` : '';
-    return `<div class="se-edbar" role="toolbar" aria-label="Edit this tab"><span class="se-lbl">✎ Edit</span>${chips}${model}<span class="se-edsp"></span><button type="button" class="se-edc" data-se-undo${n ? '' : ' disabled'}>↶ Undo${n ? ' (' + n + ')' : ''}</button></div>`;
+    const sheetOk = us.some(u => u.list), nd = draftTabs(Si().get(c.pid) || {}).length;
+    return `<div class="se-edbar" role="toolbar" aria-label="Edit this tab"><span class="se-lbl">✎ Edit</span>${chips}${model}${sheetOk ? '<button type="button" class="se-edc" data-se-sheet-open title="Every item of a list in one table, for bulk reveal, hide and delete">▦ Sheet</button>' : ''}<span class="se-edsp"></span>${nd > 1 ? `<button type="button" class="se-edc" data-se-approveall>Approve all (${nd})</button>` : ''}<button type="button" class="se-edc" data-se-undo${n ? '' : ' disabled'}>↶ Undo${n ? ' (' + n + ')' : ''}</button></div>`;
   }
   function decorate(layer, c, cur) {
     if (!c.author) return;
     const body = layer.querySelector('.se-body'); if (!body) return;
+    const rec0 = Si().get(c.pid) || Si().empty(c.pid), grp = tabGroup(cur.tab), isDraft = grp.some(t => (rec0.draft || {})[t]);
+    layer.querySelectorAll('.se-tab[data-se-tab]').forEach(b => { const g = tabGroup(b.dataset.seTab); if (g.some(t => (rec0.draft || {})[t])) b.insertAdjacentHTML('beforeend', '<i class="se-dr" title="Still a draft" aria-label="draft">●</i>'); });
+    const hd = layer.querySelector('.se-hd .se-chip.dash'), ap = isDraft ? '<button type="button" class="se-btn sm" data-se-approve>Approve tab</button>' : '<span class="se-chip am">Approved</span><button type="button" class="se-edc" data-se-undraft>Mark as draft</button>';
+    if (hd) hd.remove();
+    layer.querySelector('.se-hd').insertAdjacentHTML('beforeend', (isDraft ? '<span class="se-chip dash">Draft</span>' : '') + ap);
+    if (sheets[c.pid] && BYKEY[sheets[c.pid]] && BYKEY[sheets[c.pid]].tab === cur.tab) { body.innerHTML = toolbar(c, cur) + sheetHtml(c, BYKEY[sheets[c.pid]]); return; }
     body.insertAdjacentHTML('afterbegin', toolbar(c, cur));
     layer.querySelectorAll('[data-se-edit]').forEach(el => {
       const p = parsePath(el.getAttribute('data-se-edit')); if (!p) return;
@@ -296,6 +368,7 @@
   function addBlock(form) { const tpl = form.querySelector('template[data-newblock]'); if (!tpl) return; const add = form.querySelector('[data-se-additem]'); add.insertAdjacentHTML('beforebegin', tpl.innerHTML); const last = form.querySelectorAll('[data-block]'); const b = last[last.length - 1]; const f0 = b && b.querySelector('input,textarea,select'); if (f0) f0.focus(); }
   const refresh = () => { cache = null; const E = En(); if (E) E.render(); };
   const open = (path, extra) => { const E = En(), cur = E && E.current(); if (!cur) return; pending[cur.placeId] = Object.assign({ path, tab: (parsePath(path) || {}).unit ? parsePath(path).unit.tab : cur.tab }, extra || {}); if (pending[cur.placeId].tab !== cur.tab) E.setTab(pending[cur.placeId].tab); else refresh(); };
+  const closeSheet = () => { const E = En(), cur = E && E.current(); if (cur) delete sheets[cur.placeId]; refresh(); };
   const close = () => { const E = En(), cur = E && E.current(); if (cur) delete pending[cur.placeId]; refresh(); };
 
   // ---------------------------------------------------------------- events (delegated)
@@ -323,6 +396,13 @@
       if ((b = t.closest('[data-se-open]'))) { e.preventDefault(); open(b.dataset.seOpen); return; }
       if ((b = t.closest('[data-se-new]'))) { open(b.dataset.seNew, { only: -1, addNew: true }); return; }
       if (t.closest('[data-se-model]')) { const c = E.context(E.current().placeId), r = Si().get(c.pid) || {}, on = !Si().hasModel(r); Si().save({ placeId: c.pid, model: on }); refresh(); return; }
+      if (t.closest('[data-se-approve]')) { setDraft(E.current().placeId, tabGroup(E.current().tab), false); refresh(); return; }
+      if (t.closest('[data-se-undraft]')) { setDraft(E.current().placeId, tabGroup(E.current().tab), true); refresh(); return; }
+      if (t.closest('[data-se-approveall]')) { const id = E.current().placeId; setDraft(id, draftTabs(Si().get(id) || {}), false); refresh(); return; }
+      if (t.closest('[data-se-sheet-open]')) { const cur = E.current(), us = UNITS.filter(u => u.tab === cur.tab && u.list); sheets[cur.placeId] = (us.find(u => u.key === sheets[cur.placeId]) || us[0]).key; delete pending[cur.placeId]; refresh(); return; }
+      if (t.closest('[data-se-sheetclose]')) { closeSheet(); return; }
+      if (t.closest('[data-se-sheetsave]')) { saveSheet(t.closest('[data-se-sheet]')); return; }
+      if ((b = t.closest('[data-se-bulk]'))) { bulk(t.closest('[data-se-sheet]'), b.dataset.seBulk); return; }
       if (t.closest('[data-se-undo]')) { const r = undoLast(E.current().placeId); if (r) refresh(); return; }
       const form = t.closest('[data-se-form]'); if (!form) return;
       if (t.closest('[data-se-cancel]')) { close(); return; }
@@ -342,10 +422,18 @@
       if (e.key === 'Enter' && t && t.matches && t.matches('.se-chipsf > input')) { e.preventDefault(); e.stopPropagation(); const v = t.value.trim(); if (v) { const box = t.parentElement, arr = JSON.parse(box.dataset.v || '[]'); if (!arr.includes(v)) { arr.push(v); box.dataset.v = JSON.stringify(arr); t.insertAdjacentHTML('beforebegin', chipX(v)); } t.value = ''; } return; }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !(t && t.closest && t.closest('input,textarea,select'))) { const r = undoLast(E.current().placeId); if (r) { e.preventDefault(); refresh(); } }
     }, true);
+    document.addEventListener('change', e => {      // the sheet: pick all / pick a row
+      const t = e.target, sh = t && t.closest ? t.closest('[data-se-sheet]') : null; if (!sh) return;
+      if (t.matches('[data-se-pickall]')) sh.querySelectorAll('[data-block]:not(.gone) [data-pick]').forEach(x => { x.checked = t.checked; });
+      if (t.matches('[data-se-pickall], [data-pick]')) countPicked(sh);
+    });
+    document.addEventListener('change', e => {      // the sheet's list chooser
+      const t = e.target; if (t && t.matches && t.matches('[data-se-sheetunit]') && En() && En().current()) { sheets[En().current().placeId] = t.value; refresh(); }
+    });
     document.addEventListener('change', e => {      // a ref or chip input picked from its list adds immediately
       const t = e.target; if (t && t.matches && t.matches('.se-chipsf > input') && t.value.trim()) { const box = t.parentElement, v = t.value.trim(), arr = JSON.parse(box.dataset.v || '[]'); if (!arr.includes(v)) { arr.push(v); box.dataset.v = JSON.stringify(arr); t.insertAdjacentHTML('beforebegin', chipX(v)); } t.value = ''; }
     });
   }
 
-  global.EpitaphSiteEdit = { _t: { formHtml, readBlock, choices, dataOf }, UNITS, BYKEY, decorate, parsePath, readBlock, readField, undoLast, undoStack, hasPending: id => !!pending[id], cancel: id => { delete pending[id]; }, UNDO_KEY };
+  global.EpitaphSiteEdit = { _t: { formHtml, readBlock, choices, dataOf }, UNITS, BYKEY, decorate, parsePath, readBlock, readField, undoLast, undoStack, hasPending: id => !!pending[id], cancel: id => { delete pending[id]; delete sheets[id]; }, deepMerge, sheetCols, setDraft, draftTabs, sheetOpen: id => !!sheets[id], UNDO_KEY };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -14,7 +14,8 @@
   const GROUPS = [
     { id: 'storyborn', label: 'Storyborn' }, { id: 'voided', label: 'Voided' }, { id: 'fallen', label: 'Fallen' }, { id: 'other', label: 'Cities & others' }
   ];
-  const filters = { q: '', era: '', continent: '', form: '', status: '' };
+  const filters = { q: '', era: '', continent: '', form: '', status: '', draft: '' };
+  const draftTabs = rec => rec ? Object.keys(rec.draft || {}).filter(k => rec.draft[k]) : [];
 
   const Sites = () => global.EpitaphSites, World = () => global.EpitaphWorld, TL = () => global.EpitaphTimeline;
 
@@ -62,6 +63,8 @@
     if (filters.continent && r.place.continentId !== filters.continent) return false;
     if (filters.form && !(r.state && r.rec.domestic.government.form === filters.form)) return false;
     if (filters.status && !(r.state && r.state.status === filters.status)) return false;
+    if (filters.draft === 'draft' && !(r.rec && draftTabs(r.rec).length)) return false;               // Claude's drafts you haven't approved
+    if (filters.draft === 'approved' && !(r.rec && r.state && !draftTabs(r.rec).length)) return false;  // every tab approved or edited by you
     const toks = tokens(filters.q);
     return toks.every(t => r.words.includes(' ' + t));        // a word that starts with it, so "val" doesn't find "valley"
   }
@@ -85,7 +88,7 @@
         ${st ? `<span class="bk-si-status bk-si-${esc(st.status)}">${esc(S.label(S.STATUS, st.status))}</span>` : '<span class="bk-si-status bk-si-none">No entry yet</span>'}${r.hidden ? (r.revealIn == null
           ? '<span class="bk-si-status bk-si-hidden" title="No published chapter lists this place in its world: list yet">Not revealed yet</span>'
           : `<span class="bk-si-status bk-si-hidden" title="The first published chapter that brings it up">Readers see it from Ch ${esc(r.revealIn)}</span>`) : ''}
-        <small>${st ? `${esc(rule)} · ${esc(sz)}${r.allies.length ? ` · ${r.allies.length} tie${r.allies.length === 1 ? '' : 's'}` : ''}${r.rec.draft && Object.values(r.rec.draft).some(Boolean) ? ' · draft' : ''}` : esc((W.country(r.place.countryId) || {}).name || '')}</small>
+        <small>${st ? `${esc(rule)} · ${esc(sz)}${r.allies.length ? ` · ${r.allies.length} tie${r.allies.length === 1 ? '' : 's'}` : ''}${(n => n ? ` · ${n} draft tab${n === 1 ? '' : 's'}` : '')(author ? draftTabs(r.rec).length : 0)}` : esc((W.country(r.place.countryId) || {}).name || '')}</small>
       </button></li>`;
     };
     const sections = GROUPS.map(g => {
@@ -100,6 +103,7 @@
           <select id="siContinent" aria-label="Region">${opt(W.continents(), filters.continent, 'Any region')}</select>
           <select id="siForm" aria-label="Form of rule">${opt(S.FORMS, filters.form, 'Any rule')}</select>
           <select id="siStatus" aria-label="Status">${opt(S.STATUS, filters.status, 'Any status')}</select>
+          ${author ? `<select id="siDraft" aria-label="Draft state"><option value="">Drafts and approved</option><option value="draft"${filters.draft === 'draft' ? ' selected' : ''}>Has draft tabs</option><option value="approved"${filters.draft === 'approved' ? ' selected' : ''}>All tabs approved</option></select>` : ''}
           ${T && global.EpitaphMode && global.EpitaphMode.isAuthor() ? `<button type="button" class="slant-btn${author ? ' primary' : ''}" id="siMode" aria-pressed="${author}" title="${author ? 'You see everything. Click to preview what readers see.' : 'You see what a reader at this chapter sees. Click to see everything.'}">${author ? 'Author view' : 'Reader view'}</button>` : ''}
         </div>
         <p class="bk-si-note">${shown.length} of ${all.length} places · ${withEntry} with an entry · ${author ? `Author view${hiddenCount ? `, ${hiddenCount} hidden from readers at ${esc(readerText)}` : ''}` : `reader at ${esc(readerText)}`}</p>
@@ -108,7 +112,7 @@
     const again = () => { const keep = container.querySelector('.bk-si'); const top = keep ? keep.scrollTop : 0; renderIndex(container); const n = container.querySelector('.bk-si'); if (n) n.scrollTop = top; };
     const bind = (id, key) => { const el = container.querySelector('#' + id); el.addEventListener('change', () => { filters[key] = el.value; again(); }); };
     const mode = container.querySelector('#siMode'); if (mode) mode.addEventListener('click', () => T.setAuthorMode(!author));   // the change event redraws every open view
-    bind('siEra', 'era'); bind('siContinent', 'continent'); bind('siForm', 'form'); bind('siStatus', 'status');
+    bind('siEra', 'era'); bind('siContinent', 'continent'); bind('siForm', 'form'); bind('siStatus', 'status'); if (container.querySelector('#siDraft')) bind('siDraft', 'draft');
     const q = container.querySelector('#siQ');
     q.addEventListener('input', () => { filters.q = q.value; const pos = q.selectionStart; again(); const n = container.querySelector('#siQ'); n.focus(); n.setSelectionRange(pos, pos); });
   }

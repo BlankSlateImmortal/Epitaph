@@ -112,8 +112,9 @@
 .se-fl{ font-size:10px; letter-spacing:.1em; color:var(--dust); text-transform:uppercase; } .se-fl small{ text-transform:none; letter-spacing:0; color:var(--amber-dim); }
 .se-fa{ font-style:normal; color:var(--ember); text-transform:none; letter-spacing:0; font-size:10px; }
 .se-fc{ min-width:0; }
-.se-edit input[type=text], .se-edit input[type=number], .se-edit textarea, .se-edit select{ width:100%; box-sizing:border-box; font-family:var(--f-mono); font-size:12px; color:var(--bone); background:var(--ink); border:1px solid var(--amber-dim); padding:4px 7px; border-radius:0; }
+.se-edit input[type=text], .se-edit input[type=number], .se-edit textarea, .se-edit select, .se-sheet input[type=text], .se-sheet input[type=number], .se-sheet textarea, .se-sheet select{ width:100%; box-sizing:border-box; font-family:var(--f-mono); font-size:12px; color:var(--bone); background:var(--ink); border:1px solid var(--amber-dim); padding:4px 7px; border-radius:0; }
 .se-edit textarea{ resize:vertical; min-height:34px; } .se-edit input:focus-visible, .se-edit textarea:focus-visible, .se-edit select:focus-visible{ outline:2px solid var(--amber); outline-offset:0; }
+.se-sheet input:focus-visible, .se-sheet textarea:focus-visible, .se-sheet select:focus-visible{ outline:2px solid var(--amber); outline-offset:0; }
 .se-bool{ flex-direction:row; align-items:center; gap:7px; } .se-bool .se-fl{ order:2; text-transform:none; letter-spacing:0; font-size:12px; color:var(--bone); } .se-bool input{ width:auto; }
 .se-pickf{ display:flex; flex-wrap:wrap; gap:3px; }
 .se-pc{ font-family:var(--f-crt); font-size:16px; padding:1px 8px; background:transparent; color:var(--dust); border:1px solid var(--amber-dim); cursor:pointer; min-height:26px; } .se-pc:hover, .se-pc:focus-visible{ border-color:var(--amber); outline:none; } .se-pc.on{ background:var(--amber); color:var(--ink); border-color:var(--amber); }
@@ -133,3 +134,27 @@
 @media (max-width:900px){ .se-fgrid, .se-scalesf{ grid-template-columns:1fr; } }
 .se-g2 > .se-edit, .se-g3 > .se-edit{ grid-column:1 / -1; }
 .se-dotsf{ flex-wrap:nowrap; } .se-dn{ white-space:nowrap; }
+
+/* ---- approving drafts and the bulk sheet ---- */
+.se-dr{ font-style:normal; color:var(--amber); margin-left:6px; font-size:10px; }
+.se-tab.on .se-dr{ color:var(--ink); }
+.se-btn.sm{ font-size:13px; padding:5px 12px 4px; min-height:30px; }
+.se-sheet{ display:flex; flex-direction:column; gap:8px; }
+.se-sh{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; } .se-sh select{ font-family:var(--f-crt); font-size:17px; background:var(--ink); color:var(--amber-hi); border:1px solid var(--amber-dim); padding:2px 6px; }
+.se-bulk{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:6px 8px; border:2px solid var(--amber); background:var(--amber-ghost); }
+.se-bulk b{ font-family:var(--f-crt); font-size:19px; color:var(--amber-hi); font-weight:400; min-width:78px; }
+.se-bn{ width:56px; background:var(--ink); color:var(--bone); border:1px solid var(--amber-dim); padding:3px 5px; font-family:var(--f-mono); font-size:12px; }
+.se-edc.danger:hover, .se-edc.danger:focus-visible{ background:var(--ember); border-color:var(--ember); }
+.se-all{ display:flex; align-items:center; gap:5px; color:var(--dust); font-size:11px; }
+.se-shead, .se-srow{ display:grid; grid-template-columns:26px 1fr; gap:8px; align-items:start; }
+.se-shead{ border-bottom:1px solid var(--amber-dim); padding-bottom:3px; }
+.se-srow{ position:relative; padding:5px 0; border-bottom:1px solid var(--line); } .se-srow:hover{ background:var(--amber-ghost); }
+.se-sheet .se-fgrid{ gap:4px 8px; } .se-sheet .se-f{ gap:0; }
+.se-sheet .se-fl{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+.se-sheet .se-bool{ flex-direction:row; justify-content:flex-start; } .se-sheet textarea{ min-height:28px; max-height:90px; }
+.se-sheet .se-srows{ display:flex; flex-direction:column; max-height:520px; overflow:auto; }
+.se-srow.gone{ display:none; }
+.se-sheet .se-f.wide{ grid-column:auto; }
+.se-sheet textarea{ min-height:30px; height:30px; } .se-sheet select, .se-sheet input[type=text], .se-sheet input[type=number]{ min-width:0; }
+.se-sheet .se-bool{ padding-top:5px; }
+.se-sheet .se-bulk input.se-bn{ width:56px; } .se-sheet .se-sh select{ width:auto; min-width:150px; }
