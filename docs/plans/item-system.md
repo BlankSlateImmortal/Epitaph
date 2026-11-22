@@ -254,7 +254,13 @@ Not every item has every part: a blade may have no usage states; many items have
   organisms (`creature:<id>`, creature-log plan; the links module already accepts the format). The book's reader card for items (publish 3.3, the
   other session) should render the origin the same way. Tested: Node (helper) and the real Dossier (both links call the registered handler; an item
   with no origin gets no link).
-- [ ] **5.3 Mobile and both themes.**
+- [x] **5.3 Mobile and both themes.** *(Done 2026-11-21, Sonnet.)* Checked at 390px in the real pages (an iframe of that width): the inventory monitor
+  (badges, tracks, curse ladder), the Marks tab, the wide marks editor, the book's item panel (details, tracks, history, marks with stages), the Library
+  drawer's item form, and the Powers page's Items section. **No sideways overflow anywhere**; the Powers table scrolls inside its own box like the
+  others. Fixed: the small checkboxes (W.I.P, one-way, ≈, the Merge options) now sit in 40px tap rows with 20px boxes. **Themes:** the Dossier and book
+  have one theme (Signal). The only other, **Paper**, belongs to the Atlas map page; the Library drawer is a dark panel there too (it has no Paper
+  styling of its own), and the new fields use the same palette variables, so they match in both. The Atlas page needs WebGL and a CDN, so it was
+  not opened headless; the drawer's markup was tested inside the Dossier page instead.
 - [ ] **5.4 Docs.** `docs/CHANGES.md`, help text, this plan's status.
 
 ## Phase 6 — Free creation: prospective skills and a shared mark library
@@ -322,6 +328,8 @@ When the user says "get back to it" / "back to the plan":
 ## Tweak log
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-21 — **5.3 done (Sonnet).** Only the checkbox tap rows needed a fix. Next: 5.4 docs (Sonnet).
 
 - 2026-11-21 — **5.2 done (Sonnet), partly forward-looking.** The Site Encyclopedia has only its index (its entry view is step 2.2), so there was no
   entry to link into or list items on yet; built the links and the helper now so they light up when it exists.

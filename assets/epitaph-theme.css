@@ -871,3 +871,8 @@ a.from-tag{ text-decoration:none; cursor:pointer; }
 a.from-tag:hover, a.from-tag:focus-visible{ text-decoration:underline; }
 .item-call .v a{ color:inherit; text-decoration:underline dotted; text-underline-offset:3px; cursor:pointer; }
 .item-call .v a:hover, .item-call .v a:focus-visible{ text-decoration:underline; }
+/* phone: the small checkboxes (W.I.P, one-way, ≈) get a comfortable tap row */
+.if-check, .track-check, .if-approx, .merge-upd, .merge-upd-row{ min-height:40px; cursor:pointer; }
+.if-check input[type=checkbox], .track-check input[type=checkbox], .if-approx input[type=checkbox], .merge-upd input[type=checkbox], .merge-upd-row input[type=checkbox]{ width:20px; height:20px; flex:0 0 auto; }
+.merge-upd, .merge-upd-row{ display:flex; align-items:center; gap:8px; }
+.merge-upd-row small{ color:var(--dust); }
