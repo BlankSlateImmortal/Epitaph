@@ -2,6 +2,16 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Atlas: Politics toggle (atlas-3d.html, assets/atlas3d/epitaph-map.js) — step 4.3
+
+A **Politics** button in the Atlas header draws the ties between places as arcs on the board and the planet, at the chapter on the slider. It is the same data and the same reader gate as the relations ring (`EpitaphSites.webAt`), so the two always agree.
+
+- Colour = tie kind (alliance, vassal, trade, truce, rivalry, war, covert); the key lists only the kinds drawn now. War is drawn thicker; vassal and covert carry an arrowhead (from the one who serves or spies).
+- Dotted and fainter = ended. Dashed = a tie readers can't see yet (author only).
+- A reader sees only ties that have started by their chapter, between places they have reached; no secret tie before its time, no unreached end. Changing chapter, or switching Author/Reader, redraws.
+- Era 0 has no politics (the button is disabled); the choice is remembered, and `?politics=1` turns it on from a link.
+- Two places in one spot (a temple inside a city) get no line, since it would have no length.
+
 ## Site Encyclopedia: the relations ring (assets/epitaph-site-web.js, epitaph-sites.js `webAt` / `ringSeats`) — step 4.2
 
 Every place on one ring, every tie between places as a chord, by chapter. Open it with **Relations** on the places index, or **See … in the relations ring** on a place's Foreign tab (Back returns to that entry).

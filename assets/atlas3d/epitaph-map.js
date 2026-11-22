@@ -212,7 +212,7 @@ scene.add(hemi, key, key.target, fill);
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2(9, 9);
 
-const state = { view: 'planet', theme: 'crt', era: 1, eraT: 1, chapter: null, chapters: [], chars: [], demo: false, focus: null, spin: true, lastInteract: 0 };
+const state = { view: 'planet', theme: 'crt', era: 1, eraT: 1, politics: false, chapter: null, chapters: [], chars: [], demo: false, focus: null, spin: true, lastInteract: 0 };
 
 // ------------------------------------------------------------------ data: characters + places
 function loadCharacters() {
@@ -424,6 +424,38 @@ function addMarkers(T, markerScale, parent = root) {
       }
     }
   });
+  addPolitics(parent, markerScale);
+}
+
+// ---- Politics: the ties between places at this chapter (the same gate as the Site Encyclopedia's relations ring)
+const TIE_COLOR = { alliance: '#6fb8a8', vassal: '#ffb238', trade: '#d8b25a', truce: '#c9bfa8', rivalry: '#f08a3c', war: '#e0654a', covert: '#b98ad8' };
+const TIE_NAME = { alliance: 'Alliance', vassal: 'Vassal', trade: 'Trade', truce: 'Truce', rivalry: 'Rivalry', war: 'War', covert: 'Covert' };
+let politicsShown = [];       // the kinds drawn now, for the legend
+function addPolitics(parent, markerScale) {
+  politicsShown = [];
+  const S = window.EpitaphSites;
+  if (!state.politics || state.era !== 1 || !S || !S.webAt || !arcBetween) return;
+  let web; try { web = S.webAt(state.chapter, undefined, undefined); } catch (e) { return; }
+  const author = !window.EpitaphTimeline || window.EpitaphTimeline.authorMode();
+  const at = id => { const p = World.place(id); return p && num(p.lat) && num(p.lng) ? p : null; };
+  const seen = new Set();
+  web.edges.forEach(e => {
+    const a = at(e.a), b = at(e.b); if (!a || !b) return;
+    if (Math.abs(a.lat - b.lat) + Math.abs(a.lng - b.lng) < 0.6) return;      // two places in one spot: no line to draw
+    const curve = arcBetween(a, b); if (!curve) return;                        // one end is beyond this view
+    const col = TIE_COLOR[e.kind] || '#ffb238', gone = e.ended, faint = gone ? 0.5 : 1;
+    const w = (e.kind === 'war' ? 0.075 : 0.055) * markerScale;
+    const pts = curve.getPoints(64), dashed = e.hidden || e.secret && author;    // a dash marks a tie readers can't see (author only)
+    const run = (from, to) => { const c = new THREE.CatmullRomCurve3(pts.slice(from, to + 1)); const m = new THREE.Mesh(new THREE.TubeGeometry(c, Math.max(2, (to - from) * 2), w, 6, false), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: faint, depthWrite: false })); parent.add(m); };
+    if (dashed || gone) { for (let i = 0; i + 3 < pts.length; i += 8) run(i, i + (gone ? 2 : 5)); } else run(0, pts.length - 1);
+    if (e.kind === 'vassal' || e.kind === 'covert') {                       // a small head part-way along, pointing at the place served or spied on
+      const t = 0.62, p = curve.getPoint(t), q = curve.getPoint(t + 0.03);
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(w * 2.6, w * 7, 8), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: faint }));
+      cone.position.copy(p); cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), q.clone().sub(p).normalize()); parent.add(cone);
+    }
+    seen.add(e.kind);
+  });
+  politicsShown = [...seen];
 }
 
 // ------------------------------------------------------------------ impacts: block shockwave + camera jolt
@@ -908,6 +940,7 @@ function renderKeys() {
   const T = THEMES[state.theme], k = [];
   k.push([T.city, 'City']);
   if (state.era === 1) k.push([T.sunk, 'Sunk city (+60 m)'], [T.groups.STORYBORN, 'Storyborn'], [T.groups.VOIDED, 'Voided (hidden)'], [T.groups.FALLEN, 'Fallen']);
+  if (state.politics && state.era === 1) { if (politicsShown.length) politicsShown.forEach(kd => k.push([TIE_COLOR[kd], 'Tie · ' + TIE_NAME[kd]])); else k.push(['transparent', 'No ties at this chapter']); }
   $('keys').innerHTML = k.map(([c, t]) => `<span><em style="background:${c}"></em>${t}</span>`).join('');
 }
 function renderLore() {
@@ -980,9 +1013,16 @@ function setChapter(ch) {
   state.chapter = ch; setChapterUI();
   if (markerRoot && !drag.active) { refreshMarkers(); if (!reduceMotion) flyToChapter(before); }
   else rebuildKeepCamera();
-  renderLegend();
+  renderLegend(); renderKeys();
 }
-const remember = () => { try { localStorage.setItem('epitaph-map-prefs', JSON.stringify({ view: state.view, theme: state.theme, era: state.era })); } catch (e) {} };
+const remember = () => { try { localStorage.setItem('epitaph-map-prefs', JSON.stringify({ view: state.view, theme: state.theme, era: state.era, politics: state.politics })); } catch (e) {} };
+function syncPolitics() {
+  const b = $('politicsBtn'); if (!b) return;
+  b.classList.toggle('on', state.politics && state.era === 1); b.setAttribute('aria-pressed', String(state.politics && state.era === 1));
+  b.disabled = state.era !== 1; b.title = state.era !== 1 ? 'Ties belong to the story (Era 1)' : 'Draw the ties between places (alliances, trade, war…) at this chapter';
+}
+function setPolitics(on) { state.politics = !!on; remember(); syncPolitics(); if (markerRoot) refreshMarkers(); else rebuildKeepCamera(); renderKeys(); }
+{ const pb = $('politicsBtn'); if (pb) pb.addEventListener('click', () => setPolitics(!state.politics)); }
 // ---- switching views with a zoom: Epitaph → Earth dives onto the Earth patch, fades, and the board pulls back from close in;
 // Earth → Epitaph zooms in on the board, fades, and the planet pulls back out from its Earth patch
 const zfx = { cam: null, veil: null, busy: false };
@@ -1081,7 +1121,7 @@ function applyEra(era) {
   state.era = era; remember();
   document.querySelectorAll('[data-era]').forEach(x => x.classList.toggle('on', +x.dataset.era === era));
   eraBusy = true;            // markers are rebuilt once the wave has finished
-  renderLore(); renderKeys(); setChapterUI(); renderLegend();
+  renderLore(); renderKeys(); setChapterUI(); renderLegend(); syncPolitics();
   if (era === 1 && !reduceMotion && markerRoot) { refreshMarkers(); startEraReturn(); }   // swords wait underground for the wave
   if (reduceMotion) { state.eraT = era; rebuildKeepCamera(); eraBusy = false; }
 }
@@ -1100,6 +1140,7 @@ function userSetChapter(ch) { setChapter(ch); if (TL) TL.setReaderChapter(ch ===
 if (TL) TL.onReaderChange(r => {
   const want = r == null || !state.chapters.includes(r) ? latestCh() : r;
   if (want !== state.chapter && !rewinding && !drag.active) setChapter(want);
+  else if (state.politics && markerRoot && !drag.active) { refreshMarkers(); renderKeys(); }   // author/reader view changed: redraw the ties
 });
 $('chapterRange').addEventListener('input', e => !rewinding && userSetChapter(state.chapters[+e.target.value] ?? null));
 $('prevCh').addEventListener('click', () => { if (rewinding) return; const i = state.chapters.indexOf(state.chapter); if (i > 0) userSetChapter(state.chapters[i - 1]); });
@@ -1929,7 +1970,7 @@ async function start() {
     state.chapter = r != null && state.chapters.includes(r) ? r : (state.chapters.length ? state.chapters[state.chapters.length - 1] : null); }
   try {
     const p = JSON.parse(localStorage.getItem('epitaph-map-prefs') || 'null');
-    if (p) { if (['planet', 'earth'].includes(p.view)) state.view = p.view; if (THEMES[p.theme]) state.theme = p.theme; if (p.era === 0) { state.era = 0; state.eraT = 0; } }
+    if (p) { if (['planet', 'earth'].includes(p.view)) state.view = p.view; if (THEMES[p.theme]) state.theme = p.theme; if (p.era === 0) { state.era = 0; state.eraT = 0; } state.politics = !!p.politics; }
   } catch (e) {}
   const q = new URLSearchParams(location.search);
   const oldView = { globe: 'planet', relief: 'earth', shattered: 'earth' }[q.get('view')];   // links to the old Atlas 3D
@@ -1941,6 +1982,8 @@ async function start() {
   document.querySelectorAll('[data-view]').forEach(x => x.classList.toggle('on', x.dataset.view === state.view));
   document.querySelectorAll('[data-theme-btn]').forEach(x => x.classList.toggle('on', x.dataset.themeBtn === state.theme));
   document.querySelectorAll('[data-era]').forEach(x => x.classList.toggle('on', +x.dataset.era === state.era));
+  if (q.get('politics') != null) state.politics = q.get('politics') === '1';
+  syncPolitics();
   setChapterUI();
   if (isSmall()) $('legend').classList.remove('open');
   build(); goHome(true); renderLegend();
