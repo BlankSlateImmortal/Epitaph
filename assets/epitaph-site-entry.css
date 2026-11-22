@@ -90,3 +90,4 @@
   .se-tab{ white-space:nowrap; min-height:44px; } .se-g2, .se-g3{ grid-template-columns:1fr; } .se-tbl{ grid-template-columns:20px 1.6fr .9fr 70px; } .se-tbl > span:nth-child(6n+4), .se-tbl > span:nth-child(6n){ display:none; }
 }
 @media (prefers-reduced-motion:reduce){ [data-se-id].flash{ transition:none; } }
+.k-link{ color:var(--ember); }

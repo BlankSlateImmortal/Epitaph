@@ -395,6 +395,35 @@
     });
     return { people, chapters: chaps };
   }
+  /** Dossier characters who carry an encyclopedia secret (`secret:<place>/<id>`), from the `ref` on their per-chapter secrets.
+   *  -> [{ id, name, involved, knows }]: `involved` = the first chapter whose version lists it, `knows` = the first chapter they know it
+   *  (null = it is in their file but they don't know it). The first chapter a character knows it is when they learned it. */
+  function secretHolders(characters, ref) {
+    const out = [];
+    (characters || []).forEach(c => {
+      const vs = (c.snapshots || []).filter(v => Number.isInteger(v.startChapter)).sort((a, b) => a.startChapter - b.startChapter);
+      let involved = null, knows = null;
+      vs.forEach(v => (v.secrets || []).forEach(x => {
+        if (!x || x.ref !== ref) return;
+        if (involved == null) involved = v.startChapter;
+        if (x.characterKnows && knows == null) knows = v.startChapter;
+      }));
+      if (involved != null) out.push({ id: c.id, name: c.name || 'Unnamed', involved, knows });
+    });
+    return out.sort((a, b) => (a.knows == null ? 1e9 : a.knows) - (b.knows == null ? 1e9 : b.knows) || a.involved - b.involved || a.name.localeCompare(b.name));
+  }
+  /** Who was at a place (a `storyOf` result) before they knew a secret held there: a prompt for "could be discovered here", not a rule.
+   *  `holders` is secretHolders for the same secret. -> [{ id, name, from }] (the chapter their stay began). */
+  function couldFind(story, holders) {
+    const known = new Map((holders || []).filter(h => h.knows != null).map(h => [h.id, h.knows]));
+    const out = [];
+    ((story && story.people) || []).forEach(p => {
+      const st = p.stays.find(x => !known.has(p.id) || known.get(p.id) > x.from);
+      if (st) out.push({ id: p.id, name: p.name, from: st.from });
+    });
+    return out;
+  }
+  const SECRET_REF = /^secret:[\w-]+\/[\w-]+$/;
   /** What a reader on `chapter` may see of one place: a v2 record with everything author-only taken out (docs/plans/site-schema-v2.md).
    *  One gate for both the published snapshot (assets/epitaph-publish.js) and the book's Reader view, so a preview shows what is published.
    *  Rules: dated things follow their dates (an undated one, or `from: null`, is "since the start"); an end the reader hasn't reached is dropped;
@@ -515,6 +544,6 @@
     KEY, VERSION, BACKUP_KEY, STATUS, SCALES, SCALE_SETS, FORMS, ALLIANCE_KINDS, BEAST_RELATIONS, RESOURCE_CATEGORIES, RESOURCE_ROLES, FOUNDING_STAGES,
     MOTIVES, FACTION_KINDS, TIE_ENDINGS, TEMPERAMENTS, SOCIAL_SHAPES, WARD_KINDS, RUMOUR_INTENTS, TRIGGER_GROUPS,
     TABS, TAB_LABEL, DATA_TABS, DEFAULTS,
-    alliancesAt, storyOf, forReader, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, draftUpdatesIn, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
+    alliancesAt, storyOf, forReader, secretHolders, couldFind, SECRET_REF, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, draftUpdatesIn, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
   };
 })(typeof window !== 'undefined' ? window : globalThis);

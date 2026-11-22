@@ -34,6 +34,8 @@
       return !!ch && (ch.snapshots || []).some(v => Number.isInteger(v.startChapter) && (at == null || v.startChapter <= at)); };
     const rec = author ? full : Si.forReader(full, chapter, { recs, charOk });
     const c = { Si, T, recs, rec, place, author, chapter, at, pid: placeId };
+    c.dossier = dossier;
+    c.holders = id => Si.secretHolders(dossier.characters || [], 'secret:' + placeId + '/' + id);
     c.latest = T && T.latestChapter ? T.latestChapter() : null;
     c.seen = when => Si.reached(when, chapter);
     c.revealed = it => !!it && it.revealedIn != null && at != null && it.revealedIn <= at;
@@ -245,7 +247,7 @@
               ['Evidence', c.author ? aboutLinks(s.evidence) : ''], ['Related', c.author ? (s.related || []).map(r => jump(r)).join('') : ''],
               ['Unlocks', c.author ? (s.unlocks || []).map(r => isRefPlace(r) ? `<button type="button" class="se-link" data-ref="${esc(r)}">${esc(c.name(r))}</button>` : chip(c.name(r))).join('') : ''],
               ['Answers', answers(s.id).map(q => `<button type="button" class="se-link" data-se-focus="question:${esc(q.id)}">${esc((q.text || '').slice(0, 48))}</button>`).join('')],
-              ['Known by', c.author ? '<span class="se-dim">from the Dossier\'s knowledge: step 2.6</span>' : ''],
+              ['Known by', c.author ? knownByHtml(c, s) : ''], ['Could be found by', c.author ? findersHtml(c, s) : ''],
               ['Setup → payoff', c.author ? chip('setup ' + (s.setup == null ? '—' : 'Ch ' + s.setup), 'dash') + chip('payoff ' + (s.payoff == null ? '—' : 'Ch ' + s.payoff), 'dash') + reveal(s) : '']])}`, 'se-sec', 'secret:' + s.id)).join('')}
       ${rumours.length ? `<div class="se-g2">${rumours.map(r => card('', `<div class="se-row"><span class="se-hi">“${esc(r.text)}”</span>${c.author ? chip(r.truth === 'half' ? 'Half-true' : r.truth === 'true' ? 'True' : 'False', 'am') : ''}</div>
         ${kv([['Origin', esc([c.name(r.origin.where), c.name(r.origin.who), r.origin.when].filter(Boolean).join(' · '))], ['Intent', c.author && r.origin.intent ? chip(label('RUMOUR_INTENTS', r.origin.intent)) : ''],
@@ -258,6 +260,18 @@
         ${card('Foreshadow · sealed', `${fore.map(x => `<span>${esc(x.text)}</span>`).join('')}${sealed.map(x => `<span class="se-dim">Sealed: ${esc(c.name(x.place))} · ${esc(x.why)}</span>`).join('')}` || '<span class="se-dim">—</span>')}
       </div>`;
     return { html, map: { rumours } };
+  }
+  /** "Known by": who carries this secret in their Dossier file and when they learned it (their first chapter that says they know it). */
+  function knownByHtml(c, s) {
+    const h = c.holders(s.id);
+    if (!h.length) return '<span class="se-dim">No character\'s secrets link to this yet (link one in the Dossier\'s Knowledge editor).</span>';
+    return h.map(x => chip(x.name + (x.knows != null ? ' · since Ch ' + x.knows : ' · in their file from Ch ' + x.involved + ', doesn\'t know it'), x.knows != null ? 'am' : 'dash')).join('');
+  }
+  /** "Could be found by": characters who stood where this can be found (its `discoverable.where` is set) before they knew it. A prompt, not a rule. */
+  function findersHtml(c, s) {
+    if (!(s.discoverable && s.discoverable.where)) return '';
+    const f = c.Si.couldFind(c.story(), c.holders(s.id)).slice(0, 6);
+    return f.length ? f.map(x => chip(x.name + ' · at Ch ' + x.from, 'teal')).join('') : '<span class="se-dim">Nobody who has been here is missing it.</span>';
   }
   const isRefPlace = r => /^place:/.test(String(r || ''));
   const RENDER = { overview, history, domestic, foreign, economy, beasts, intrigue };
@@ -430,5 +444,33 @@
   // place:<id> links open here while the book shows the encyclopedia; elsewhere they keep their old behaviour (the map)
   if (global.EpitaphLinks) global.EpitaphLinks.register('place', id => open(id));
 
-  global.EpitaphSiteEntry = { open, close, render, context, ZOOM, _render: RENDER };
+  // ---- the Dossier side: pick an encyclopedia secret for a character's secret, and label the link ----
+  /** Every encyclopedia secret, as { ref, place, text } (the author's picker). */
+  function secretOptions() {
+    const Si = S(), W = Wd(); if (!Si) return [];
+    const out = [];
+    Si.load().forEach(r => (r.intrigue.secrets || []).forEach(x => out.push({ ref: 'secret:' + r.placeId + '/' + x.id, place: shortName((W && W.place(r.placeId) || {}).name || r.placeId), text: x.text || x.id })));
+    return out;
+  }
+  /** { place, text } for a `secret:<place>/<id>` ref, or null when it no longer exists. */
+  function secretLabel(ref) { return secretOptions().find(o => o.ref === ref) || null; }
+  const pickShort = t => String(t || '').length > 70 ? String(t).slice(0, 69) + '…' : String(t || '');
+  /** The picker under the Dossier's secrets box: sets the fourth column of the line the cursor is on. */
+  function secretPickerHtml(prefix) {
+    const opts = secretOptions(); if (!opts.length) return '';
+    return `<div class="field"><label for="${esc(prefix)}SecLink">Link the secret you are on to the Site Encyclopedia</label>
+      <select id="${esc(prefix)}SecLink" data-sec-link="${esc(prefix)}"><option value="">Pick an encyclopedia secret…</option>${opts.map(o => `<option value="${esc(o.ref)}">${esc(o.place + ' · ' + pickShort(o.text))}</option>`).join('')}<option value="__none">(remove the link)</option></select></div>`;
+  }
+  if (typeof document !== 'undefined') document.addEventListener('change', e => {
+    const sel = e.target && e.target.matches && e.target.matches('select[data-sec-link]') ? e.target : null; if (!sel || !sel.value) return;
+    const ta = document.getElementById(sel.dataset.secLink + 'Secrets'); if (!ta) return;
+    const lines = ta.value.split('\n'); const pos = ta.selectionStart || 0; let at = 0, acc = 0;
+    for (let i = 0; i < lines.length; i++) { if (pos <= acc + lines[i].length) { at = i; break; } acc += lines[i].length + 1; at = i; }
+    const parts = lines[at].split('|').map(x => x.trim()); while (parts.length < 3) parts.push(parts.length === 1 ? 'yes' : '');
+    parts[3] = sel.value === '__none' ? '' : sel.value;
+    lines[at] = (parts[3] ? parts : parts.slice(0, 3)).join(' | ');
+    ta.value = lines.join('\n'); sel.value = ''; ta.dispatchEvent(new Event('input', { bubbles: true })); ta.focus();
+  });
+
+  global.EpitaphSiteEntry = { open, close, render, context, ZOOM, secretOptions, secretLabel, secretPickerHtml, _render: RENDER };
 })(typeof window !== 'undefined' ? window : globalThis);
