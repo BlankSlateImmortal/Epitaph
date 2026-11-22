@@ -351,6 +351,51 @@
     return alliancesOf(placeId, recs).filter(a => asAuthor || seen(a))
       .map(a => Object.assign({}, a, { hidden: !seen(a), ended: a.to != null && reached(a.to, chapter), endHidden: a.to != null && !reached(a.to, chapter) }));
   }
+  /** The relations web at a chapter (step 4.2): every place and every tie between places, through the reader gate.
+   *  chapter: the chapter being looked at (null = the latest). author: true = the author's view, which still follows the chapter
+   *  for what has *started* (so scrubbing works) but also shows secret ties and places readers haven't reached, marked `hidden`.
+   *  A reader sees only ties alliancesAt would show them, between places they have reached.
+   *  -> { nodes: [{ id, hidden }], edges: [{ key, id, owner, a, b, kind, motive, secret, hidden, ended, endHidden, from, to, startCh, endCh }] }
+   *  startCh / endCh: the chapter the start / end is revealed in (0 = before the story, null = not known to this viewer). */
+  function webAt(chapter, list, author) {
+    const t = TL(), recs = list || load(), asAuthor = author === undefined ? authoring() : !!author;
+    const atLatest = !t || t.isRevealed({ when: {}, secret: true }, chapter);
+    const recOf = id => recs.find(x => x.placeId === id);
+    const placeOk = id => { const r = recOf(id); return !r || placeReached(r, chapter); };
+    const revCh = id => { if (id == null) return 0; if (!t) return 0; const e = t.byId(id); return e ? t.revealChapter(e) : null; };
+    const nodes = new Map(), edges = [], seenKey = new Set();
+    const addNode = (id, hidden) => { const n = nodes.get(id); if (!n) nodes.set(id, { id, hidden }); else if (!hidden) n.hidden = false; };
+    recs.forEach(r => { const ok = placeOk(r.placeId); if (asAuthor || ok) addNode(r.placeId, !ok); });
+    recs.forEach(r => ((r.foreign && r.foreign.ties) || []).forEach(x => {
+      const a = r.placeId, b = String(x.with || '').replace(/^place:/, ''); if (!b || b === a) return;
+      const ends = placeOk(a) && placeOk(b);
+      const seen = ends && (x.secret ? (x.from != null ? reached(x.from, chapter) : atLatest) : reached(x.from, chapter));
+      const started = x.from == null || reached(x.from, chapter);
+      if (!(asAuthor ? started : seen)) return;
+      const key = [a, b].sort().join('|') + '|' + x.kind; if (seenKey.has(key)) return; seenKey.add(key);
+      const ended = x.to != null && reached(x.to, chapter), endHidden = x.to != null && !ended;
+      addNode(a, !placeOk(a)); addNode(b, !placeOk(b));
+      edges.push({ key, id: x.id, owner: a, a, b, kind: x.kind, motive: x.motive || null, secret: !!x.secret, hidden: !seen, ended, endHidden,
+        from: x.from == null ? null : x.from, to: ended || asAuthor ? (x.to == null ? null : x.to) : null,
+        startCh: revCh(x.from), endCh: x.to == null ? null : (ended || asAuthor ? revCh(x.to) : null) });
+    }));
+    return { nodes: [...nodes.values()], edges };
+  }
+  /** Seats on the relations ring (step 4.2). Places are grouped (groupOf(id) -> a group name), biggest group first, statue sites
+   *  first inside a group, then by name; one empty seat between groups. Seats depend only on the ids given, so pass the widest set the
+   *  viewer may see and the seats stay put while the chapter changes.
+   *  -> { seats: { id: angle }, groups: [{ name, a0, a1, ids }] }  angles in radians, starting at the top, clockwise. */
+  function ringSeats(ids, groupOf, nameOf, statue) {
+    const g = new Map(), nm = id => String((nameOf && nameOf(id)) || id).toLowerCase(), st = id => !!(statue && statue(id));
+    [...new Set(ids || [])].forEach(id => { const k = String((groupOf && groupOf(id)) || 'Other'); if (!g.has(k)) g.set(k, []); g.get(k).push(id); });
+    const groups = [...g.entries()].sort((x, y) => y[1].length - x[1].length || x[0].localeCompare(y[0]))
+      .map(([name, list]) => ({ name, ids: list.sort((p, q) => (st(q) - st(p)) || nm(p).localeCompare(nm(q)) || String(p).localeCompare(String(q))) }));
+    const total = groups.reduce((n, x) => n + x.ids.length, 0) + (groups.length > 1 ? groups.length : 0);
+    const step = total ? Math.PI * 2 / total : 0, seats = {};
+    let i = 0;
+    groups.forEach(x => { const a0 = -Math.PI / 2 + i * step; x.ids.forEach(id => { seats[id] = -Math.PI / 2 + i * step; i++; }); x.a0 = a0; x.a1 = -Math.PI / 2 + (i - 1) * step; if (groups.length > 1) i++; });
+    return { seats, groups };
+  }
   /** The bars of a place's ties on a timeline (step 4.1). `ties` are alliancesAt results; `order` is the timeline's event ids in order;
    *  `nowIdx` is the index of the last event the reader has reached (-1 = none). Positions are indices into `order` (0..N).
    *  state: 'ongoing' (no end), 'ended' (a reached end), 'unknown' (the end isn't reached: a reader sees the bar run as far as they know and
@@ -602,6 +647,6 @@
     KEY, VERSION, BACKUP_KEY, STATUS, SCALES, SCALE_SETS, FORMS, ALLIANCE_KINDS, BEAST_RELATIONS, RESOURCE_CATEGORIES, RESOURCE_ROLES, FOUNDING_STAGES,
     MOTIVES, FACTION_KINDS, TIE_ENDINGS, TEMPERAMENTS, SOCIAL_SHAPES, WARD_KINDS, RUMOUR_INTENTS, TRIGGER_GROUPS,
     TABS, TAB_LABEL, DATA_TABS, DEFAULTS,
-    alliancesAt, tieBars, storyOf, forReader, secretHolders, couldFind, plantPayoff, SECRET_REF, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, draftUpdatesIn, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
+    alliancesAt, tieBars, webAt, ringSeats, storyOf, forReader, secretHolders, couldFind, plantPayoff, SECRET_REF, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, draftUpdatesIn, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
   };
 })(typeof window !== 'undefined' ? window : globalThis);

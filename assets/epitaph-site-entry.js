@@ -216,6 +216,7 @@ ${r.state === 'ongoing' ? 'still going' : r.state === 'unknown' ? 'ends later (n
               ['Ends', t.to == null ? '' : (t.endHidden ? (c.author ? chip('? · ' + t.to + ' · hidden from readers', 'dash') : chip('?', 'dash')) : esc((full.ends && full.ends.how ? label('TIE_ENDINGS', full.ends.how) + ' · ' : '') + t.to))],
               ['Wants it to fail', c.author ? (full.wantsItToFail || []).map(r => chip(c.name(r), 'red')).join('') : '']])}`, t.hidden ? 'se-hid' : ''); };
     const html = `
+      <div class="se-row sw-open"><button type="button" class="se-link" data-se-web="${esc(c.pid)}">◯ See ${esc(c.place.name.split(/\s+[—–-]\s+/).pop())} in the relations ring ▸</button></div>
       ${ties.length ? card('Ties over time · bars run from where a tie starts to where it ends', tieTimelineHtml(c, ties)) : ''}
       ${ties.length ? ties.map(tieCard).join('') : empty('No ties written yet.')}
       ${blocs.map(b => ecard(f.blocs.indexOf(b) >= 0 ? 'foreign.blocs.' + f.blocs.indexOf(b) : '', 'Bloc · ' + b.name, kv([['Members', esc(b.members.map(m => c.name(m.place) + (m.to ? ' (left)' : '')).join(' · '))], ['Purpose', esc(b.purpose)], ['Seat', esc(c.name(b.seat))], ['Rival', esc(c.name(b.rival))], ['Tension', esc(b.tension)]]))).join('')}
@@ -469,6 +470,7 @@ ${r.state === 'ongoing' ? 'still going' : r.state === 'unknown' ? 'ends later (n
     document.addEventListener('pointerup', () => { drag = null; });
     document.addEventListener('keydown', e => {
       if (!cur || !document.getElementById('seEntry')) return;
+      if (global.EpitaphSiteWeb && global.EpitaphSiteWeb.isOpen()) return;   // the relations ring is on top; it handles its own keys
       if (e.key === 'Escape' && global.EpitaphSiteEdit && global.EpitaphSiteEdit.hasPending(cur.placeId)) { global.EpitaphSiteEdit.cancel(cur.placeId); render(); e.stopPropagation(); e.preventDefault(); return; }
       if (e.key === 'Escape' && !e.target.closest('input,textarea,select')) { close(); e.stopPropagation(); return; }
       if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && e.target.closest && e.target.closest('.se-cv')) { cur.angle += (e.key === 'ArrowLeft' ? -0.2 : 0.2); drawMap(context(cur.placeId), RENDER[cur.tab](context(cur.placeId))); e.preventDefault(); }

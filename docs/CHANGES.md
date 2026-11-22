@@ -2,6 +2,15 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Site Encyclopedia: the relations ring (assets/epitaph-site-web.js, epitaph-sites.js `webAt` / `ringSeats`) — step 4.2
+
+Every place on one ring, every tie between places as a chord, by chapter. Open it with **Relations** on the places index, or **See … in the relations ring** on a place's Foreign tab (Back returns to that entry).
+
+- **Seats never move.** Places are grouped by type (or by country: *Seats by*), statue sites first, with a gap between groups. Stepping chapters (slider, ◂ ▸, or the arrow keys) only adds and fades chords, so changes stand out.
+- **Chords:** colour = tie kind (seven, toggled in the legend), thicker for war, an arrow on vassal and covert (from the one who serves or spies). Dotted and faint = ended. Dashed = readers can't see it yet (author only).
+- **Left page:** what began or ended in this chapter, the busiest places, all ties at this chapter. Click a place or a chord to pick it: a place lists its ties; a tie shows its kind, motive, terms, start and end, with links into both entries. Esc lets go, then closes.
+- **Reader safety:** the ring comes from `EpitaphSites.webAt`, the same gate as the entry. A reader can only scrub up to their own chapter, never sees a place they haven't reached, a secret tie before its time, or where an unreached end falls; a tie's words come through `forReader`.
+
 ## Site Encyclopedia: ties over time (assets/epitaph-site-entry.js, epitaph-sites.js `tieBars`) — step 4.1
 
 The top of a place's **Foreign** tab now draws its ties on a timeline: one row per tie, a bar from where it starts to where it ends (the timeline's own event order), coloured by kind (alliance, trade, war and the rest), with a "latest" or "Ch N" marker for where the reader is. Hover a bar for the tie's start and end events. The author can click a bar to edit that tie.

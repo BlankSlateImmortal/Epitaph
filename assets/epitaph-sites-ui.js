@@ -98,6 +98,7 @@
     container.innerHTML = `
       <div class="bk-si">
         <div class="bk-si-tools">
+          <button type="button" class="slant-btn" data-se-web="" title="Every place on one ring, ties as chords, by chapter">Relations</button>
           <input type="search" id="siQ" class="bk-filter" placeholder="search: a name, a ruler, who trades salt…" value="${esc(filters.q)}" aria-label="Search places">
           <select id="siEra" aria-label="Era">${opt([{ id: 'ERA_0', label: 'Era 0' }, { id: 'ERA_1', label: 'Era 1' }], filters.era, 'Any era')}</select>
           <select id="siContinent" aria-label="Region">${opt(W.continents(), filters.continent, 'Any region')}</select>
