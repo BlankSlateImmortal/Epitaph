@@ -322,8 +322,14 @@ Design agreed in the same conversation (Opus):
   skill level against stats or Threat (no site rule ties them), and archetypes. Also: the site's "give every other skill a parent (the fifth column)" message
   is reworded on the board to "set “Grows from” to one of their skills". Tested in the real page (a Twisted with all three hints first, an untyped character,
   a godling, a capped person with the core taken, a fully locked character; Use → a valid Assign).
-- [ ] **6.5 Mark library UI.** Library tab for marks (list, holders, curse stages per holder); pick-or-create in every mark editor.
-  Sonnet.
+- [x] **6.5 Mark library UI.** *(Done 2026-11-21, Sonnet.)* **Pick-or-create in every mark editor** (the shared editor for item and state marks, the Dossier's mark rows
+  for a person's marks and a chapter's copy of an item, and the wide marks editor): an **"Add from the library…"** picker with **Add a copy** at the end of the list
+  (offering only kinds that holder can take), and under each mark either **Save to the library** or its link status: **in sync**, or **differs from the library** with
+  **Update from the library**, and **Unlink**. New terminal command **`opmk`** (also `open mark library`, and a "Mark library" link, author only) opens the **mark
+  library board**: a list (search, kind; copies and how many differ), an editor with the same fields as every mark editor, and **every copy** of the selected mark:
+  who holds it, the chapter, the curse's own stage ("stage 2/3 · Budding"), in sync or differs. **Update all copies** brings the drifted ones back in line (each
+  copy keeps its own id and stage); **Delete** removes the definition and leaves the copies as ordinary marks. Library items and their states are covered as holders too.
+  Never published; readers are refused. Tested in the real page: all three editor paths, the board, the update and the delete.
 - [ ] **6.6 In chapters.** Chapters may mention a prospective skill while drafting; the chapter check flags a skill used in a canon
   chapter that is still a draft (assign it first). Sonnet.
 
@@ -364,6 +370,8 @@ When the user says "get back to it" / "back to the plan":
 ## Tweak log
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-21 — **6.5 done (Sonnet).** Next: 6.6 (Sonnet), the last step of the plan.
 
 - 2026-11-21 — **6.4 done (Opus).** Next: 6.5 mark library UI (Sonnet), then 6.6 (Sonnet).
 

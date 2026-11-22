@@ -30,9 +30,11 @@ Items now carry what the author's Items page describes: a rank and tier, up to t
 
 **Skill prospects (steps 6.2, 6.3):** type **opsp** (or use the new "Skill prospects" link) to open a board of skills with no character: add, edit, search and filter them, give each a private note. They are only for you. **Assign to a character** moves a prospect onto one of their chapter versions after checking that version's rules (the type lock, the true-name caps, a locked chapter, name clashes, and the skills it grows from, which can move with it). Below it, **Who could take it** lists every character: whether the rules allow it, how much room their true name leaves, and hints (your note names them, shared words with their concept, a corrupted prospect for a Twisted character); **Use** fills in the assignment.
 
+**Mark library (step 6.5):** blessings, curses and bindings you use again can be saved to a shared library ("Save to the library" under any mark) and copied onto people and items ("Add from the library" in every mark editor). A copy shows whether it still matches its library mark and can be updated from it. Type **opmk** (or use the "Mark library" link) for a board that lists every library mark with all its copies, who holds each one and at which curse stage, and has **Update all copies**.
+
 **Not built yet:** the place entry's "items made here" list (needs the Site Encyclopedia entry view), the Creature Log link for items that are organisms, and prospective skills with a shared mark library (item plan Phase 6).
 
-Scripts: Library `?v=18`, marks `?v=7`, state editor `?v=3`, item fields `?v=5`, checks `?v=11`, publish `?v=6`. Tested in Node (Library and marks 32 tests, checks 7, snapshot builder 10) and in the real pages in headless Chromium.
+Scripts: Library `?v=19`, marks `?v=8`, state editor `?v=3`, item fields `?v=5`, checks `?v=11`, publish `?v=6`. Tested in Node (Library and marks 32 tests, checks 7, snapshot builder 10) and in the real pages in headless Chromium.
 
 ## Site Encyclopedia data (assets/epitaph-sites.js)
 

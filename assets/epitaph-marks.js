@@ -32,7 +32,7 @@
     const extra = m => !!(lib() && lib().markDetailLines && lib().markDetailLines(m).length);
     return (list || []).map(normalize).filter(m => m.image || FIELDS.some(f => m[f].trim()) || extra(m)).map(m => ({ ...trimDeep(m), image: m.image }));
   }
-  const kindsFor = ctx => (lib() ? lib().markKindsFor(ctx === 'character' ? 'character' : 'item') : KINDS.slice());
+  const kindsFor = ctx => (lib() ? lib().markKindsFor(ctx === 'any' ? undefined : ctx === 'character' ? 'character' : 'item') : KINDS.slice());
   const newMark = ctx => normalize({ kind: ctx === 'character' ? 'blessing' : 'binding' });
   const STAGES = ['Initial state', 'Awakening', 'Fluctuation', 'Stabilization'];
   const CURSE_TYPES = ['mutation', 'enhancement', 'distortion', 'fragmentation'];
@@ -47,6 +47,41 @@
       m.stages[i] = m.stages[i] || { name: '', text: '' }; m.stages[i][p[2]] = v;
     }
   }
+  // ---- the shared mark library: pick, save, stay in sync (plan 6.5) ----
+  const holderless = m => { const o = { ...m }; delete o.id; delete o.libId; delete o.stage; delete o.revealedIn; return JSON.stringify(o); };
+  // true when a linked copy has drifted from its definition (a missing definition counts as drift)
+  function differs(m) {
+    const L = lib(); if (!m || !m.libId || !L) return false;
+    const def = L.libraryMark(m.libId); if (!def) return true;
+    return holderless(L.normalizeMark(m)) !== holderless(L.applyDefinition(m, def));
+  }
+  // the definitions a mark editor of this ctx may offer
+  const libraryChoices = ctx => (lib() ? lib().get().marks.filter(d => kindsFor(ctx).includes(d.kind)) : []);
+  // "Add from the library" for the end of a mark list. `a` = attribute strings: { pick, add }
+  function libraryPickHtml(ctx, a) {
+    const defs = libraryChoices(ctx); if (!defs.length) return '';
+    return `<div class="mark-lib-pick"><select ${a.pick} aria-label="Library marks"><option value="">Add from the library…</option>${defs.map(d => `<option value="${esc(d.id)}">${esc(d.name || 'Unnamed')} · ${esc(LABEL[d.kind] || d.kind)}</option>`).join('')}</select>
+      <button type="button" class="btn ghost" ${a.add}>Add a copy</button></div>`;
+  }
+  // under a mark: save it to the library, or show how its link stands. `a` = { save, update, unlink }
+  function linkHtml(m, a) {
+    if (!m.libId) return `<div class="mark-link"><button type="button" class="btn ghost" ${a.save}>Save to the library</button></div>`;
+    const def = lib() && lib().libraryMark(m.libId), drift = differs(m);
+    if (!def) return `<div class="mark-link broken"><small>Linked to a library mark that no longer exists.</small> <button type="button" class="btn ghost" ${a.unlink}>Unlink</button></div>`;
+    return `<div class="mark-link ${drift ? 'drift' : 'sync'}"><small>Library: <b>${esc(def.name)}</b> · ${drift ? 'differs from the library' : 'in sync'}</small>
+      ${drift ? `<button type="button" class="btn ghost" ${a.update}>Update from the library</button>` : ''} <button type="button" class="btn ghost" ${a.unlink}>Unlink</button></div>`;
+  }
+  // the operations, on a mark draft (the host redraws afterwards)
+  const copyFromLibrary = id => (lib() ? lib().copyFromLibrary(id) : null);
+  function saveToLibrary(m) {
+    const L = lib(); if (!L) return null;
+    const def = L.toDefinition(clean([m])[0] || m);
+    if (!L.update(l => { l.marks.push(def); })) return null;
+    m.libId = def.id; return def;
+  }
+  function updateFromLibrary(m) { const L = lib(), def = L && L.libraryMark(m.libId); if (!def) return false; Object.assign(m, L.applyDefinition(m, def)); return true; }
+  const unlink = m => { delete m.libId; };
+
   // The inputs for one mark. `attr(field)` returns the data attributes the host reads back with setField; `sigil` is the host's image picker.
   function fieldsHtml(m, o) {
     o = o || {}; const a = o.attr || (() => ''), ctx = o.ctx || 'library', allowed = kindsFor(ctx);
@@ -69,7 +104,7 @@
           <input type="text" ${a('lastsUntil')} value="${esc(m.lastsUntil)}" placeholder="Lasts until — how it stops, normally" aria-label="Lasts until"></div>` : ''}
       ${m.kind === 'curse' ? `<div class="mark-grid">
           <label class="mark-field">Type<select ${a('type')} aria-label="Curse type"><option value="">— not set —</option>${CURSE_TYPES.map(t => `<option value="${t}"${m.type === t ? ' selected' : ''}>${t.charAt(0).toUpperCase() + t.slice(1)}</option>`).join('')}</select></label>
-          ${ctx === 'library' ? '' : `<label class="mark-field">Stage now<select ${a('stage')} aria-label="Stage now">${STAGES.map((n, i) => `<option value="${i}"${(m.stage || 0) === i ? ' selected' : ''}>${i ? i + ' · ' : ''}${n}</option>`).join('')}</select></label>`}</div>
+          ${ctx === 'library' || ctx === 'any' ? '' : `<label class="mark-field">Stage now<select ${a('stage')} aria-label="Stage now">${STAGES.map((n, i) => `<option value="${i}"${(m.stage || 0) === i ? ' selected' : ''}>${i ? i + ' · ' : ''}${n}</option>`).join('')}</select></label>`}</div>
         <details class="mark-stages"${stagesFilled ? ' open' : ''}><summary>Stages <em>— Awakening, Fluctuation, Stabilization; give each your own name and text</em></summary>
           ${stageRow(STAGES[0], 'initial', m.initial)}${[0, 1, 2].map(i => stageRow(`${i + 1} · ${STAGES[i + 1]}`, 'stages.' + i, (m.stages || [])[i])).join('')}</details>` : ''}`;
   }
@@ -114,8 +149,15 @@
       container.innerHTML = '<div class="marks-editor">' + list.map((m, i) => `
         <div class="mark-edit kind-${esc(m.kind)}">
           ${fieldsHtml(m, { ctx, attr: f => `data-mi="${i}" data-f="${f}"`, sigil: sigilPickerHtml(m, `data-img="${i}"`) })}
+          ${linkHtml(m, { save: `data-lib-save="${i}"`, update: `data-lib-update="${i}"`, unlink: `data-lib-unlink="${i}"` })}
           <button type="button" class="btn ghost mark-remove" data-remove="${i}">Remove mark</button>
-        </div>`).join('') + '<button type="button" class="btn ghost mark-add">+ Add mark</button></div>';
+        </div>`).join('') + '<button type="button" class="btn ghost mark-add">+ Add mark</button>' + libraryPickHtml(ctx, { pick: 'data-lib-pick', add: 'data-lib-add' }) + '</div>';
+      const redo = (fn) => { sync(); fn(); render(); };
+      container.querySelectorAll('[data-lib-save]').forEach(b => b.addEventListener('click', () => redo(() => { if (!saveToLibrary(list[+b.dataset.libSave]) && global.showToast) global.showToast('Could not save to the library — browser storage may be full.'); })));
+      container.querySelectorAll('[data-lib-update]').forEach(b => b.addEventListener('click', () => redo(() => updateFromLibrary(list[+b.dataset.libUpdate]))));
+      container.querySelectorAll('[data-lib-unlink]').forEach(b => b.addEventListener('click', () => redo(() => unlink(list[+b.dataset.libUnlink]))));
+      const addCopy = container.querySelector('[data-lib-add]');
+      if (addCopy) addCopy.addEventListener('click', () => redo(() => { const c = copyFromLibrary(container.querySelector('[data-lib-pick]').value); if (c) list.push(c); }));
       container.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', () => { sync(); list.splice(+b.dataset.remove, 1); render(); }));
       container.querySelector('.mark-add').addEventListener('click', () => { sync(); list.push(newMark(ctx)); render(); });
       container.querySelectorAll('select[data-mi][data-f="kind"]').forEach(s => s.addEventListener('change', () => { sync(); render(); }));
@@ -162,5 +204,6 @@
       ${detailHtml(m, o)}
     </div></div>`).join('');
   }
-  global.EpitaphMarks = { KINDS, LABEL, normalize, clean, editor, linesHtml, readImage, sigilPickerHtml, sigilHtml, fieldsHtml, setField, newMark, kindsFor, ladderHtml, detailHtml, isStageLine };
+  global.EpitaphMarks = { KINDS, LABEL, normalize, clean, editor, linesHtml, readImage, sigilPickerHtml, sigilHtml, fieldsHtml, setField, newMark, kindsFor, ladderHtml, detailHtml, isStageLine,
+    differs, libraryChoices, libraryPickHtml, linkHtml, copyFromLibrary, saveToLibrary, updateFromLibrary, unlink };
 })(typeof window !== 'undefined' ? window : globalThis);

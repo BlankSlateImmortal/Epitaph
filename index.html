@@ -1180,7 +1180,7 @@
   .mode-reader #mwOpenArc, .mode-reader #mwOpenKnowledge,
   .mode-reader a[href="#generationSection"], .mode-reader #generationSection{ display:none !important; }
 </style>
-<link rel="stylesheet" href="assets/epitaph-theme.css?v=31">
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=32">
 <link rel="stylesheet" href="assets/epitaph-editors.css?v=8">
 <link rel="stylesheet" href="assets/epitaph-book.css?v=6">
 <link rel="stylesheet" href="assets/epitaph-codex-views.css?v=2">
@@ -1195,8 +1195,8 @@
 <script src="assets/epitaph-sites.js?v=9"></script>
 <script src="assets/epitaph-sites-ui.js?v=5"></script>
 <script src="assets/epitaph-publish.js?v=6"></script>
-<script src="assets/epitaph-library.js?v=18"></script>
-<script src="assets/epitaph-marks.js?v=7"></script>
+<script src="assets/epitaph-library.js?v=19"></script>
+<script src="assets/epitaph-marks.js?v=8"></script>
 <script src="assets/epitaph-states.js?v=3"></script>
 <script src="assets/epitaph-item-fields.js?v=5"></script>
 <script src="assets/epitaph-checks.js?v=11"></script>
@@ -1293,6 +1293,7 @@
           <li><a href="#" data-book="opse">Site Encyclopedia</a></li>
           <li><a href="#" data-book="opcl">Creature Log</a></li>
           <li class="edit-only"><a href="#" data-book="opsp">Skill prospects</a></li>
+          <li class="edit-only"><a href="#" data-book="opmk">Mark library</a></li>
         </ul>
         <p class="book-hint">Type <b>help</b> for every command: compare chapters (<b>cOrin 1 265</b>), search (<b>s: who holds seal</b>), history, chapter changes, export. <b>opl</b> opens the Library, <b>ops</b> the skill tree, <b>opse</b> the Site Encyclopedia, <b>opcl</b> the Creature Log.</p>
       </div>
@@ -4566,9 +4567,30 @@ function markRowsHtml(path, list){
   return list.map((m, i) => `
     <div class="mark-edit kind-${escapeAttr(m.kind)}">
       ${EpitaphMarks.fieldsHtml(m, { ctx, attr: f => a(i, f), sigil: EpitaphMarks.sigilPickerHtml(m, `data-sigil-path="${path}" data-sigil-idx="${i}"`) })}
+      ${EpitaphMarks.linkHtml(m, markLibAttrs(path, i))}
       <button type="button" class="btn ghost mark-remove" onclick="removeMark('${path}', ${i})">Remove mark</button>
-    </div>`).join('') + `<button type="button" class="btn ghost mark-add" onclick="addMark('${path}')">+ Add mark</button>`;
+    </div>`).join('') + `<button type="button" class="btn ghost mark-add" onclick="addMark('${path}')">+ Add mark</button>` + EpitaphMarks.libraryPickHtml(ctx, markLibPick(path));
 }
+// the shared mark library (plan 6.5): attributes for the buttons under a mark and for "Add from the library"; one handler below serves every mark editor
+const markLibAttrs = (path, i) => { const b = act => `data-mk-lib="${act}" data-mark-path="${path}" data-mark-idx="${i}"`; return { save: b('save'), update: b('update'), unlink: b('unlink') }; };
+const markLibPick = path => ({ pick: `data-mk-lib-pick data-mark-path="${path}"`, add: `data-mk-lib="add" data-mark-path="${path}"` });
+document.addEventListener('click', (e) => {
+  const b = e.target.closest && e.target.closest('[data-mk-lib]');
+  if(!b) return;
+  syncInventoryFromDOM();
+  const path = b.dataset.markPath, list = markList(path), i = parseInt(b.dataset.markIdx), act = b.dataset.mkLib;
+  if(act === 'add'){
+    const sel = document.querySelector(`select[data-mk-lib-pick][data-mark-path="${path}"]`), c = sel && EpitaphMarks.copyFromLibrary(sel.value);
+    if(!c) return;
+    list.push(c);
+    if(path !== 'char'){ const it = pendingInventoryItems[parseInt(path.split(':')[1])]; if(it) invMarksOpen.add(it.id); }
+  } else if(list[i]){
+    if(act === 'save'){ if(!EpitaphMarks.saveToLibrary(list[i])) showToast('Could not save to the library — browser storage may be full.'); }
+    else if(act === 'update') EpitaphMarks.updateFromLibrary(list[i]);
+    else if(act === 'unlink') EpitaphMarks.unlink(list[i]);
+  }
+  rerenderMarks(path);
+});
 // A mark's kind decides which fields it has, so changing it redraws the row.
 document.addEventListener('change', (e) => {
   const sel = e.target;
@@ -6360,6 +6382,7 @@ const LEFT_PAGE_DEFAULT_HTML = `
           <li><a href="#" data-book="opse">Site Encyclopedia</a></li>
           <li><a href="#" data-book="opcl">Creature Log</a></li>
           <li class="edit-only"><a href="#" data-book="opsp">Skill prospects</a></li>
+          <li class="edit-only"><a href="#" data-book="opmk">Mark library</a></li>
         </ul>
         <p class="book-hint">Type <b>help</b> for every command: compare chapters (<b>cOrin 1 265</b>), search (<b>s: who holds seal</b>), history, chapter changes, export. <b>opl</b> opens the Library, <b>ops</b> the skill tree, <b>opse</b> the Site Encyclopedia, <b>opcl</b> the Creature Log.</p>
       `;
@@ -6372,8 +6395,9 @@ function restoreLeftPage(){
 </script>
 <script src="assets/epitaph-book.js?v=15"></script>
 
-<script src="assets/epitaph-editors.js?v=14"></script>
+<script src="assets/epitaph-editors.js?v=15"></script>
 <script src="assets/epitaph-book-tools.js?v=6"></script>
 <script src="assets/epitaph-prospects.js?v=3"></script>
+<script src="assets/epitaph-marklib.js?v=1"></script>
 </body>
 </html>

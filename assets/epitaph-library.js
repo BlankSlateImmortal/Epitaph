@@ -351,12 +351,12 @@
     const rows = [], is = m => m && m.libId === libId;
     (characters || []).forEach(c => (c.snapshots || []).forEach(s => {
       const at = { charId: c.id, who: c.name || 'Unnamed', snapId: s.id, chapter: Number.isInteger(s.startChapter) ? s.startChapter : null };
-      (s.marks || []).filter(is).forEach(m => rows.push({ where: 'character', ...at, stage: m.stage || 0 }));
-      (s.inventory || []).forEach(e => (e.marks || []).filter(is).forEach(m => rows.push({ where: 'entry', ...at, itemId: e.itemId || '', stage: m.stage || 0 })));
+      (s.marks || []).filter(is).forEach(m => rows.push({ where: 'character', ...at, stage: m.stage || 0, mark: m }));
+      (s.inventory || []).forEach(e => (e.marks || []).filter(is).forEach(m => rows.push({ where: 'entry', ...at, itemId: e.itemId || '', stage: m.stage || 0, mark: m })));
     }));
     get().items.forEach(it => {
-      (it.marks || []).filter(is).forEach(m => rows.push({ where: 'item', who: it.name || 'Unnamed', itemId: it.id, stage: m.stage || 0 }));
-      (it.stateTracks || []).forEach(t => t.states.forEach(st => (st.marks || []).filter(is).forEach(m => rows.push({ where: 'state', who: `${it.name || 'Unnamed'} (${st.name || 'state'})`, itemId: it.id, stage: m.stage || 0 }))));
+      (it.marks || []).filter(is).forEach(m => rows.push({ where: 'item', who: it.name || 'Unnamed', itemId: it.id, stage: m.stage || 0, mark: m }));
+      (it.stateTracks || []).forEach(t => t.states.forEach(st => (st.marks || []).filter(is).forEach(m => rows.push({ where: 'state', who: `${it.name || 'Unnamed'} (${st.name || 'state'})`, itemId: it.id, stage: m.stage || 0, mark: m }))));
     });
     return rows;
   }
