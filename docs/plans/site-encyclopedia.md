@@ -146,6 +146,7 @@ When the user says "get back to it" / "back to the plan":
 
 Newest first. One line each: date, what changed, and what it does to the plan.
 
+- 2026-11-22 — **2.2 design, round 2 (Opus).** The user found the first three layouts (tabs, tab rail, one scroll) lacklustre and wants **map integration**. Three new options built on real renders of the Atlas and the 3D Aurelia site: **D** the entry opens as a drawer on the Atlas (ties drawn as arcs, a time ruler that changes map and drawer together), **E** the entry opens inside the built 3D site (resources pinned in the scene, founding stages build the city up), **F** a zoom ladder (each tab picks world, region or site). Waiting on the user's pick. Places without a built site would fall back to the region close-up scene (`closeup.js`). Also found: headless chromium renders the WebGL pages with `--use-angle=swiftshader --enable-unsafe-swiftshader`, so the map can now be tested and screenshotted.
 - 2026-11-21 — **0.2 checked in a browser (Sonnet), still `[~]`.** In the real Dossier with 30 chapters: the book's Library ruler **starts at the shared reader chapter**
   (set to 12, it opened at 12) and **follows a change made elsewhere** (`setReaderChapter(20)` moved it to 20). Not exercised headless, so the author should try them by hand:
   a user's own swipe on the ruler **saving** the position (the code path is `pick()` in `epitaph-book.js`: it saves, and saves "latest" for the newest chapter, but scroll

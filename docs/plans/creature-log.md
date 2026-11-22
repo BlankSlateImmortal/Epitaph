@@ -146,6 +146,7 @@ When the user says "get back to it" / "back to the plan":
 
 Newest first. One line each: date, what changed, and what it does to the plan.
 
+- 2026-11-22 — **From the user:** the Creature Log should be tied into the map too, the same way as the place entries (see the Site Encyclopedia 2.2 round-2 layouts: a creature's range drawn on the Atlas, where it roams near a place, its habitat in the region close-up). Apply when designing the creature entry view.
 - 2026-11-18 — Phase 0 is mostly in place (encyclopedia 0.1–0.4): timeline, reader chapter, links, and `opcl` opening a placeholder page. Left: creature links (`creature:<id>`) open nothing until `EpitaphCreatures` exists (`EpitaphLinks.resolve` already asks it for `byId`). Replace `placeholder()` for `opcl` in `assets/epitaph-book.js` when Phase 2 starts.
 - 2026-11-17 — Shared timeline built (encyclopedia 0.1). Mutation causes can point at its ids now: `the-siege` (impact, crater, +60 m flood), `the-barriers`, `narrative-made`. Ice, radiation and the 7 epochs (1.1) still need their own events.
 - 2026-11-17 — Plan written. Purpose confirmed by the user (evolutionary log, how the ecosystem developed and creatures mutated
