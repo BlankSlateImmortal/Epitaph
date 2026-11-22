@@ -297,7 +297,8 @@ ${r.state === 'ongoing' ? 'still going' : r.state === 'unknown' ? 'ends later (n
         ${kv([['Origin', esc([c.name(r.origin.where), c.name(r.origin.who), r.origin.when].filter(Boolean).join(' · '))], ['Intent', c.author && r.origin.intent ? chip(label('RUMOUR_INTENTS', r.origin.intent)) : ''],
               ['Spread', esc((r.spread || []).map(x => c.name(x.to)).join(' → '))], ['Distorts', r.aboutSecret ? jump(r.aboutSecret) : ''], ['Effect', esc(r.effect)]])}`, '', 'rumour:' + r.id)).join('')}</div>` : ''}
       ${c.author ? card('Setup → payoff · the same check as the Dossier\'s Checks list', plantHtml(c), plantCls(c)) : ''}
-      ${whatIfs.map(w => ecard('scenarios.' + c.rec.scenarios.indexOf(w), 'What-if', `<div class="se-row"><span class="se-hi">${esc(w.trigger)}</span>${chip(label('TRIGGER_GROUPS', w.triggerKind))}${dots(w.likelihood)}${chip(w.status, 'dash')}</div>
+      ${c.author ? `<div class="se-row sw-open"><button type="button" class="se-link" data-se-whatif="${esc(c.pid)}">⚑ Open the what-if board${whatIfs.length ? ' (' + whatIfs.length + ' here)' : ''} ▸</button></div>` : ''}
+      ${whatIfs.map(w => ecard('scenarios.' + c.rec.scenarios.indexOf(w), 'What-if', `<div class="se-row"><span class="se-hi">${esc(w.trigger)}</span>${chip(label('TRIGGER_GROUPS', w.triggerKind))}${dots(w.likelihood)}${Number.isInteger(w.impact) ? '<span class="se-dim">impact</span>' + dots(w.impact) : ''}${chip(label('WHATIF_STATUS', w.status) || w.status, 'dash')}</div>
         ${kv([['Causes', (w.causes || []).map(x => chip(x.cause)).join('')], ['Fallout', esc((w.fallout || []).map(x => c.name(x.place) + ': ' + x.what).join(' · '))], ['Warning signs', esc((w.warnings || []).map(x => x.text + (x.plantIn ? ' (Ch ' + x.plantIn + ')' : '')).join(' · ')) || '<span class="se-dim">none planted yet</span>']])}`, 'se-hid')).join('')}
       <div class="se-g2">
         ${ecard('intrigue.questions', 'Questions · hooks', `${q.map(x => `<span data-se-id="question:${esc(x.id)}">${esc(x.text)}${c.author && x.answeredBy ? ' ' + jump(x.answeredBy, '◆ answered') : ''}</span>`).join('')}${hooks.map(x => `<span class="se-dim">Hook${x.for ? ' for ' + esc(c.name(x.for)) : ''}: ${esc(x.text)}</span>`).join('')}` || '<span class="se-dim">—</span>')}
@@ -484,7 +485,7 @@ ${r.state === 'ongoing' ? 'still going' : r.state === 'unknown' ? 'ends later (n
     document.addEventListener('pointerup', () => { drag = null; });
     document.addEventListener('keydown', e => {
       if (!cur || !document.getElementById('seEntry')) return;
-      if (global.EpitaphSiteWeb && global.EpitaphSiteWeb.isOpen()) return;   // the relations ring is on top; it handles its own keys
+      if ((global.EpitaphSiteWeb && global.EpitaphSiteWeb.isOpen()) || (global.EpitaphSiteWhatIf && global.EpitaphSiteWhatIf.isOpen())) return;   // the ring or the what-if board is on top; it handles its own keys
       if (e.key === 'Escape' && global.EpitaphSiteEdit && global.EpitaphSiteEdit.hasPending(cur.placeId)) { global.EpitaphSiteEdit.cancel(cur.placeId); render(); e.stopPropagation(); e.preventDefault(); return; }
       if (e.key === 'Escape' && !(e.target.closest && e.target.closest('input,textarea,select'))) { close(); e.stopPropagation(); return; }
       if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && e.target.closest && e.target.closest('.se-cv')) { cur.angle += (e.key === 'ArrowLeft' ? -0.2 : 0.2); drawMap(context(cur.placeId), RENDER[cur.tab](context(cur.placeId))); e.preventDefault(); }

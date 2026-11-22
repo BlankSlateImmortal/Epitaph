@@ -2,6 +2,17 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Site Encyclopedia: the what-if board (assets/epitaph-site-whatif.js) — step 4.5
+
+Every place's what-ifs in one place, **author only** (never published: the reader gate leaves `scenarios` out and the snapshot checker refuses the key). Open it with **What-ifs** on the places index (author view) or **Open the what-if board** on a place's Intrigue tab (it starts filtered to that place; Back returns there).
+
+- **Board:** a column per status. Drag a card to another column to change its status. Each card shows its kind, home place, how likely and how big, the places it hits, and a warning-sign verdict (⚠ when a Planned, Foreshadowed or Written what-if has no sign planted in time; ⟲ when it's part of a loop).
+- **Piles** ("what to work on"): the two scores sort every what-if into *Plant signs now* (likely and big), *Keep in your pocket* (unlikely but big), *Background colour* (likely but small) and *Let it go*. Likely = Possible or more; big = a Region or more. What-ifs whose impact isn't scored yet are listed below the piles.
+- **One what-if:** causes weighed (★ the one you lean to, with its weight) → trigger → fallout per place → *Then what?* (what it sets off, and what sets it off), plus its warning signs. A quick bar sets status, how likely and how big in place (each an undo step); **Edit everything** opens its full form in the place's entry.
+- **Right page:** the world dither map. With nothing open, every shown what-if's ripples (place circles grow with how many what-ifs reach them); with one open, its ripples and a chapter strip with its warning signs (◆) and the chapter it happens in (✸).
+
+Schema additions (older what-ifs upgrade on load, nothing lost): status has **seven** steps (Idea · Weighing · Planned · Foreshadowed · Written · Shelved · Dropped); **impact**, a 7-step scale (Ripple → Ending); each cause gets a **weight** (7 steps) and a **lean** ★; **then**, links to other what-ifs. Checks: `whatif-link` (a link to a what-if that doesn't exist) and `whatif-loop` (what-ifs that set each other off), and the Chekhov rule now covers Planned and Foreshadowed what-ifs too (a Foreshadowed one needs a planted sign; one with a chapter needs a sign before it).
+
 ## Site Encyclopedia: blocs (epitaph-sites.js `blocsAt`, the Foreign tab, the ring, Checks) — step 4.4
 
 A bloc is a named pact of **three or more** places, stored on one place's Foreign tab with members who join and leave on timeline dates. They now show everywhere a tie does.

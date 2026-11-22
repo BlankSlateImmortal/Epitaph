@@ -29,6 +29,8 @@
  *   site-event      a date in an entry points at a timeline event that doesn't exist
  *   site-beast      a beast points at a creature that isn't in the Creature Log (once the log exists)
  *   site-missing    Era 1 places that have no entry yet (information)
+ *   bloc-small      a bloc lists fewer than three places;  bloc-dup  a place listed twice in one bloc
+ *   whatif-link     a what-if's 'then what?' points at a what-if that doesn't exist;  whatif-loop  what-ifs set each other off in a loop
  * Chekhov's gun, across the encyclopedia (secrets, foreshadowing, evidence, what-if warning signs; nothing is checked until a chapter is set):
  *   gun-loaded      planted in a chapter but no payoff chapter yet, or planted for a what-if that was dropped (information; a warning for a dropped what-if)
  *   gun-unplanted   pays off (a secret, or a what-if written into a chapter) with nothing planted before it (warning)
@@ -330,6 +332,12 @@
       r.economy.resources.forEach(x => { if (x.source && /^place:/.test(x.source) && !World.place(bare(x.source))) out.push({ level: 'warn', rule: 'site-place', ...at, text: `${me}: the resource “${x.name}” comes from “${bare(x.source)}”, which is not a place on the map.` }); });
     });
     const have = new Set(recs.map(r => r.placeId));
+    // what-ifs: a 'then what?' link to a what-if that doesn't exist, and loops (A sets off B sets off A)
+    if (Sites.whatIfList) {
+      const items = Sites.whatIfList(recs), title = k => { const w = items.find(x => x.key === k); return w ? '“' + String(w.trigger || w.id).slice(0, 50) + '”' : k; };
+      Sites.whatIfLinks(items).missing.forEach(m => out.push({ level: 'warn', rule: 'whatif-link', placeId: m.from.replace(/^scenario:([^/]+)\/.*$/, '$1'), text: `The what-if ${title(m.from)} says it sets off “${m.to}”, which is not a what-if.` }));
+      Sites.whatIfLoops(items).forEach(l => out.push({ level: 'warn', rule: 'whatif-loop', placeId: l[0].replace(/^scenario:([^/]+)\/.*$/, '$1'), text: `What-ifs set each other off in a loop: ${l.map(title).join(' → ')} → back to the first.` }));
+    }
     const missing = World.places().filter(p => (p.eras || []).includes('ERA_1') && !have.has(p.id));
     if (missing.length) out.push({ level: 'info', rule: 'site-missing', text: `${missing.length} Era 1 place${missing.length === 1 ? ' has' : 's have'} no encyclopedia entry yet: ${missing.slice(0, 8).map(p => p.name).join(', ')}${missing.length > 8 ? '…' : ''}.` });
   }

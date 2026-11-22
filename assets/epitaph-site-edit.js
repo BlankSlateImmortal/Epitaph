@@ -45,7 +45,7 @@
   const KINDS = [['myth', 'Myth'], ['gods', 'Gods'], ['world', 'World'], ['place', 'Place'], ['people', 'People'], ['war', 'War'], ['story', 'Story']];
   const ROLES = [['produces', 'Produces'], ['needs', 'Needs'], ['scarce', 'Scarce'], ['guards', 'Guards']];
   const TRUTH = [['', '— (author only)'], ['true', 'True'], ['half', 'Half-true'], ['false', 'False']];
-  const STATUSES = [['idea', 'Idea'], ['planned', 'Planned'], ['written', 'Written'], ['dropped', 'Dropped']];
+  const STATUSES = (global.EpitaphSites && global.EpitaphSites.WHATIF_STATUS ? global.EpitaphSites.WHATIF_STATUS.map(x => [x.id, x.label]) : [['idea', 'Idea'], ['planned', 'Planned'], ['written', 'Written'], ['dropped', 'Dropped']]);
   const UNITS = [
     U('overview.states', 'overview', { label: 'States', noun: 'state', list: true, title: x => (Si().label(Si().STATUS, x.status) || 'State'), make: () => ({ from: null, status: 'standing', scales: { size: 3, hold: 3, stability: 3, supply: 3, defence: 3, secrecy: 3, written: 3 }, techLevel: 0, note: '' }),
       fields: [F.when('from', 'Starts', { none: 'since the start' }), F.pick('status', 'Status', 'STATUS'), F.scales('scales', 'The seven scales'), F.dots('techLevel', 'Technology', 'tech', { opt: true }), F.area('note', 'Note')] }),
@@ -126,9 +126,10 @@
     U('intrigue.hooks', 'intrigue', { label: 'Hooks', noun: 'hook', list: true, ids: true, title: x => x.text || 'Hook', need: 'text', make: () => ({ id: '', for: '', text: '', revealedIn: null }), fields: [F.ref('for', 'For (character)', 'char'), F.area('text', 'The hook'), F.chap('revealedIn', 'Reveal to readers in Ch')] }),
     U('intrigue.foreshadow', 'intrigue', { label: 'Foreshadowing', noun: 'line', list: true, ids: true, title: x => x.text || 'Foreshadowing', need: 'text', make: () => ({ id: '', text: '', plantIn: null, pointsTo: '', revealedIn: null }), fields: [F.area('text', 'What to plant'), F.chap('plantIn', 'Plant in Ch'), F.ref('pointsTo', 'Points to (secret)', 'secret', SEC), F.chap('revealedIn', 'Reveal to readers in Ch')] }),
     U('intrigue.sealed', 'intrigue', { label: 'Sealed places', noun: 'sealed place', list: true, ids: true, title: x => x.why || x.place || 'Sealed', make: () => ({ id: '', place: '', why: '', whoHasKey: '', revealedIn: null }), fields: [F.ref('place', 'Where (landmark or place)', 'any'), F.area('why', 'Why it is sealed'), F.ref('whoHasKey', 'Who has the key', 'any'), F.chap('revealedIn', 'Reveal to readers in Ch')] }),
-    U('scenarios', 'intrigue', { label: 'What-ifs', noun: 'what-if', list: true, ids: true, title: x => x.trigger || 'What-if', need: 'trigger', make: () => ({ id: '', trigger: '', triggerKind: 'ties', about: [], causes: [], fallout: [], warnings: [], likelihood: 3, status: 'idea', chapter: null }),
-      fields: [F.text('trigger', 'What happens'), F.pick('triggerKind', 'Kind of trigger', 'TRIGGER_GROUPS'), F.refs('about', 'About', 'any'), F.rows('causes', 'Causes being weighed', [F.text('group', 'Kind'), F.text('cause', 'Cause'), F.text('note', 'Note')]),
-        F.rows('fallout', 'Fallout per place', [F.ref('place', 'Place', 'place'), F.text('what', 'What happens')]), F.rows('warnings', 'Warning signs', [F.text('text', 'The sign'), F.chap('plantIn', 'Plant in Ch')]), F.dots('likelihood', 'Likelihood', 'likelihood'), F.sel('status', 'Status', STATUSES), F.chap('chapter', 'Written in Ch')] })
+    U('scenarios', 'intrigue', { label: 'What-ifs', noun: 'what-if', list: true, ids: true, title: x => x.trigger || 'What-if', need: 'trigger', make: () => ({ id: '', trigger: '', triggerKind: 'ties', about: [], causes: [], fallout: [], warnings: [], likelihood: 3, impact: null, status: 'idea', chapter: null, then: [] }),
+      fields: [F.text('trigger', 'What happens'), F.pick('triggerKind', 'Kind of trigger', 'TRIGGER_GROUPS'), F.refs('about', 'About', 'any'), F.rows('causes', 'Causes being weighed', [F.text('group', 'Kind'), F.text('cause', 'Cause'), F.dots('weight', 'Weight', 'weight', { opt: true }), F.bool('lean', '★ The one I lean to'), F.text('note', 'Note')]),
+        F.rows('fallout', 'Fallout per place', [F.ref('place', 'Place', 'place'), F.text('what', 'What happens')]), F.rows('warnings', 'Warning signs', [F.text('text', 'The sign'), F.chap('plantIn', 'Plant in Ch')]), F.dots('likelihood', 'Likelihood', 'likelihood'), F.dots('impact', 'Impact (how far it reaches)', 'impact', { opt: true }), F.sel('status', 'Status', STATUSES), F.chap('chapter', 'Happens in Ch'),
+        F.refs('then', 'Then what? What-ifs this sets off', 'whatif')] })
   ];
   const BYKEY = {}; UNITS.forEach(u => { BYKEY[u.key] = u; if (u.hold) u.fields = u.fields.concat(HOLD); else if (u.list) { /* no hold */ } });
 
@@ -145,7 +146,8 @@
     (r.history.record || []).forEach(x => mine.push(['record:' + r.placeId + '/' + String(x.topic || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''), x.topic])); (r.economy.resources || []).forEach(x => mine.push(['resource:' + r.placeId + '/' + x.id, x.name]));
     const lists = {
       char: chars.map(n => ['char:' + n, n]), place: places.map(p => ['place:' + p.id, p.name]), secret: secrets, creature: [],
-      any: chars.map(n => ['char:' + n, n]).concat(places.map(p => ['place:' + p.id, p.name]), mine, secrets)
+      any: chars.map(n => ['char:' + n, n]).concat(places.map(p => ['place:' + p.id, p.name]), mine, secrets),
+      whatif: (Sx.whatIfList ? Sx.whatIfList() : []).filter(w => !(w.placeId === r.placeId && c.editingId && w.id === c.editingId)).map(w => [w.key, (W && W.place(w.placeId) ? W.place(w.placeId).name.split(/\s+[—–-]\s+/).pop() : w.placeId) + ': ' + String(w.trigger || w.id).slice(0, 60)])
     };
     return { events, lists };
   }
@@ -183,7 +185,7 @@
   }
   const chipX = x => `<span class="se-ck" data-cv="${esc(x)}">${esc(String(x).replace(/^(char|place|secret|faction|landmark|record|tie|resource|creature):(?:[\w-]+\/)?/, ''))}<button type="button" data-se-chipx aria-label="Remove ${esc(x)}">×</button></span>`;
   function dotsHtml(k, scale, n, optional) {
-    const names = scale === 'strength' || scale === 'importance' || scale === 'likelihood' || scale === 'tech' ? (Si().SCALE_SETS[scale] || {}).steps : ((SET('SCALES').find(s => s.id === scale) || {}).steps);
+    const names = (Si().SCALE_SETS || {})[scale] ? Si().SCALE_SETS[scale].steps : ((SET('SCALES').find(s => s.id === scale) || {}).steps);
     return `<div class="se-dotsf" data-f="${esc(k)}" data-t="dots" data-v="${n}" data-opt="${optional ? 1 : 0}" data-names="${esc(JSON.stringify(names || []))}">${[1, 2, 3, 4, 5, 6, 7].map(i => `<button type="button" class="se-dot${i <= n ? ' on' : ''}" data-dv="${i}" aria-label="${i}${names ? ' · ' + esc(names[i - 1]) : ''}" title="${names ? esc(names[i - 1]) : i}"></button>`).join('')}<span class="se-dn">${n && names ? n + ' · ' + esc(names[n - 1]) : (n ? n : '—')}</span>${optional ? '<button type="button" class="se-dclr" data-dv="0" aria-label="Clear">×</button>' : ''}</div>`;
   }
   function rowHtml(f, r, ctx) { return `<div class="se-rowf" data-row><div class="se-fgrid">${f.fields.map(g => fieldHtml(g, gp(r, g.k), ctx)).join('')}</div><button type="button" class="se-x" data-se-rowdel aria-label="Remove this row">×</button></div>`; }
@@ -238,6 +240,16 @@
     return true;
   }
 
+  /** Change one list item in place (the what-if board's quick edits: status, likelihood, impact), with an undo step like any save.
+   *  tabKey: 'scenarios' or a tab; id: the item's id; patch: fields to set. -> true when saved. */
+  function patchItem(placeId, tabKey, id, patch, label) {
+    const Sx = Si(), rec = clone(Sx.get(placeId) || Sx.empty(placeId)), before = clone(rec[tabKey]), wasDraft = !!(rec.draft || {})[tabKey];
+    const list = Array.isArray(rec[tabKey]) ? rec[tabKey] : null, it = list && list.find(x => x.id === id); if (!it) return false;
+    Object.assign(it, patch);
+    if (!Sx.save({ placeId, [tabKey]: list })) return false;
+    pushUndo({ placeId, tab: tabKey, before, wasDraft, at: Date.now(), label: label || 'Quick edit' });
+    return true;
+  }
   // ---------------------------------------------------------------- undo
   function undoStack() { try { return JSON.parse(localStorage.getItem(UNDO_KEY) || '[]') || []; } catch (e) { return []; } }
   function pushUndo(e) { const s = undoStack(); s.push(e); while (s.length > UNDO_MAX) s.shift(); try { localStorage.setItem(UNDO_KEY, JSON.stringify(s)); } catch (x) { /* storage full: no undo, the save still happened */ } }
@@ -435,5 +447,5 @@
     });
   }
 
-  global.EpitaphSiteEdit = { _t: { formHtml, readBlock, choices, dataOf }, UNITS, BYKEY, decorate, parsePath, readBlock, readField, undoLast, undoStack, hasPending: id => !!pending[id], cancel: id => { delete pending[id]; delete sheets[id]; }, deepMerge, sheetCols, setDraft, draftTabs, sheetOpen: id => !!sheets[id], UNDO_KEY };
+  global.EpitaphSiteEdit = { _t: { formHtml, readBlock, choices, dataOf }, UNITS, BYKEY, decorate, patchItem, parsePath, readBlock, readField, undoLast, undoStack, hasPending: id => !!pending[id], cancel: id => { delete pending[id]; delete sheets[id]; }, deepMerge, sheetCols, setDraft, draftTabs, sheetOpen: id => !!sheets[id], UNDO_KEY };
 })(typeof window !== 'undefined' ? window : globalThis);

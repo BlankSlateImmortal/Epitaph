@@ -104,8 +104,13 @@
     tech: { id: 'tech', label: 'Technology', rule: 'What the place can build and run', steps: ['Scavenged', 'Craft', 'Workshop', 'Industrial', 'Restored', 'Advanced', 'Transcendent'] },
     strength: { id: 'strength', label: 'Faction strength', rule: 'How much it can actually do', steps: ['Fringe', 'Minor', 'Notable', 'Influential', 'Powerful', 'Dominant', 'Unchallenged'] },
     importance: { id: 'importance', label: 'Resource importance', rule: 'What the place does without it', steps: ['Trivial', 'Minor', 'Useful', 'Valued', 'Vital', 'Lifeblood', 'Existential'] },
-    likelihood: { id: 'likelihood', label: 'Scenario likelihood', rule: 'How likely it is to happen', steps: ['Unthinkable', 'Remote', 'Unlikely', 'Possible', 'Likely', 'Expected', 'Inevitable'] }
+    likelihood: { id: 'likelihood', label: 'Scenario likelihood', rule: 'How likely it is to happen', steps: ['Unthinkable', 'Remote', 'Unlikely', 'Possible', 'Likely', 'Expected', 'Inevitable'] },
+    impact: { id: 'impact', label: 'Scenario impact', rule: 'How far it would reach', steps: ['Ripple', 'Local', 'City', 'Region', 'Bloc', 'World', 'Ending'] },
+    weight: { id: 'weight', label: 'Cause weight', rule: 'How much you believe this cause', steps: ['Barely', 'Faint', 'Some', 'Fair', 'Strong', 'Very strong', 'Certain'] }
   };
+  /** A what-if's status: seven steps from first thought to written, plus two ways to set it aside. */
+  const WHATIF_STATUS = sset([['idea', 'Idea', 'A first thought'], ['weighing', 'Weighing', 'Comparing causes and fallout'], ['planned', 'Planned', 'It will happen; not written yet'],
+    ['foreshadowed', 'Foreshadowed', 'Warning signs are planted'], ['written', 'Written', 'It happens in a chapter'], ['shelved', 'Shelved', 'Kept for later'], ['dropped', 'Dropped', 'Not happening']]);
   const TABS = ['overview', 'history', 'domestic', 'foreign', 'economy', 'beasts', 'intrigue'];
   const TAB_LABEL = { overview: 'Overview', history: 'History', domestic: 'Domestic', foreign: 'Foreign', economy: 'Economy', beasts: 'Beasts', intrigue: 'Intrigue', scenarios: 'What-ifs' };
   /** Everything a save can carry: the seven tabs plus the what-if scenarios, which belong to no tab. */
@@ -204,7 +209,57 @@
     fill(out, TAB_DEFAULTS());
     out.draft = Object.assign({}, out.draft || {});
     if (!out.placeId && r && r.placeId) out.placeId = r.placeId;
+    out.scenarios = (Array.isArray(out.scenarios) ? out.scenarios : []).map(normWhatIf);
     return out;
+  }
+  /** A what-if with every field present (older ones have no impact, cause weights or links). Unknown statuses become 'idea'. */
+  function normWhatIf(w) {
+    const o = Object.assign({ id: '', trigger: '', triggerKind: 'ties', about: [], causes: [], fallout: [], warnings: [], likelihood: 3, impact: null, status: 'idea', chapter: null, then: [] }, w || {});
+    if (!WHATIF_STATUS.some(x => x.id === o.status)) o.status = 'idea';
+    ['about', 'causes', 'fallout', 'warnings', 'then'].forEach(k => { if (!Array.isArray(o[k])) o[k] = []; });
+    o.causes = o.causes.map(c => Object.assign({ group: '', cause: '', note: '', weight: null, lean: false }, c || {}));
+    o.impact = Number.isInteger(o.impact) && o.impact >= 1 && o.impact <= 7 ? o.impact : null;
+    o.likelihood = Number.isInteger(o.likelihood) && o.likelihood >= 1 && o.likelihood <= 7 ? o.likelihood : 3;
+    return o;
+  }
+  // ---------------------------------------------------------------- what-ifs across places (step 4.5; author only, never published)
+  const whatIfRef = (placeId, id) => 'scenario:' + placeId + '/' + id;
+  /** Every what-if from every place, flattened: [{ key ('scenario:<place>/<id>'), placeId, …the what-if }]. */
+  function whatIfList(list) {
+    const out = []; (list || load()).forEach(r => (r.scenarios || []).forEach(w => out.push(Object.assign({ key: whatIfRef(r.placeId, w.id), placeId: r.placeId }, normWhatIf(w)))));
+    return out;
+  }
+  /** Which pile of the triage view a what-if falls in: likely = Possible or more (4+), big = a Region or more (4+).
+   *  'now' (likely and big: plant signs now) · 'pocket' (unlikely but big: a twist) · 'texture' (likely but small) · 'letgo' (unlikely and small)
+   *  · null when its impact isn't scored yet. */
+  function whatIfPile(w) {
+    if (!w || !Number.isInteger(w.impact)) return null;
+    const likely = (w.likelihood || 0) >= 4, big = w.impact >= 4;
+    return likely && big ? 'now' : big ? 'pocket' : likely ? 'texture' : 'letgo';
+  }
+  /** 'then' links between what-ifs: { next: key -> [keys], prev: key -> [keys], missing: [{ from, to }] } (a link to a what-if that doesn't exist). */
+  function whatIfLinks(items) {
+    const keys = new Set(items.map(w => w.key)), next = {}, prev = {}, missing = [];
+    items.forEach(w => (w.then || []).forEach(t => {
+      const k = /^scenario:/.test(String(t)) ? String(t) : null;
+      if (!k || !keys.has(k)) { missing.push({ from: w.key, to: t }); return; }
+      (next[w.key] = next[w.key] || []).push(k); (prev[k] = prev[k] || []).push(w.key);
+    }));
+    return { next, prev, missing };
+  }
+  /** Loops in the 'then' links (A sets off B sets off A): a list of loops, each the keys in order, each loop reported once. */
+  function whatIfLoops(items) {
+    const { next } = whatIfLinks(items), loops = [], seen = new Set(), state = {};
+    const walk = (k, path) => {
+      state[k] = 1; path.push(k);
+      (next[k] || []).forEach(n => {
+        if (state[n] === 1) { const cyc = path.slice(path.indexOf(n)); const id = cyc.slice().sort().join('>'); if (!seen.has(id)) { seen.add(id); loops.push(cyc); } }
+        else if (!state[n]) walk(n, path);
+      });
+      path.pop(); state[k] = 2;
+    };
+    items.forEach(w => { if (!state[w.key]) walk(w.key, []); });
+    return loops;
   }
   /** Every record: defaults with the user's tabs on top, plus places only the user has written. */
   function load() {
@@ -548,10 +603,11 @@
       (rec.scenarios || []).forEach(w => {
         const planted = (w.warnings || []).map(x => x.plantIn).filter(isInt);
         if (w.status === 'dropped' && planted.length) push('warn', 'gun-loaded', `the what-if ${short(w.trigger)} is dropped, but its warning signs are planted (Ch ${planted.join(', ')}).`);
-        else if (w.status === 'written' && isInt(w.chapter)) {
-          if (!planted.some(n => n < w.chapter)) push('warn', 'gun-unplanted', `the what-if ${short(w.trigger)} happens in Ch ${w.chapter} with no warning sign planted before it.`);
+        else if (w.status === 'foreshadowed' && !planted.length) push('warn', 'gun-unplanted', `the what-if ${short(w.trigger)} is marked Foreshadowed, but no warning sign has a chapter to plant it in.`);
+        else if (['written', 'planned', 'foreshadowed'].includes(w.status) && isInt(w.chapter)) {
+          if (!planted.some(n => n < w.chapter)) push('warn', 'gun-unplanted', `the what-if ${short(w.trigger)} ${w.status === 'written' ? 'happens in' : 'is planned for'} Ch ${w.chapter} with no warning sign planted before it.`);
           else if (planted.some(n => n >= w.chapter)) push('warn', 'gun-order', `the what-if ${short(w.trigger)} happens in Ch ${w.chapter}, but a warning sign is planted in or after it.`);
-        } else if ((w.status === 'idea' || w.status === 'planned') && planted.length) push('info', 'gun-loaded', `warning signs are planted (Ch ${planted.join(', ')}) for the what-if ${short(w.trigger)}, which isn't written yet.`);
+        } else if (['idea', 'weighing', 'shelved'].includes(w.status) && planted.length) push('info', 'gun-loaded', `warning signs are planted (Ch ${planted.join(', ')}) for the what-if ${short(w.trigger)}, which isn't written yet.`);
       });
     });
     return out;
@@ -676,6 +732,6 @@
     KEY, VERSION, BACKUP_KEY, STATUS, SCALES, SCALE_SETS, FORMS, ALLIANCE_KINDS, BEAST_RELATIONS, RESOURCE_CATEGORIES, RESOURCE_ROLES, FOUNDING_STAGES,
     MOTIVES, FACTION_KINDS, TIE_ENDINGS, TEMPERAMENTS, SOCIAL_SHAPES, WARD_KINDS, RUMOUR_INTENTS, TRIGGER_GROUPS,
     TABS, TAB_LABEL, DATA_TABS, DEFAULTS,
-    alliancesAt, tieBars, webAt, blocsAt, ringSeats, storyOf, forReader, secretHolders, couldFind, plantPayoff, SECRET_REF, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, draftUpdatesIn, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
+    alliancesAt, tieBars, webAt, blocsAt, ringSeats, WHATIF_STATUS, normWhatIf, whatIfRef, whatIfList, whatIfPile, whatIfLinks, whatIfLoops, storyOf, forReader, secretHolders, couldFind, plantPayoff, SECRET_REF, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, draftUpdatesIn, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
   };
 })(typeof window !== 'undefined' ? window : globalThis);
