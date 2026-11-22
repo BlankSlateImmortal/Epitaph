@@ -246,8 +246,14 @@ Not every item has every part: a blade may have no usage states; many items have
   untouched (the last two flagged as probably replaced). Loaded with Merge → "Also update items that already exist". Character marks can't be
   changed by Merge: the notes list the few to tidy by hand (Yona's lens copy, Orin's Taint, Yona's Halftone). God-sourced curses kept as written,
   per the user. Verified: the real normalizer and checks (no warnings), and the real Merge flow with the 2026-11-18 data seeded.
-- [ ] **5.2 Cross-links.** Items' origin places link to the Site Encyclopedia; items that are organisms can link to a Creature Log entry
-  (`creature:<id>`) once that exists; Resources on a place can list the items made there.
+- [x] **5.2 Cross-links.** *(Done 2026-11-21, Sonnet; the parts that depend on unbuilt pages are waiting, see below.)* An item's origin place is now a standard
+  `place:<id>` link (`EpitaphLinks`): the origin tag on the book's item panel and the FROM call-out on the inventory monitor. Today it opens the
+  map; once the Site Encyclopedia's entry view registers its handler (site-encyclopedia 2.2) the same links open the entry, with no change here.
+  `EpitaphLibrary.itemsFromPlace(placeId, only?)` lists the items made at a place, ready for the entry's **Resources** tab (the caller passes what a
+  reader may see). **Waiting on other plans:** the Resources list itself (site-encyclopedia 2.x, Opus) and the **Creature Log** link for items that are
+  organisms (`creature:<id>`, creature-log plan; the links module already accepts the format). The book's reader card for items (publish 3.3, the
+  other session) should render the origin the same way. Tested: Node (helper) and the real Dossier (both links call the registered handler; an item
+  with no origin gets no link).
 - [ ] **5.3 Mobile and both themes.**
 - [ ] **5.4 Docs.** `docs/CHANGES.md`, help text, this plan's status.
 
@@ -316,6 +322,9 @@ When the user says "get back to it" / "back to the plan":
 ## Tweak log
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-21 — **5.2 done (Sonnet), partly forward-looking.** The Site Encyclopedia has only its index (its entry view is step 2.2), so there was no
+  entry to link into or list items on yet; built the links and the helper now so they light up when it exists.
 
 - 2026-11-21 — **5.1 done (Opus).** Two lore clashes surfaced and are in the notes for the user: "Vanishing Point" and "The Halftone" have an
   ending, which clashes with "curses can't be removed". Next: 5.2 cross-links (Sonnet).

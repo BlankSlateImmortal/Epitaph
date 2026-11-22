@@ -641,7 +641,7 @@
     panel.innerHTML = `
       <div class="bk-panel-head">
         <span class="bk-big">${pad2(no || 0)}</span>
-        <div><small>LIBRARY ITEM · ${no || '—'} OF ${list.length}</small><h2>${esc(it.name || 'Untitled')}</h2>${Lib.placeIdOf(it) ? `<span class="from-tag">FROM ${esc(placeName(Lib.placeIdOf(it)).toUpperCase())}</span>` : ''}${EpitaphItemFields.badgesHtml(it)}</div>
+        <div><small>LIBRARY ITEM · ${no || '—'} OF ${list.length}</small><h2>${esc(it.name || 'Untitled')}</h2>${Lib.placeIdOf(it) ? `<a class="from-tag" href="#" data-ref="place:${attr(Lib.placeIdOf(it))}" title="Open this place">FROM ${esc(placeName(Lib.placeIdOf(it)).toUpperCase())}</a>` : ''}${EpitaphItemFields.badgesHtml(it)}</div>
       </div>
       <div class="bk-form">
         <div class="bk-pics">

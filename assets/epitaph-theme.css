@@ -866,3 +866,8 @@ input, select, textarea{ accent-color:var(--amber); }
 .stage-ladder small{ font-size:11px; color:var(--dust); }
 .stage-now{ margin:4px 0 0; font-size:13px; color:var(--bone); }
 .stage-now b{ font-weight:400; color:var(--ember); }
+/* an item's origin place is a link (place:<id>, EpitaphLinks): the book panel tag and the monitor's FROM call-out */
+a.from-tag{ text-decoration:none; cursor:pointer; }
+a.from-tag:hover, a.from-tag:focus-visible{ text-decoration:underline; }
+.item-call .v a{ color:inherit; text-decoration:underline dotted; text-underline-offset:3px; cursor:pointer; }
+.item-call .v a:hover, .item-call .v a:focus-visible{ text-decoration:underline; }

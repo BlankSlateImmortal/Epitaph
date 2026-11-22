@@ -1180,7 +1180,7 @@
   .mode-reader #mwOpenArc, .mode-reader #mwOpenKnowledge,
   .mode-reader a[href="#generationSection"], .mode-reader #generationSection{ display:none !important; }
 </style>
-<link rel="stylesheet" href="assets/epitaph-theme.css?v=26">
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=27">
 <link rel="stylesheet" href="assets/epitaph-editors.css?v=8">
 <link rel="stylesheet" href="assets/epitaph-book.css?v=6">
 <link rel="stylesheet" href="assets/epitaph-codex-views.css?v=2">
@@ -1195,7 +1195,7 @@
 <script src="assets/epitaph-sites.js?v=9"></script>
 <script src="assets/epitaph-sites-ui.js?v=5"></script>
 <script src="assets/epitaph-publish.js?v=6"></script>
-<script src="assets/epitaph-library.js?v=16"></script>
+<script src="assets/epitaph-library.js?v=17"></script>
 <script src="assets/epitaph-marks.js?v=7"></script>
 <script src="assets/epitaph-states.js?v=3"></script>
 <script src="assets/epitaph-item-fields.js?v=5"></script>
@@ -4648,7 +4648,7 @@ function invView(entry){
     // the item's state in this chapter (Seal · Locked); a state's picture replaces the photo
     state: cur.map(x => x.state.name).join(' · '), stateDesc: cur.map(x => x.state.desc).filter(Boolean).join(' '), stateMissing: !!(li && picked.some(id => !Lib.stateOf(li, id))),
     desc: li ? li.desc : (entry.desc || ''), icon: li ? li.icon : (entry.icon || ''), image: (cur.find(x => x.state.image) || {}).state ? cur.find(x => x.state.image).state.image : (li ? li.image : (entry.image || '')),
-    origin: origin ? origin.name : (li && Lib.placeIdOf(li) ? 'a deleted place' : ''),
+    origin: origin ? origin.name : (li && Lib.placeIdOf(li) ? 'a deleted place' : ''), originRef: origin ? 'place:' + origin.id : '',
     note: entry.note || '', marks: entry.marks || [], boundTo: entry.boundTo || ''
   };
 }
@@ -4786,7 +4786,8 @@ function itemMonitorHtml(char, snap, sel, idx){
   const arc = kinds.includes('curse') ? 'curse' : kinds.includes('binding') ? 'binding' : 'plain';
   const count = k => kinds.filter(x => x === k).length;
   const markSum = !marks.length ? 'NONE' : (new Set(kinds).size === 1 ? `${marks.length} ${(MARK_KIND_LABEL[kinds[0]] || 'MARK').toUpperCase()}${marks.length === 1 ? '' : 'S'}` : [['blessing', 'BLS'], ['curse', 'CRS'], ['binding', 'BND']].filter(([k]) => count(k)).map(([k, l]) => count(k) + ' ' + l).join(' · '));
-  const call = (pos, k, val, cls) => val ? `<div class="item-call ${pos}"><span class="k">${k}</span><span class="v${cls ? ' ' + cls : ''}">${escapeHtml(String(val).toUpperCase())}</span></div>` : '';
+  // `ref` (a place:<id> link) makes the value a link to that place
+  const call = (pos, k, val, cls, ref) => val ? `<div class="item-call ${pos}"><span class="k">${k}</span><span class="v${cls ? ' ' + cls : ''}">${ref ? `<a href="#" data-ref="${escapeAttr(ref)}" title="Open this place">${escapeHtml(String(val).toUpperCase())}</a>` : escapeHtml(String(val).toUpperCase())}</span></div>` : '';
   const sigil = m => m.image ? `<img class="item-sig" src="${escapeAttr(m.image)}" alt="">` : '<span class="item-sig none" aria-hidden="true"></span>';
   const row = (k, val, cls) => val ? `<dt>${k}</dt><dd${cls ? ` class="${cls}"` : ''}>${escapeHtml(val)}</dd>` : '';
   return `<div class="item-crt"><div class="item-screen">
@@ -4799,7 +4800,7 @@ function itemMonitorHtml(char, snap, sel, idx){
           <g class="r-inner"><circle cx="200" cy="200" r="132" class="ring-comb"/></g>
         </svg>
         <div class="item-fig">${pic ? `<span class="item-pic"><img src="${escapeAttr(pic)}" alt="${escapeAttr(v.name)}"></span>` : `<span class="item-pic empty"><b>${escapeHtml(((v.name || '?').trim().charAt(0) || '◈').toUpperCase())}</b></span>`}<span class="item-shadow"></span></div>
-        ${call('tl', 'STATE', v.stateMissing ? 'removed' : v.state)}${call('tr', 'BOUND', sel.boundTo, 'g')}${call('bl', 'FROM', v.linked ? (v.origin || 'unknown') : '')}${call('br', 'MARKS', markSum)}
+        ${call('tl', 'STATE', v.stateMissing ? 'removed' : v.state)}${call('tr', 'BOUND', sel.boundTo, 'g')}${call('bl', 'FROM', v.linked ? (v.origin || 'unknown') : '', '', v.originRef)}${call('br', 'MARKS', markSum)}
       </div>
       <div class="item-text">
         <span class="item-meta">&gt;&gt;&gt;&gt;&gt;&gt;&gt; ${v.linked ? 'LIBRARY ITEM' : (v.missing ? 'MISSING FROM LIBRARY' : 'TYPED-IN ITEM')}</span>
@@ -6365,7 +6366,7 @@ function restoreLeftPage(){
 
 
 </script>
-<script src="assets/epitaph-book.js?v=14"></script>
+<script src="assets/epitaph-book.js?v=15"></script>
 
 <script src="assets/epitaph-editors.js?v=14"></script>
 <script src="assets/epitaph-book-tools.js?v=6"></script>

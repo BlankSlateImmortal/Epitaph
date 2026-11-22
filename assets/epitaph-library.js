@@ -157,6 +157,9 @@
   const ORIGIN_WORDS = ['none', 'unknown'];    // an origin is a place id, 'none' (it has no origin), 'unknown' (???) or '' (not filled in)
   // A v1 library (or an old export / published snapshot) has `originPlaceId` (a place id or '') and no `origin`: convert it.
   // The place an item came from, or '' when its origin is none, unknown or not filled in.
+  // The items whose origin is this place, for a place's page ("made here"). With `only` (a function), just those it accepts,
+  // so a reader's page can pass what readers may see.
+  const itemsFromPlace = (placeId, only) => (placeId ? get().items.filter(i => placeIdOf(i) === placeId && (!only || only(i))) : []);
   const placeIdOf = it => (it && it.origin && !ORIGIN_WORDS.includes(it.origin) ? it.origin : '');
   function normalizeOrigin(i) { return typeof i.origin === 'string' ? i.origin : str(i.originPlaceId); }
   // Orders two history moments: by era, then year; within an era, moments with only a chapter come after the dated ones,
@@ -337,7 +340,7 @@
     newId, normalizeMark, normalizeState, normalizeTrack, normalizeStateIds, get, update, item, place: placeById,
     stateOf, trackOf, itemTrack, currentStates, uses, marksFor, stateIdOf, itemStates, primaryStateIds, stateKeyOf, revealedBy,
     CURSE_TYPES, STAGE_NAMES, markKindsFor, markDetailLines,
-    ERAS, ORIGIN_WORDS, placeIdOf, normalizeHistoryEntry, compareWhen, whenText, OFFLINE_FIELDS, fieldOn,
+    ERAS, ORIGIN_WORDS, placeIdOf, itemsFromPlace, normalizeHistoryEntry, compareWhen, whenText, OFFLINE_FIELDS, fieldOn,
     RANKS, TIERS, rankName, tierFloor, allowedTiers, maxRank, rankAt, tierProblem,
     replace(data) { return save(data); },
     onChange(fn) { listeners.push(fn); }
