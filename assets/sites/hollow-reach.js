@@ -57,16 +57,26 @@ const cyl = (r1, r2, h, seg = 12) => new THREE.CylinderGeometry(r1, r2, h, seg).
 const cone = (r, h, seg = 8) => new THREE.ConeGeometry(r, h, seg).translate(0, h / 2, 0);
 const inward = g => { g.scale(-1, 1, 1); g.computeVertexNormals(); return g; };   // turn a closed shape inside out (to see it from inside)
 class Kit {
-  constructor() { this.b = {}; }
+  constructor() { this.b = {}; this.stage = 0; }
   add(kind, g) {
     if (g.index) g = g.toNonIndexed();
     for (const n of Object.keys(g.attributes)) if (n !== 'position' && n !== 'normal') g.deleteAttribute(n);
     if (!g.attributes.normal) g.computeVertexNormals();
     g.clearGroups();
-    (this.b[kind] ||= []).push(g);
+    (this.b[kind + '@' + this.stage] ||= []).push(g);
   }
   merge() { const o = {}; for (const [k, l] of Object.entries(this.b)) o[k] = mergeGeometries(l, false); return o; }
 }
+// ---- founding stages (Site Encyclopedia step 5.2): pieces are filed under the stage that built them (0-based, the seven of
+//      EpitaphSites.FOUNDING_STAGES). ?stage=N (1-7) or the Built picker shows only what stood by then. The Reach has no disaster yet.
+const STAGES = ['The reason', 'Ground broken', 'First walls', 'Growth', 'Disaster', 'Rebuilt', 'As it stands'];
+const STAGE_NOTES = ['The reason: a forest in central Germany, where Val lands at the siege.',
+  'Ground broken: Val carves the Hollow out with erasure, a round pit stepping down in four smooth black walls.',
+  'First walls: the inverse barrier keeps The Binding out; obelisks and relay masts stand among the trees.',
+  'Growth: the hives, the Spines, the Descent, the lake and the station, Val\'s palace, the Assembly, the arena, and everything below.',
+  'Disaster: none recorded yet.', 'Rebuilt: nothing to rebuild.', 'As it stands: a working capital, hidden below the treetops.'];
+let curStage = 0;
+const setStage = (K, n) => { K.stage = n; curStage = n; };
 // a quad from four points, turned so it faces `want`
 function quad(K, kind, a, b, c, d, want) {
   let pts = [a, b, c, d];
@@ -195,7 +205,7 @@ const ASSEMBLY = { x: 19, z: 7 };
 const SPINES = [D(45), D(135), D(225), D(315)].map(a => ({ a, r: 26.8 }));
 const angIn = (a, lo, hi) => { a = (a % (2 * PI) + 2 * PI) % (2 * PI); lo = (lo % (2 * PI) + 2 * PI) % (2 * PI); hi = (hi % (2 * PI) + 2 * PI) % (2 * PI); return lo <= hi ? a >= lo && a <= hi : a >= lo || a <= hi; };
 const labels = [];
-const L = (text, pos, opts = {}) => labels.push({ text, pos, ...opts });
+const L = (text, pos, opts = {}) => labels.push({ text, pos, stage: curStage, ...opts });
 
 // a brutalist housing block standing on a step, its back to the wall: slit windows, a cantilevered top, a balcony band
 function hive(K, a, rIn, rOut, yB, w, h, r) {
@@ -232,6 +242,7 @@ function spine(K, a, r) {
 // ------------------------------------------------------------------ the city (diorama)
 let capstone = null, beam = null, pulses = [], valDust = null;
 function buildReach(K, extra) {
+  setStage(K, 0);
   // ---- the forest floor round the rim, and the outer cliff in layers (open on the south for the stair, cut away on the south-east)
   const NA = 320, NR = 16;
   for (let i = 0; i < NA; i++) {
@@ -247,6 +258,7 @@ function buildReach(K, extra) {
     const t0 = gh(o0.x, o0.z), t1 = gh(o1.x, o1.z);
     for (const [kind, ya, yb] of [['soil', 0, -2], ['soil2', -2, -9], ['rock', -9, -20], ['soil2', -20, -24], ['rock', -24, BASE]]) quad(K, kind, V(o0.x, ya === 0 ? t0 : ya, o0.z), V(o1.x, ya === 0 ? t1 : ya, o1.z), V(o1.x, yb, o1.z), V(o0.x, yb, o0.z), out);
   }
+  setStage(K, 1);
   // ---- the steps: four smooth black walls, a walkway on each step, the floor
   for (let w = 0; w < 4; w++) {
     const r = WALLS[w], y0 = TOPS[w], y1 = y0 - 6;
@@ -263,6 +275,7 @@ function buildReach(K, extra) {
   // the parapet round the rim
   for (let i = 0; i < 220; i++) { const a = (i + 0.5) / 220 * 2 * PI, p = atA(a, RP + 0.2); if (inSec(a) || nearStair(p.x, p.z, 0.6)) continue; K.add('concreteD', xf(box(2 * PI * (RP + 0.2) / 220 + 0.02, 0.5, 0.4), { ...p, ry: ryOut(a) })); }
 
+  setStage(K, 3);
   // ---- housing on every step and round the floor's edge
   { const r = rng(21), rings = [[38.3, 41.7, -6], [34.3, 37.7, -12], [30.3, 33.7, -18], [26.3, 29.7, PF]];
     rings.forEach(([rIn, rOut, yB], ri) => {
@@ -282,6 +295,7 @@ function buildReach(K, extra) {
   // lit slits in the black walls between the blocks: rooms dug in further back
   { const r = rng(11); for (let w = 0; w < 4; w++) for (let k = 0; k < 60; k++) { const a = r() * 2 * PI, y = TOPS[w] - 0.8 - r() * 1.2, p = atA(a, WALLS[w] - 0.03, y); if (nearStair(p.x, p.z, 1)) continue; K.add('vglow', xf(box(0.6 + r() * 1.6, 0.09, 0.05), { ...p, ry: ryOut(a) })); } }
 
+  setStage(K, 3);
   // ---- the Descent: a monumental stair cut straight down from the forest to the floor, under leaning fins
   { const N = 124;
     for (let i = 0; i < N; i++) { const za = STAIR.z0 - (STAIR.z0 - STAIR.z1) * i / N, zb = STAIR.z0 - (STAIR.z0 - STAIR.z1) * (i + 1) / N, y = stairY((za + zb) / 2);
@@ -301,6 +315,7 @@ function buildReach(K, extra) {
     for (let i = 0; i < 9; i++) K.add('glow', xf(box(0.16, 0.6, 0.05), { x: -4.2 + i * 1.05, y: 9.1, z: 60.42 }));
     L('The Descent', V(0, 12.6, 58)); }
 
+  setStage(K, 3);
   // ---- the floor: the lake, the island and the station, the causeway, the relays
   K.add('water', new THREE.CircleGeometry(LAKE.r, 96).rotateX(-PI / 2).translate(LAKE.x, PF + 0.04, LAKE.z));
   K.add('stone', new THREE.TorusGeometry(LAKE.r + 0.15, 0.22, 5, 96).rotateX(PI / 2).translate(LAKE.x, PF + 0.06, LAKE.z));
@@ -323,6 +338,7 @@ function buildReach(K, extra) {
   }
   L('Relays', V(LAKE.x - RR, PF + 3.6, LAKE.z));
 
+  setStage(K, 3);
   // ---- Val's palace: three floors of black stone on the north of the floor, facing the lake
   const pz = -20.5, py = PF + 0.7;
   K.add('stone', xf(box(23, 0.7, 13.5), { x: 0, y: PF, z: pz }));
@@ -355,11 +371,13 @@ function buildReach(K, extra) {
   for (const cx of [-3.8, 3.8]) { K.add('stone2', xf(cyl(0.14, 0.16, 1.0, 8), { x: cx, y: py, z: pz + 6.2 })); K.add('glow', xf(box(0.3, 0.34, 0.3), { x: cx, y: py + 1.0, z: pz + 6.2 })); }
   L('Val\'s palace', V(0, py + 15.2, pz));
   const valP = V(0.3, py + 7.7, pz + 5.4);
+  setStage(K, 1);
   // no one ever sees Val: only the frost where he stood
   K.add('frost', new THREE.CircleGeometry(0.85, 24).rotateX(-PI / 2).translate(valP.x, valP.y + 0.012, valP.z - 0.1));
   extra.valP = valP; extraState.valP = valP;
   L('Frost', V(valP.x, valP.y + 1.2, valP.z), { small: 1 });
 
+  setStage(K, 3);
   // ---- the Assembly: a colossal brutalist hall on piers, east of the lake, its stair facing the water
   { const p = ASSEMBLY, y0 = PF;
     K.add('concrete', xf(box(13, 0.6, 11), { x: p.x, y: y0, z: p.z }));
@@ -374,6 +392,7 @@ function buildReach(K, extra) {
     K.add('glow', xf(box(0.06, 2.4, 2.4), { x: p.x - 5.2, y: y0 + 0.6, z: p.z }));
     L('The Assembly', V(p.x, y0 + 18.6, p.z)); }
 
+  setStage(K, 3);
   // ---- the arena on the floor: tiered stands round pale sand, a ribbed black wall, a gate toward the lake
   { const A = ARENA, y0 = PF + 0.05, ell = (rx, rz) => { const s = new THREE.Shape(); s.absellipse(0, 0, rx, rz, 0, 2 * PI); return s; };
     K.add('sand', new THREE.ExtrudeGeometry(ell(A.ax, A.az), { depth: 0.06, bevelEnabled: false, curveSegments: 48 }).rotateX(-PI / 2).translate(A.x, y0, A.z));
@@ -388,16 +407,19 @@ function buildReach(K, extra) {
     figure(K, 'robe', V(A.x - 0.8, y0 + 0.06, A.z + 0.2), PI / 2, 0.7); figure(K, 'figure', V(A.x + 0.8, y0 + 0.06, A.z - 0.1), -PI / 2, 0.7);
     L('The arena', V(A.x, y0 + 5.2, A.z)); }
 
+  setStage(K, 3);
   // ---- the yard below the stair: Voided drilling in ranks
   for (let rI = 0; rI < 6; rI++) for (let c = 0; c < 12; c++) figure(K, 'robe', V(-5.5 + c * 1.0, PF, 16.5 + rI * 1.1), PI, 0.7);
   figure(K, 'figure', V(0, PF, 14.6), 0, 0.75);
   L('The yard', V(0, PF + 2.4, 19.5));
 
+  setStage(K, 2);
   // ---- the forest above, with what the Voided let show: obelisks, masts, air shafts, the great pods
   for (let k = 0; k < 16; k++) { const a = (k + 0.5) / 16 * 2 * PI, p = atA(a, 43.8); if (inSec(a) || nearStair(p.x, p.z, 2)) continue; p.y = gh(p.x, p.z);
     K.add('black', xf(new THREE.CylinderGeometry(0.35, 0.65, 5.6, 4).translate(0, 2.8, 0), { ...p, y: p.y - 0.1, ry: PI / 4 })); K.add('vglow', xf(new THREE.ConeGeometry(0.25, 0.6, 4).translate(0, 0.3, 0), { ...p, y: p.y + 5.45, ry: PI / 4 })); }
   extra.masts = [D(115), D(196), D(300), D(160), D(250)].map(a => { const p = atA(a, 54); p.y = gh(p.x, p.z); return p; });
   extra.masts.forEach(p => mast(K, p, 8));
+  setStage(K, 3);                      // air shafts and pods serve the city below: they come with its growth
   extra.shafts = [D(128), D(176), D(222), D(268)].map(a => ({ a, r: 51 }));
   for (const s of extra.shafts) { const p = atA(s.a, s.r); const y = gh(p.x, p.z) - 1;
     K.add('concrete', xf(box(5.6, 4.4, 5.6), { ...p, y, ry: ryOut(s.a) })); K.add('concreteD', xf(box(4.2, 1.2, 4.2), { ...p, y: y + 4.4, ry: ryOut(s.a) }));
@@ -406,6 +428,7 @@ function buildReach(K, extra) {
   extra.pods = [D(-46), D(-32), D(-18)].map(a => ({ a, r: 52 }));
   for (const P of extra.pods) { const p = atA(P.a, P.r); bigPod(K, P.a, P.r, gh(p.x, p.z) - 0.4); }
   L('Barracks pods', atA(D(-32), 52, 5.6));
+  setStage(K, 0);
   // the forest: dark firs everywhere the city isn't, thick enough that you could walk past it
   { const r = rng(3), clear = [p => extra.masts.some(m => Math.hypot(m.x - p.x, m.z - p.z) < 1.8), p => extra.shafts.some(s => atA(s.a, s.r).distanceTo(V(p.x, 0, p.z)) < 5), p => extra.pods.some(s => atA(s.a, s.r).distanceTo(V(p.x, 0, p.z)) < 7.5),
       p => Math.hypot(p.x, p.z) < 45, p => nearStair(p.x, p.z, 3.2), p => Math.abs(p.x) < 7 && p.z > 55];
@@ -420,6 +443,7 @@ function buildReach(K, extra) {
       n++;
     } }
 
+  setStage(K, 3);
   // ---- below the forest, cut open on the south-east: four levels
   const u = atA(SECM, 1), t = V(-u.z, 0, u.x), S = (rho, y, tau) => V(u.x * rho + t.x * tau, y, u.z * rho + t.z * tau), sRy = ryOut(SECM);
   for (const a of [SEC0, SEC1]) { const want = atA(a + (a === SEC0 ? PI / 2 : -PI / 2), 1), p0 = atA(a, RP), p1 = atA(a, R);
@@ -468,7 +492,7 @@ function buildReach(K, extra) {
     for (let k = 0; k < 14; k++) { const p = S(43 + k * 1.3, y, -15); K.add('ribs', new THREE.TorusGeometry(2.2, 0.2, 6, 16, PI).rotateY(sRy + PI / 2).translate(p.x, p.y, p.z)); }
     L('Conduits', S(52, y + 6.4, 9)); }
   { const p = S(60.6, BASE + 1, 14); K.add('metal', xf(box(1.6, -BASE - 1 + 0.5, 1.6), { ...p, ry: sRy })); K.add('glass', xf(box(1.7, -BASE - 1 + 0.4, 1.7), { ...p, ry: sRy })); K.add('vglow', xf(box(1.3, 1.6, 1.3), { ...S(60.6, -12, 14), ry: sRy })); }
-  L('The Hollow', V(-6, 2.4, -36));
+  setStage(K, 1); L('The Hollow', V(-6, 2.4, -36)); setStage(K, 0);
 }
 // a lying ribbed barracks pod on the surface, big enough for a few hundred bunks
 function bigPod(K, a, r, y) {
@@ -893,7 +917,7 @@ const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0.4, 0.9); c
 composer.addPass(new OutputPass());
 
 const q = new URLSearchParams(location.search);
-const state = { theme: q.get('theme') === 'paper' ? 'paper' : 'crt', style: q.get('style') === 'blocks' ? 'blocks' : 'model', showTags: true };
+const state = { theme: q.get('theme') === 'paper' ? 'paper' : 'crt', style: q.get('style') === 'blocks' ? 'blocks' : 'model', showTags: true, stage: /^[1-7]$/.test(q.get('stage') || '') ? +q.get('stage') - 1 : null };
 let root = null, modelRoot = null, blockRoot = null, fpGroup = null, roomLights = [], heightCache = null;
 const KIND_IDS = {};
 
@@ -926,28 +950,28 @@ function build() {
   const extra = { add: [], lights: [] };
   const K = new Kit(); buildReach(K, extra);
   Object.keys(mats).forEach((k, i) => { KIND_IDS[k] = i + 1; });
-  for (const [k, g] of Object.entries(K.merge())) {
-    const m = new THREE.Mesh(g, mats[k]); m.userData.kind = k;
+  for (const [key, g] of Object.entries(K.merge())) {
+    const [k, st] = key.split('@'), m = new THREE.Mesh(g, mats[k]); m.userData.kind = k; m.userData.stage = +st || 0;
     if (!noOutline.has(k)) { m.castShadow = m.receiveShadow = true; const o = new THREE.Mesh(hullOf(g), outlineMaterial(th.ink, th.outlinePx)); o.raycast = () => {}; m.add(o); }
     modelRoot.add(m);
   }
-  extra.add.forEach(o => modelRoot.add(o));
+  extra.add.forEach(o => { if (o.userData.stage == null) o.userData.stage = 3; modelRoot.add(o); });
   // the station's floating tip and its beam into the sky
   const tip = (t) => { const m = new THREE.Mesh(new THREE.ConeGeometry(t.r, t.h, 4).rotateY(PI / 4), mats.black); m.position.copy(t.p).add(V(0, t.h / 2, 0)); m.userData.y0 = m.position.y; m.castShadow = true; m.add(new THREE.Mesh(hullOf(m.geometry), outlineMaterial(th.ink, th.outlinePx))); return m; };
-  capstone = tip(extra.capTip); modelRoot.add(capstone);
+  capstone = tip(extra.capTip); capstone.userData.stage = 3; modelRoot.add(capstone);
   const bm = new THREE.MeshBasicMaterial({ color: new THREE.Color(th.vglow).multiplyScalar(crt ? 1.3 : 0.9), transparent: true, opacity: 0.35, depthWrite: false, blending: crt ? THREE.AdditiveBlending : THREE.NormalBlending });
-  beam = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.24, 30, 12, 1, true).translate(0, 15, 0), bm); beam.position.copy(extra.capTip.p).add(V(0, extra.capTip.h, 0)); modelRoot.add(beam);
+  beam = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.24, 30, 12, 1, true).translate(0, 15, 0), bm); beam.position.copy(extra.capTip.p).add(V(0, extra.capTip.h, 0)); beam.userData.stage = 3; modelRoot.add(beam);
   for (let i = 0; i < 4; i++) { const p = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), mats.vglow); modelRoot.add(p); pulses.push({ m: p, from: beam.position.clone().add(V(0, 26, 0)), to: beam.position.clone(), ph: i / 4, k: 0.25 }); }
   extra.relays.forEach((r, i) => { const p = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), mats.vglow); modelRoot.add(p); pulses.push({ m: p, from: V(LAKE.x, PF + 0.6, LAKE.z), to: V(r.x, PF + 0.6, r.z), ph: i / 6, k: 0.4 }); });
   // the masts' lamps blink
-  extra.masts.forEach(p => modelRoot.add(mast(new Kit(), p, 8)));
+  extra.masts.forEach(p => { const mm = mast(new Kit(), p, 8); if (mm && mm.userData) mm.userData.stage = 2; modelRoot.add(mm); });
   // Val: black dust lifting off him, then gone
   valDust = makeDust(extra.valP, 70, 0.9); modelRoot.add(valDust);
 
   // inside (full size): only shown while you walk
   const KI = new Kit(), ex2 = { add: [], lights: [] }; buildPalace(KI, ex2); buildBelow(KI, ex2);
-  for (const [k, g] of Object.entries(KI.merge())) {
-    const m = new THREE.Mesh(g, mats[k]);
+  for (const [key, g] of Object.entries(KI.merge())) {
+    const k = key.split('@')[0], m = new THREE.Mesh(g, mats[k]);
     if (!noOutline.has(k)) { m.receiveShadow = true; const o = new THREE.Mesh(hullOf(g), outlineMaterial(th.ink, th.outlinePx)); o.raycast = () => {}; m.add(o); }
     fpGroup.add(m);
   }
@@ -1095,7 +1119,7 @@ function syncLabels() { layer.innerHTML = ''; for (const l of labels) { const el
 const tv = new THREE.Vector3();
 function updateLabels() {
   const w = innerWidth, h = innerHeight;
-  for (const l of labels) { tv.copy(l.pos).project(camera); const vis = state.showTags && tv.z < 1 && Math.abs(tv.x) < 1.05 && Math.abs(tv.y) < 1.05;
+  for (const l of labels) { tv.copy(l.pos).project(camera); const vis = state.showTags && stageShows(l.stage) && tv.z < 1 && Math.abs(tv.x) < 1.05 && Math.abs(tv.y) < 1.05;
     l.el.style.opacity = vis ? 1 : 0; l.el.style.transform = `translate(${(tv.x * 0.5 + 0.5) * w}px, ${(-tv.y * 0.5 + 0.5) * h}px) translate(-50%, -100%)`; }
 }
 const EYE = 1.1;
@@ -1110,14 +1134,24 @@ camera.position.set(120, 96, 132); controls.target.set(2, -10, 4); camera.zoom =
 if (q.get('view') === 'below') { camera.position.set(130, 10, 110); controls.target.set(36, -18, 36); camera.zoom = 2.2; camera.updateProjectionMatrix(); controls.autoRotate = false; }
 if (q.get('view') === 'palace') { camera.position.set(20, 10, 90); controls.target.set(0, -18, -14); camera.zoom = 2.6; camera.updateProjectionMatrix(); controls.autoRotate = false; }
 addEventListener('resize', resize);
+const stageShows = st => state.stage == null || (st || 0) <= state.stage;
+/** Show only what stood by the chosen founding stage (state.stage: null = everything; 0-6). Pieces without a stage are land: always shown. */
+function applyStage() {
+  if (!modelRoot) return;
+  modelRoot.children.forEach(o => { if (o.userData && o.userData.stage != null) o.visible = stageShows(o.userData.stage); });
+  const sel = $('stageSel'); if (sel) sel.value = state.stage == null ? '' : String(state.stage + 1);
+}
+function setFoundingStage(n) { state.stage = Number.isInteger(n) && n >= 1 && n <= 7 ? n - 1 : null; applyStage(); note(); }
+function stageNote() { if (state.stage != null) $('note').insertAdjacentHTML('afterbegin', `<p class="stg"><b>Built · ${state.stage + 1} ${STAGES[state.stage]}</b><br>${STAGE_NOTES[state.stage]}</p>`); }
 function note() {
   if (state.style === 'blocks') { const C = CONCEPTS[state.theme], sw = c => `<i style="display:inline-block;width:10px;height:10px;margin-right:6px;vertical-align:-1px;background:${c}"></i>`;
     $('note').innerHTML = `<h2>The Narrative view</h2>The place as it is <b>written</b>, the way the Scribe sees it. The same rules hold on every site.<br>${sw(C.nothing)}<b>Nothing</b> (Sils) · ${sw(C.story)}<b>Story</b> (Antholonious)<br>${sw(C.reality)}<b>Reality</b> (Lithia) · ${sw(C.imagination)}<b>Imagination</b> (Moinera)<br><b>Height</b>: how much story is written there. <b>Black</b>: erased. <b>Blank</b>: unwritten (the Fallen).<br>Here: the Hollow is soaked in Nothing; a thread of Story runs through Val's palace, and half of Val is missing from the page.`; return; }
   $('note').innerHTML = '<h2>The Hollow Reach · capital of the Voided</h2>Central Germany, deep in the forested uplands. A round pit with <b>smooth black walls</b>, open to the sky: the city is built down into it and dug in behind it. On its floor, beside a still lake, the black palace. The people see a <b>Monarch</b> there, the First Switcher, whom they believe is the void Godling. The one he serves without knowing is <b>Val</b>, whom no one has ever seen: his presence kills. The capital\'s <b>station</b> stands on an island in the lake. Under the forest: the <b>gate hall</b> and the <b>blessing chamber</b>, where a piece of Val is bound into each of his warriors.';
+  stageNote();
 }
 function seg(id, fn) { $(id).addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; [...$(id).children].forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset.v); }); }
 seg('styleSeg', v => { state.style = v; applyStyle(); note(); });
-seg('themeSeg', v => { state.theme = v; document.body.classList.toggle('paper', v === 'paper'); build(); });
+seg('themeSeg', v => { state.theme = v; document.body.classList.toggle('paper', v === 'paper'); build(); applyStage(); });
 seg('tagSeg', v => { state.showTags = v === 'on'; });
 
 // ------------------------------------------------------------------ the walk (on rails, as in Aurelia)
@@ -1357,7 +1391,8 @@ function frame() {
 }
 if (state.theme === 'paper') { document.body.classList.add('paper'); [...$('themeSeg').children].forEach(x => x.classList.toggle('on', x.dataset.v === 'paper')); }
 if (state.style === 'blocks') [...$('styleSeg').children].forEach(x => x.classList.toggle('on', x.dataset.v === 'blocks'));
-resize(); build(); note(); applyEnv(0);
+resize(); build(); applyStage(); note(); applyEnv(0);
+{ const sel = $('stageSel'); if (sel) sel.addEventListener('change', () => setFoundingStage(sel.value ? +sel.value : null)); }
 $('boot').remove();
 // ?embed=1&pin=<design>&ring=<colour>: opened inside the map's close-up; a character's sword stands here, giant (assets/atlas3d/pins/pins.js)
 let giantPin = null, giantPins = [];

@@ -23,6 +23,9 @@
   .seg button + button{ border-left:1px solid var(--line); }
   .seg button.on{ background:var(--accent); color:var(--bg); }
   .seg button.walk{ color:var(--ink); }
+  .stageSel{ display:flex; align-items:center; gap:6px; font-family:'Bebas Neue',sans-serif; letter-spacing:.1em; font-size:14px; color:var(--dim); }
+  .stageSel select{ font-family:'Bebas Neue',sans-serif; letter-spacing:.06em; font-size:14px; background:var(--bg); color:var(--accent); border:1px solid var(--line); padding:3px 4px; }
+  #note .stg{ margin:0 0 8px; padding-bottom:6px; border-bottom:1px solid var(--line); }
   #labels{ position:fixed; inset:0; pointer-events:none; z-index:2; }
   .lbl{ position:absolute; left:0; top:0; white-space:nowrap; font-family:'Bebas Neue',sans-serif; letter-spacing:.08em; font-size:13px; line-height:1; padding:3px 6px 2px; background:var(--lbl-bg); color:var(--lbl-fg); border-left:3px solid var(--accent); transition:opacity .3s; will-change:transform; }
   #note{ position:fixed; left:16px; bottom:16px; width:min(380px, calc(100% - 32px)); padding:12px 14px; background:var(--panel); border:1px solid var(--line); font-size:11px; line-height:1.6; color:var(--dim); z-index:3; }
@@ -48,6 +51,7 @@
 <header>
   <h1><a href="../atlas-3d.html?view=earth&amp;era=1" class="back" title="Back to the map">← Map</a> Epitaph <span>//</span> The Hollow Reach</h1>
   <div class="ctrls">
+    <label class="stageSel" title="Founding stages: show only what stood by then">Built <select id="stageSel"><option value="">as built</option><option value="1">1 · The reason</option><option value="2">2 · Ground broken</option><option value="3">3 · First walls</option><option value="4">4 · Growth</option><option value="5">5 · Disaster</option><option value="6">6 · Rebuilt</option><option value="7">7 · As it stands</option></select></label>
     <div class="seg" id="styleSeg"><button data-v="model" class="on">Model</button><button data-v="blocks">Narrative</button></div>
     <div class="seg" id="themeSeg"><button data-v="crt" class="on">Signal</button><button data-v="paper">Paper</button></div>
         <div class="seg" id="tagSeg"><button data-v="on" class="on">Names</button><button data-v="off">Off</button></div>
@@ -57,6 +61,6 @@
 <div id="fade"><b></b></div>
 <span class="hint">drag to turn · scroll to zoom</span>
 <div id="boot">OPENING THE HOLLOW…</div>
-<script type="module" src="../assets/sites/hollow-reach.js?v=14"></script>
+<script type="module" src="../assets/sites/hollow-reach.js?v=15"></script>
 </body>
 </html>

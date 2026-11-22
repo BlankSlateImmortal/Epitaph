@@ -2,6 +2,14 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## 3D sites by founding stage (sites/aurelia.html, sites/hollow-reach.html) — step 5.2
+
+Both 3D sites can show the place **as it stood at a founding stage**: a **Built** picker in the header ("as built", or 1 · The reason … 7 · As it stands), or `?stage=N` in the address (1–7). Every piece of the scene is filed under the stage that built it (the scene kit keeps one mesh per material *and stage*), and the labels follow; the note panel names the stage and what it added. "As built" (the default) is exactly the old scene.
+
+- **Aurelia:** 1 the bluff, river, prairie and waterfalls · 2 the farmland, the ring terraces and golden avenues, the Cathedral, townhouses, street trees, pennants and lanterns · 3 the bluff wall and the Ruler's Tower with its script rings · 4 the Chronicle, the Archive, the Seminary and its bridge, the wharf, lower town and funicular · 5–7 the erasure (the same as *After the Calamity*). Picking Before or After goes back to "as built".
+- **The Hollow Reach:** 1 the forest · 2 the carved pit and its four steps (and the frost where Val stands) · 3 the obelisks and relay masts of the inverse barrier · 4 the hives, Spines, Descent, lake and station, palace, Assembly, arena, yard, air shafts, pods and everything below. It has no disaster yet, so 5–7 show it whole.
+- **From the entry:** the History tab of a place with a 3D site has **Open the 3D site at stage N**, which follows the stage you click.
+
 ## Site Encyclopedia: how it was built (History tab, epitaph-sites.js `foundingProblems`) — step 5.1
 
 The History tab now tells a place's founding as the **seven stages** top to bottom (The reason · Ground broken · First walls · Growth · Disaster · Rebuilt · As it stands), each dated on the shared timeline ("Aurelia rises under Gaia · Ch 1"), with why here, who, materials, **what was reused from the drowned world**, and what changed. Click a stage to turn the founding model on the right page to it; the map's stage buttons and the list stay in step.

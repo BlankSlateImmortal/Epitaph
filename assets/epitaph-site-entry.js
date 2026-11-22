@@ -149,7 +149,9 @@
       return `<div class="se-fs${c.seen(f.when) ? '' : ' se-hid'}">${head}<div class="se-fs-b"><span class="se-fs-w">${esc(when(f.when))}${c.author && !c.seen(f.when) ? ' · readers haven’t reached it' : ''}</span>
         ${kvs.length ? `<div class="se-kv">${kvs.map(r => `<span>${esc(r[0])}</span><span>${esc(r[1])}</span>`).join('')}</div>` : '<span class="se-dim">Only the date so far.</span>'}</div></div>`;
     }).join('');
-    return ecard('history.founding', 'How it was built · seven stages, dated on the timeline · click one to see it on the model', `<div class="se-found">${rows}</div>`);
+    const site = Wd() && Wd().SITES && Wd().SITES[c.pid], n = (cur && Number.isInteger(cur.stage) ? cur.stage : 6) + 1;
+    const walk = site ? `<div class="se-row se-fs-3d"><a class="se-link" data-se-site3d="${esc(site)}" href="${esc(site)}?stage=${n}" target="_blank" rel="noopener">⬚ Open the 3D site at stage ${n} · ${esc(stages[n - 1].label)} ▸</a><span class="se-dim">shows only what stood by then</span></div>` : '';
+    return ecard('history.founding', 'How it was built · seven stages, dated on the timeline · click one to see it on the model', `${walk}<div class="se-found">${rows}</div>`);
   }
   function history(c) {
     const h = c.rec.history, Si = c.Si;
@@ -491,7 +493,8 @@ ${r.state === 'ongoing' ? 'still going' : r.state === 'unknown' ? 'ends later (n
       const tabBtn = t.closest('[data-se-tab]'); if (tabBtn && t.closest('#seEntry')) { if (global.EpitaphSiteEdit && tabBtn.dataset.seTab !== cur.tab) global.EpitaphSiteEdit.cancel(cur.placeId); cur.tab = tabBtn.dataset.seTab; render(); return; }
       if (t.closest('[data-se-back]')) { close(); return; }
       const f = t.closest('[data-se-focus]'); if (f) { cur.tab = 'intrigue'; cur.focus = f.dataset.seFocus; render(); return; }
-      const st = t.closest('[data-se-stage]'); if (st) { cur.stage = +st.dataset.seStage; document.querySelectorAll('[data-se-stage]').forEach(b => { const on = +b.dataset.seStage === cur.stage; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }); if (st.closest('#seEntry') && cur.tab !== 'history') { cur.tab = 'history'; render(); return; } drawMap(context(cur.placeId), RENDER[cur.tab](context(cur.placeId))); return; }
+      const st = t.closest('[data-se-stage]'); if (st) { cur.stage = +st.dataset.seStage; document.querySelectorAll('[data-se-stage]').forEach(b => { const on = +b.dataset.seStage === cur.stage; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
+        document.querySelectorAll('[data-se-site3d]').forEach(a => { const n = cur.stage + 1; a.href = a.dataset.seSite3d + '?stage=' + n; a.textContent = `⬚ Open the 3D site at stage ${n} · ${S().FOUNDING_STAGES[cur.stage].label} ▸`; }); if (st.closest('#seEntry') && cur.tab !== 'history') { cur.tab = 'history'; render(); return; } drawMap(context(cur.placeId), RENDER[cur.tab](context(cur.placeId))); return; }
       const tu = t.closest('[data-se-turn]'); if (tu) { cur.angle += (+tu.dataset.seTurn) * 0.35; drawMap(context(cur.placeId), RENDER[cur.tab](context(cur.placeId))); }
     });
     document.addEventListener('input', e => {

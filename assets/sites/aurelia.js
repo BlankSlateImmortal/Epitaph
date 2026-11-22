@@ -72,16 +72,27 @@ function jitter(geo, amt, seed) {
   geo.computeVertexNormals(); return geo;
 }
 class Kit {
-  constructor() { this.b = {}; }
+  constructor() { this.b = {}; this.stage = 0; }
   add(kind, g) {
     if (g.index) g = g.toNonIndexed();
     for (const n of Object.keys(g.attributes)) if (n !== 'position' && n !== 'normal') g.deleteAttribute(n);
     if (!g.attributes.normal) g.computeVertexNormals();
     g.clearGroups();
-    (this.b[kind] ||= []).push(g);
+    (this.b[kind + '@' + this.stage] ||= []).push(g);
   }
   merge() { const o = {}; for (const [k, l] of Object.entries(this.b)) o[k] = mergeGeometries(l, false); return o; }
 }
+// ---- founding stages (Site Encyclopedia step 5.2): every piece of the city is filed under the stage that built it (0-based, the seven
+//      of EpitaphSites.FOUNDING_STAGES). ?stage=N (1-7) or the Built picker shows only what stood by then; stages 5-7 are the erasure.
+const STAGES = ['The reason', 'Ground broken', 'First walls', 'Growth', 'Disaster', 'Rebuilt', 'As it stands'];
+const STAGE_NOTES = ['The bluff above the Solomon River: high ground the flood never reached. Nothing built yet.',
+  'Ground broken: three ring terraces climb to the Cathedral; script glows in the streets; the first townhouses.',
+  'First walls: the Ruler\'s Tower (no doors, no windows) and the low wall along the bluff edge.',
+  'Growth: the Chronicle, the Archive, the Seminary across its bridge, the wharf, the lower town and the funicular.',
+  'Disaster: the Calamity erases the city outward from a house on the west ring.',
+  'Rebuilt: nothing has been rebuilt.', 'As it stands: a smooth black wound in the plains.'];
+let curStage = 0;
+const setStage = (kit, n) => { kit.stage = n; curStage = n; };
 
 // ------------------------------------------------------------------ layout constants
 const PLATEAU_R = 19, CLIFF = 3.6, FLOOR = -CLIFF;    // a low bluff: limestone caprock on top, grass slopes below
@@ -110,7 +121,7 @@ const SEM = V(28, 1.2, -3), SEM_R = 5.2;                 // seminary rock
 const rimShape = (R, amp, seed, a) => R + Math.sin(a * 3 + seed) * amp * 0.5 + Math.sin(a * 7 + seed * 2) * amp * 0.35 + Math.sin(a * 13 + seed) * amp * 0.15;
 const rimR = th => rimShape(PLATEAU_R, 1.4, 1, -th);
 const labels = [];
-const L = (text, pos, opts = {}) => labels.push({ text, pos, ...opts });
+const L = (text, pos, opts = {}) => labels.push({ text, pos, stage: curStage, ...opts });
 
 // a tapered tube between two points, and a ball (for limbs, roots, rails)
 function tubeSeg(kit, kind, a, b, r0, r1, seg = 8) { const d = b.clone().sub(a), g = new THREE.CylinderGeometry(r1, r0, d.length(), seg); g.applyMatrix4(new THREE.Matrix4().compose(a.clone().add(b).multiplyScalar(0.5), new THREE.Quaternion().setFromUnitVectors(V(0, 1, 0), d.normalize()), V(1, 1, 1))); kit.add(kind, g); }
@@ -294,6 +305,7 @@ function spire(kit, x, y, z, w, h, sp) {
 
 // ------------------------------------------------------------------ the site
 function buildAurelia(kit, quake) {
+  setStage(kit, 0);
   const r = rng(7);
   // ---- ground: cliffs in strata, terraces, the seminary rock, harbour shelf
   const rim = (R, n, amp, seed) => { const pts = []; for (let i = 0; i < n; i++) { const a = i / n * PI * 2, rr = rimShape(R, amp, seed, a); pts.push(new THREE.Vector2(Math.cos(a) * rr, Math.sin(a) * rr)); } return pts; };
@@ -322,6 +334,7 @@ function buildAurelia(kit, quake) {
     else { kit.add('leaf', xf(new THREE.IcosahedronGeometry(0.35 + r() * 0.25, 0), { x, y: y + 0.35, z })); }
   }
   slab(rim(SEM_R, 32, 0.8, 4), 0.85, SEM.y, 'paving', 0, 0, SEM.x, -SEM.z);
+  setStage(kit, 1);
   // terraces: three rings rising to the cathedral; retaining walls carry a line of light
   const disc = (R, y0, y1) => { kit.add('stone', xf(cyl(R, R, y1 - y0, 64), { y: y0 })); kit.add('trim', xf(cyl(R + 0.12, R + 0.12, 0.2, 64), { y: y1 - 0.16 })); kit.add('glow', xf(new THREE.TorusGeometry(R + 0.02, 0.035, 4, 96).rotateX(PI / 2), { y: (y0 + y1) / 2 })); };
   disc(11, T1, T2); disc(6.2, T2, T3);
@@ -336,6 +349,7 @@ function buildAurelia(kit, quake) {
   }
   const nearAvenue = a => { const m = ((a - PI / 4) % (PI / 2) + PI / 2) % (PI / 2); return m < 0.16 || PI / 2 - m < 0.16; };
 
+  setStage(kit, 2);
   // ---- a low raised wall along the bluff edge: dressed stone over the caprock, battlements on top
   { const N = 220, gaps = (x, z) => (z > 12 && (Math.abs(x - 4.5) < 1.4 || Math.abs(x + 4.5) < 1.4)) || (x > 14 && Math.abs(z - (-SEM.z) * 0.6) < 2.2);
     for (let i = 0; i < N; i++) {
@@ -362,6 +376,7 @@ function buildAurelia(kit, quake) {
     PENNANTS.push(V(x, T1 + h + 3.4, z));
   }
 
+  setStage(kit, 1);
   // ---- the Cathedral of the Storyborn, on the top terrace
   const C = T3;
   kit.add('stone', xf(cyl(3.3, 3.5, 3.2, 24), { y: C }));
@@ -381,6 +396,7 @@ function buildAurelia(kit, quake) {
   kit.add('roof', xf(gable(1.7, 3.3, 1.1), { y: C + 3.6, z: 3.5 }));
   L('Cathedral of the Storyborn', V(0, C + 10, 0));
 
+  setStage(kit, 2);
   // ---- the Ruler's Tower: no door, no windows, only a ring of script near the top
   const RT = V(-7.6, T2, -4.6);
   kit.add('stone', xf(cyl(1.05, 1.35, 15, 16), { x: RT.x, y: RT.y, z: RT.z }));
@@ -391,6 +407,7 @@ function buildAurelia(kit, quake) {
   kit.add('gold', xf(cone(0.5, 2.4, 8), { x: RT.x, y: RT.y + 15.3, z: RT.z }));
   L('The Ruler\'s Tower · no doors', V(RT.x, RT.y + 18.2, RT.z));
 
+  setStage(kit, 3);
   // ---- the Chronicle: a clock tower whose faces keep the town's story
   const CK = V(7.8, T2, -4.2);
   kit.add('stone', xf(box(2.0, 9, 2.0), { x: CK.x, y: CK.y, z: CK.z }));
@@ -406,11 +423,13 @@ function buildAurelia(kit, quake) {
   kit.add('glow', xf(new THREE.OctahedronGeometry(0.2), { x: CK.x, y: CK.y + 14.2, z: CK.z }));
   L('The Chronicle', V(CK.x, CK.y + 15, CK.z));
 
+  setStage(kit, 1);
   // ---- townhouses on the two lower rings
   const placed = [];
   const clear = (x, z, rad) => placed.every(([a, b, rr]) => Math.hypot(x - a, z - b) > rad + rr) &&
     Math.hypot(x - RT.x, z - RT.z) > 2.6 + rad && Math.hypot(x - CK.x, z - CK.z) > 2.6 + rad && Math.hypot(x - ORIN.x, z - ORIN.z) > 3 + rad;
   const ORIN = V(-14.2, T1, 3.2);
+  setStage(kit, 3);
   // ---- the Archive: a domed rotunda over Nera's lab, built and funded by her family (rich patrons, like Luthen's gallery).
   //      It is not an ordinary library: what people believe about the Storyborn shapes their power, so the Archive is made to
   //      fill visitors with reverence and fear. A low entry opens into a well that rises past three galleries to the dome;
@@ -804,6 +823,7 @@ function buildAurelia(kit, quake) {
       townhouse(kit, r, { x, y, z, ry: Math.atan2(-x, -z), w, d, h: 1.6 + r() * (y === T2 ? 2.6 : 2.0) });
     }
   }
+  setStage(kit, 1);
   // street trees
   for (let n = 0; n < 200; n++) {
     const a = r() * PI * 2, rr = 11.4 + r() * 7, x = Math.cos(a) * rr, z = Math.sin(a) * rr;
@@ -813,6 +833,7 @@ function buildAurelia(kit, quake) {
     kit.add('leaf', xf(new THREE.IcosahedronGeometry(0.42, 0), { x, y: 0.75, z }));
   }
 
+  setStage(kit, 1);
   // ---- Orin's home: the family house, its garden, the gate
   kit.add('leaf', xf(box(4.2, 0.12, 3.6), { x: ORIN.x + 0.4, y: T1 + 0.004, z: ORIN.z }));
   townhouse(kit, rng(99), { x: ORIN.x - 0.6, y: T1, z: ORIN.z, ry: PI / 2, w: 2.4, d: 1.9, h: 2.3 });
@@ -821,6 +842,7 @@ function buildAurelia(kit, quake) {
   kit.add('dark', xf(cyl(0.07, 0.09, 0.6, 5), { x: ORIN.x + 1.5, z: ORIN.z - 1.1 }));
   L('Orin\'s home', V(ORIN.x, 3.8, ORIN.z));
 
+  setStage(kit, 3);
   // ---- the seminary across the bridge: where Orin takes the priest's test
   const S = V(SEM.x, SEM.y, -SEM.z);
   kit.add('stone', xf(box(5.2, 2.6, 3.4), { x: S.x, y: S.y, z: S.z }));
@@ -851,6 +873,7 @@ function buildAurelia(kit, quake) {
   }
   for (const side of [-0.75, 0.75]) kit.add('gold', xf(box(len + 1, 0.08, 0.06), { x: (bx0 + bx1) / 2, y: deckY + 0.35, z: bz + (S.z - bz) * 0.5 + side, ry: -ang }));
 
+  setStage(kit, 3);
   // ---- the Undercroft, cut away: a slice of the north hill removed so you can see into Nera's lab.
   //      Behind the lab (hidden in the hill): her living quarters, a vault hall and a bunker behind a round vault door.
   //      Stairs climb out of the lab to the Archive above, where she works as an archivist.
@@ -1019,6 +1042,7 @@ function buildAurelia(kit, quake) {
       armMount: LP(2.2, H1 - 0.52, -2.7), armTarget: LP(2.05, H0 + 0.72, -2.68), screen: { p: LP(1.0, H0 + 1.33, -5.12), ry: 0 } };
   })();
 
+  setStage(kit, 0);
   // ---- the valley: the Solomon River along the south foot of the bluff, a wharf, the lower town
   const river = new THREE.CatmullRomCurve3([V(-30.2, 0, 10.6), V(-24, 0, 21.5), V(-10, 0, 24.2), V(3, 0, 24.8), V(15, 0, 23.2), V(26, 0, 17.5), V(30.4, 0, 10.4)]);
   const ribbon = (curve, w, y, kind) => {
@@ -1035,6 +1059,7 @@ function buildAurelia(kit, quake) {
     if (Math.hypot(x, z) > 33 || Math.hypot(x, z) < rimR(Math.atan2(z, x)) + SP(Math.atan2(z, x)) + 0.3) continue;
     kit.add('dark', xf(cyl(0.07, 0.09, 0.5, 5), { x, y: FLOOR, z })); kit.add('leaf', xf(new THREE.IcosahedronGeometry(0.5 + r() * 0.3, 0), { x, y: FLOOR + 0.85, z }));
   }
+  setStage(kit, 3);
   const HY = FLOOR;
   for (const x of [-6, -2, 2, 6]) { const p = river.getPointAt(0.5 + x / 80); kit.add('dark', xf(box(0.8, 0.14, 2.4), { x: p.x + x * 0.02, y: HY + 0.02, z: p.z - 0.6 })); }
   kit.add('trim', xf(box(14, 0.25, 1.2), { x: 0, y: HY, z: river.getPointAt(0.5).z - 2.0 }));
@@ -1072,6 +1097,7 @@ function buildAurelia(kit, quake) {
     lifts.push({ a: top.clone().add(V(0, 0.35, 0)), b: bot.clone().add(V(0, 0.35, 0)) });
   }
   L('Funicular to the river', V(0, 1.8, PLATEAU_R + 2.4));
+  setStage(kit, 1);                    // the farmland was there before the city (reused from the old world): it comes with the first ground
   const fr = rng(77), fieldKinds = ['field1', 'field2', 'field3', 'field4'];
   for (let gx = -34; gx < 34; gx += 3.6) for (let gz = -34; gz < 34; gz += 2.8) {
     const cx = gx + 1.8, cz = gz + 1.4, rr = Math.hypot(cx, cz);
@@ -1082,8 +1108,10 @@ function buildAurelia(kit, quake) {
     kit.add(fieldKinds[Math.floor(fr() * 4)], xf(box(3.35, 0.05, 2.55), { x: cx, y: FLOOR, z: cz, ry: (fr() - 0.5) * 0.05 }));
     if (fr() < 0.05) { kit.add('barn', xf(box(1.0, 0.7, 0.7), { x: cx + 0.6, y: FLOOR + 0.05, z: cz })); kit.add('roof', xf(gable(0.8, 1.15, 0.45), { x: cx + 0.6, y: FLOOR + 0.75, z: cz, ry: PI / 2 })); }
   }
+  setStage(kit, 0);
   L('Prairie · the Solomon River valley', V(-29, FLOOR + 1.2, 0));
 
+  setStage(kit, 0);
   // waterfalls: two short falls off the caprock, then creeks down the slope into the river
   const falls = [];
   const ribbon3 = (pts, w, kind) => {
@@ -1101,6 +1129,7 @@ function buildAurelia(kit, quake) {
     ribbon3(pts, 0.7, 'water');
     kit.add('water', xf(cyl(0.8, 0.8, 0.05, 14), { x: pts[0].x, y: slopeY(0) + 0.02, z: pts[0].z }));
   }
+  setStage(kit, 0);
   return { lifts, falls, lab, rimPts: rim(PLATEAU_R, 64, 1.4, 1) };
 }
 
@@ -1157,7 +1186,7 @@ const renderPass = new RenderPass(scene, camera); composer.addPass(renderPass);
 const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.55, 0.4, 0.9); composer.addPass(bloom);
 composer.addPass(new OutputPass());
 
-const state = { theme: 'crt', after: 0, t: 0, showTags: true, style: 'model' };
+const state = { theme: 'crt', after: 0, t: 0, showTags: true, style: 'model', stage: null };
 let narrRoot = null, narrCells = null, narrKey = '';
 let templeAt = null;
 let fpGroup = null, trapLid = null, hatchLid = null, dustPts = null, dripFx = [], roomLights = [];
@@ -1211,8 +1240,9 @@ function build() {
     earth: blacken(new THREE.MeshStandardMaterial({ color: th.earth, roughness: 1, flatShading: true })), earth2: blacken(new THREE.MeshStandardMaterial({ color: th.earth2, roughness: 1, flatShading: true })),
     glow: (() => { const m = new THREE.MeshBasicMaterial({ color: new THREE.Color(th.glow).multiplyScalar(th.glowBoost), side: THREE.DoubleSide }); m.onBeforeCompile = eraseInject; return m; })()
   };
-  for (const [k, g] of Object.entries(geos)) {
-    const m = new THREE.Mesh(g, mats[k]);
+  for (const [key, g] of Object.entries(geos)) {
+    const [k, st] = key.split('@'), m = new THREE.Mesh(g, mats[k]);
+    m.userData.stage = +st || 0;
     m.userData.erasable = !['earth', 'earth2', 'slope', 'hatch', 'hatchglow'].includes(k);
     if (!['glow', 'vglow', 'hatchglow', 'glass', 'red', 'sky', 'shade'].includes(k)) { m.castShadow = m.receiveShadow = true; const o = new THREE.Mesh(hullOf(g), outlineMaterial(th.ink, th.outlinePx)); o.raycast = () => {}; m.add(o); }
     root.add(m);
@@ -1444,18 +1474,18 @@ function build() {
   // pennants: small gold flags on the spires, swaying
   const flagGeo = new THREE.PlaneGeometry(0.9, 0.32, 6, 1).translate(0.45, 0, 0);
   const flagMat = new THREE.MeshStandardMaterial({ color: state.theme === 'crt' ? '#e0a83a' : '#c4561e', side: THREE.DoubleSide, roughness: 0.6 });
-  flags = PENNANTS.map((p, i) => { const f = new THREE.Mesh(flagGeo, flagMat); f.position.copy(p); f.userData.ph = i * 1.7; magic.add(f); const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.9, 4), mats.gold); pole.position.set(p.x, p.y - 0.3, p.z); magic.add(pole); return f; });
+  flags = PENNANTS.map((p, i) => { const f = new THREE.Mesh(flagGeo, flagMat); f.position.copy(p); f.userData.ph = i * 1.7; f.userData.stage = 1; magic.add(f); const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.9, 4), mats.gold); pole.position.set(p.x, p.y - 0.3, p.z); magic.add(pole); return f; });
   // floating lanterns drifting up through the city
   const N = 160, lg = new THREE.OctahedronGeometry(0.12, 0);
   lanterns = new THREE.InstancedMesh(lg, new THREE.MeshBasicMaterial({ color: new THREE.Color(th.glow).multiplyScalar(th.glowBoost * 0.9) }), N);
   lanternData = Array.from({ length: N }, (_, i) => { const a = Math.random() * PI * 2, rr = Math.sqrt(Math.random()) * (PLATEAU_R - 1.5); return { x: Math.cos(a) * rr, z: Math.sin(a) * rr, y0: Math.random() * 16, sp: 0.35 + Math.random() * 0.5, ph: Math.random() * 6 }; });
-  magic.add(lanterns);
+  lanterns.userData.stage = 1; magic.add(lanterns);
   // rings of script turning around the Ruler's Tower
   const scriptTex = (() => { const c = document.createElement('canvas'); c.width = 2048; c.height = 64; const g = c.getContext('2d'); g.fillStyle = th.glow; g.font = 'bold 40px Space Mono, monospace'; const t = 'LET IT BE WRITTEN · THE STORY KEEPS · WHAT IS WITNESSED IS ETERNAL · '; let x = 0; while (x < c.width) { g.fillText(t, x, 46); x += g.measureText(t).width; } const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace; tx.wrapS = THREE.RepeatWrapping; tx.repeat.set(2, 1); return tx; })();
   const ringMat = new THREE.MeshBasicMaterial({ map: scriptTex, transparent: true, side: THREE.DoubleSide, depthWrite: false, blending: state.theme === 'crt' ? THREE.AdditiveBlending : THREE.NormalBlending, color: state.theme === 'crt' ? '#ffffff' : '#c4561e' });
   rings = [[2.3, 9, 0.18], [3.0, 12.5, -0.12], [2.0, 15.5, 0.3]].map(([rad, y, tilt], i) => {
     const m = new THREE.Mesh(new THREE.CylinderGeometry(rad, rad, 0.42, 64, 1, true), ringMat);
-    m.position.set(-7.6, T2 + y, -4.6); m.rotation.z = tilt; m.userData.sp = (i % 2 ? -1 : 1) * (0.25 + i * 0.1); magic.add(m); return m;
+    m.position.set(-7.6, T2 + y, -4.6); m.rotation.z = tilt; m.userData.sp = (i % 2 ? -1 : 1) * (0.25 + i * 0.1); m.userData.stage = 2; magic.add(m); return m;
   });
   // waterfalls: scrolling streaks down the cliff, mist at the foot
   const fallMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, uniforms: { uT: { value: 0 }, uC: { value: new THREE.Color(state.theme === 'crt' ? '#9fd8ff' : '#ffffff') } },
@@ -1909,7 +1939,7 @@ function build() {
   }
 
   // lift cars
-  liftCars = info.lifts.map(l => { const c = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.55, 0.9), mats.glow); c.position.copy(l.a); c.userData = l; root.add(c); return c; });
+  liftCars = info.lifts.map(l => { const c = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.55, 0.9), mats.glow); c.position.copy(l.a); c.userData = l; c.userData.stage = 3; root.add(c); return c; });
 
   // after: the smooth black ground and Orin at its centre
   const scarMat = new THREE.MeshStandardMaterial({ color: th.scar, roughness: 0.12, metalness: 0.4, envMapIntensity: 0.6, side: THREE.DoubleSide });
@@ -2032,6 +2062,19 @@ function applyStyle() {
   }
   root.visible = !narr; if (narrRoot) narrRoot.visible = narr;
 }
+/** Show only what stood by the chosen founding stage (state.stage: null = everything as built; 0-6). Stages 4-6 are the erasure. */
+const stageShows = st => state.stage == null || state.stage >= 4 || (st || 0) <= state.stage;
+function applyStage() {
+  if (!root) return;
+  const walk = o => { if (o.userData && o.userData.stage != null) o.visible = stageShows(o.userData.stage); };
+  root.children.forEach(walk); if (magic) magic.children.forEach(walk);
+  const sel = $('stageSel'); if (sel) sel.value = state.stage == null ? '' : String(state.stage + 1);
+}
+function setFoundingStage(n) {          // n: 1-7, or null for everything as built
+  state.stage = Number.isInteger(n) && n >= 1 && n <= 7 ? n - 1 : null;
+  if (state.stage != null) { const after = state.stage >= 4 ? 1 : 0; state.after = after; if (reduceMotion || state.style === 'blocks') state.t = after; [...$('stateSeg').children].forEach(x => x.classList.toggle('on', x.dataset.v === String(after))); }
+  applyStage(); note();
+}
 function syncLabels() {
   layer.innerHTML = '';
   for (const l of labels) { const el = document.createElement('div'); el.className = 'lbl' + (l.ember ? ' ember' : ''); el.textContent = l.text; layer.appendChild(el); l.el = el; }
@@ -2043,7 +2086,7 @@ function updateLabels() {
     const want = l.after ? (l.late ? state.t > 0.98 : state.t > 0.05) : state.t < 0.02;
     tv.copy(l.pos).project(camera);
     const fromNorth = camera.position.z - controls.target.z < -5;
-    const vis = state.showTags && want && (!l.north || fromNorth) && tv.z < 1 && Math.abs(tv.x) < 1.05 && Math.abs(tv.y) < 1.05;
+    const vis = state.showTags && want && stageShows(l.stage) && (!l.north || fromNorth) && tv.z < 1 && Math.abs(tv.x) < 1.05 && Math.abs(tv.y) < 1.05;
     l.el.style.opacity = vis ? 1 : 0;
     l.el.style.transform = `translate(${(tv.x * 0.5 + 0.5) * w}px, ${(-tv.y * 0.5 + 0.5) * h}px) translate(-50%, -100%)`;
   }
@@ -2069,11 +2112,16 @@ function note() {
   $('note').innerHTML = state.after
     ? '<h2>After the Calamity</h2>Orin\'s seal breaks and Niro takes control for a moment. The city is erased outward from where he stands: <b>everything scrubbed off the map</b>, the ground left <b>completely smooth</b> and dark: a black wound in the middle of the plains. The family is gone. Nera survives.'
     : '<h2>Aurelia · a Storyborn settlement</h2>Kansas, on a low limestone bluff above the Solomon River valley: white stone and gold over the prairie, a city of progress sped up by its Storyborn. Lines of script glow on its walls and streets. <b>The Cathedral of the Storyborn</b> crowns the rings; the ruler lives in a <b>tower with no doors</b>. Orin\'s home, the seminary where he takes the priest\'s test, and the <b>Undercroft</b> under the north slope: Nera\'s lab, <b>raw concrete and void light</b>, where she studies a Storyborn\'s body and reports to the Voided.';
+  stageNote();
+}
+function stageNote() {
+  if (state.stage == null) return;
+  $('note').insertAdjacentHTML('afterbegin', `<p class="stg"><b>Built · ${state.stage + 1} ${STAGES[state.stage]}</b><br>${STAGE_NOTES[state.stage]}</p>`);
 }
 function seg(id, fn) { $(id).addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; [...$(id).children].forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset.v); }); }
 seg('stateSeg', v => { state.after = +v; note(); if (reduceMotion) state.t = state.after; if (state.style === 'blocks') { state.t = state.after; applyStyle(); } });
 seg('styleSeg', v => { state.style = v; applyStyle(); note(); });
-seg('themeSeg', v => { state.theme = v; document.body.classList.toggle('paper', v === 'paper'); build(); applyStyle(); });
+seg('themeSeg', v => { state.theme = v; document.body.classList.toggle('paper', v === 'paper'); build(); applyStyle(); applyStage(); });
 seg('tagSeg', v => { state.showTags = v === 'on'; });
 
 // ------------------------------------------------------------------ first-person walk (test)
@@ -2569,7 +2617,11 @@ function frame() {
 const q = new URLSearchParams(location.search);
 if (q.get('after') === '1') { state.after = 1; state.t = 1; [...$('stateSeg').children].forEach(x => x.classList.toggle('on', x.dataset.v === '1')); }
 if (q.get('theme') === 'paper') { state.theme = 'paper'; document.body.classList.add('paper'); [...$('themeSeg').children].forEach(x => x.classList.toggle('on', x.dataset.v === 'paper')); }
-build(); note();
+if (q.get('stage') != null && /^[1-7]$/.test(q.get('stage'))) state.stage = +q.get('stage') - 1;
+build(); applyStage(); if (state.stage != null) setFoundingStage(state.stage + 1); else note();
+{ const sel = $('stageSel'); if (sel) sel.addEventListener('change', () => setFoundingStage(sel.value ? +sel.value : null)); }
+// a picked Before/After overrides a stage picked earlier, so the picker goes back to "as built"
+$('stateSeg').addEventListener('click', e => { if (e.target.closest('button') && state.stage != null) { state.stage = null; applyStage(); note(); } });
 $('boot').remove();
 // ?embed=1&pin=<design>&ring=<colour>: opened inside the map's close-up; a character's sword stands here, giant (assets/atlas3d/pins/pins.js)
 let giantPin = null, giantPins = [];

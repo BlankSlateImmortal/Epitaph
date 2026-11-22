@@ -282,3 +282,4 @@ button.se-tbar{ cursor:pointer; } button.se-tbar:hover, button.se-tbar:focus-vis
 .se-fs-b{ display:flex; flex-direction:column; gap:3px; min-width:0; } .se-fs-w{ font-family:var(--f-crt); font-size:16px; color:var(--amber); }
 .se-fs .se-kv{ grid-template-columns:150px 1fr; }
 @media (max-width:900px){ .se-fs{ grid-template-columns:1fr; } .se-fs .se-kv{ grid-template-columns:110px 1fr; } }
+.se-fs-3d{ margin-bottom:6px; gap:10px; }
