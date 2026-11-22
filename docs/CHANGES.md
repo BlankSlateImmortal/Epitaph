@@ -28,6 +28,8 @@ Items now carry what the author's Items page describes: a rank and tier, up to t
 
 **Storage for free creation (Phase 6, step 6.1):** the Library can now hold a shared list of marks and a list of prospective skills (author-only, never published, saved with Export, added by Merge). A mark on a person or item can be a copy of a library mark and remembers where it came from. The screens for them come next.
 
+**Skill prospects (step 6.2):** type **opsp** (or use the new "Skill prospects" link) to open a board of skills with no character: add, edit, search and filter them, give each a private note. They are only for you; assigning one to a character comes next.
+
 **Not built yet:** the place entry's "items made here" list (needs the Site Encyclopedia entry view), the Creature Log link for items that are organisms, and prospective skills with a shared mark library (item plan Phase 6).
 
 Scripts: Library `?v=18`, marks `?v=7`, state editor `?v=3`, item fields `?v=5`, checks `?v=11`, publish `?v=6`. Tested in Node (Library and marks 32 tests, checks 7, snapshot builder 10) and in the real pages in headless Chromium.

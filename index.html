@@ -1180,7 +1180,7 @@
   .mode-reader #mwOpenArc, .mode-reader #mwOpenKnowledge,
   .mode-reader a[href="#generationSection"], .mode-reader #generationSection{ display:none !important; }
 </style>
-<link rel="stylesheet" href="assets/epitaph-theme.css?v=28">
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=29">
 <link rel="stylesheet" href="assets/epitaph-editors.css?v=8">
 <link rel="stylesheet" href="assets/epitaph-book.css?v=6">
 <link rel="stylesheet" href="assets/epitaph-codex-views.css?v=2">
@@ -1292,6 +1292,7 @@
           <li><a href="read.html">Read the chapters</a></li>
           <li><a href="#" data-book="opse">Site Encyclopedia</a></li>
           <li><a href="#" data-book="opcl">Creature Log</a></li>
+          <li class="edit-only"><a href="#" data-book="opsp">Skill prospects</a></li>
         </ul>
         <p class="book-hint">Type <b>help</b> for every command: compare chapters (<b>cOrin 1 265</b>), search (<b>s: who holds seal</b>), history, chapter changes, export. <b>opl</b> opens the Library, <b>ops</b> the skill tree, <b>opse</b> the Site Encyclopedia, <b>opcl</b> the Creature Log.</p>
       </div>
@@ -6358,6 +6359,7 @@ const LEFT_PAGE_DEFAULT_HTML = `
           <li><a href="read.html">Read the chapters</a></li>
           <li><a href="#" data-book="opse">Site Encyclopedia</a></li>
           <li><a href="#" data-book="opcl">Creature Log</a></li>
+          <li class="edit-only"><a href="#" data-book="opsp">Skill prospects</a></li>
         </ul>
         <p class="book-hint">Type <b>help</b> for every command: compare chapters (<b>cOrin 1 265</b>), search (<b>s: who holds seal</b>), history, chapter changes, export. <b>opl</b> opens the Library, <b>ops</b> the skill tree, <b>opse</b> the Site Encyclopedia, <b>opcl</b> the Creature Log.</p>
       `;
@@ -6372,5 +6374,6 @@ function restoreLeftPage(){
 
 <script src="assets/epitaph-editors.js?v=14"></script>
 <script src="assets/epitaph-book-tools.js?v=6"></script>
+<script src="assets/epitaph-prospects.js?v=1"></script>
 </body>
 </html>

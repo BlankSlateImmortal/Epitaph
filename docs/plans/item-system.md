@@ -296,8 +296,15 @@ Design agreed in the same conversation (Opus):
   `markHolders` (every copy, with who, chapter and stage), `skillDraftById`. `libId` survives the Library, the Dossier's normalizer and the mark editor; the
   publish builder does not carry the library marks, the drafts or `libId` (tested). 32 Node tests of the Library and 10 of the snapshot builder, plus the real
   marks editor keeping a link and its stage through an edit and a save.
-- [ ] **6.2 Prospective skills view.** Its own terminal command (`opsp`, "open skill prospects"; name can change) in the book: a free
-  board of drafts, the skill editor reused, filters by type. Sonnet.
+- [x] **6.2 Prospective skills view.** *(Done 2026-11-21, Sonnet.)* `assets/epitaph-prospects.js`: the terminal command **`opsp`** (also `open skill prospects`, and a
+  "Skill prospects" link beside the book's other links, author only) opens a **board in the wide modal**: a filterable list of cards (search name / text / note,
+  level, corrupted) and an editor (name, what it does, level 0–7, grows from another prospect, glyph, corrupted, a private note), with Save, Duplicate and a
+  confirmed Delete. Switching cards saves; renaming a prospect renames it as a parent too. Readers get a polite refusal and no link; prospects are never
+  published. **Two deviations from the plan text:** it is a modal board rather than a view inside the book (the book file is the other session's and the
+  book's shell isn't reachable from outside it), and the "filter by type" became filters by level and corrupted, since a skill has no type of its own (the
+  fit-by-type comparison belongs to 6.4). The module wraps the command runner like `epitaph-book-tools.js` does, and adds an `opsp` line to `help`.
+  Tested in the real page: command, help line, link, create / edit / save, parent rename, the three filters, auto-save on switch, duplicate, delete with
+  confirm, and the reader refusal.
 - [ ] **6.3 Assign.** "Assign to…" picks a character and chapter version, checks that version's caps and locks (true-name branch caps,
   type locks), then moves the skill. Sonnet.
 - [ ] **6.4 Fit helper.** A side panel comparing one draft against characters (type, branches free, caps, concept) to see who it fits.
@@ -344,6 +351,8 @@ When the user says "get back to it" / "back to the plan":
 ## Tweak log
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-21 — **6.2 done (Sonnet).** Next: 6.3 Assign (Sonnet): the Assign button goes on this board's editor.
 
 - 2026-11-21 — **6.1 done (Sonnet), and a design change to tell the user:** Phase 6's text said holders would keep `{ markId, stage?, note? }` references resolved
   "everywhere marks are read". I built **linked copies** (`libId`) instead: same user-facing result (pick from the library or create new, define once, see
