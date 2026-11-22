@@ -462,7 +462,7 @@ function renderItemForm(v){
     if(libSaved(saved)){ libView = { mode: 'itemDetail', id }; renderLibrary(); }
   });
 }
-function historyWhen(w){ w = w || {}; return ({ BEFORE: 'Before Epitaph', ERA_0: 'Era 0', ERA_1: 'Era 1' }[w.era] || 'Era 1') + (w.year != null ? ' · Y' + w.year : '') + (w.chapter != null ? ' · CH ' + w.chapter : ''); }
+function historyWhen(w){ return Lib.whenText(w); }
 function renderItemDetail(v){
   const it = Lib.item(v.id);
   if(!it){ libView = { mode: 'list' }; return renderLibrary(); }

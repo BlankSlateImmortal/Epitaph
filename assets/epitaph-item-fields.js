@@ -88,7 +88,7 @@
   // ---- history entries ----------------------------------------------------------
   function mountHistory(container, draft, opts) {
     opts = opts || {};
-    let list = (draft.history || []).map(h => ({ id: h.id || newId(), era: (h.when || {}).era || 'ERA_1', year: (h.when || {}).year, chapter: (h.when || {}).chapter,
+    let list = (draft.history || []).map(h => ({ id: h.id || newId(), era: (h.when || {}).era || 'ERA_1', year: (h.when || {}).year, approx: (h.when || {}).approx === true, chapter: (h.when || {}).chapter,
       holder: h.holder || '', stateIds: { ...(h.stateIds || {}) }, text: h.text || '' }));
     const uid = Math.random().toString(36).slice(2, 7);
     const tracks = () => (opts.getTracks ? opts.getTracks() : draft.stateTracks) || [];
@@ -96,7 +96,7 @@
     function sync() {
       container.querySelectorAll('[data-hi]').forEach(row => {
         const e = list[+row.dataset.hi]; if (!e) return;
-        e.era = row.querySelector('[data-hf="era"]').value; e.year = int(row.querySelector('[data-hf="year"]').value);
+        e.era = row.querySelector('[data-hf="era"]').value; e.year = int(row.querySelector('[data-hf="year"]').value); e.approx = row.querySelector('[data-hf="approx"]').checked;
         e.chapter = int(row.querySelector('[data-hf="chapter"]').value); e.holder = row.querySelector('[data-hf="holder"]').value;
         e.text = row.querySelector('[data-hf="text"]').value;
         const ids = {}; row.querySelectorAll('[data-hs]').forEach(sel => { if (sel.value) ids[sel.dataset.hs] = sel.value; }); e.stateIds = ids;
@@ -108,7 +108,8 @@
         <div class="if-hist" data-hi="${i}">
           <div class="if-hist-top">
             <select data-hf="era" aria-label="Era">${Object.keys(ERA_LABEL).map(k => `<option value="${k}"${e.era === k ? ' selected' : ''}>${ERA_LABEL[k]}</option>`).join('')}</select>
-            <input type="number" data-hf="year" value="${e.year == null ? '' : e.year}" placeholder="year" step="1" aria-label="Year (counted from the siege)" title="Year, counted from the siege; blank if unknown">
+            <input type="number" data-hf="year" value="${e.year == null ? '' : e.year}" placeholder="year, e.g. −4219" step="1" aria-label="Year (counted from the siege; negative = before it)" title="Year, counted from the siege; a minus sign means before it (−4219); blank if unknown">
+            <label class="if-approx" title="An approximate year"><input type="checkbox" data-hf="approx"${e.approx ? ' checked' : ''}> ≈</label>
             <input type="number" data-hf="chapter" value="${e.chapter == null ? '' : e.chapter}" placeholder="chapter" min="1" step="1" aria-label="Chapter">
             <input type="text" data-hf="holder" value="${esc(e.holder)}" placeholder="held by" list="ifHolders${uid}" aria-label="Held by">
             <button type="button" class="btn ghost state-move" data-hmove="${i}:-1" ${i ? '' : 'disabled'} aria-label="Move earlier">↑</button>
@@ -125,7 +126,7 @@
         [list[i], list[j]] = [list[j], list[i]]; render();
       }));
       container.querySelectorAll('[data-hremove]').forEach(b => b.addEventListener('click', () => { sync(); list.splice(+b.dataset.hremove, 1); render(); }));
-      container.querySelector('[data-hadd]').addEventListener('click', () => { sync(); list.push({ id: newId(), era: 'BEFORE', year: undefined, chapter: undefined, holder: '', stateIds: {}, text: '' }); render(); });
+      container.querySelector('[data-hadd]').addEventListener('click', () => { sync(); list.push({ id: newId(), era: 'BEFORE', year: undefined, approx: false, chapter: undefined, holder: '', stateIds: {}, text: '' }); render(); });
       // state choices follow the tracks as they are being edited
       container.querySelectorAll('.if-hist-states').forEach(box => box.addEventListener('focusin', () => {
         const row = box.closest('[data-hi]'), e = list[+row.dataset.hi]; sync(); box.innerHTML = stateSelects(e);
@@ -136,7 +137,7 @@
       read() {
         sync();
         const valid = new Set(); tracks().forEach(t => t.states.forEach(s => valid.add(s.id)));
-        const out = list.map(e => ({ id: e.id, when: { era: e.era, ...(e.year != null ? { year: e.year } : {}), ...(e.chapter != null ? { chapter: e.chapter } : {}) },
+        const out = list.map(e => ({ id: e.id, when: { era: e.era, ...(e.year != null ? { year: e.year } : {}), ...(e.year != null && e.approx ? { approx: true } : {}), ...(e.chapter != null ? { chapter: e.chapter } : {}) },
           holder: e.holder.trim(), stateIds: Object.fromEntries(Object.entries(e.stateIds).filter(([, id]) => valid.has(id))), text: e.text.trim() }))
           .filter(e => e.text || e.holder || Object.keys(e.stateIds).length || e.when.year != null || e.when.chapter != null);
         const order = (a, b) => L().compareWhen(a.when, b.when);

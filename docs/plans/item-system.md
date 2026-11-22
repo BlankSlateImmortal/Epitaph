@@ -282,6 +282,10 @@ When the user says "get back to it" / "back to the plan":
 
 Newest first. One line each: date, what changed, and what it does to the plan.
 
+- 2026-11-21 — **Very old years (user: "what about −Y4219")** worked already (a negative number is stored, sorted and checked correctly) but
+  displayed as "Y-4219" and had no approximate flag. History entries now take **≈** (`when.approx`, only with a year) and every view
+  prints years like the timeline ("Before Epitaph · ≈ Y −4,219") through `EpitaphLibrary.whenText`. Touches 1.3 (shape), 2.1 (editor).
+
 - 2026-11-21 — **2.4 done; Phase 2 complete (Opus).** Added curse-gone (not in the plan, follows the lore); dropped the unknown-source rule.
   Fixed history sorting from 2.1 (it kept the typed order). Next: Phase 3 (views), all Sonnet; 3.4's wording on the Powers page
   is written lore, so check it with the user.

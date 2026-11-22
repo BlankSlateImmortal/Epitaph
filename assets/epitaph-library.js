@@ -14,7 +14,7 @@
  *   items:     [{ id, name, desc, origin, originCircumstance, history: [Entry], wip, marks: [Mark], note, icon, image, stateTracks: [Track] }]
  *     origin: a place id, 'none', 'unknown' or '' (not filled in); `note` is the author's private note.
  *     weight, appearance, maker (a name or character id): stored, but OFFLINE (hidden by editors and views) until switched on, see OFFLINE_FIELDS
- *     Entry = { id, when: { era: BEFORE|ERA_0|ERA_1, year?, chapter? }, holder (character id or name), stateIds, text }
+ *     Entry = { id, when: { era: BEFORE|ERA_0|ERA_1, year? (negative = before the siege), approx? (≈ year), chapter? }, holder (character id or name), stateIds, text }
  *     rank: 1–7 (0 = unset; Soul Host Ward City Dominion Face Planet), tier: 'mundane'|'transcendent'|'divine'|''
  *     Tier is who could make it, not derived from rank: a rank only sets the lowest tier allowed.
  *   Track = { id, kind: 'item'|'usage'|'custom', name, oneWay, primaryStateId, states: [State] }
@@ -165,12 +165,19 @@
     for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] < y[i] ? -1 : 1;
     return 0;
   }
+  // "Before Epitaph · Y −4,219 · CH 3" — the same year format as the timeline (a real minus sign, thousands separators, ≈ when approximate).
+  function whenText(w) {
+    w = w || {};
+    const era = { BEFORE: 'Before Epitaph', ERA_0: 'Era 0', ERA_1: 'Era 1' }[w.era] || 'Era 1';
+    const yr = num(w.year) ? (w.approx ? '≈ ' : '') + 'Y ' + (w.year < 0 ? '−' : '') + Math.abs(w.year).toLocaleString('en-US') : '';
+    return [era, yr, Number.isInteger(w.chapter) ? 'CH ' + w.chapter : ''].filter(Boolean).join(' · ');
+  }
   // One dated entry in an item's life before (or off) the story: [{ id, when, holder, stateIds, text }]
   // `when` is a timeline moment (era, optional year, optional chapter); `holder` is a character id or a plain name.
   function normalizeHistoryEntry(h) {
     h = h || {}; const w = h.when || {};
     return { id: h.id || newId('hist'),
-      when: { era: ERAS.includes(w.era) ? w.era : 'ERA_1', ...(num(w.year) ? { year: w.year } : {}), ...(Number.isInteger(w.chapter) ? { chapter: w.chapter } : {}) },
+      when: { era: ERAS.includes(w.era) ? w.era : 'ERA_1', ...(num(w.year) ? { year: w.year } : {}), ...(num(w.year) && w.approx === true ? { approx: true } : {}), ...(Number.isInteger(w.chapter) ? { chapter: w.chapter } : {}) },
       holder: str(h.holder), stateIds: normalizeStateIds(h.stateIds), text: str(h.text) };
   }
   function normalize(raw) {
@@ -316,7 +323,7 @@
     newId, normalizeMark, normalizeState, normalizeTrack, normalizeStateIds, get, update, item, place: placeById,
     stateOf, trackOf, itemTrack, currentStates, uses, marksFor, stateIdOf, itemStates, primaryStateIds, stateKeyOf,
     CURSE_TYPES, STAGE_NAMES, markKindsFor, markDetailLines,
-    ERAS, ORIGIN_WORDS, placeIdOf, normalizeHistoryEntry, compareWhen, OFFLINE_FIELDS, fieldOn,
+    ERAS, ORIGIN_WORDS, placeIdOf, normalizeHistoryEntry, compareWhen, whenText, OFFLINE_FIELDS, fieldOn,
     RANKS, TIERS, rankName, tierFloor, allowedTiers, maxRank, rankAt, tierProblem,
     replace(data) { return save(data); },
     onChange(fn) { listeners.push(fn); }

@@ -192,7 +192,7 @@
     const TL = global.EpitaphTimeline, lc = x => String(x || '').trim().toLowerCase();
     const itemKinds = Lib.markKindsFor('item'), personKinds = Lib.markKindsFor('character');
     const a = { blessing: 'a blessing', curse: 'a curse', binding: 'a binding' };
-    const whenText = w => (TL && TL.label ? TL.label(w) : (w && w.era) || '') + (w && w.year != null ? ' · Y' + w.year : '') + (w && w.chapter != null ? ' · CH ' + w.chapter : '');
+    const whenText = w => Lib.whenText(w);
     const stagesWritten = m => (m.stages || []).filter(x => x && String(x.text || '').trim()).length;
     const curseInfo = (m, who, extra) => { const n = stagesWritten(m); if (n < 3) out.push({ level: 'info', rule: 'curse-stages', ...extra, text: `${who}: the curse “${m.name || 'unnamed'}” has ${n} of its 3 stages written.` }); };
 
