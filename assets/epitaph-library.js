@@ -11,6 +11,8 @@
  * Shape (version 3; v2 → v3 folded the old mark cost / ends text, raw v2 copy kept once as `epitaph-library-backup-v2`):
  *   countries: [{ id, name, lat, lon, note }]
  *   places:    [{ id, name, countryId, kind, lat, lon, note, era? }]
+ *   marks:     [Mark]   the shared mark library: definitions a holder's mark can be copied from (a copy carries `libId`)
+ *   skillDrafts: [{ id, name, desc, level, corrupted, parent, glyph, note }]   prospective skills: not real until assigned to a character
  *   items:     [{ id, name, desc, origin, originCircumstance, history: [Entry], wip, marks: [Mark], note, icon, image, stateTracks: [Track] }]
  *     origin: a place id, 'none', 'unknown' or '' (not filled in); `note` is the author's private note.
  *     weight, appearance, maker (a name or character id): stored, but OFFLINE (hidden by editors and views) until switched on, see OFFLINE_FIELDS
@@ -72,6 +74,7 @@
     // The old free-text `cost` / `ends` are folded in so no text is lost (plan 2.3; step 5.1 refines each one by hand):
     // a blessing's cost becomes its price and its ends "lasts until"; on a binding or curse they are added to the effect.
     let oldCost = str(m.cost).trim(), oldEnds = str(m.ends).trim();
+    if (typeof m.libId === 'string' && m.libId) out.libId = m.libId;                  // a copy of a Library mark (Phase 6): which definition it came from
     if (Number.isInteger(m.revealedIn)) out.revealedIn = m.revealedIn;                // published copies only: the chapter that revealed it
     if (kind === 'binding' && rankNum(m.rank)) out.rank = rankNum(m.rank);          // only bindings carry a rank
     if (kind === 'blessing') {
@@ -110,6 +113,14 @@
   const TRACK_KINDS = ['item', 'usage', 'custom'];
   const TRACK_NAMES = { item: 'Item', usage: 'Usage', custom: 'Connection' };
   const MAX_STATES = 7;
+  // A mark as a library definition: no holder link, no reveal marker, a curse at its initial state.
+  function asDefinition(m) { const o = normalizeMark(m); delete o.libId; delete o.revealedIn; if (o.kind === 'curse') o.stage = 0; return o; }
+  // A prospective skill (Phase 6): the same fields as a skill in a chapter version, plus an id and a private note. Not real until assigned.
+  function normalizeSkillDraft(x) {
+    x = x || {};
+    return { id: x.id || newId('skd'), name: str(x.name), desc: str(x.desc), level: Number.isInteger(x.level) && x.level >= 0 ? x.level : 0,
+      corrupted: x.corrupted === true, parent: str(x.parent), glyph: str(x.glyph), note: str(x.note) };
+  }
   function normalizeState(st) {
     st = st || {};
     return { id: st.id || newId('state'), name: str(st.name), desc: str(st.desc),
@@ -195,6 +206,9 @@
       places: (Array.isArray(d.places) ? d.places : []).filter(p => p && p.id).map(p => ({
         id: p.id, name: str(p.name), countryId: str(p.countryId), kind: str(p.kind) || 'other',
         lat: num(p.lat) ? p.lat : null, lon: num(p.lon) ? p.lon : null, note: str(p.note), ...(p.era ? { era: p.era } : {}) })),
+      // the shared mark library (a definition each holder's copy points at) and the prospective skills
+      marks: (Array.isArray(d.marks) ? d.marks : []).filter(m => m && m.id).map(asDefinition),
+      skillDrafts: (Array.isArray(d.skillDrafts) ? d.skillDrafts : []).filter(x => x && x.id).map(normalizeSkillDraft),
       items: (Array.isArray(d.items) ? d.items : []).filter(i => i && i.id).map(i => ({
         id: i.id, name: str(i.name), desc: str(i.desc), origin: normalizeOrigin(i), originCircumstance: str(i.originCircumstance),
         history: (Array.isArray(i.history) ? i.history : []).map(normalizeHistoryEntry), wip: i.wip === true,
@@ -315,6 +329,39 @@
       ? `Rank ${mx} (${rankName(mx)}) needs at least ${tierFloor(mx)}, but the tier is ${it.tier}.` : '';
   }
 
+  // ---- the shared mark library (plan Phase 6) ----
+  // A holder keeps an ordinary mark (so every reader still works) plus `libId`: the definition it was copied from.
+  const libraryMark = id => (id && get().marks.find(m => m.id === id)) || null;
+  // A fresh copy of a definition for a holder: its own id and its own stage, linked by libId.
+  function copyFromLibrary(id) {
+    const def = libraryMark(id); if (!def) return null;
+    const o = { ...asDefinition(def), id: newId('mark'), libId: def.id };
+    return o;
+  }
+  // A mark's definition as a library entry (without a holder's stage or link); the caller adds it with update().
+  function toDefinition(mark) { return { ...asDefinition(mark), id: newId('lmark') }; }
+  // `copy` brought up to date with its definition: the definition's words, the copy's own id, stage and link.
+  function applyDefinition(copy, def) {
+    const o = { ...asDefinition(def), id: copy.id, libId: def.id };
+    if (o.kind === 'curse') o.stage = copy.kind === 'curse' && Number.isInteger(copy.stage) ? copy.stage : 0;
+    return o;
+  }
+  // Everywhere a definition's copies live: [{ where: 'character'|'entry'|'item'|'state', who, charId?, snapId?, chapter?, itemId?, stage }]
+  function markHolders(libId, characters) {
+    const rows = [], is = m => m && m.libId === libId;
+    (characters || []).forEach(c => (c.snapshots || []).forEach(s => {
+      const at = { charId: c.id, who: c.name || 'Unnamed', snapId: s.id, chapter: Number.isInteger(s.startChapter) ? s.startChapter : null };
+      (s.marks || []).filter(is).forEach(m => rows.push({ where: 'character', ...at, stage: m.stage || 0 }));
+      (s.inventory || []).forEach(e => (e.marks || []).filter(is).forEach(m => rows.push({ where: 'entry', ...at, itemId: e.itemId || '', stage: m.stage || 0 })));
+    }));
+    get().items.forEach(it => {
+      (it.marks || []).filter(is).forEach(m => rows.push({ where: 'item', who: it.name || 'Unnamed', itemId: it.id, stage: m.stage || 0 }));
+      (it.stateTracks || []).forEach(t => t.states.forEach(st => (st.marks || []).filter(is).forEach(m => rows.push({ where: 'state', who: `${it.name || 'Unnamed'} (${st.name || 'state'})`, itemId: it.id, stage: m.stage || 0 }))));
+    });
+    return rows;
+  }
+  const skillDraftById = id => (id && get().skillDrafts.find(x => x.id === id)) || null;
+
   // ---- helpers for an inventory entry's states (entry.stateIds = { item, usage, custom }) ----
   const stateIdOf = (entry, kind) => normalizeStateIds(entry && entry.stateIds)[kind || 'item'] || '';
   const itemStates = it => { const t = itemTrack(it); return t ? t.states : []; };
@@ -336,7 +383,7 @@
   }
 
   global.EpitaphLibrary = {
-    KEY, BACKUP_V1, BACKUP_V2, BACKUP_BEFORE_MERGE, normalizeItem, itemChanges, STATE_COLORS, TRACK_KINDS, TRACK_NAMES, MAX_STATES,
+    KEY, BACKUP_V1, BACKUP_V2, BACKUP_BEFORE_MERGE, normalizeItem, itemChanges, normalizeSkillDraft, libraryMark, copyFromLibrary, toDefinition, applyDefinition, markHolders, skillDraftById, STATE_COLORS, TRACK_KINDS, TRACK_NAMES, MAX_STATES,
     newId, normalizeMark, normalizeState, normalizeTrack, normalizeStateIds, get, update, item, place: placeById,
     stateOf, trackOf, itemTrack, currentStates, uses, marksFor, stateIdOf, itemStates, primaryStateIds, stateKeyOf, revealedBy,
     CURSE_TYPES, STAGE_NAMES, markKindsFor, markDetailLines,

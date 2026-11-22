@@ -287,8 +287,15 @@ Design agreed in the same conversation (Opus):
   fold listed for the user.
 - Reveal: a library mark is revealed by name as before (`reveals: <mark name>` or `<Item>: <mark>`).
 
-- [ ] **6.1 Storage.** `skillDrafts` and `marks` in the Library, normalize/export/import/Merge; mark references resolved everywhere
-  marks are read (Dossier, inventory, book, brief, checks, publish builder). Sonnet.
+- [x] **6.1 Storage.** *(Done 2026-11-21, Sonnet; with a design change, see below.)* The Library gains `marks` (the shared mark library: definitions) and `skillDrafts`
+  (prospective skills: `id, name, desc, level, corrupted, parent, glyph, note`, the fields of a skill in a chapter version plus a private note). Both are normalized,
+  stored, exported, imported and added by Merge (new ids only, never overwritten); older libraries simply have none. **Linked copies instead of references:**
+  a holder (a person, a chapter's copy of an item, an item, a state) keeps an ordinary mark plus `libId`, the definition it came from, so **every existing reader
+  (Dossier, inventory, book, brief, checks, publish) works unchanged** and nothing has to be "resolved everywhere". Helpers: `libraryMark`, `copyFromLibrary`
+  (own id and own stage, linked), `toDefinition` (a mark saved to the library), `applyDefinition` (a copy brought up to date, keeping its id, link and stage),
+  `markHolders` (every copy, with who, chapter and stage), `skillDraftById`. `libId` survives the Library, the Dossier's normalizer and the mark editor; the
+  publish builder does not carry the library marks, the drafts or `libId` (tested). 32 Node tests of the Library and 10 of the snapshot builder, plus the real
+  marks editor keeping a link and its stage through an edit and a save.
 - [ ] **6.2 Prospective skills view.** Its own terminal command (`opsp`, "open skill prospects"; name can change) in the book: a free
   board of drafts, the skill editor reused, filters by type. Sonnet.
 - [ ] **6.3 Assign.** "Assign to…" picks a character and chapter version, checks that version's caps and locks (true-name branch caps,
@@ -337,6 +344,11 @@ When the user says "get back to it" / "back to the plan":
 ## Tweak log
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-21 — **6.1 done (Sonnet), and a design change to tell the user:** Phase 6's text said holders would keep `{ markId, stage?, note? }` references resolved
+  "everywhere marks are read". I built **linked copies** (`libId`) instead: same user-facing result (pick from the library or create new, define once, see
+  where a mark is used, update every copy, each holder keeps its own stage) with far less risk, because nothing that reads marks has to change. Effect on the
+  plan: 6.5's "update copies" uses `markHolders` + `applyDefinition`; a copy can drift from its definition until you update it, and the UI should say when it has.
 
 - 2026-11-21 — **5.4 done (Sonnet); Phase 5 complete.** Left: Phase 6 (6 steps), Sonnet except 6.4 (Opus).
 

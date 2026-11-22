@@ -1195,7 +1195,7 @@
 <script src="assets/epitaph-sites.js?v=9"></script>
 <script src="assets/epitaph-sites-ui.js?v=5"></script>
 <script src="assets/epitaph-publish.js?v=6"></script>
-<script src="assets/epitaph-library.js?v=17"></script>
+<script src="assets/epitaph-library.js?v=18"></script>
 <script src="assets/epitaph-marks.js?v=7"></script>
 <script src="assets/epitaph-states.js?v=3"></script>
 <script src="assets/epitaph-item-fields.js?v=5"></script>
@@ -6112,14 +6112,14 @@ document.getElementById('mergeFileInput').addEventListener('change', (e) => {
       const siteAdd = window.EpitaphSites ? EpitaphSites.newInData(sites) : [], timeAdd = window.EpitaphTimeline ? EpitaphTimeline.newInData(timeline) : [];
       // items the file has that you already have, and that differ: Merge can replace them if you tick them
       const libUpd = lib ? (Array.isArray(inLib.items) ? inLib.items : []).filter(x => x && x.id).map(x => { const cur = lib.items.find(y => y.id === x.id); return cur ? { item: x, cur, changes: Lib.itemChanges(cur, x) } : null; }).filter(u => u && u.changes.length) : [];
-      plan = { add, skipped, sameName, chapters, titled, libAdd: { countries: newOf('countries'), places: newOf('places'), items: newOf('items') }, libUpd, siteAdd, timeAdd, sites, timeline };
+      plan = { add, skipped, sameName, chapters, titled, libAdd: { countries: newOf('countries'), places: newOf('places'), items: newOf('items'), marks: newOf('marks'), skillDrafts: newOf('skillDrafts') }, libUpd, siteAdd, timeAdd, sites, timeline };
     }catch(err){
       console.error('Merge read failed', err);
       showToast('Could not read the characters in that file.', { duration: 5500 });
       return;
     }
     const { add, skipped, sameName, chapters, titled, libAdd, libUpd, siteAdd, timeAdd, sites, timeline } = plan;
-    const libCount = libAdd.countries.length + libAdd.places.length + libAdd.items.length;
+    const libCount = libAdd.countries.length + libAdd.places.length + libAdd.items.length + libAdd.marks.length + libAdd.skillDrafts.length;
     if(!add.length && !chapters.length && !titled.length && !libCount && !libUpd.length && !siteAdd.length && !timeAdd.length){
       showToast('Nothing to merge: everything in that file is already here.', { duration: 5500 });
       return;
@@ -6130,6 +6130,8 @@ document.getElementById('mergeFileInput').addEventListener('change', (e) => {
     if(chapters.length) li.push(`<li>${plural(chapters.length, 'chapter')}: ${chapters.map(c => 'CH ' + c.number + (c.title ? ' ' + escapeHtml(c.title) : '')).join(', ')}</li>`);
     if(titled.length) li.push(`<li>Titles for ${plural(titled.length, 'existing chapter')} that had none</li>`);
     if(libAdd.items.length) li.push(`<li>${plural(libAdd.items.length, 'Library item')}: ${libAdd.items.map(i => escapeHtml(i.name || 'Unnamed')).join(', ')}</li>`);
+    if(libAdd.marks.length) li.push(`<li>${plural(libAdd.marks.length, 'Library mark')}: ${libAdd.marks.map(m => escapeHtml(m.name || 'Unnamed')).join(', ')}</li>`);
+    if(libAdd.skillDrafts.length) li.push(`<li>${plural(libAdd.skillDrafts.length, 'prospective skill')}: ${libAdd.skillDrafts.map(x => escapeHtml(x.name || 'Unnamed')).join(', ')}</li>`);
     if(libAdd.places.length + libAdd.countries.length) li.push(`<li>${plural(libAdd.places.length, 'place')}, ${libAdd.countries.length} ${libAdd.countries.length === 1 ? 'country' : 'countries'}</li>`);
     if(siteAdd.length) li.push(`<li>Site encyclopedia entries for ${plural(siteAdd.length, 'place')}: ${siteAdd.map(id => escapeHtml((window.EpitaphWorld && EpitaphWorld.place(id) || {}).name || id)).join(', ')}</li>`);
     if(timeAdd.length) li.push(`<li>${plural(timeAdd.length, 'timeline edit')}</li>`);
@@ -6173,7 +6175,7 @@ document.getElementById('mergeFileInput').addEventListener('change', (e) => {
         state.chapters.sort((a, b) => a.number - b.number);
         if(add.length) state.activeId = add[0].id;
         await persistState();
-        if((libCount || upd.length) && Lib && !Lib.update(l => { ['countries', 'places', 'items'].forEach(k => libAdd[k].forEach(x => { if(!l[k].some(y => y.id === x.id)) l[k].push(x); }));
+        if((libCount || upd.length) && Lib && !Lib.update(l => { ['countries', 'places', 'items', 'marks', 'skillDrafts'].forEach(k => libAdd[k].forEach(x => { if(!l[k].some(y => y.id === x.id)) l[k].push(x); }));
             upd.forEach(u => { const i = l.items.findIndex(y => y.id === u.item.id); if(i >= 0) l.items[i] = u.item; }); })){
           showToast('Characters merged, but the Library entries could not be saved — browser storage may be full.', { duration: 6500 });
         }

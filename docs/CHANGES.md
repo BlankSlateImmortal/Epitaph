@@ -26,9 +26,11 @@ Items now carry what the author's Items page describes: a rank and tier, up to t
 - **Merge can update items:** Data → Merge → tick *Also update items that already exist*, untick any you want to keep; your Library is saved first (`epitaph-library-backup-before-merge`). Everything else in Merge still only adds.
 - Your Items page, converted, is a Merge file in `Site work/files/epitaph-items-converted-2026-11-21.json` (not in the code) with a notes file of every choice made.
 
+**Storage for free creation (Phase 6, step 6.1):** the Library can now hold a shared list of marks and a list of prospective skills (author-only, never published, saved with Export, added by Merge). A mark on a person or item can be a copy of a library mark and remembers where it came from. The screens for them come next.
+
 **Not built yet:** the place entry's "items made here" list (needs the Site Encyclopedia entry view), the Creature Log link for items that are organisms, and prospective skills with a shared mark library (item plan Phase 6).
 
-Scripts: Library `?v=17`, marks `?v=7`, state editor `?v=3`, item fields `?v=5`, checks `?v=11`, publish `?v=6`. Tested in Node (Library and marks 28 tests, checks 7, snapshot builder 9) and in the real pages in headless Chromium.
+Scripts: Library `?v=18`, marks `?v=7`, state editor `?v=3`, item fields `?v=5`, checks `?v=11`, publish `?v=6`. Tested in Node (Library and marks 32 tests, checks 7, snapshot builder 10) and in the real pages in headless Chromium.
 
 ## Site Encyclopedia data (assets/epitaph-sites.js)
 
