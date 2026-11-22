@@ -237,6 +237,9 @@
     try { localStorage.setItem(LIB_LOOK_KEY, v); } catch (e) { /* not remembered, still applied */ }
     if (mode === 'library') { $('#theBook').dataset.look = libLook; webPos.clear(); drawLibrary(true); }
   }
+  // the item's states in a chapter (every track, "Sealed · Connected") and its rank there ("7 · Planet")
+  const stateNames = (it, entry) => (entry ? Lib.currentStates(it, entry).map(x => x.state.name).join(' · ') : '');
+  const rankTag = (it, entry) => { const r = Lib.rankAt(it, entry || null); return r ? { n: r, text: `R${r} ${Lib.rankName(r)}`, title: `Rank ${r} · ${Lib.rankName(r)} (its reach in this chapter)` } : null; };
   const MARK_ORDER = ['curse', 'binding', 'blessing'];
   function itemMarkKinds(it, stateIds) {
     const extra = Lib.currentStates(it, { stateIds }).flatMap(x => x.state.marks || []);
@@ -278,7 +281,7 @@
       const x = (i % gridCols) * (CASE_W + CASE_GAP), y = Math.floor(i / gridCols) * (CASE_H + CASE_GAP);
       const hs = now.get(it.id) || [];
       const stId = hs[0] && hs[0].entry.stateIds;
-      const st = Lib.stateOf(it, Lib.stateIdOf(hs[0] && hs[0].entry));
+      const names = stateNames(it, hs[0] && hs[0].entry), rk = rankTag(it, hs[0] && hs[0].entry);
       const kinds = itemMarkKinds(it, stId);
       const pic = itemPic(it, stId);
       return `<button type="button" class="bk-case ${markClass(kinds)}${it.id === selItem ? ' on' : ''}${hs.length ? '' : ' unheld'}" data-id="${attr(it.id)}" data-cx="${x + CASE_W / 2}" data-cy="${y + CASE_H / 2}" style="left:${x}px;top:${y}px;--d:${(i % 7) * -0.6}s" title="${attr(it.name)}">
@@ -288,8 +291,8 @@
           ${kinds.length ? `<span class="bk-case-seals">${kinds.map(k => `<i class="${attr(k)}" title="${attr(k)}"></i>`).join('')}</span>` : ''}
         </span>
         <span class="bk-case-plinth"><span class="bk-case-no">${pad2(i + 1)}</span>
-          <span class="bk-case-name">${esc(it.name || 'Untitled')}</span>
-          <span class="bk-case-sub">${st ? esc(st.name) + ' · ' : ''}${hs.length ? esc(hs.map(h => h.c.name || 'Unnamed').join(' · ')) : 'in the vault'}</span></span>
+          <span class="bk-case-name">${esc(it.name || 'Untitled')}</span>${rk ? `<span class="bk-case-rank" title="${attr(rk.title)}">${esc(rk.text)}</span>` : ''}
+          <span class="bk-case-sub">${names ? esc(names) + ' · ' : ''}${hs.length ? esc(hs.map(h => h.c.name || 'Unnamed').join(' · ')) : 'in the vault'}</span></span>
       </button>`;
     }).join('');
     content.querySelectorAll('.bk-case').forEach(b => b.addEventListener('click', () => selectItem(b.dataset.id)));
@@ -392,14 +395,14 @@
       targets.set('c:' + h.c.id, { x: h.x, y: h.y });
     });
     L.nodes.forEach(nd => {
-      const it = nd.it, stId = nd.hs[0] && nd.hs[0].entry.stateIds, st = Lib.stateOf(it, Lib.stateIdOf(nd.hs[0] && nd.hs[0].entry));
+      const it = nd.it, stId = nd.hs[0] && nd.hs[0].entry.stateIds, names = stateNames(it, nd.hs[0] && nd.hs[0].entry), rk = rankTag(it, nd.hs[0] && nd.hs[0].entry);
       const kinds = itemMarkKinds(it, stId), pic = itemPic(it, stId), mc = markClass(kinds);
       const on = it.id === selItem, ch = changeOf(it.id, n, prevN);
       const el = ensure('i:' + it.id, `bk-wn bk-node${mc ? ' ' + mc : ''}${mc === 'curse' ? ' corrupt' : ''}${on ? ' on' : ''}${nd.loose ? ' loose' : ''}${ch ? ' changed' : ''}`,
         `${ch ? `<span class="bk-wn-tag ${ch}">${{ new: '+ NEW', moved: 'MOVED', state: 'STATE' }[ch]}</span>` : ''}
         <span class="bk-wn-medal">${medalSvg(on ? 34 : 26, on ? `<circle class="bk-pulse" r="${34 + 16}"/>` : '')}<span class="bk-wn-face">${pic ? `<img src="${attr(pic)}" alt="" draggable="false">` : `<b>${itemInitial(it)}</b>`}</span></span>
-        <span class="bk-wn-name">${esc(it.name || 'Untitled')}</span>${st ? `<span class="bk-wn-state">${esc(st.name)}</span>` : ''}`);
-      el.dataset.id = it.id; el.title = it.name || '';
+        <span class="bk-wn-name">${esc(it.name || 'Untitled')}</span>${names ? `<span class="bk-wn-state">${esc(names)}</span>` : ''}${rk ? `<span class="bk-wn-rank">${esc(rk.text)}</span>` : ''}`);
+      el.dataset.id = it.id; el.title = [it.name || '', names, rk ? rk.title : ''].filter(Boolean).join(' · ');
       if (!el._wired) { el._wired = true; el.addEventListener('click', () => selectItem(el.dataset.id)); }
       targets.set('i:' + it.id, { x: nd.x, y: nd.y });
     });
@@ -513,7 +516,12 @@
       prev.forEach((h, id) => { if (!cur.has(id)) out.push({ ch, tag: 'Lost', text: h.c.name || 'Unnamed', bad: true }); });
       prev = cur;
     }
-    return out;
+    // the item's own history (before the story, or off the page) joins the chapters in timeline order; an entry tied to a chapter
+    // the ruler hasn't reached yet is left out
+    const it = Lib.item(itemId);
+    const hist = ((it && it.history) || []).filter(h => upTo == null || h.when.chapter == null || h.when.chapter <= upTo)
+      .map(h => ({ when: h.when, tag: 'History', text: [Lib.whenText(h.when), h.holder, h.text].filter(Boolean).join(' · ') }));
+    return hist.concat(out.map(e => ({ ...e, when: { era: 'ERA_1', chapter: e.ch } }))).sort((a, b) => Lib.compareWhen(a.when, b.when));
   }
   function drawItemLog(chs, n) {
     const box = $('#bkSandbox'); if (!box) return;

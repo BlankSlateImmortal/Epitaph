@@ -850,3 +850,7 @@ input, select, textarea{ accent-color:var(--amber); }
 .item-badges{ display:flex; flex-wrap:wrap; gap:6px; margin:-2px 0 6px; }
 .item-badges .if-badge{ margin-left:0; }
 .if-badge.dim{ color:var(--dust); border-style:dashed; }
+/* rank and states on the book's Library tiles and web nodes (plan 3.2) */
+.bk-case-rank{ display:block; font-family:var(--f-mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--amber); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.bk-wn-rank{ margin-top:2px; font-family:var(--f-mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--amber); white-space:nowrap; }
+.bk-wn-state{ max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

@@ -187,8 +187,11 @@ Not every item has every part: a blade may have no usage states; many items have
   quiet animation (the screen brightens once, the plate settles in, the text slides in after it); it is skipped for "reduce motion". The item
   panel itself was not redesigned (user, 2026-11-11). Reader rank and tier wait for Phase 4 (the snapshot doesn't carry them yet, so readers
   see no badges). Tested in the real Dossier: both states of Observance, a plain item, the animation function.
-- [ ] **3.2 Book `opl`.** Holder web and Relic vault show track tags (NEW / MOVED / STATE already exist), the rank badge, and history
-  entries on the item log in timeline order.
+- [x] **3.2 Book `opl`.** *(Done 2026-11-21, Sonnet.)* **Relic vault** tiles and **Holder web** nodes show the item's states in every track
+  ("New · Connected") and its **rank in that chapter** ("R1 Soul"; a hover says what it means). The NEW / MOVED / STATE tags already followed
+  a change in any track (2.2). The **item log** now includes the item's own **history** entries, merged with the chapter events in timeline
+  order (before the story first; an entry tied to a chapter the ruler hasn't reached is left out). Reader mode is unchanged: the book's
+  Library card for readers is built from the snapshot, which has no history. Tested in the real book: web, log, vault.
 - [ ] **3.3 Curse stages.** A stage ladder on the item and on a character's marks: which stage a curse is at in the chapter you're on.
 - [ ] **3.4 Powers page.** Add Bindings · Blessings · Curses (with the consent rule) and Item ranks and tiers as written rules
   (`powers.html`).
@@ -285,6 +288,8 @@ When the user says "get back to it" / "back to the plan":
 ## Tweak log
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-21 — **3.2 done (Sonnet).** New styles went in `epitaph-theme.css`, not `epitaph-book.css` (the other session has uncommitted edits in the latter).
 
 - 2026-11-21 — **3.1 done (Sonnet).** The "subtle site addition" from the Notion page (animation when switching items) is in.
 
