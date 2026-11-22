@@ -314,8 +314,13 @@ When the user says "get back to it" / "back to the plan":
 
 Newest first. One line each: date, what changed, and what it does to the plan.
 
-- 2026-11-21 — **Rule from the user: items show the way each chapter presented them** ("if chapter 2 specified rank 1 soul then keep that"; the
-  confusing parts of bringing up the past are for later). Built on top of 4.1 (Sonnet): a reader's view of a chapter now counts only what was
+- 2026-11-21 — **CORRECTED by the user right after:** I first built this as "frozen per viewed chapter" (a chapter-1 version could never show more than
+  chapter 1 did). The author meant the opposite: **information updates when the author WRITES the reveal in a later chapter, not by the chapter
+  version being viewed** (bringing up the past may be confusing; later). So `asOf` is now the **reader's position** (`EpitaphTimeline.readerChapter()`,
+  none = everything published), not the viewed version: once the chapter revealing God's Eye is published, a Connected item reads Rank 7 · Planet in
+  every chapter's version; a reader who set their position earlier still sees Soul. The text below describes the mechanism (`asOf`, `revealedIn`,
+  `reachedIn`), which is unchanged; only where `asOf` comes from changed.
+- 2026-11-21 — **(first version, superseded above) Rule from the user: items show the way each chapter presented them** ("if chapter 2 specified rank 1 soul then keep that"). Built on top of 4.1 (Sonnet): a reader's view of a chapter counted only what was
   revealed **by that chapter**, not by the last published one. `EpitaphLibrary.rankAt / maxRank (…, asOf)` and `revealedBy`; published marks keep
   `revealedIn` and states get `reachedIn` (the first chapter that reached them; 0 = the normal state), both kept through the reader's Library; the
   inventory monitor passes `asOf = the viewed chapter` for readers and leaves out later states and later marks. The author's own data has no

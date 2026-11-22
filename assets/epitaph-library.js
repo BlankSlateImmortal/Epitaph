@@ -269,8 +269,9 @@
   // Lowest tier a rank allows: ranks 1–3 mundane, 4–6 transcendent, 7 divine (unset rank = no floor).
   const tierFloor = rank => { const r = rankNum(rank); return r >= 7 ? 'divine' : r >= 4 ? 'transcendent' : 'mundane'; };
   const allowedTiers = rank => TIERS.slice(TIERS.indexOf(tierFloor(rank)));
-  // `asOf` (a chapter number) is for a reader's view of a published copy: a binding counts only from the chapter that revealed it
-  // (`revealedIn`), so an item shows the way that chapter presented it. The author's data has no `revealedIn`, so nothing is held back.
+  // `asOf` (a chapter number) is for a reader's view of a published copy: a binding counts only from the chapter that WROTE it (`revealedIn`),
+  // for as far as the reader has read. So rank updates when the author writes a later chapter that reveals more, whichever chapter's
+  // version is open. The author's data has no `revealedIn`, so nothing is held back.
   const revealedBy = (m, asOf) => asOf == null || !Number.isInteger(m && m.revealedIn) || m.revealedIn <= asOf;
   const bindingRank = (m, asOf) => (m && m.kind === 'binding' && revealedBy(m, asOf) ? rankNum(m.rank) : 0);
   // The highest rank an item can ever reach: its base rank or any binding, in any state.
