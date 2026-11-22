@@ -912,3 +912,14 @@ a.from-tag:hover, a.from-tag:focus-visible{ text-decoration:underline; }
 .sp-assign select{ background:var(--ink); border:1px solid var(--line); color:var(--bone); padding:8px 10px; font:inherit; font-size:14px; min-height:40px; width:100%; box-sizing:border-box; }
 .sp-verdict{ margin:0; font-size:13px; min-height:1.2em; color:var(--dust); }
 .sp-verdict.ok{ color:#8fd19a; } .sp-verdict.no{ color:var(--ember); }
+/* skill prospects: who could take it (fit helper) */
+.sp-fit{ border-top:1px solid var(--line); padding-top:12px; display:flex; flex-direction:column; gap:6px; }
+.sp-fit > b{ font-weight:400; font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--amber); }
+.sp-fit-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+.sp-fit-list li{ border:1px solid var(--line); border-left:3px solid var(--line); padding:6px 8px; display:flex; flex-direction:column; gap:2px; }
+.sp-fit-list li.ok{ border-left-color:#8fd19a; } .sp-fit-list li.no{ opacity:.7; }
+.sp-fit-head{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.sp-fit-head b{ font-weight:400; font-size:14px; } .sp-fit-head small{ color:var(--dust); }
+.sp-fit-use{ margin-left:auto; min-height:36px; }
+.sp-fit-list small{ font-size:12px; color:var(--dust); }
+.sp-fit-why{ color:var(--bone) !important; } .sp-fit-hints{ color:var(--amber) !important; }

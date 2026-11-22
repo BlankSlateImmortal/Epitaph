@@ -7,6 +7,7 @@
  * the skills it grows from, and name clashes.
  *
  *   EpitaphProspects.open()   opens the board in the wide modal; returns a short message for the terminal
+ * The board also lists who could take a prospect (step 6.4): rules first, then room, then hints. No scores.
  *
  * Needs assets/epitaph-library.js; uses the page's modal (openModal, closeModal, modalContent) and the terminal runner.
  */
@@ -65,6 +66,7 @@
         <button type="button" class="ed-slant danger" data-sp-del>${armed === x.id ? 'Confirm delete' : 'Delete'}</button>
       </div>
       ${assignHtml(x)}
+      ${fitHtml(x)}
     </div>`;
   }
 
@@ -104,10 +106,54 @@
     const clash = move.find(d => names.has(d.name));
     if (clash) return { ok: false, reason: `That version already has a skill called “${clash.name}”.` };
     const list = have.concat(move.map(asSkill));
-    const problem = typeof skillsProblem === 'function' ? skillsProblem(ch, list, sn.titles || []) : '';
+    // the site's message speaks of the skills text box's columns; on this board the parent is "Grows from"
+    const problem = (typeof skillsProblem === 'function' ? skillsProblem(ch, list, sn.titles || []) : '')
+      .replace(/give every other skill a parent \(the fifth column\)\./, 'set “Grows from” to one of their skills (or to a prospect that will move with it).');
     if (problem) return { ok: false, reason: problem };
     const me = list[list.length - 1], role = typeof skillRole === 'function' ? skillRole(list, me) : '';
     return { ok: true, role, move, ancestors, ch, sn };
+  }
+  // ---- fit helper (step 6.4): who could take this prospect, and why ----
+  // Three layers, no scores: (1) the site's own rules at the character's latest open chapter version (plan(), as Assign uses);
+  // (2) the room their true name leaves (core, branches, depth); (3) hints: the note names them, shared words with their concept,
+  // a corrupted prospect for a Twisted character. Allowed first, then by number of hints.
+  const words = t => new Set(String(t || '').toLowerCase().split(/[^a-z\u00c0-\u024f]+/).filter(w => w.length >= 4).map(w => w.replace(/(ies|es|s)$/, '')));
+  function latestOpen(ch) {
+    const vs = (ch.snapshots || []).filter(v => v).slice().sort((a, b) => (b.startChapter || 0) - (a.startChapter || 0));
+    return vs.find(v => !(typeof isLocked === 'function' && isLocked(v))) || null;
+  }
+  function room(ch, sn) {
+    const t = typeof typeOf === 'function' ? typeOf(ch) : (ch.race || '');
+    if (typeof canHaveSkills === 'function' && !canHaveSkills(ch)) return 'can\'t hold skills';
+    if (typeof skillsCapped === 'function' && !skillsCapped(ch)) return t === 'twisted' ? 'uncapped (a corrupted gift tree)' : (typeof isGodType === 'function' && isGodType(ch)) ? 'uncapped (authorities)' : 'uncapped (no type set)';
+    const tier = typeof nameTier === 'function' ? nameTier(sn) : 0, c = typeof skillCounts === 'function' ? skillCounts(sn.skills || []) : { cores: 0, branches: 0, deepest: 0 };
+    return `core ${c.cores ? 'taken' : 'free'} · branches ${c.branches}/${tier} · depth ${c.deepest}/${tier} (true name tier ${tier})`;
+  }
+  function fitRows(x) {
+    const xw = words([x.name, x.desc].join(' ')), note = String(x.note || '').toLowerCase();
+    return chars().map(ch => {
+      const sn = latestOpen(ch), hints = [];
+      if (!sn) return { ch, sn: null, ok: false, reason: 'every chapter version is locked', hints, room: '' };
+      const nm = String(ch.name || '').trim().toLowerCase().replace(/\s*\(sample\)$/, '');
+      if (nm.length >= 3 && note.includes(nm)) hints.push('your note names them');
+      const shared = [...words(ch.authority)].filter(w => xw.has(w));
+      if (shared.length) hints.push('shares “' + shared.join('”, “') + '” with their concept');
+      if (x.corrupted && (typeof typeOf === 'function' ? typeOf(ch) : ch.race) === 'twisted') hints.push('corrupted, and they keep a corrupted gift tree');
+      const p = plan(x, ch.id, sn.id, true);
+      return { ch, sn, ok: p.ok, reason: p.reason, role: p.role, ancestors: p.ancestors || [], hints, room: room(ch, sn) };
+    }).sort((a, b) => (b.ok - a.ok) || (b.hints.length - a.hints.length) || String(a.ch.name).localeCompare(String(b.ch.name)));
+  }
+  function fitHtml(x) {
+    if (!chars().length) return '';
+    const rows = fitRows(x);
+    return `<div class="sp-fit"><b>Who could take it</b>
+      <p class="sp-dim">At each character's latest chapter version that isn't locked. Rules first; the hints are only hints.</p>
+      <ol class="sp-fit-list">${rows.map(r => `<li class="${r.ok ? 'ok' : 'no'}">
+        <div class="sp-fit-head"><b>${esc(r.ch.name || 'Unnamed')}</b><small>${r.sn ? esc(snapLabel(r.sn)) : ''}</small>
+          ${r.ok ? `<button type="button" class="ed-slant ghost sp-fit-use" data-fit-char="${esc(r.ch.id)}" data-fit-snap="${esc(r.sn.id)}">Use</button>` : ''}</div>
+        <small class="sp-fit-why">${r.ok ? `✓ would be a ${esc(r.role || 'skill')}${r.ancestors.length ? ', moving ' + esc(r.ancestors.join(', ')) + ' with it' : ''}` : '✗ ' + esc(r.reason)}</small>
+        ${r.room ? `<small>Room: ${esc(r.room)}</small>` : ''}
+        ${r.hints.length ? `<small class="sp-fit-hints">Hints: ${esc(r.hints.join('; '))}</small>` : ''}</li>`).join('')}</ol></div>`;
   }
   function shell() {
     return `<div class="ed-head"><div class="ed-title"><span class="ed-crt">EPITAPH // SKILL PROSPECTS</span><span class="ed-sub">${drafts().length} prospect${drafts().length === 1 ? '' : 's'} · private, not published</span></div>
@@ -189,6 +235,10 @@
       refresh();
     });
     sn.addEventListener('change', refresh); anc.addEventListener('change', refresh);
+    root().querySelectorAll('[data-fit-char]').forEach(b => b.addEventListener('click', () => {
+      cs.value = b.dataset.fitChar; cs.dispatchEvent(new Event('change')); sn.value = b.dataset.fitSnap; anc.checked = true; refresh();
+      const box = q('.sp-assign'); if (box && box.scrollIntoView) box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }));
     btn.addEventListener('click', async () => {
       if (!save(false)) return;
       const d = x(), p = plan(d, cs.value, sn.value, anc.checked); if (!p.ok) return refresh();

@@ -313,8 +313,15 @@ Design agreed in the same conversation (Opus):
   them from the board; the private note stays behind. Also fixed a wrong label from 6.2: the site does not restrict corrupted skills to Twisted characters, so the
   checkbox now says "marked as twisted in the skill tree". Tested in the real page: a child with its missing parent (moved together, refused unticked), the
   true-name cap, the godling lock, a locked chapter, a name clash, an unknown parent, a plain fit, and the Dossier afterwards.
-- [ ] **6.4 Fit helper.** A side panel comparing one draft against characters (type, branches free, caps, concept) to see who it fits.
-  Opus (what counts as a fit).
+- [x] **6.4 Fit helper.** *(Done 2026-11-21, Opus.)* "Who could take it" on the prospects board, for the selected prospect, one row per character at their
+  **latest chapter version that isn't locked**. What counts as a fit, in three layers and **no scores** (the author dislikes arbitrary numbers): **(1) the rules**,
+  exactly as Assign checks them (type lock, true-name caps, name clashes, the parent chain, moved along if it is on the board); **(2) room**: core free or taken,
+  branches and depth used against the true-name tier, or why the type is uncapped (a Twisted's corrupted gift tree, a god's authorities, no type set) or can't
+  hold skills; **(3) hints**, shown as words: your note names them, the prospect shares words with their concept, a corrupted prospect for a Twisted character.
+  Sorted: can take it first, then more hints, then name. **Use** fills the Assign section with that character and version. Not used as signals, on purpose:
+  skill level against stats or Threat (no site rule ties them), and archetypes. Also: the site's "give every other skill a parent (the fifth column)" message
+  is reworded on the board to "set “Grows from” to one of their skills". Tested in the real page (a Twisted with all three hints first, an untyped character,
+  a godling, a capped person with the core taken, a fully locked character; Use → a valid Assign).
 - [ ] **6.5 Mark library UI.** Library tab for marks (list, holders, curse stages per holder); pick-or-create in every mark editor.
   Sonnet.
 - [ ] **6.6 In chapters.** Chapters may mention a prospective skill while drafting; the chapter check flags a skill used in a canon
@@ -357,6 +364,8 @@ When the user says "get back to it" / "back to the plan":
 ## Tweak log
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-21 — **6.4 done (Opus).** Next: 6.5 mark library UI (Sonnet), then 6.6 (Sonnet).
 
 - 2026-11-21 — **6.3 done (Sonnet).** Next: 6.4 (Opus): the fit helper, which can reuse this module's `plan()` for the "does it fit" part and compare against every character.
 
