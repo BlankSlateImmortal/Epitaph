@@ -23,7 +23,8 @@
  *   marks: source, effect, cost, ends (they carry plot) · power: everything but threat and name · skills: the corrupted flag
  *   relationships: notes, and any tie to someone who isn't a published character · inventory: notes, boundTo
  *   items (docs/plans/item-system.md 4.1): W.I.P items entirely; an item's note, weight, appearance, maker; a state no published
- *     chapter has reached (except a track's normal state, and states a revealed history entry names); the origin circumstance until a
+ *     chapter has reached (except a track's normal state, and states a revealed history entry names; each state says the chapter that
+ *     first reached it, so a view as of an earlier chapter can leave it out); the origin circumstance until a
  *     chapter reveals "<Item>: origin"; history before the story until "<Item>: history" (an entry tied to a published chapter shows
  *     from that chapter); a blessing's price / terms / breach / lasts until; a curse's type and stage texts, and stage names past the
  *     furthest stage a published chapter reached. A mark is revealed by its own name or by "<Item>: <mark>".
@@ -194,14 +195,15 @@
           return { id: h.id, when: pick(w, ['era', 'year', 'approx', 'chapter']), holder: holderText(h.holder || ''), stateIds: { ...(h.stateIds || {}) }, text: scrub(h.text), revealedIn: at };
         }).filter(Boolean);
         // states: reached by a published chapter, a track's normal state, or named by a revealed history entry
-        const reached = new Set();
-        dossierChars.forEach(c => c.snapshots.forEach(v => v.inventory.forEach(e => { if (e.itemId === i.id) Object.values(e.stateIds || {}).forEach(id => reached.add(id)); })));
-        history.forEach(h => Object.values(h.stateIds).forEach(id => reached.add(id)));
+        const reached = new Set(), firstChapter = new Map();   // state id -> the first published chapter that reached it
+        const reach = (id, ch) => { reached.add(id); if (ch != null && (!firstChapter.has(id) || ch < firstChapter.get(id))) firstChapter.set(id, ch); };
+        dossierChars.forEach(c => c.snapshots.forEach(v => v.inventory.forEach(e => { if (e.itemId === i.id) Object.values(e.stateIds || {}).forEach(id => reach(id, v.startChapter)); })));
+        history.forEach(h => Object.values(h.stateIds).forEach(id => reach(id, h.revealedIn)));
         out.stateTracks = (i.stateTracks || []).map(tr => {
           const normal = (tr.states || []).find(x => x.id === tr.primaryStateId) || (tr.states || [])[0];
-          if (normal) reached.add(normal.id);
+          if (normal) reach(normal.id, 0);
           const states = (tr.states || []).filter(st => reached.has(st.id))
-            .map(st => ({ id: st.id, name: scrub(st.name), desc: scrub(st.desc), image: st.image || '', color: st.color || '', marks: marks(st.marks, i, false) }));
+            .map(st => ({ id: st.id, name: scrub(st.name), desc: scrub(st.desc), image: st.image || '', color: st.color || '', reachedIn: firstChapter.has(st.id) ? firstChapter.get(st.id) : 0, marks: marks(st.marks, i, false) }));
           return { kind: tr.kind, name: scrub(tr.name), oneWay: !!tr.oneWay, primaryStateId: normal ? normal.id : '', states };
         }).filter(tr => tr.states.length);
         const kept = new Set(out.stateTracks.flatMap(tr => tr.states.map(st => st.id)));

@@ -7,7 +7,7 @@
  *   h.read()   -> [history entry] in timeline order, empty rows dropped
  *   EpitaphItemFields.cleanItem(draft)      -> the saved shape of an item (trimmed, marks and tracks cleaned)
  *   EpitaphItemFields.originText(item, placeName)  -> "from Aurelia" | "no origin" | "origin unknown"
- *   EpitaphItemFields.badgesHtml(item, entry?, { wip })  -> rank (now, for an inventory entry), tier and W.I.P tags
+ *   EpitaphItemFields.badgesHtml(item, entry?, { wip, asOf })  -> rank (now, for an inventory entry; as of a chapter for a reader), tier and W.I.P tags
  *
  * `getMarks()` and `getTracks()` return the host editor's current (unsaved) marks and tracks, so the
  * highest rank the item can reach (and the tiers that rank locks) follows what is on screen.
@@ -32,7 +32,8 @@
   // higher in another state that is shown too. `opts.wip === false` hides W.I.P (it is for the author's eyes only).
   function badgesHtml(it, entry, opts) {
     if (!it) return '';
-    const lib = L(), mx = lib.maxRank(it), now = entry ? lib.rankAt(it, entry) : mx, tag = n => `${n} · ${lib.rankName(n).toUpperCase()}`;
+    const asOf = opts && Number.isInteger(opts.asOf) ? opts.asOf : null;
+    const lib = L(), mx = lib.maxRank(it, asOf), now = entry ? lib.rankAt(it, entry, asOf) : mx, tag = n => `${n} · ${lib.rankName(n).toUpperCase()}`;
     return [now ? `<span class="if-badge rank" title="How far its effect reaches${entry ? ' in this chapter' : ''}">RANK ${esc(tag(now))}</span>` : '',
       entry && mx > now ? `<span class="if-badge dim" title="The highest rank it can reach in any state">CAN REACH ${esc(tag(mx))}</span>` : '',
       it.tier ? `<span class="if-badge tier ${esc(it.tier)}" title="Who could make it">${esc(it.tier.toUpperCase())}</span>` : '',

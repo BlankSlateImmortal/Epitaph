@@ -314,6 +314,16 @@ When the user says "get back to it" / "back to the plan":
 
 Newest first. One line each: date, what changed, and what it does to the plan.
 
+- 2026-11-21 — **Rule from the user: items show the way each chapter presented them** ("if chapter 2 specified rank 1 soul then keep that"; the
+  confusing parts of bringing up the past are for later). Built on top of 4.1 (Sonnet): a reader's view of a chapter now counts only what was
+  revealed **by that chapter**, not by the last published one. `EpitaphLibrary.rankAt / maxRank (…, asOf)` and `revealedBy`; published marks keep
+  `revealedIn` and states get `reachedIn` (the first chapter that reached them; 0 = the normal state), both kept through the reader's Library; the
+  inventory monitor passes `asOf = the viewed chapter` for readers and leaves out later states and later marks. The author's own data has no
+  `revealedIn`, so the author sees everything. Verified in the real reader page on a chapter-3 snapshot: chapter 1 and 2 read Rank 1 · Soul
+  (Connected, but God's Eye is revealed in chapter 3) with only the states reached so far; chapter 3 reads Rank 7 · Planet with all of them.
+  The checker also fails on a `reachedIn` past the last published chapter. **Open (later, as the user said):** what a flashback chapter should
+  show, and the book's reader card (publish plan 3.3) must pass the viewed chapter the same way (noted there).
+
 - 2026-11-21 — **Phase 4 complete (Opus).** Judgment calls: marks stay minimal as the publish plan decided (only reach and reached stage
   names added); a hidden binding hides its reach, so a reader's rank can be lower than the author's; `<Item>: history` reveals all
   pre-story entries at once (per-entry reveal can come later if wanted). 4.3 did not touch the book's reader card (other session's work).

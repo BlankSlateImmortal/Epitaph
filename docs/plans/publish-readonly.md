@@ -143,6 +143,10 @@ When the user says "get back to it" and this is the active plan:
 
 Newest first.
 
+- 2026-11-21 — **For 3.3 (the book), the author's rule: show items as the viewed chapter presented them.** Pass the chapter being viewed as
+  `asOf` (`EpitaphItemFields.badgesHtml(item, entry, { wip: false, asOf })`, `EpitaphLibrary.rankAt(item, entry, asOf)`), leave out states whose
+  `reachedIn` is later and marks whose `revealedIn` is later (`EpitaphLibrary.revealedBy(mark, asOf)`). The Dossier's inventory monitor already does.
+
 - 2026-11-21 — **For 3.3 (the book), from the item plan (4.1–4.3):** the snapshot now carries, per item, `rank`, `tier`, `origin`,
   `originCircumstance` (only once revealed), `history` (revealed entries, each with `revealedIn`) and `stateTracks` (reached states only); marks
   carry a binding's `rank` and a curse's reached stage names (and `stage` on chapter copies). The book's read-only Library card for readers

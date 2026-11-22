@@ -120,6 +120,9 @@ def main():
             for v in ch.get('snapshots', []):
                 if not isinstance(v.get('startChapter'), int) or v['startChapter'] > n:
                     problems.append(f'{ch.get("name")}: a chapter version starting at {v.get("startChapter")} is published')
+        for r in all_values(data, 'reachedIn'):
+            if isinstance(r, int) and r > n:
+                problems.append(f'a state reached in chapter {r} is published (last published: {n})')
         for r in all_values(data, 'revealedIn'):
             if r is None or (isinstance(r, int) and r > n):
                 problems.append(f'something revealed in chapter {r} is published (last published: {n})')

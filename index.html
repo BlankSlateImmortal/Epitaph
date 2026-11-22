@@ -1194,11 +1194,11 @@
 <script src="assets/epitaph-links.js?v=1"></script>
 <script src="assets/epitaph-sites.js?v=9"></script>
 <script src="assets/epitaph-sites-ui.js?v=5"></script>
-<script src="assets/epitaph-publish.js?v=5"></script>
-<script src="assets/epitaph-library.js?v=13"></script>
+<script src="assets/epitaph-publish.js?v=6"></script>
+<script src="assets/epitaph-library.js?v=14"></script>
 <script src="assets/epitaph-marks.js?v=7"></script>
 <script src="assets/epitaph-states.js?v=3"></script>
-<script src="assets/epitaph-item-fields.js?v=4"></script>
+<script src="assets/epitaph-item-fields.js?v=5"></script>
 <script src="assets/epitaph-checks.js?v=11"></script>
 <script src="assets/epitaph-codex-views.js?v=2"></script>
 <script src="assets/epitaph-mode.js?v=5"></script>
@@ -4773,8 +4773,10 @@ function wireItemTuner(root, char, snap){
 function itemMonitorHtml(char, snap, sel, idx){
   const v = invView(sel), twice = heldTwice(char, snap, sel.itemId);
   const li = sel.itemId && Lib ? Lib.item(sel.itemId) : null;
-  const tracks = (li && li.stateTracks) || [];
-  const marks = sel.marks || [];
+  // a reader sees the item the way this chapter presented it: nothing revealed or reached in a later chapter (the author sees everything)
+  const asOf = window.EpitaphMode && !EpitaphMode.isAuthor() && Number.isInteger(snap.startChapter) ? snap.startChapter : null;
+  const tracks = ((li && li.stateTracks) || []).map(t => ({ ...t, states: t.states.filter(s => asOf == null || !Number.isInteger(s.reachedIn) || s.reachedIn <= asOf) })).filter(t => t.states.length);
+  const marks = (sel.marks || []).filter(m => Lib.revealedBy(m, asOf));
   const pic = v.image || v.icon || '';
   const known = pic && ITEM_ALPHA.has(pic) ? (ITEM_ALPHA.get(pic) ? 'float' : 'solid') : 'solid';
   const kinds = marks.map(m => m.kind);
@@ -4799,7 +4801,7 @@ function itemMonitorHtml(char, snap, sel, idx){
       <div class="item-text">
         <span class="item-meta">&gt;&gt;&gt;&gt;&gt;&gt;&gt; ${v.linked ? 'LIBRARY ITEM' : (v.missing ? 'MISSING FROM LIBRARY' : 'TYPED-IN ITEM')}</span>
         <h4 class="item-name">${escapeHtml(v.name)}</h4>
-        ${li ? (b => b ? `<div class="item-badges">${b}</div>` : '')(EpitaphItemFields.badgesHtml(li, sel, { wip: !(window.EpitaphMode && !EpitaphMode.canEdit()) })) : ''}
+        ${li ? (b => b ? `<div class="item-badges">${b}</div>` : '')(EpitaphItemFields.badgesHtml(li, sel, { wip: !(window.EpitaphMode && !EpitaphMode.canEdit()), asOf })) : ''}
         ${tracks.map(t => { const on = (sel.stateIds || {})[t.kind]; return `${tracks.length > 1 ? `<span class="item-meta">${escapeHtml(t.name.toUpperCase())}</span>` : ''}<ol class="item-track">${t.states.map((s, i) => `${i ? '<li class="arrow" aria-hidden="true">▸</li>' : ''}<li class="${s.id === on ? 'on' : ''}">${String(i + 1).padStart(2, '0')} ${escapeHtml(s.name.toUpperCase())}</li>`).join('')}</ol>`; }).join('')}
         ${v.missing ? '<p class="inv-warn">⚠ This item is no longer in the Library.</p>' : ''}${v.stateMissing ? '<p class="inv-warn">⚠ Its state was removed from the Library item.</p>' : ''}${twice.length ? `<p class="inv-warn">⚠ Also held by ${escapeHtml(twice.join(', '))} in the same chapter.</p>` : ''}
         <p class="item-prose">${v.desc ? escapeHtml(v.desc) : '<span class="dim">No description.</span>'}</p>

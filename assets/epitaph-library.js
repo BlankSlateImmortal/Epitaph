@@ -71,6 +71,7 @@
     // The old free-text `cost` / `ends` are folded in so no text is lost (plan 2.3; step 5.1 refines each one by hand):
     // a blessing's cost becomes its price and its ends "lasts until"; on a binding or curse they are added to the effect.
     let oldCost = str(m.cost).trim(), oldEnds = str(m.ends).trim();
+    if (Number.isInteger(m.revealedIn)) out.revealedIn = m.revealedIn;                // published copies only: the chapter that revealed it
     if (kind === 'binding' && rankNum(m.rank)) out.rank = rankNum(m.rank);          // only bindings carry a rank
     if (kind === 'blessing') {
       out.price = str(m.price); out.terms = str(m.terms);
@@ -112,7 +113,8 @@
     st = st || {};
     return { id: st.id || newId('state'), name: str(st.name), desc: str(st.desc),
       marks: (Array.isArray(st.marks) ? st.marks : []).map(normalizeMark), image: str(st.image),
-      color: STATE_COLORS.includes(st.color) ? st.color : '' };
+      color: STATE_COLORS.includes(st.color) ? st.color : '',
+      ...(Number.isInteger(st.reachedIn) ? { reachedIn: st.reachedIn } : {}) };   // published copies only: the first chapter that reached it (0 = its normal state)
   }
   // One track: id is its kind. `legacy` = the states came from a v1 `states[]` (not one-way, so
   // old data raises no false "goes backwards" warnings).
@@ -267,27 +269,30 @@
   // Lowest tier a rank allows: ranks 1–3 mundane, 4–6 transcendent, 7 divine (unset rank = no floor).
   const tierFloor = rank => { const r = rankNum(rank); return r >= 7 ? 'divine' : r >= 4 ? 'transcendent' : 'mundane'; };
   const allowedTiers = rank => TIERS.slice(TIERS.indexOf(tierFloor(rank)));
-  const bindingRank = m => (m && m.kind === 'binding' ? rankNum(m.rank) : 0);
+  // `asOf` (a chapter number) is for a reader's view of a published copy: a binding counts only from the chapter that revealed it
+  // (`revealedIn`), so an item shows the way that chapter presented it. The author's data has no `revealedIn`, so nothing is held back.
+  const revealedBy = (m, asOf) => asOf == null || !Number.isInteger(m && m.revealedIn) || m.revealedIn <= asOf;
+  const bindingRank = (m, asOf) => (m && m.kind === 'binding' && revealedBy(m, asOf) ? rankNum(m.rank) : 0);
   // The highest rank an item can ever reach: its base rank or any binding, in any state.
-  function maxRank(it) {
+  function maxRank(it, asOf) {
     if (!it) return 0;
     let r = rankNum(it.rank);
-    (it.marks || []).forEach(m => { r = Math.max(r, bindingRank(m)); });
-    (it.stateTracks || []).forEach(t => t.states.forEach(s => (s.marks || []).forEach(m => { r = Math.max(r, bindingRank(m)); })));
+    (it.marks || []).forEach(m => { r = Math.max(r, bindingRank(m, asOf)); });
+    (it.stateTracks || []).forEach(t => t.states.forEach(s => (s.marks || []).forEach(m => { r = Math.max(r, bindingRank(m, asOf)); })));
     return r;
   }
   // The item's rank right now: the highest of its base rank and its ACTIVE bindings (the item's own plus
   // those of the states an entry is in; with no entry, each track's primary state). Losing the binding that
   // gave the reach lowers the rank again.
-  function rankAt(it, entry) {
+  function rankAt(it, entry, asOf) {
     if (!it) return 0;
     let r = rankNum(it.rank);
-    (it.marks || []).forEach(m => { r = Math.max(r, bindingRank(m)); });
+    (it.marks || []).forEach(m => { r = Math.max(r, bindingRank(m, asOf)); });
     // a track the entry doesn't pick counts as its primary (normal) state
     const ids = normalizeStateIds(entry && entry.stateIds);
     const states = (it.stateTracks || []).map(t =>
       t.states.find(s => s.id === ids[t.kind]) || t.states.find(s => s.id === t.primaryStateId) || t.states[0]).filter(Boolean);
-    states.forEach(s => (s.marks || []).forEach(m => { r = Math.max(r, bindingRank(m)); }));
+    states.forEach(s => (s.marks || []).forEach(m => { r = Math.max(r, bindingRank(m, asOf)); }));
     return r;
   }
   // '' when the item's tier is fine, else the reason (for the editor's lock and the checks).
@@ -321,7 +326,7 @@
   global.EpitaphLibrary = {
     KEY, BACKUP_V1, BACKUP_V2, STATE_COLORS, TRACK_KINDS, TRACK_NAMES, MAX_STATES,
     newId, normalizeMark, normalizeState, normalizeTrack, normalizeStateIds, get, update, item, place: placeById,
-    stateOf, trackOf, itemTrack, currentStates, uses, marksFor, stateIdOf, itemStates, primaryStateIds, stateKeyOf,
+    stateOf, trackOf, itemTrack, currentStates, uses, marksFor, stateIdOf, itemStates, primaryStateIds, stateKeyOf, revealedBy,
     CURSE_TYPES, STAGE_NAMES, markKindsFor, markDetailLines,
     ERAS, ORIGIN_WORDS, placeIdOf, normalizeHistoryEntry, compareWhen, whenText, OFFLINE_FIELDS, fieldOn,
     RANKS, TIERS, rankName, tierFloor, allowedTiers, maxRank, rankAt, tierProblem,
