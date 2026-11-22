@@ -2,7 +2,9 @@
  *
  * A free board of prospective skills: create and edit skills with no character attached, to see who they might fit.
  * They live in the Library (`skillDrafts`), are author-only (never published, never shown to readers) and are NOT real:
- * a skill only exists for a story once it is assigned to a character (step 6.3). Skills are never shared, so assigning moves it.
+ * a skill only exists for a story once it is assigned to a character's chapter version. Skills are never shared, so assigning MOVES it
+ * (the prospect is gone from the board), after checking the version's own rules: the type lock, the true-name branch caps, a locked chapter,
+ * the skills it grows from, and name clashes.
  *
  *   EpitaphProspects.open()   opens the board in the wide modal; returns a short message for the terminal
  *
@@ -53,7 +55,7 @@
         <label class="ed-field">Grows from<select data-spf="parent"><option value="">— nothing: a core or loose skill —</option>${missing ? `<option value="${esc(x.parent)}" selected>⚠ ${esc(x.parent)} (not a prospect)</option>` : ''}${parents.map(n => `<option value="${esc(n)}"${x.parent === n ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
         <label class="ed-field">Glyph<input type="text" data-spf="glyph" value="${esc(x.glyph)}" maxlength="2" placeholder="one kanji"></label>
       </div>
-      <label class="sp-check"><input type="checkbox" data-spf="corrupted"${x.corrupted ? ' checked' : ''}> Corrupted (twisted: only a Twisted character can hold it)</label>
+      <label class="sp-check"><input type="checkbox" data-spf="corrupted"${x.corrupted ? ' checked' : ''}> Corrupted (marked as twisted in the skill tree)</label>
       <label class="ed-field">Note <em>— private: who might it fit, why</em><textarea data-spf="note" rows="3" placeholder="Maybe Sils: it needs silence…">${esc(x.note)}</textarea></label>
       <div class="sp-acts">
         <button type="button" class="ed-slant primary" data-sp-save>Save</button>
@@ -62,10 +64,51 @@
         <span class="sp-spacer"></span>
         <button type="button" class="ed-slant danger" data-sp-del>${armed === x.id ? 'Confirm delete' : 'Delete'}</button>
       </div>
-      <p class="sp-dim">Not real yet: a prospect has no character and no chapter. Assigning it to a character (coming next) moves it onto that character's chapter version.</p>
+      ${assignHtml(x)}
     </div>`;
   }
 
+  // ---- assign: move a prospect onto a character's chapter version ----
+  const st = () => (typeof state !== 'undefined' ? state : null);
+  const chars = () => ((st() && st().characters) || []).filter(c => c && c.id);
+  const snapLabel = sn => (sn.chapterRange || (Number.isInteger(sn.startChapter) ? 'CH ' + sn.startChapter : 'a version')) + (sn.locked ? ' (locked)' : '');
+  function assignHtml(x) {
+    const cs = chars();
+    if (!cs.length) return '<p class="sp-dim">Not real yet. There are no characters to assign it to.</p>';
+    return `<div class="sp-assign"><b>Assign to a character</b>
+      <p class="sp-dim">Not real yet: a prospect has no character and no chapter. Assigning it moves it onto one chapter version.</p>
+      <div class="sp-row2">
+        <label class="ed-field">Character<select id="spChar"><option value="">— pick —</option>${cs.map(c => `<option value="${esc(c.id)}">${esc(c.name || 'Unnamed')}</option>`).join('')}</select></label>
+        <label class="ed-field">Chapter version<select id="spSnap" disabled><option value="">— pick a character first —</option></select></label>
+      </div>
+      <label class="sp-check" id="spAncWrap" hidden><input type="checkbox" id="spAnc" checked> <span id="spAncText"></span></label>
+      <p class="sp-verdict" id="spVerdict" aria-live="polite"></p>
+      <button type="button" class="ed-slant primary" data-sp-assign disabled>Assign (moves it)</button></div>`;
+  }
+  const asSkill = d => ({ name: d.name, desc: d.desc, level: d.level, corrupted: d.corrupted, parent: d.parent, glyph: d.glyph });
+  // What assigning would do, or why it can't: { ok, reason, role, move: [drafts, what it grows from first], ancestors: [names] }
+  function plan(x, charId, snapId, withAncestors) {
+    const ch = chars().find(c => c.id === charId), sn = ch && (ch.snapshots || []).find(v => v.id === snapId);
+    if (!ch || !sn) return { ok: false, reason: '' };
+    if (typeof isLocked === 'function' && isLocked(sn)) return { ok: false, reason: 'That chapter is locked as canon. Reopen it in the Chapter Brief first.' };
+    if (!x.name.trim()) return { ok: false, reason: 'Give the prospect a name first.' };
+    const have = (sn.skills || []).slice(), names = new Set(have.map(k => k.name));
+    const move = [x], seen = new Set([x.name]), ancestors = [];
+    for (let p = x.parent; p && !names.has(p); ) {
+      const d = drafts().find(z => z.name === p && z.id !== x.id);
+      if (!d) return { ok: false, reason: `It grows from “${p}”, which is neither a skill of that version nor a prospect. Change “Grows from” first.` };
+      if (seen.has(p)) return { ok: false, reason: `“${p}” grows from itself somewhere up the chain.` };
+      if (!withAncestors) return { ok: false, reason: `It grows from “${p}”, which that version doesn't have yet. Tick “also move” or assign “${p}” first.` , needs: ancestors.concat(p) };
+      seen.add(p); ancestors.push(p); move.unshift(d); p = d.parent;
+    }
+    const clash = move.find(d => names.has(d.name));
+    if (clash) return { ok: false, reason: `That version already has a skill called “${clash.name}”.` };
+    const list = have.concat(move.map(asSkill));
+    const problem = typeof skillsProblem === 'function' ? skillsProblem(ch, list, sn.titles || []) : '';
+    if (problem) return { ok: false, reason: problem };
+    const me = list[list.length - 1], role = typeof skillRole === 'function' ? skillRole(list, me) : '';
+    return { ok: true, role, move, ancestors, ch, sn };
+  }
   function shell() {
     return `<div class="ed-head"><div class="ed-title"><span class="ed-crt">EPITAPH // SKILL PROSPECTS</span><span class="ed-sub">${drafts().length} prospect${drafts().length === 1 ? '' : 's'} · private, not published</span></div>
       <div class="ed-acts"><button type="button" class="ed-slant ghost" data-sp-close>Close</button></div></div>
@@ -121,8 +164,42 @@
     const de = q('[data-sp-del]'); if (de) de.addEventListener('click', () => {
       if (armed !== sel) { armed = sel; de.textContent = 'Confirm delete'; setTimeout(() => { if (de.isConnected && armed === sel) { armed = null; de.textContent = 'Delete'; } }, 4000); return; }
       const gone = sel; sel = ''; armed = null; Lib().update(l => { l.skillDrafts = l.skillDrafts.filter(d => d.id !== gone); }); redraw(true); });
+    wireAssign();
     // the card shows the name as you type it
     const nm = q('#spMain [data-spf="name"]'); if (nm) nm.addEventListener('input', () => { const c = q(`.sp-card.on b`); if (c) c.textContent = nm.value || 'Unnamed prospect'; });
+  }
+  function wireAssign() {
+    const cs = q('#spChar'); if (!cs) return;
+    const sn = q('#spSnap'), anc = q('#spAnc'), btn = q('[data-sp-assign]');
+    const x = () => find(sel);
+    function refresh() {
+      const d = x(); if (!d) return;
+      const p = plan(d, cs.value, sn.value, anc.checked);
+      const missing = p.needs || (p.ok ? p.ancestors : []);
+      q('#spAncWrap').hidden = !(missing && missing.length) && !(p.ancestors && p.ancestors.length);
+      q('#spAncText').textContent = `Also move what it grows from (${(p.needs || p.ancestors || []).join(', ')})`;
+      const v = q('#spVerdict');
+      v.className = 'sp-verdict ' + (p.ok ? 'ok' : (p.reason ? 'no' : ''));
+      v.textContent = p.ok ? `✓ It fits: it becomes a ${p.role || 'skill'} of ${p.ch.name || 'them'} (${snapLabel(p.sn)})${p.ancestors.length ? `, moving ${p.ancestors.join(', ')} with it` : ''}.` : (cs.value && sn.value ? '✗ ' + p.reason : '');
+      btn.disabled = !p.ok;
+    }
+    cs.addEventListener('change', () => {
+      const ch = chars().find(c => c.id === cs.value);
+      sn.disabled = !ch; sn.innerHTML = ch ? '<option value="">— pick a chapter version —</option>' + (ch.snapshots || []).slice().sort((a, b) => (a.startChapter || 0) - (b.startChapter || 0)).map(v => `<option value="${esc(v.id)}">${esc(snapLabel(v))}</option>`).join('') : '<option value="">— pick a character first —</option>';
+      refresh();
+    });
+    sn.addEventListener('change', refresh); anc.addEventListener('change', refresh);
+    btn.addEventListener('click', async () => {
+      if (!save(false)) return;
+      const d = x(), p = plan(d, cs.value, sn.value, anc.checked); if (!p.ok) return refresh();
+      p.sn.skills = (p.sn.skills || []).concat(p.move.map(asSkill));
+      const ids = new Set(p.move.map(m => m.id));
+      Lib().update(l => { l.skillDrafts = l.skillDrafts.filter(z => !ids.has(z.id)); });
+      sel = ''; armed = null;
+      try { if (typeof persistState === 'function') await persistState(); if (typeof renderAll === 'function') renderAll(); } catch (e) { console.error(e); }
+      if (typeof showToast === 'function') showToast(`${p.move.map(m => m.name).join(', ')} moved to ${p.ch.name || 'the character'} (${snapLabel(p.sn)}).`, { duration: 5000 });
+      redraw(true);
+    });
   }
   function wire() {
     root().querySelectorAll('[data-sp-close]').forEach(b => b.addEventListener('click', () => { save(false); closeModal(); }));

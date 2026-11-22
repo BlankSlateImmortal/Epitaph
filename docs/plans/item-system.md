@@ -305,8 +305,14 @@ Design agreed in the same conversation (Opus):
   fit-by-type comparison belongs to 6.4). The module wraps the command runner like `epitaph-book-tools.js` does, and adds an `opsp` line to `help`.
   Tested in the real page: command, help line, link, create / edit / save, parent rename, the three filters, auto-save on switch, duplicate, delete with
   confirm, and the reader refusal.
-- [ ] **6.3 Assign.** "Assign to…" picks a character and chapter version, checks that version's caps and locks (true-name branch caps,
-  type locks), then moves the skill. Sonnet.
+- [x] **6.3 Assign.** *(Done 2026-11-21, Sonnet.)* On the prospects board an **Assign to a character** section: pick a character and one of their chapter versions and a live
+  verdict says whether it fits, in plain words, using the site's own rules: the **type lock** ("A godling can't hold skills"), the **true-name caps** (one core,
+  branches and depth by tier), a **locked chapter**, **name clashes**, and the **skills it grows from**: if the version doesn't have the parent, a ticked box moves the
+  parent chain from the board with it (children come after parents), otherwise it is refused; a parent that is neither a skill of that version nor a prospect is
+  refused. Assigning **moves** the skill(s) onto that version (same fields as any skill: name, text, level, corrupted, parent, glyph), saves the Dossier and removes
+  them from the board; the private note stays behind. Also fixed a wrong label from 6.2: the site does not restrict corrupted skills to Twisted characters, so the
+  checkbox now says "marked as twisted in the skill tree". Tested in the real page: a child with its missing parent (moved together, refused unticked), the
+  true-name cap, the godling lock, a locked chapter, a name clash, an unknown parent, a plain fit, and the Dossier afterwards.
 - [ ] **6.4 Fit helper.** A side panel comparing one draft against characters (type, branches free, caps, concept) to see who it fits.
   Opus (what counts as a fit).
 - [ ] **6.5 Mark library UI.** Library tab for marks (list, holders, curse stages per holder); pick-or-create in every mark editor.
@@ -351,6 +357,8 @@ When the user says "get back to it" / "back to the plan":
 ## Tweak log
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-21 — **6.3 done (Sonnet).** Next: 6.4 (Opus): the fit helper, which can reuse this module's `plan()` for the "does it fit" part and compare against every character.
 
 - 2026-11-21 — **6.2 done (Sonnet).** Next: 6.3 Assign (Sonnet): the Assign button goes on this board's editor.
 

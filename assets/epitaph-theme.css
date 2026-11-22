@@ -904,3 +904,11 @@ a.from-tag:hover, a.from-tag:focus-visible{ text-decoration:underline; }
 .sp-saved{ font-size:12px; color:var(--dust); }
 .sp-dim, .sp-empty{ font-size:12px; color:var(--dust); margin:0; }
 .sp-hint{ color:var(--dust); padding:20px 4px; }
+/* skill prospects: assign to a character */
+.sp-assign{ border-top:1px solid var(--line); padding-top:12px; display:flex; flex-direction:column; gap:8px; }
+.sp-assign > b{ font-weight:400; font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--amber); }
+.sp-row2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+@media (max-width:700px){ .sp-row2{ grid-template-columns:1fr; } }
+.sp-assign select{ background:var(--ink); border:1px solid var(--line); color:var(--bone); padding:8px 10px; font:inherit; font-size:14px; min-height:40px; width:100%; box-sizing:border-box; }
+.sp-verdict{ margin:0; font-size:13px; min-height:1.2em; color:var(--dust); }
+.sp-verdict.ok{ color:#8fd19a; } .sp-verdict.no{ color:var(--ember); }
