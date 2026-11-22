@@ -59,7 +59,7 @@
     return `${o.top === false ? '' : `<div class="mark-edit-top">${o.sigil || ''}
         <select ${a('kind')} aria-label="Kind">${kinds.map(k => `<option value="${k}"${m.kind === k ? ' selected' : ''}>${LABEL[k]}${allowed.includes(k) ? '' : ' (not allowed here)'}</option>`).join('')}</select>
         <input type="text" ${a('name')} value="${esc(m.name)}" placeholder="Name" aria-label="Name"></div>`}
-      <input type="text" ${a('source')} value="${esc(m.source)}" placeholder="Source — who or what placed it (??? if unknown)" aria-label="Source">
+      <input type="text" ${a('source')} value="${esc(m.source)}" placeholder="${m.kind === 'curse' ? 'Cause — what it stems from (??? if unknown)' : 'Source — who or what placed it (??? if unknown)'}" aria-label="${m.kind === 'curse' ? 'Cause' : 'Source'}">
       <textarea ${a('effect')} placeholder="Effect — what it does" aria-label="Effect">${esc(m.effect)}</textarea>
       ${m.kind === 'binding' ? `<label class="mark-field">Reach <em>— the rank this binding gives the item</em><select ${a('rank')} aria-label="Rank"><option value="0">— none —</option>${rankN.slice(1).map((n, i) => `<option value="${i + 1}"${m.rank === i + 1 ? ' selected' : ''}>${i + 1} · ${esc(n)}</option>`).join('')}</select></label>` : ''}
       ${m.kind === 'blessing' ? `<div class="mark-grid">

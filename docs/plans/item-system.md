@@ -48,8 +48,9 @@ Not every item has every part: a blade may have no usage states; many items have
 - **One source:** items live in the Library only; nothing is duplicated into the Dossier (inventory entries point at item ids).
 - **The site's patterns:** classic scripts, `window.EpitaphX`, `epitaph-…` keys, versioned `?v=` tags, `docs/CHANGES.md`,
   `edit-only` class for anything that writes (so readers never see it).
-- **Open question, not decided:** items use the 7 ranks above (no "Realm"), while the Dossier's Threat list has Realm at 5 and Dominion at 5½.
-  Leave Threat alone; check later whether the two lists should match.
+- **Settled (user, 2026-11-21):** items use the 7 ranks above, without "Realm"; the Dossier's Threat list keeps Realm at 5 and Dominion at 5½.
+- **Curses are not applied by gods or Storyborn** (user, 2026-11-21): they are plain costs that follow from something. Some of the author's own
+  curse entries list a god or character as source; 5.1 decides per curse whether that is really its cause.
 
 ## Status key
 
@@ -199,9 +200,12 @@ Not every item has every part: a blade may have no usage states; many items have
   curse as defined: no step marked). It shows for a curse that has stage text, or whose holder has moved past the initial state; the old
   "Stage 2/3 · …" line is not repeated next to it. The book's item log reports a curse moving ("Taint: stage 1 → stage 2 · Splitting · Orin").
   Tooltip: a curse does not recover. Tested in the real Dossier (Marks tab, monitor, drawer, log) and in Node.
-- [ ] **3.4 Powers page.** Add Bindings · Blessings · Curses (with the consent rule) and Item ranks and tiers as written rules
-  (`powers.html`).
-
+- [x] **3.4 Powers page.** *(Done 2026-11-21, Sonnet; wording approved by the user.)* New **Items** section on `powers.html` (after The Voided, with a
+  table-of-contents link): rank and tier (7 ranks, **no Realm**; Mundane 1–3, Transcendent 4–6, Divine 7), states, bindings, blessings (given to
+  people only, with consent; Price, Terms, Breach, Lasts until) and curses (**not applied by gods or Storyborn: plain costs that follow from
+  something**; no consent, cannot be removed, no cost or end of their own; four types; Awakening, Fluctuation, Stabilization after an initial
+  state; each curse names its own stages). Examples were kept generic on purpose (the page is public); the Repentance story the user told is in the vault note
+  `Exploratory Ideas/Power Systems/Item Curses.md`. A curse's **source** field is now labelled **Cause** in the mark editor.
 ## Phase 4 — Publish and reveal (Opus)
 
 - [ ] **4.1 Allowlist.** The snapshot builder (`assets/epitaph-publish.js`) lists every new field explicitly; hidden by default, published
@@ -294,6 +298,10 @@ When the user says "get back to it" / "back to the plan":
 ## Tweak log
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-21 — **3.4 done; Phase 3 complete (Sonnet).** Two lore clarifications from the user while approving the text: Realm stays out of item
+  ranks, and curses are not applied by gods or Storyborn. The second changes how 5.1 reads curse **sources** (causes). Repentance's
+  curse story (initial / awakening / fluctuation / stabilization, and the fast-track "skip to Fluctuation" on infection) is saved in the vault for 5.1.
 
 - 2026-11-21 — **3.3 done (Sonnet).** The ladder is for display; changing a stage is still done in the mark editor ("Stage now", 2.3).
 
