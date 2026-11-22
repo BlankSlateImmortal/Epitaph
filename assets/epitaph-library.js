@@ -8,14 +8,36 @@
  *   Library.replace(data)  -> overwrite with an imported library
  *   Library.onChange(fn)   -> called when another tab changes the library
  *
- * Shape (version 1):
+ * Shape (version 2):
  *   countries: [{ id, name, lat, lon, note }]
  *   places:    [{ id, name, countryId, kind, lat, lon, note, era? }]
- *   items:     [{ id, name, desc, originPlaceId, marks: [Mark], note, icon, image, states: [State] }]
- *   State = { id, name, desc, marks: [Mark], image }   (ordered: first → last)
- *   An inventory entry picks one with `stateId`; marks on the item apply in
- *   every state, a state's marks are added on top.
- *   Mark = { id, kind: 'blessing'|'curse'|'binding', name, source, effect, cost, ends, image? }
+ *   items:     [{ id, name, desc, origin, originCircumstance, history: [Entry], wip, marks: [Mark], note, icon, image, stateTracks: [Track] }]
+ *     origin: a place id, 'none', 'unknown' or '' (not filled in); `note` is the author's private note.
+ *     weight, appearance, maker (a name or character id): stored, but OFFLINE (hidden by editors and views) until switched on, see OFFLINE_FIELDS
+ *     Entry = { id, when: { era: BEFORE|ERA_0|ERA_1, year?, chapter? }, holder (character id or name), stateIds, text }
+ *     rank: 1–7 (0 = unset; Soul Host Ward City Dominion Face Planet), tier: 'mundane'|'transcendent'|'divine'|''
+ *     Tier is who could make it, not derived from rank: a rank only sets the lowest tier allowed.
+ *   Track = { id, kind: 'item'|'usage'|'custom', name, oneWay, primaryStateId, states: [State] }
+ *     at most one track per kind (id = kind), at most 7 states per track; 'custom' is the
+ *     author-named third track (default name "Connection").
+ *   State = { id, name, desc, marks: [Mark], image, color }   (ordered: first → last)
+ *   An inventory entry picks one state per track: `stateIds: { item: stateId, usage: … }`;
+ *   marks on the item apply in every state, the current states' marks are added on top.
+ *   Mark = { id, kind: 'blessing'|'curse'|'binding', name, source, effect, cost, ends, image? } plus, by kind:
+ *     binding:  rank?  (the reach it gives)
+ *     blessing: price, terms, breach (only with terms), lastsUntil
+ *     curse:    type (mutation|enhancement|distortion|fragmentation), initial {name,text}, stages [3 × {name,text}]
+ *               (Awakening, Fluctuation, Stabilization), stage (0 = initial, 1–3: this holder's stage)
+ *     `cost`/`ends` are the old text fields, kept until the 2.3 editors / 5.1 data file move them.
+ *   An item's rank now = the highest of its base rank and its active bindings' ranks (rankAt).
+ *
+ *   TEMPORARY compatibility (removed with the editors, plan steps 2.1–2.2): an item also reads
+ *   `item.states` (= its Item track's states) and `item.originPlaceId` (= its origin when that is a place;
+ *   both not stored, not enumerable), and writing an enumerable `states` array or `originPlaceId` into an
+ *   item replaces its Item track's states / its origin. Inventory entries
+ *   still mirror the Item-track pick as `stateId`.
+ *   Version 1 libraries (a plain `states[]` per item) are converted on load; the raw v1 copy
+ *   is kept once under `epitaph-library-backup-v1`.
  *
  * Built-in geography stays read-only in assets/epitaph-world.js; this file
  * registers the Library's countries and places with EpitaphWorld so both
@@ -24,34 +46,149 @@
 (function (global) {
   'use strict';
   const KEY = 'epitaph-library';
+  const BACKUP_V1 = 'epitaph-library-backup-v1';
   const MARK_KINDS = ['blessing', 'curse', 'binding'];
   const num = v => typeof v === 'number' && isFinite(v);
   const str = v => (typeof v === 'string' ? v : '');
   function newId(prefix) { return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8); }
+  // Item rank (reach) and tier (who could make it), from the author's Items page.
+  // Rank 1–7; 0 = not set. Tier is NOT derived from rank: a rank only sets the lowest tier allowed.
+  const RANKS = ['', 'Soul', 'Host', 'Ward', 'City', 'Dominion', 'Face', 'Planet'];
+  const TIERS = ['mundane', 'transcendent', 'divine'];
+  const rankNum = v => (Number.isInteger(v) && v >= 1 && v <= 7 ? v : 0);
+  // Marks by kind (plan 0.3):
+  //   binding  — name, source, effect, rank                         (items only)
+  //   blessing — name, source, effect, price, terms, breach, lastsUntil   (people only; breach only with terms)
+  //   curse    — name, source, effect, type, initial, stages ×3, stage   (people and items; no cost, no end)
+  // The old `cost` / `ends` text stays on every mark for now (the editors still write it); the 2.3 editors
+  // and the converted data file (5.1) move it into the new fields and remove it.
+  const CURSE_TYPES = ['mutation', 'enhancement', 'distortion', 'fragmentation'];
+  const STAGE_NAMES = ['Awakening', 'Fluctuation', 'Stabilization'];
+  const markKindsFor = holder => (holder === 'item' ? ['binding', 'curse'] : holder === 'character' ? ['blessing', 'curse'] : MARK_KINDS.slice());
+  const stageText = x => ({ name: str(x && x.name), text: str(x && x.text) });
   function normalizeMark(m) {
     m = m || {};
-    return { id: m.id || newId('mark'), kind: MARK_KINDS.includes(m.kind) ? m.kind : 'blessing',
+    const kind = MARK_KINDS.includes(m.kind) ? m.kind : 'blessing';
+    const out = { id: m.id || newId('mark'), kind,
       name: str(m.name), source: str(m.source), effect: str(m.effect), cost: str(m.cost), ends: str(m.ends), image: str(m.image) };
+    if (kind === 'binding' && rankNum(m.rank)) out.rank = rankNum(m.rank);          // only bindings carry a rank
+    if (kind === 'blessing') {
+      out.price = str(m.price); out.terms = str(m.terms);
+      out.breach = out.terms.trim() ? str(m.breach) : '';                          // a breach needs terms to break
+      out.lastsUntil = str(m.lastsUntil);
+    }
+    if (kind === 'curse') {
+      out.type = CURSE_TYPES.includes(m.type) ? m.type : '';
+      out.initial = stageText(m.initial);
+      const st = Array.isArray(m.stages) ? m.stages : [];
+      out.stages = [0, 1, 2].map(i => stageText(st[i]));
+      out.stage = Number.isInteger(m.stage) && m.stage >= 1 && m.stage <= 3 ? m.stage : 0;   // this holder's stage: 0 = initial, 1–3
+    }
+    return out;
   }
+  // Extra lines a mark shows beyond name / source / effect: [{ label, text }]. Used by every read-only view.
+  function markDetailLines(m) {
+    if (!m) return [];
+    const L = [], add = (label, text) => { if (str(text).trim()) L.push({ label, text: str(text).trim() }); };
+    if (m.kind === 'binding' && rankNum(m.rank)) add('Reach', RANKS[rankNum(m.rank)]);
+    if (m.kind === 'blessing') { add('Price', m.price); add('Terms', m.terms); if (str(m.terms).trim()) add('Breach', m.breach); add('Lasts until', m.lastsUntil); }
+    if (m.kind === 'curse') {
+      if (m.type) add('Type', m.type.charAt(0).toUpperCase() + m.type.slice(1));
+      const n = Number.isInteger(m.stage) ? m.stage : 0, cur = n >= 1 ? (m.stages || [])[n - 1] || {} : (m.initial || {});
+      const head = n >= 1 ? `Stage ${n}/3 · ${STAGE_NAMES[n - 1]}` : 'Initial state';
+      if (n >= 1 || str(cur.name).trim() || str(cur.text).trim()) L.push({ label: head, text: [str(cur.name).trim(), str(cur.text).trim()].filter(Boolean).join(' — ') });
+    }
+    return L;
+  }
+  const STATE_COLORS = ['gray', 'green', 'yellow', 'orange', 'red', 'purple', 'blue'];
+  const TRACK_KINDS = ['item', 'usage', 'custom'];
+  const TRACK_NAMES = { item: 'Item', usage: 'Usage', custom: 'Connection' };
+  const MAX_STATES = 7;
   function normalizeState(st) {
     st = st || {};
     return { id: st.id || newId('state'), name: str(st.name), desc: str(st.desc),
-      marks: (Array.isArray(st.marks) ? st.marks : []).map(normalizeMark), image: str(st.image) };
+      marks: (Array.isArray(st.marks) ? st.marks : []).map(normalizeMark), image: str(st.image),
+      color: STATE_COLORS.includes(st.color) ? st.color : '' };
+  }
+  // One track: id is its kind. `legacy` = the states came from a v1 `states[]` (not one-way, so
+  // old data raises no false "goes backwards" warnings).
+  function normalizeTrack(t, legacy) {
+    t = t || {};
+    const kind = TRACK_KINDS.includes(t.kind) ? t.kind : 'item';
+    const states = (Array.isArray(t.states) ? t.states : []).slice(0, MAX_STATES).map(normalizeState);
+    const prim = states.some(s => s.id === t.primaryStateId) ? t.primaryStateId : (states[0] ? states[0].id : '');
+    return { id: kind, kind, name: str(t.name).trim() || TRACK_NAMES[kind],
+      oneWay: typeof t.oneWay === 'boolean' ? t.oneWay : (legacy ? false : kind === 'item'),
+      primaryStateId: prim, states };
+  }
+  // Tracks of one item: first track of each kind wins, empty tracks are dropped, Item → Usage → custom.
+  // `legacyStates` (an array) replaces the Item track's states.
+  function normalizeTracks(raw, legacyStates) {
+    const by = {};
+    (Array.isArray(raw) ? raw : []).forEach(t => { const n = normalizeTrack(t, false); if (n.states.length && !by[n.kind]) by[n.kind] = n; });
+    if (Array.isArray(legacyStates)) {
+      const base = by.item || null;
+      by.item = normalizeTrack({ ...(base || {}), kind: 'item', states: legacyStates }, !base);
+    }
+    return TRACK_KINDS.map(k => by[k]).filter(t => t && t.states.length);
+  }
+  const itemTrack = it => ((it && it.stateTracks) || []).find(t => t.kind === 'item') || null;
+  // An inventory entry's picks per track; the old `stateId` (Item track) wins when present.
+  function normalizeStateIds(raw, legacyStateId) {
+    const out = {};
+    if (raw && typeof raw === 'object') TRACK_KINDS.forEach(k => { if (typeof raw[k] === 'string' && raw[k]) out[k] = raw[k]; });
+    if (typeof legacyStateId === 'string') { if (legacyStateId) out.item = legacyStateId; else delete out.item; }
+    return out;
+  }
+  // ---- origin and history ----------------------------------------------------
+  // Optional item fields the author may want later (weight, appearance, maker). They are always kept in storage,
+  // export and import so nothing is lost; `true` here means OFFLINE: editors and views leave them out. To switch one
+  // on, set it to false (and say so in docs/CHANGES.md); the editors (2.1) and views (3.x) read fieldOn(name).
+  const OFFLINE_FIELDS = { weight: true, appearance: true, maker: true };
+  const fieldOn = name => OFFLINE_FIELDS[name] === false;
+  const ERAS = ['BEFORE', 'ERA_0', 'ERA_1'];   // the same ids as assets/epitaph-timeline.js
+  const ORIGIN_WORDS = ['none', 'unknown'];    // an origin is a place id, 'none' (it has no origin), 'unknown' (???) or '' (not filled in)
+  // The old `originPlaceId` (a place id or '') maps to `origin`; an enumerable `originPlaceId` is a v1 library
+  // or a legacy editor write. '' from a legacy editor can't say "none" or "unknown", so it keeps those words.
+  function normalizeOrigin(i) {
+    const own = Object.prototype.propertyIsEnumerable.call(i, 'originPlaceId') && typeof i.originPlaceId === 'string';
+    const o = str(i.origin);
+    if (own && i.originPlaceId) return i.originPlaceId;
+    if (own) return ORIGIN_WORDS.includes(o) ? o : '';
+    return o;
+  }
+  // One dated entry in an item's life before (or off) the story: [{ id, when, holder, stateIds, text }]
+  // `when` is a timeline moment (era, optional year, optional chapter); `holder` is a character id or a plain name.
+  function normalizeHistoryEntry(h) {
+    h = h || {}; const w = h.when || {};
+    return { id: h.id || newId('hist'),
+      when: { era: ERAS.includes(w.era) ? w.era : 'ERA_1', ...(num(w.year) ? { year: w.year } : {}), ...(Number.isInteger(w.chapter) ? { chapter: w.chapter } : {}) },
+      holder: str(h.holder), stateIds: normalizeStateIds(h.stateIds), text: str(h.text) };
+  }
+  function withAliases(item) {
+    Object.defineProperty(item, 'states', { enumerable: false, configurable: true,
+      get() { const t = itemTrack(this); return t ? t.states : []; } });
+    Object.defineProperty(item, 'originPlaceId', { enumerable: false, configurable: true,
+      get() { return ORIGIN_WORDS.includes(this.origin) ? '' : this.origin; } });
+    return item;
   }
   function normalize(raw) {
     const d = raw && typeof raw === 'object' ? raw : {};
     return {
-      version: 1,
+      version: 2,
       countries: (Array.isArray(d.countries) ? d.countries : []).filter(c => c && c.id).map(c => ({
         id: c.id, name: str(c.name), lat: num(c.lat) ? c.lat : null, lon: num(c.lon) ? c.lon : null, note: str(c.note) })),
       places: (Array.isArray(d.places) ? d.places : []).filter(p => p && p.id).map(p => ({
         id: p.id, name: str(p.name), countryId: str(p.countryId), kind: str(p.kind) || 'other',
         lat: num(p.lat) ? p.lat : null, lon: num(p.lon) ? p.lon : null, note: str(p.note), ...(p.era ? { era: p.era } : {}) })),
-      items: (Array.isArray(d.items) ? d.items : []).filter(i => i && i.id).map(i => ({
-        id: i.id, name: str(i.name), desc: str(i.desc), originPlaceId: str(i.originPlaceId),
+      items: (Array.isArray(d.items) ? d.items : []).filter(i => i && i.id).map(i => withAliases({
+        id: i.id, name: str(i.name), desc: str(i.desc), origin: normalizeOrigin(i), originCircumstance: str(i.originCircumstance),
+        history: (Array.isArray(i.history) ? i.history : []).map(normalizeHistoryEntry), wip: i.wip === true,
+        weight: str(i.weight), appearance: str(i.appearance), maker: str(i.maker),
         marks: (Array.isArray(i.marks) ? i.marks : []).map(normalizeMark), note: str(i.note),
-        icon: str(i.icon), image: str(i.image),
-        states: (Array.isArray(i.states) ? i.states : []).map(normalizeState) }))
+        icon: str(i.icon), image: str(i.image), rank: rankNum(i.rank), tier: TIERS.includes(i.tier) ? i.tier : '',
+        // an enumerable `states` array is a v1 library or a legacy editor write; the alias above is not enumerable
+        stateTracks: normalizeTracks(i.stateTracks, Array.isArray(i.states) && Object.prototype.propertyIsEnumerable.call(i, 'states') ? i.states : null) }))
     };
   }
   let cache = null, cacheRaw = null;
@@ -61,6 +198,10 @@
     if (cache && raw === cacheRaw) return cache;
     let parsed = null;
     try { parsed = raw ? JSON.parse(raw) : null; } catch (e) { parsed = null; }
+    // first load of a version 1 library: keep the raw copy once so the conversion can always be undone
+    if (parsed && (parsed.version || 1) < 2) {
+      try { if (localStorage.getItem(BACKUP_V1) == null) localStorage.setItem(BACKUP_V1, raw); } catch (e) { /* storage refused */ }
+    }
     cache = normalize(parsed); cacheRaw = raw;
     return cache;
   }
@@ -89,26 +230,82 @@
   const item = id => (id && get().items.find(i => i.id === id)) || null;
   const placeById = id => (id && get().places.find(p => p.id === id)) || null;
 
-  const stateOf = (it, stateId) => (it && stateId && (it.states || []).find(s => s.id === stateId)) || null;
+  // State ids are unique across an item's tracks, so a state is found by id alone.
+  const stateOf = (it, stateId) => {
+    if (!it || !stateId) return null;
+    for (const t of it.stateTracks || []) { const s = t.states.find(x => x.id === stateId); if (s) return s; }
+    return null;
+  };
+  const trackOf = (it, stateId) => (it && stateId && (it.stateTracks || []).find(t => t.states.some(s => s.id === stateId))) || null;
+  // The current state in every track an entry picks: [{ track, state }] in Item → Usage → custom order.
+  function currentStates(it, entry) {
+    const ids = normalizeStateIds(entry && entry.stateIds, entry && entry.stateId);
+    return ((it && it.stateTracks) || []).map(t => ({ track: t, state: t.states.find(s => s.id === ids[t.kind]) || null })).filter(x => x.state);
+  }
   // Every chapter version that carries the item, in chapter order:
-  // [{ charId, who, snapId, ch, label, stateId }]
+  // [{ charId, who, snapId, ch, label, stateId (Item track), stateIds }]
   function uses(itemId, characters) {
     const rows = [];
     (characters || []).forEach(c => (c.snapshots || []).forEach(s => (s.inventory || []).forEach(e => {
-      if (e.itemId === itemId) rows.push({ charId: c.id, who: c.name || 'Unnamed', snapId: s.id,
-        ch: Number.isInteger(s.startChapter) ? s.startChapter : null, label: s.chapterRange || '', stateId: e.stateId || '' });
+      if (e.itemId === itemId) { const ids = normalizeStateIds(e.stateIds, e.stateId);
+        rows.push({ charId: c.id, who: c.name || 'Unnamed', snapId: s.id,
+          ch: Number.isInteger(s.startChapter) ? s.startChapter : null, label: s.chapterRange || '', stateId: ids.item || '', stateIds: ids }); }
     })));
     rows.sort((a, b) => (a.ch == null) - (b.ch == null) || (a.ch || 0) - (b.ch || 0) || a.who.localeCompare(b.who));
     return rows;
   }
-  // A chapter's marks when it is in a state: the item's own marks plus the state's, as fresh copies.
-  function marksFor(it, stateId) {
-    const st = stateOf(it, stateId);
-    return ((it && it.marks) || []).concat(st ? st.marks : []).map(m => ({ ...normalizeMark(m), id: newId('mark') }));
+  // ---- rank and tier -------------------------------------------------------
+  const rankName = n => RANKS[rankNum(n)] || '';
+  // Lowest tier a rank allows: ranks 1–3 mundane, 4–6 transcendent, 7 divine (unset rank = no floor).
+  const tierFloor = rank => { const r = rankNum(rank); return r >= 7 ? 'divine' : r >= 4 ? 'transcendent' : 'mundane'; };
+  const allowedTiers = rank => TIERS.slice(TIERS.indexOf(tierFloor(rank)));
+  const bindingRank = m => (m && m.kind === 'binding' ? rankNum(m.rank) : 0);
+  // The highest rank an item can ever reach: its base rank or any binding, in any state.
+  function maxRank(it) {
+    if (!it) return 0;
+    let r = rankNum(it.rank);
+    (it.marks || []).forEach(m => { r = Math.max(r, bindingRank(m)); });
+    (it.stateTracks || []).forEach(t => t.states.forEach(s => (s.marks || []).forEach(m => { r = Math.max(r, bindingRank(m)); })));
+    return r;
+  }
+  // The item's rank right now: the highest of its base rank and its ACTIVE bindings (the item's own plus
+  // those of the states an entry is in; with no entry, each track's primary state). Losing the binding that
+  // gave the reach lowers the rank again.
+  function rankAt(it, entry) {
+    if (!it) return 0;
+    let r = rankNum(it.rank);
+    (it.marks || []).forEach(m => { r = Math.max(r, bindingRank(m)); });
+    // a track the entry doesn't pick counts as its primary (normal) state
+    const ids = normalizeStateIds(entry && entry.stateIds, entry && entry.stateId);
+    const states = (it.stateTracks || []).map(t =>
+      t.states.find(s => s.id === ids[t.kind]) || t.states.find(s => s.id === t.primaryStateId) || t.states[0]).filter(Boolean);
+    states.forEach(s => (s.marks || []).forEach(m => { r = Math.max(r, bindingRank(m)); }));
+    return r;
+  }
+  // '' when the item's tier is fine, else the reason (for the editor's lock and the checks).
+  function tierProblem(it) {
+    if (!it || !it.tier) return '';
+    const mx = maxRank(it);
+    return TIERS.indexOf(it.tier) < TIERS.indexOf(tierFloor(mx))
+      ? `Rank ${mx} (${rankName(mx)}) needs at least ${tierFloor(mx)}, but the tier is ${it.tier}.` : '';
+  }
+
+  // A chapter's marks when it is in a state: the item's own marks plus the current states', as fresh copies.
+  // `picked` is one state id (the Item track, as before) or a { item, usage, custom } object.
+  function marksFor(it, picked) {
+    const ids = typeof picked === 'object' && picked ? normalizeStateIds(picked) : normalizeStateIds(null, picked || '');
+    const extra = [];
+    ((it && it.stateTracks) || []).forEach(t => { const s = t.states.find(x => x.id === ids[t.kind]); if (s) extra.push(...s.marks); });
+    return ((it && it.marks) || []).concat(extra).map(m => ({ ...normalizeMark(m), id: newId('mark') }));
   }
 
   global.EpitaphLibrary = {
-    KEY, newId, normalizeMark, normalizeState, get, update, item, place: placeById, stateOf, uses, marksFor,
+    KEY, BACKUP_V1, STATE_COLORS, TRACK_KINDS, TRACK_NAMES, MAX_STATES,
+    newId, normalizeMark, normalizeState, normalizeTrack, normalizeStateIds, get, update, item, place: placeById,
+    stateOf, trackOf, itemTrack, currentStates, uses, marksFor,
+    CURSE_TYPES, STAGE_NAMES, markKindsFor, markDetailLines,
+    ERAS, ORIGIN_WORDS, normalizeHistoryEntry, OFFLINE_FIELDS, fieldOn,
+    RANKS, TIERS, rankName, tierFloor, allowedTiers, maxRank, rankAt, tierProblem,
     replace(data) { return save(data); },
     onChange(fn) { listeners.push(fn); }
   };

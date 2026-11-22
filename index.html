@@ -1195,8 +1195,8 @@
 <script src="assets/epitaph-sites.js?v=9"></script>
 <script src="assets/epitaph-sites-ui.js?v=5"></script>
 <script src="assets/epitaph-publish.js?v=2"></script>
-<script src="assets/epitaph-library.js?v=3"></script>
-<script src="assets/epitaph-marks.js?v=3"></script>
+<script src="assets/epitaph-library.js?v=8"></script>
+<script src="assets/epitaph-marks.js?v=4"></script>
 <script src="assets/epitaph-states.js?v=1"></script>
 <script src="assets/epitaph-checks.js?v=7"></script>
 <script src="assets/epitaph-codex-views.js?v=2"></script>
@@ -1737,7 +1737,7 @@ function migrateCharacter(c){
       };
       // a Library item: name, description and pictures come from the Library
       // (`name` is kept only as a fallback label if that item is ever deleted)
-      if(it.itemId) return { ...base, itemId: it.itemId, stateId: typeof it.stateId === 'string' ? it.stateId : '', note: typeof it.note === 'string' ? it.note : '', name: it.name || '' };
+      if(it.itemId){ const ids = EpitaphLibrary.normalizeStateIds(it.stateIds, typeof it.stateId === 'string' ? it.stateId : undefined); return { ...base, itemId: it.itemId, stateIds: ids, stateId: ids.item || '', note: typeof it.note === 'string' ? it.note : '', name: it.name || '' }; }
       return { ...base, name: it.name || '', desc: it.desc || '', icon: it.icon || '', image: it.image || '' };
     }),
     skills: (s.skills || []).map(sk => ({ name: sk.name, desc: sk.desc || '', level: sk.level != null ? sk.level : 0, corrupted: !!sk.corrupted, parent: sk.parent || '', glyph: typeof sk.glyph === 'string' ? sk.glyph : '' })),
@@ -1796,12 +1796,8 @@ function normalizeSecret(sc){
 const MARK_KINDS = ['blessing', 'curse', 'binding'];
 function normalizeMark(m){
   m = m || {};
-  return {
-    id: m.id || newId('mark'),
-    kind: MARK_KINDS.includes(m.kind) ? m.kind : 'blessing',
-    name: m.name || '', source: m.source || '', effect: m.effect || '', cost: m.cost || '', ends: m.ends || '',
-    image: typeof m.image === 'string' ? m.image : ''
-  };
+  // the Library owns the mark shape (rank, price/terms/breach, curse type and stages); the id keeps this page's generator
+  return { ...EpitaphLibrary.normalizeMark(m), id: m.id || newId('mark') };
 }
 
 // ---- Archetypes ----
@@ -3296,7 +3292,7 @@ function locationPath(ref){
 function buildBrief(char, snap){
   const prev = previousSnapshot(char, snap);
   const chg = changesFor(char, snap);
-  const markText = m => `${m.kind}: ${m.name || 'unnamed'}${m.effect ? ' — ' + m.effect : ''}${m.cost ? ' (cost: ' + m.cost + ')' : ''}${m.ends ? ' (ends: ' + m.ends + ')' : ''}`;
+  const markText = m => `${m.kind}: ${m.name || 'unnamed'}${m.effect ? ' — ' + m.effect : ''}${m.cost ? ' (cost: ' + m.cost + ')' : ''}${m.ends ? ' (ends: ' + m.ends + ')' : ''}${EpitaphLibrary.markDetailLines(m).map(l => ' (' + l.label.toLowerCase() + ': ' + l.text + ')').join('')}`;
   const relText = r => `${relationshipDisplayName(r) || 'Unnamed'}${r.relation ? ' — ' + r.relation : ''}${r.note ? ', ' + r.note : ''}`;
   const rels = (snap.relationships || []).map(r => ({ text: relText(r), tag: chg.isNew('relationships', r) ? 'new' : '' }));
   if(prev){
@@ -4598,7 +4594,7 @@ document.addEventListener('click', (e) => {
 });
 // keeps marks that have any text or an image
 function cleanMarks(list){
-  return (list || []).map(normalizeMark).filter(m => m.image || [m.name, m.source, m.effect, m.cost, m.ends].some(x => String(x).trim()))
+  return (list || []).map(normalizeMark).filter(m => m.image || [m.name, m.source, m.effect, m.cost, m.ends].some(x => String(x).trim()) || EpitaphLibrary.markDetailLines(m).length)
     .map(m => ({ ...m, name: m.name.trim(), source: m.source.trim(), effect: m.effect.trim(), cost: m.cost.trim(), ends: m.ends.trim() }));
 }
 function renderMarksEditor(){
@@ -4636,6 +4632,7 @@ function markLinesHtml(list, isNew){
     ${m.effect ? `<p>${escapeHtml(m.effect)}</p>` : ''}
     ${m.cost ? `<small class="cost">Cost: ${escapeHtml(m.cost)}</small>` : ''}
     ${m.ends ? `<small>Ends: ${escapeHtml(m.ends)}</small>` : ''}
+    ${EpitaphLibrary.markDetailLines(m).map(l => `<small class="mark-detail"><b>${escapeHtml(l.label)}:</b> ${escapeHtml(l.text)}</small>`).join('')}
   </div></div>`).join('');
 }
 // ---- Inventory entries: Library items or old free-text items ----

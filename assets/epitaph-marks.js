@@ -18,6 +18,8 @@
   const newId = () => 'mark_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
   function normalize(m) {
     m = m || {};
+    // the Library owns the mark shape (per-kind fields: rank, price/terms/breach, curse stages); fall back to the old fields alone
+    if (global.EpitaphLibrary && global.EpitaphLibrary.normalizeMark) return global.EpitaphLibrary.normalizeMark(m);
     const out = { id: m.id || newId(), kind: KINDS.includes(m.kind) ? m.kind : 'blessing' };
     FIELDS.forEach(f => { out[f] = typeof m[f] === 'string' ? m[f] : ''; });
     out.image = typeof m.image === 'string' ? m.image : '';
@@ -25,7 +27,8 @@
   }
   // keeps marks that have any text or an image, trimmed
   function clean(list) {
-    return (list || []).map(normalize).filter(m => m.image || FIELDS.some(f => m[f].trim()))
+    const extra = m => !!(global.EpitaphLibrary && global.EpitaphLibrary.markDetailLines && global.EpitaphLibrary.markDetailLines(m).length);
+    return (list || []).map(normalize).filter(m => m.image || FIELDS.some(f => m[f].trim()) || extra(m))
       .map(m => { const o = { ...m }; FIELDS.forEach(f => { o[f] = o[f].trim(); }); return o; });
   }
   // Sigils are small: 256px max, JPEG unless the image has transparency.
@@ -94,6 +97,11 @@
   }
   function alertImage() { if (global.showToast) global.showToast('That image could not be opened — try a JPEG or PNG.'); else console.warn('Mark image could not be read'); }
   function sigilHtml(m) { return m.image ? `<img class="mark-sigil" src="${esc(m.image)}" alt="">` : ''; }
+  // price / terms / breach / lasts until, curse type and stage, binding reach (from the Library's mark shape)
+  function detailHtml(m) {
+    const lines = global.EpitaphLibrary && global.EpitaphLibrary.markDetailLines ? global.EpitaphLibrary.markDetailLines(m) : [];
+    return lines.map(l => `<small class="mark-detail"><b>${esc(l.label)}:</b> ${esc(l.text)}</small>`).join('');
+  }
   function linesHtml(list) {
     return (list || []).map(m => `<div class="mark-line kind-${esc(m.kind)}${m.image ? ' has-img' : ''}">${sigilHtml(m)}<div class="mark-body">
       <div><span class="mark-tag ${esc(m.kind)}">${esc((LABEL[m.kind] || m.kind).toUpperCase())}</span> <b>${esc(m.name || 'Unnamed mark')}</b></div>
@@ -101,6 +109,7 @@
       ${m.effect ? `<p>${esc(m.effect)}</p>` : ''}
       ${m.cost ? `<small class="cost">Cost: ${esc(m.cost)}</small>` : ''}
       ${m.ends ? `<small>Ends: ${esc(m.ends)}</small>` : ''}
+      ${detailHtml(m)}
     </div></div>`).join('');
   }
   global.EpitaphMarks = { KINDS, LABEL, normalize, clean, editor, linesHtml, readImage, sigilPickerHtml, sigilHtml };

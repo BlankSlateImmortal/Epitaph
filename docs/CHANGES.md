@@ -2,6 +2,18 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Item system (assets/epitaph-library.js) — plan: `docs/plans/item-system.md`
+
+- **Step 1.1, item state tracks.** An item now has up to three **tracks** of states instead of one list: **Item**, **Usage** and a third you name (default "Connection"), each up to 7 states, each state with an optional colour (gray, green, yellow, orange, red, purple, blue). A track can be marked one-way and has a primary (normal) state. An inventory entry picks one state per track (`stateIds`).
+- **Your existing items convert on first load** (Library version 2): the old state list becomes the Item track, not one-way, so nothing raises false "goes backwards" warnings. The raw old copy is kept once as `epitaph-library-backup-v1` in the browser. The conversion is saved the next time anything in the Library is saved.
+- **Temporary, removed with the editors (plan 2.1–2.2):** an item still answers to `item.states` (its Item track) and an inventory entry still carries `stateId` (its Item-track pick), so the existing editors and views keep working. Nothing else changed on screen yet.
+- **Step 1.2, rank and tier.** Items carry a **rank** (Soul, Host, Ward, City, Dominion, Face, Planet) and a **tier** (mundane, transcendent, divine); bindings carry a rank. An item's rank is the highest of its own and its **active** bindings, so losing the binding that gave the reach lowers it (Observance: Planet while Connected, Soul at No Signal). A rank sets the lowest tier allowed; a bad tier is reported, never changed. Nothing shows it on screen yet.
+- **Step 1.3, item fields.** An item has an **origin** (a place, none, or unknown), an **origin circumstance**, a dated **history** (era, year or chapter, holder, states, text) for the time before or off the story, and a **W.I.P** flag. The old origin place still reads the same until the editors move over (plan 2.1). Nothing shows it on screen yet.
+- **Step 1.4, marks by kind.** A binding carries a **rank**; a blessing has **price, terms, breach, lasts until** (a breach needs terms); a curse has a **type** and **three stages** (Awakening, Fluctuation, Stabilization), each with an optional name and text, plus an initial state and the stage this holder is at. Dossier mark lists and the brief show these lines. The old **Cost** and **Ends** text is untouched until the new editors replace it. Nothing is editable yet; nothing reaches readers.
+- **Step 1.5, backups.** Export, Import and Merge carry every new item and mark field with no change to them: an export then import keeps everything, an old backup converts without loss, and Merge still adds only new items and never changes ones you have (so updating existing items such as the Seal will need Import, or a new option, in step 5.1).
+- **Step 1.6, optional fields kept offline.** Items can hold a weight, an appearance and a maker; they are saved and backed up but hidden everywhere until you switch them on (`OFFLINE_FIELDS` in `assets/epitaph-library.js`).
+- Library script `?v=8`, marks script `?v=4`. Tested in Node (22 tests: conversion, backup, round trips, legacy editor writes, caps, helpers, rank and tier, origin and history, marks) and in the real Dossier in headless Chromium (library converted, entries gained `stateIds`, no errors).
+
 ## Site Encyclopedia data (assets/epitaph-sites.js)
 
 - **Author view and Reader view:** you see everything (places readers haven't reached are marked "Hidden from readers"); the button in `opse`'s tool bar previews what a reader sees at your chapter. In Reader view a place you haven't reached is not listed at all, nor are ties to it, nor text that names it.
