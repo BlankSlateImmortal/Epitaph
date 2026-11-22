@@ -31,10 +31,9 @@
  *     `cost`/`ends` are the old text fields, kept until the 2.3 editors / 5.1 data file move them.
  *   An item's rank now = the highest of its base rank and its active bindings' ranks (rankAt).
  *
- *   TEMPORARY compatibility (removed with the editors, plan steps 2.1–2.2): an item also reads
- *   `item.states` (= its Item track's states) and `item.originPlaceId` (= its origin when that is a place;
- *   both not stored, not enumerable), and writing an enumerable `states` array or `originPlaceId` into an
- *   item replaces its Item track's states / its origin. Inventory entries
+ *   TEMPORARY compatibility (removed with the inventory editor, plan step 2.2): an item still reads
+ *   `item.states` (= its Item track's states; read-only, not stored, not enumerable). Old data converts on
+ *   load: a v1 `states[]` (with no stateTracks) becomes the Item track, a v1 `originPlaceId` becomes `origin`. Inventory entries
  *   still mirror the Item-track pick as `stateId`.
  *   Version 1 libraries (a plain `states[]` per item) are converted on load; the raw v1 copy
  *   is kept once under `epitaph-library-backup-v1`.
@@ -148,15 +147,10 @@
   const fieldOn = name => OFFLINE_FIELDS[name] === false;
   const ERAS = ['BEFORE', 'ERA_0', 'ERA_1'];   // the same ids as assets/epitaph-timeline.js
   const ORIGIN_WORDS = ['none', 'unknown'];    // an origin is a place id, 'none' (it has no origin), 'unknown' (???) or '' (not filled in)
-  // The old `originPlaceId` (a place id or '') maps to `origin`; an enumerable `originPlaceId` is a v1 library
-  // or a legacy editor write. '' from a legacy editor can't say "none" or "unknown", so it keeps those words.
-  function normalizeOrigin(i) {
-    const own = Object.prototype.propertyIsEnumerable.call(i, 'originPlaceId') && typeof i.originPlaceId === 'string';
-    const o = str(i.origin);
-    if (own && i.originPlaceId) return i.originPlaceId;
-    if (own) return ORIGIN_WORDS.includes(o) ? o : '';
-    return o;
-  }
+  // A v1 library (or an old export / published snapshot) has `originPlaceId` (a place id or '') and no `origin`: convert it.
+  // The place an item came from, or '' when its origin is none, unknown or not filled in.
+  const placeIdOf = it => (it && it.origin && !ORIGIN_WORDS.includes(it.origin) ? it.origin : '');
+  function normalizeOrigin(i) { return typeof i.origin === 'string' ? i.origin : str(i.originPlaceId); }
   // One dated entry in an item's life before (or off) the story: [{ id, when, holder, stateIds, text }]
   // `when` is a timeline moment (era, optional year, optional chapter); `holder` is a character id or a plain name.
   function normalizeHistoryEntry(h) {
@@ -165,11 +159,10 @@
       when: { era: ERAS.includes(w.era) ? w.era : 'ERA_1', ...(num(w.year) ? { year: w.year } : {}), ...(Number.isInteger(w.chapter) ? { chapter: w.chapter } : {}) },
       holder: str(h.holder), stateIds: normalizeStateIds(h.stateIds), text: str(h.text) };
   }
+  // `item.states` (= the Item track's states) stays readable, not stored, until the inventory editor moves to tracks (plan 2.2).
   function withAliases(item) {
     Object.defineProperty(item, 'states', { enumerable: false, configurable: true,
       get() { const t = itemTrack(this); return t ? t.states : []; } });
-    Object.defineProperty(item, 'originPlaceId', { enumerable: false, configurable: true,
-      get() { return ORIGIN_WORDS.includes(this.origin) ? '' : this.origin; } });
     return item;
   }
   function normalize(raw) {
@@ -187,8 +180,8 @@
         weight: str(i.weight), appearance: str(i.appearance), maker: str(i.maker),
         marks: (Array.isArray(i.marks) ? i.marks : []).map(normalizeMark), note: str(i.note),
         icon: str(i.icon), image: str(i.image), rank: rankNum(i.rank), tier: TIERS.includes(i.tier) ? i.tier : '',
-        // an enumerable `states` array is a v1 library or a legacy editor write; the alias above is not enumerable
-        stateTracks: normalizeTracks(i.stateTracks, Array.isArray(i.states) && Object.prototype.propertyIsEnumerable.call(i, 'states') ? i.states : null) }))
+        // a v1 library (or an old export / snapshot) has a plain `states[]` and no stateTracks: that list becomes the Item track
+        stateTracks: normalizeTracks(i.stateTracks, Array.isArray(i.stateTracks) ? null : (Array.isArray(i.states) ? i.states : null)) }))
     };
   }
   let cache = null, cacheRaw = null;
@@ -304,7 +297,7 @@
     newId, normalizeMark, normalizeState, normalizeTrack, normalizeStateIds, get, update, item, place: placeById,
     stateOf, trackOf, itemTrack, currentStates, uses, marksFor,
     CURSE_TYPES, STAGE_NAMES, markKindsFor, markDetailLines,
-    ERAS, ORIGIN_WORDS, normalizeHistoryEntry, OFFLINE_FIELDS, fieldOn,
+    ERAS, ORIGIN_WORDS, placeIdOf, normalizeHistoryEntry, OFFLINE_FIELDS, fieldOn,
     RANKS, TIERS, rankName, tierFloor, allowedTiers, maxRank, rankAt, tierProblem,
     replace(data) { return save(data); },
     onChange(fn) { listeners.push(fn); }

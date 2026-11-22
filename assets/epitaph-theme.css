@@ -791,3 +791,43 @@ input, select, textarea{ accent-color:var(--amber); }
 .k-gauge svg{ width:54px; height:54px; }
 .k-gauge b{ font-family:var(--f-crt); font-weight:400; font-size:22px; color:var(--amber); text-shadow:var(--phosphor-glow); line-height:1; display:block; }
 .k-gauge small{ display:block; font-family:var(--f-mono); font-size:10px; letter-spacing:.16em; color:var(--dust); }
+
+/* ---- Item fields (assets/epitaph-item-fields.js, epitaph-states.js tracks): rank/tier/origin/history, state tracks ---- */
+.if-details, .if-history, .tracks-editor{ display:flex; flex-direction:column; gap:10px; }
+.if-f{ display:flex; flex-direction:column; gap:4px; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--dust); }
+.if-f em{ text-transform:none; letter-spacing:0; font-style:normal; opacity:.8; }
+.if-f input, .if-f select, .if-f textarea, .if-hist input, .if-hist select, .if-hist textarea, .track-edit input[type=text], .track-edit select, .state-color{
+  background:var(--ink); border:1px solid var(--line); color:var(--bone); padding:8px 10px; font:inherit; font-size:14px; min-height:40px; text-transform:none; letter-spacing:0; }
+.if-f textarea, .if-hist textarea{ resize:vertical; width:100%; min-height:56px; }
+.if-row{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+@media (max-width:560px){ .if-row{ grid-template-columns:1fr; } }
+.if-check{ display:flex; gap:8px; align-items:center; font-size:13px; color:var(--bone); }
+.if-check em{ font-style:normal; color:var(--dust); }
+.if-note{ margin:0; font-size:12px; color:var(--dust); min-height:0; }
+.if-note:empty{ display:none; }
+.if-bad .if-note, .if-f.if-bad select{ border-color:var(--ember); }
+.if-f.if-bad select{ outline:1px solid var(--ember); }
+.if-hist{ display:flex; flex-direction:column; gap:8px; border:1px solid var(--line); border-top:2px solid var(--amber); padding:10px; }
+.if-hist-top{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+.if-hist-top input[type=number]{ width:84px; }
+.if-hist-top input[list]{ flex:1 1 140px; min-width:0; }
+.if-hist-states{ display:flex; flex-wrap:wrap; gap:8px; }
+.if-state-pick{ display:flex; flex-direction:column; gap:2px; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--dust); }
+.if-empty{ color:var(--dust); font-size:12px; }
+.if-badge{ display:inline-block; margin-left:6px; padding:1px 7px; border:1px solid var(--line); font-size:10px; letter-spacing:.1em; color:var(--amber); vertical-align:middle; }
+.if-badge.wip{ color:var(--ember); border-color:var(--ember); }
+.if-badge.divine{ color:#d9b8ff; }
+.track-edit{ border:1px solid var(--line); padding:10px; display:flex; flex-direction:column; gap:10px; }
+.track-edit header{ display:flex; flex-direction:column; gap:2px; }
+.track-edit header small, .track-add small{ color:var(--dust); font-size:12px; }
+.track-opts{ display:flex; flex-wrap:wrap; gap:10px 16px; align-items:flex-end; }
+.track-opts label{ display:flex; flex-direction:column; gap:4px; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--dust); }
+.track-opts .track-check{ flex-direction:row; align-items:center; gap:8px; text-transform:none; letter-spacing:0; font-size:13px; color:var(--bone); }
+.track-add{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+.state-track-name{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--dust); margin-top:8px; }
+.state-dot{ display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px; vertical-align:middle; background:transparent; border:1px solid var(--line); }
+.state-dot.sc-gray{ background:#8b8b8b; border-color:#8b8b8b; } .state-dot.sc-green{ background:#5fbf6a; border-color:#5fbf6a; }
+.state-dot.sc-yellow{ background:#e0c34a; border-color:#e0c34a; } .state-dot.sc-orange{ background:#e08a3c; border-color:#e08a3c; }
+.state-dot.sc-red{ background:#d9534f; border-color:#d9534f; } .state-dot.sc-purple{ background:#a06cd5; border-color:#a06cd5; }
+.state-dot.sc-blue{ background:#4a90d9; border-color:#4a90d9; }
+.state-color{ min-height:40px; max-width:110px; }

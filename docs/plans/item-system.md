@@ -133,13 +133,19 @@ Not every item has every part: a blade may have no usage states; many items have
 
 ## Phase 2 — Editors and checks
 
-- [ ] **2.1 Item editor.** Base rank (1–7), tier with locked options (`allowedTiers` of the highest reachable rank), origin (place / none /
-  unknown), origin circumstance, history entries, W.I.P toggle, state-track editor (one section per track: name, one-way, primary, up to 7
-  states with colour). Show weight, appearance and maker only when `fieldOn(name)`. **Remove the `item.states` and `item.originPlaceId`
-  aliases and the enumerable-`states` / `originPlaceId` writes** (every reader and editor of `.states` moves to tracks:
-  `epitaph-library-ui.js`, `epitaph-book.js`, `epitaph-checks.js`, `epitaph-publish.js`, `epitaph-book-tools.js`, `index.html`).
+- [x] **2.1 Item editor.** *(Done 2026-11-21, Sonnet.)* One shared module, `assets/epitaph-item-fields.js`, builds the new fields for **both**
+  item editors (the book's `opl` panel and the Atlas Library drawer): origin (not filled in / none / unknown / a place), origin
+  circumstance, rank (1–7) and tier (tiers the highest reachable rank forbids are **locked**, a saved tier below the floor is flagged), W.I.P,
+  weight / appearance / maker only when `fieldOn(name)`, and dated **history entries** (era, year, chapter, holder, the state in each
+  track, text; saved in timeline order). `EpitaphStates` gained colours, a 7-state limit and `tracksEditor` (Item, Usage and a third track
+  named per item, one-way, normal state, add / remove a track; a track whose states are used by chapters can't be removed). The book's
+  "Fold into…" now writes the Item track. Both detail views show rank, tier and W.I.P badges. **Removed:** the `item.originPlaceId` alias,
+  and the "legacy editor write" paths (old `states[]` / `originPlaceId` convert only when the new field is absent, i.e. v1 data).
+  **Kept until 2.2, on purpose:** the read-only `item.states` alias (= the Item track), because the Dossier's inventory editor, the
+  chapter checks and the publish builder still read it. Tested in the real page (headless Chromium): the book panel and the drawer, with a
+  v1 item, rank locks, a new usage and third track, a history entry, save, and the stored shape; 22 Node tests for the Library.
 - [ ] **2.2 Inventory editor.** Pick the current state in each track the item has; nothing shown for tracks it doesn't have. **Remove the
-  inventory `stateId` mirror** (`index.html`, `epitaph-editors.js`, `epitaph-book.js`, `epitaph-book-tools.js`) and bump the Dossier
+  inventory `stateId` mirror and the read-only `item.states` alias** (move the checks in `epitaph-checks.js`, the inventory editor, and `epitaph-publish.js` to tracks), (`index.html`, `epitaph-editors.js`, `epitaph-book.js`, `epitaph-book-tools.js`) and bump the Dossier
   schema if the stored shape needs it.
 - [ ] **2.3 Mark editor.** Replace all three mark editors (`epitaph-marks.js`, `epitaph-editors.js` ~line 800, the Dossier's own in
   `index.html` ~4570) with one; remove `cost` / `ends` from the mark shape. Fields change with the kind; the kind picker is locked by
@@ -253,6 +259,12 @@ When the user says "get back to it" / "back to the plan":
 ## Tweak log
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-21 — **2.1 done (Sonnet).** Deviation from the plan text: `item.states` is NOT removed yet, only `originPlaceId` is. Removing `states`
+  now would break the inventory editor (`index.html`, ~3 places), the checks and the publish builder, which 2.2 / 2.4 / 4.1 move; so the
+  removal now happens at the end of 2.2 (and the publish/check readers there). Another change: the publish snapshot's format is
+  unchanged (it still writes `originPlaceId` and `states`); 4.1 moves it. Not exercised in a browser: nothing else (the Atlas page itself
+  needs WebGL and a CDN, so the drawer was driven inside the Dossier page instead).
 
 - 2026-11-21 — **Slip, fixed.** While ticking 1.6 my edit also deleted Phases 2–6 from this file (the file is untracked, so git had no copy).
   I rewrote them from the steps as agreed in this conversation, including every later decision (aliases to remove in 2.1/2.2, the three

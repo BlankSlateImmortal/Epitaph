@@ -165,7 +165,8 @@
 
     // item origins
     if (Lib && World) Lib.get().items.forEach(i => {
-      if (i.originPlaceId && !World.place(i.originPlaceId))
+      const pid = Lib.placeIdOf(i);
+      if (pid && !World.place(pid))
         out.push({ level: 'warn', rule: 'missing-place', itemId: i.id, text: `Item “${i.name}” comes from a place that no longer exists.` });
     });
 

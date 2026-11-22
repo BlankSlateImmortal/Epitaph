@@ -594,7 +594,7 @@
   function newItem() {
     flushItem();
     const id = Lib.newId('item');
-    const saved = Lib.update(l => l.items.push({ id, name: 'New item', desc: '', originPlaceId: '', marks: [], note: '', icon: '', image: '' }));
+    const saved = Lib.update(l => l.items.push({ id, name: 'New item', desc: '', origin: '', marks: [], note: '', icon: '', image: '' }));
     if (!saved) { showToast('Could not save — browser storage may be full.', { duration: 5500 }); return; }
     filter = ''; const f = $('#bkFilter'); if (f) f.value = '';
     selItem = id;
@@ -627,7 +627,7 @@
     panel.innerHTML = `
       <div class="bk-panel-head">
         <span class="bk-big">${pad2(no || 0)}</span>
-        <div><small>LIBRARY ITEM · ${no || '—'} OF ${list.length}</small><h2>${esc(it.name || 'Untitled')}</h2>${it.originPlaceId ? `<span class="from-tag">FROM ${esc(placeName(it.originPlaceId).toUpperCase())}</span>` : ''}</div>
+        <div><small>LIBRARY ITEM · ${no || '—'} OF ${list.length}</small><h2>${esc(it.name || 'Untitled')}</h2>${Lib.placeIdOf(it) ? `<span class="from-tag">FROM ${esc(placeName(Lib.placeIdOf(it)).toUpperCase())}</span>` : ''}${EpitaphItemFields.badgesHtml(it)}</div>
       </div>
       <div class="bk-form">
         <div class="bk-pics">
@@ -637,9 +637,10 @@
         </div>
         <label class="bk-field"><span>Name</span><input type="text" id="biName" value="${attr(draft.name)}"></label>
         <label class="bk-field"><span>Description</span><textarea id="biDesc" rows="3">${esc(draft.desc)}</textarea></label>
-        <label class="bk-field"><span>Where it came from</span><select id="biOrigin"><option value="">— unknown —</option>${placeOptionsHtml(draft.originPlaceId)}</select></label>
+        <div class="bk-field"><span>Details</span><div id="biDetails"></div></div>
         <div class="bk-field"><span>Marks <em>— in every state; new holders get a copy, existing holders keep theirs</em></span><div id="biMarks"></div></div>
-        <div class="bk-field"><span>States <em>— e.g. Locked, then Weakened; each chapter picks one in its Inventory</em></span>${(draft.states || []).length ? EpitaphStates.trackHtml(draft, uses) : ''}<div id="biStates"></div></div>
+        <div class="bk-field"><span>States <em>— up to three tracks; each chapter picks one state per track in its Inventory</em></span>${(draft.stateTracks || []).length ? EpitaphStates.trackHtml(draft, uses) : ''}<div id="biStates"></div></div>
+        <div class="bk-field"><span>History <em>— what happened to it before the story or off the page</em></span><div id="biHistory"></div></div>
         <label class="bk-field"><span>Note</span><textarea id="biNote" rows="2">${esc(draft.note)}</textarea></label>
         <div class="bk-field"><span>Held by</span>${held.length ? `<ul class="bk-held">${held.map(h => `<li><b>${esc(h.name)}</b> <small>${esc(h.chapters.join(' · '))}</small></li>`).join('')}</ul>` : '<p class="bk-dim">Nobody carries it yet. Add it from a character’s Inventory tab.</p>'}</div>
         <div class="bk-actions">
@@ -650,8 +651,12 @@
           ${held.length ? `<span class="bk-dim">Held items can be deleted from the Atlas Library, which can reassign them.</span>` : `<button type="button" class="slant-btn danger" id="biDelete">Delete</button>`}
         </div>
       </div>`;
-    itemEditor = { id: it.id, draft, base: JSON.stringify(normItem(it)), marks: EpitaphMarks.editor($('#biMarks'), draft.marks || []),
-      states: EpitaphStates.editor($('#biStates'), draft.states || [], uses) };
+    const marksEd = EpitaphMarks.editor($('#biMarks'), draft.marks || []);
+    const tracksEd = EpitaphStates.tracksEditor($('#biStates'), draft.stateTracks || [], uses);
+    const getMarks = () => marksEd.read(), getTracks = () => tracksEd.read();
+    itemEditor = { id: it.id, draft, base: JSON.stringify(normItem(it)), marks: marksEd, tracks: tracksEd,
+      details: EpitaphItemFields.mountDetails($('#biDetails'), draft, { getMarks, getTracks, placeOptionsHtml }),
+      history: EpitaphItemFields.mountHistory($('#biHistory'), draft, { getTracks, holders: () => state.characters.map(c => c.name).filter(Boolean) }) };
     panel.querySelectorAll('input[type=file][data-pic]').forEach(inp => inp.addEventListener('change', async () => {
       const f = inp.files && inp.files[0]; if (!f) return;
       try { readForm(); itemEditor.draft[inp.dataset.pic] = await EpitaphMarks.readImage(f, inp.dataset.pic === 'icon' ? 200 : 700); flushItem(true); renderItemPanel(); drawLibrary(false); }
@@ -776,7 +781,11 @@
     const saved = Lib.update(l => {
       const x = l.items.find(i => i.id === t.id); if (!x) return;
       x.name = P.name;
-      x.states = (tgtStateId ? [{ id: tgtStateId, name: P.tgtState, desc: '', marks: [], image: '' }] : x.states || []).concat([newState]);
+      // the folded item's state goes on the Item track (created if the item has none yet)
+      x.stateTracks = x.stateTracks || [];
+      let track = x.stateTracks.find(tr => tr.kind === 'item');
+      if (!track) { track = { kind: 'item', name: 'Item', oneWay: false, primaryStateId: '', states: [] }; x.stateTracks.unshift(track); }
+      track.states = (tgtStateId ? [{ id: tgtStateId, name: P.tgtState, desc: '', marks: [], image: '' }] : track.states || []).concat([newState]);
       l.items = l.items.filter(i => i.id !== src.id);
     });
     if (!saved) { rollback(); persistState(); return 'Could not save the Library — nothing was changed.'; }
@@ -787,17 +796,15 @@
     return '';
   }
 
-  function normItem(d) {
-    return { name: (d.name || '').trim(), desc: (d.desc || '').trim(), originPlaceId: d.originPlaceId || '', note: (d.note || '').trim(),
-      icon: d.icon || '', image: d.image || '', marks: EpitaphMarks.clean(d.marks || []),
-      states: (d.states || []).map(st => ({ id: st.id, name: (st.name || '').trim(), desc: (st.desc || '').trim(), image: st.image || '', marks: EpitaphMarks.clean(st.marks || []) })) };
-  }
+  const normItem = d => EpitaphItemFields.cleanItem(d);
   function readForm() {
     if (!itemEditor || !$('#biName')) return;
     const d = itemEditor.draft;
-    d.name = $('#biName').value; d.desc = $('#biDesc').value; d.originPlaceId = $('#biOrigin').value; d.note = $('#biNote').value;
+    d.name = $('#biName').value; d.desc = $('#biDesc').value; d.note = $('#biNote').value;
     d.marks = itemEditor.marks.read();
-    d.states = itemEditor.states.read();
+    d.stateTracks = itemEditor.tracks.read();
+    Object.assign(d, itemEditor.details.read());
+    d.history = itemEditor.history.read();
   }
   // Saves the open item if anything changed. Called on Save, on switching
   // item, on leaving the view and when the book closes.

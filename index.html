@@ -1180,7 +1180,7 @@
   .mode-reader #mwOpenArc, .mode-reader #mwOpenKnowledge,
   .mode-reader a[href="#generationSection"], .mode-reader #generationSection{ display:none !important; }
 </style>
-<link rel="stylesheet" href="assets/epitaph-theme.css?v=20">
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=21">
 <link rel="stylesheet" href="assets/epitaph-editors.css?v=8">
 <link rel="stylesheet" href="assets/epitaph-book.css?v=6">
 <link rel="stylesheet" href="assets/epitaph-codex-views.css?v=2">
@@ -1194,11 +1194,12 @@
 <script src="assets/epitaph-links.js?v=1"></script>
 <script src="assets/epitaph-sites.js?v=9"></script>
 <script src="assets/epitaph-sites-ui.js?v=5"></script>
-<script src="assets/epitaph-publish.js?v=2"></script>
-<script src="assets/epitaph-library.js?v=8"></script>
+<script src="assets/epitaph-publish.js?v=3"></script>
+<script src="assets/epitaph-library.js?v=9"></script>
 <script src="assets/epitaph-marks.js?v=4"></script>
-<script src="assets/epitaph-states.js?v=1"></script>
-<script src="assets/epitaph-checks.js?v=7"></script>
+<script src="assets/epitaph-states.js?v=2"></script>
+<script src="assets/epitaph-item-fields.js?v=1"></script>
+<script src="assets/epitaph-checks.js?v=8"></script>
 <script src="assets/epitaph-codex-views.js?v=2"></script>
 <script src="assets/epitaph-mode.js?v=5"></script>
 <script src="published/epitaph-data.js"></script>
@@ -4639,7 +4640,7 @@ function markLinesHtml(list, isNew){
 const Lib = window.EpitaphLibrary;
 function invView(entry){
   const li = entry.itemId && Lib ? Lib.item(entry.itemId) : null;
-  const origin = li && li.originPlaceId ? World.place(li.originPlaceId) : null;
+  const origin = li && Lib.placeIdOf(li) ? World.place(Lib.placeIdOf(li)) : null;
   const st = li && entry.stateId ? Lib.stateOf(li, entry.stateId) : null;
   return {
     linked: !!li, missing: !!entry.itemId && !li,
@@ -4647,7 +4648,7 @@ function invView(entry){
     // the item's state in this chapter (Seal · Locked); a state's picture replaces the photo
     state: st ? st.name : '', stateDesc: st ? st.desc : '', stateMissing: !!(li && entry.stateId && !st),
     desc: li ? li.desc : (entry.desc || ''), icon: li ? li.icon : (entry.icon || ''), image: st && st.image ? st.image : (li ? li.image : (entry.image || '')),
-    origin: origin ? origin.name : (li && li.originPlaceId ? 'a deleted place' : ''),
+    origin: origin ? origin.name : (li && Lib.placeIdOf(li) ? 'a deleted place' : ''),
     note: entry.note || '', marks: entry.marks || [], boundTo: entry.boundTo || ''
   };
 }
@@ -4986,7 +4987,7 @@ function openQuickItemForm(){
     const name = document.getElementById('qiName').value.trim();
     if(!name){ document.getElementById('qiMsg').textContent = 'Give the item a name.'; return; }
     const id = Lib.newId('li');
-    const saved = Lib.update(lib => lib.items.push({ id, name, desc: document.getElementById('qiDesc').value.trim(), originPlaceId: document.getElementById('qiOrigin').value, marks: [], note: '', icon: '', image: '' }));
+    const saved = Lib.update(lib => lib.items.push({ id, name, desc: document.getElementById('qiDesc').value.trim(), origin: document.getElementById('qiOrigin').value, marks: [], note: '', icon: '', image: '' }));
     if(!saved){ document.getElementById('qiMsg').textContent = 'Could not save — browser storage may be full.'; return; }
     addLibraryEntry(id);
   });
@@ -4998,7 +4999,7 @@ function moveEntryToLibrary(idx){
   const e = pendingInventoryItems[idx];
   if(!e || !(e.name || '').trim()){ showToast('Give the item a name first.'); return; }
   const id = Lib.newId('li');
-  const saved = Lib.update(lib => lib.items.push({ id, name: e.name.trim(), desc: (e.desc || '').trim(), originPlaceId: '', marks: cleanMarks(e.marks), note: '', icon: e.icon || '', image: e.image || '' }));
+  const saved = Lib.update(lib => lib.items.push({ id, name: e.name.trim(), desc: (e.desc || '').trim(), origin: '', marks: cleanMarks(e.marks), note: '', icon: e.icon || '', image: e.image || '' }));
   if(!saved){ showToast('Could not save to the Library — browser storage may be full.'); return; }
   pendingInventoryItems[idx] = { id: e.id, itemId: id, note: '', boundTo: e.boundTo || '', marks: e.marks || [], name: e.name.trim() };
   renderInventoryEditor();
@@ -6329,7 +6330,7 @@ function restoreLeftPage(){
 
 
 </script>
-<script src="assets/epitaph-book.js?v=9"></script>
+<script src="assets/epitaph-book.js?v=11"></script>
 
 <script src="assets/epitaph-editors.js?v=12"></script>
 <script src="assets/epitaph-book-tools.js?v=4"></script>

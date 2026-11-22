@@ -149,7 +149,9 @@
       // ---- the Library: only items someone published holds, and only user places they are standing in ----
       const items = (lib.items || []).filter(i => i && keptItemIds.has(i.id)).map(i => {
         const out = { id: i.id, name: scrub(i.name), desc: scrub(i.desc), icon: i.icon || '', image: i.image || '', marks: marks(i.marks), revealedIn: revealOf(i.name, i.id, i) };
-        if (i.originPlaceId && !hiddenPlace(i.originPlaceId)) out.originPlaceId = i.originPlaceId;
+        // snapshot format unchanged (plan 4.1 will move it to the new fields): `originPlaceId` is the place when the origin is one
+        const pid = i.origin !== undefined ? (['none', 'unknown'].includes(i.origin) ? '' : i.origin) : i.originPlaceId;
+        if (pid && !hiddenPlace(pid)) out.originPlaceId = pid;
         out.states = (Array.isArray(i.states) ? i.states : []).map(st => ({ id: st.id, name: scrub(st.name), desc: scrub(st.desc), marks: marks(st.marks), image: st.image || '' }));
         return out;
       }).filter(i => i.name);
