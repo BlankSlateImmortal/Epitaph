@@ -5,7 +5,7 @@
  *   EpitaphMarks.fieldsHtml(m, { ctx, attr, sigil, top })          // the inputs for one mark (host supplies the data attributes; top:false = no kind/name row)
  *   EpitaphMarks.setField(m, field, value)                         // writes one input's value ('stages.1.text', 'rank', ...)
  *   EpitaphMarks.newMark(ctx)  EpitaphMarks.kindsFor(ctx)          // a blank mark, the kinds allowed there
- *   EpitaphMarks.linesHtml(marks)                                  // read-only display
+ *   EpitaphMarks.linesHtml(marks, { definition })                  // read-only display; curses show their stage ladder (definition: none current)
  *   EpitaphMarks.readImage(file, maxDim?) -> Promise<dataURL>      // resized image (default 256px)
  *
  * ctx = where the marks live: 'library' (an item's or a state's marks), 'entry' (a chapter's copy of an item), 'character'
@@ -133,17 +133,34 @@
   function alertImage() { if (global.showToast) global.showToast('That image could not be opened — try a JPEG or PNG.'); else console.warn('Mark image could not be read'); }
   function sigilHtml(m) { return m.image ? `<img class="mark-sigil" src="${esc(m.image)}" alt="">` : ''; }
   // price / terms / breach / lasts until, curse type and stage, binding reach (from the Library's mark shape)
-  function detailHtml(m) {
-    const lines = global.EpitaphLibrary && global.EpitaphLibrary.markDetailLines ? global.EpitaphLibrary.markDetailLines(m) : [];
-    return lines.map(l => `<small class="mark-detail"><b>${esc(l.label)}:</b> ${esc(l.text)}</small>`).join('');
+  // ---- the curse stage ladder: Initial state · Awakening · Fluctuation · Stabilization ----
+  const stagesFilled = m => !!((m.initial && (m.initial.name || m.initial.text)) || (m.stages || []).some(x => x && (x.name || x.text)));
+  const isStageLine = l => /^Stage \d|^Initial state/.test(l.label);
+  // `o.definition`: the curse as defined on an item (no holder), so no step is marked as the current one.
+  // A ladder shows for a curse that has stage text, or (on a holder) has moved past its initial state.
+  function ladderHtml(m, o) {
+    o = o || {};
+    if (!m || m.kind !== 'curse' || !(stagesFilled(m) || (!o.definition && (m.stage || 0) > 0))) return '';
+    const now = o.definition ? -1 : (Number.isInteger(m.stage) ? m.stage : 0);
+    const steps = [{ label: STAGES[0], v: m.initial }, ...[0, 1, 2].map(i => ({ label: STAGES[i + 1], v: (m.stages || [])[i] }))];
+    const cur = now >= 0 ? steps[now] : null;
+    return `<ol class="stage-ladder" aria-label="Curse stages" title="A curse does not recover: stabilizing is not healing">${steps.map((s, i) =>
+      `<li class="${now < 0 ? '' : i < now ? 'done' : i === now ? 'on' : 'todo'}"><span class="sl-no">${i}</span><b>${esc(s.label)}</b>${s.v && s.v.name ? `<small>${esc(s.v.name)}</small>` : ''}</li>`).join('')}</ol>
+      ${cur && cur.v && cur.v.text ? `<p class="stage-now"><b>${esc(cur.v.name || cur.label)}:</b> ${esc(cur.v.text)}</p>` : ''}`;
   }
-  function linesHtml(list) {
+  // extra lines under a mark: price / terms / breach / lasts until, reach, type, and (for a curse) the stage ladder
+  function detailHtml(m, o) {
+    const lines = global.EpitaphLibrary && global.EpitaphLibrary.markDetailLines ? global.EpitaphLibrary.markDetailLines(m) : [];
+    const ladder = ladderHtml(m, o);
+    return (ladder ? lines.filter(l => !isStageLine(l)) : lines).map(l => `<small class="mark-detail"><b>${esc(l.label)}:</b> ${esc(l.text)}</small>`).join('') + ladder;
+  }
+  function linesHtml(list, o) {
     return (list || []).map(m => `<div class="mark-line kind-${esc(m.kind)}${m.image ? ' has-img' : ''}">${sigilHtml(m)}<div class="mark-body">
       <div><span class="mark-tag ${esc(m.kind)}">${esc((LABEL[m.kind] || m.kind).toUpperCase())}</span> <b>${esc(m.name || 'Unnamed mark')}</b></div>
       ${m.source ? `<small>Source: ${esc(m.source)}</small>` : ''}
       ${m.effect ? `<p>${esc(m.effect)}</p>` : ''}
-      ${detailHtml(m)}
+      ${detailHtml(m, o)}
     </div></div>`).join('');
   }
-  global.EpitaphMarks = { KINDS, LABEL, normalize, clean, editor, linesHtml, readImage, sigilPickerHtml, sigilHtml, fieldsHtml, setField, newMark, kindsFor };
+  global.EpitaphMarks = { KINDS, LABEL, normalize, clean, editor, linesHtml, readImage, sigilPickerHtml, sigilHtml, fieldsHtml, setField, newMark, kindsFor, ladderHtml, detailHtml, isStageLine };
 })(typeof window !== 'undefined' ? window : globalThis);

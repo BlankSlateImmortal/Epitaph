@@ -473,7 +473,7 @@ function renderItemDetail(v){
       <p class="lib-origin">${Lib.placeIdOf(it) ? `from <button type="button" class="lib-link" id="liGoOrigin">${escapeHud(placeName(Lib.placeIdOf(it)) || 'a missing place')}</button>` : escapeHud(EpitaphItemFields.originText(it, placeName))} ${EpitaphItemFields.badgesHtml(it)}</p></div></div>
     ${it.originCircumstance ? `<p class="lib-desc">${escapeHud(it.originCircumstance)}</p>` : ''}
     ${it.desc ? `<p class="lib-desc">${escapeHud(it.desc)}</p>` : ''}
-    ${it.marks.length ? `<div class="mark-lines">${EpitaphMarks.linesHtml(it.marks)}</div>` : ''}
+    ${it.marks.length ? `<div class="mark-lines">${EpitaphMarks.linesHtml(it.marks, { definition: true })}</div>` : ''}
     ${it.note ? `<p class="lib-desc dim">${escapeHud(it.note)}</p>` : ''}
     ${it.stateTracks.length ? `<div class="lib-sec">STATES</div>${EpitaphStates.trackHtml(it, hist)}` : ''}
     ${it.history.length ? `<div class="lib-sec">BEFORE THE STORY</div><ol class="lib-history">${it.history.map(h => `<li><span>${escapeHud(historyWhen(h.when))}</span>${escapeHud(h.holder)} ${escapeHud(h.text)}</li>`).join('')}</ol>` : ''}

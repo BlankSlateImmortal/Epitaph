@@ -854,3 +854,15 @@ input, select, textarea{ accent-color:var(--amber); }
 .bk-case-rank{ display:block; font-family:var(--f-mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--amber); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .bk-wn-rank{ margin-top:2px; font-family:var(--f-mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--amber); white-space:nowrap; }
 .bk-wn-state{ max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* curse stage ladder (EpitaphMarks.ladderHtml): where a curse stands — Initial · Awakening · Fluctuation · Stabilization */
+.stage-ladder{ list-style:none; margin:6px 0 2px; padding:0; display:flex; flex-wrap:wrap; gap:4px; }
+.stage-ladder li{ flex:1 1 0; min-width:82px; border:1px dashed var(--line); padding:4px 6px; display:flex; flex-direction:column; gap:1px; opacity:.55; }
+.stage-ladder li.done{ opacity:.85; border-style:solid; }
+.stage-ladder li.on{ opacity:1; border:1px solid var(--ember); background:rgba(212,69,43,.12); }
+.stage-ladder .sl-no{ font-family:var(--f-mono); font-size:10px; color:var(--dust); }
+.stage-ladder b{ font-weight:400; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--bone); }
+.stage-ladder li.on b{ color:var(--ember); }
+.stage-ladder small{ font-size:11px; color:var(--dust); }
+.stage-now{ margin:4px 0 0; font-size:13px; color:var(--bone); }
+.stage-now b{ font-weight:400; color:var(--ember); }

@@ -512,6 +512,12 @@
           if (Lib.stateKeyOf(p.entry) !== Lib.stateKeyOf(h.entry)) out.push({ ch, tag: 'State', text: (names || 'no state') + ' · ' + (h.c.name || 'Unnamed') });
           if (!(p.entry.boundTo || '').trim() && (h.entry.boundTo || '').trim()) out.push({ ch, tag: 'Bound', text: 'to ' + h.entry.boundTo.trim() });
         }
+          // a curse on this holder's copy moving to another stage
+          (h.entry.marks || []).filter(m => m.kind === 'curse').forEach(m => {
+            const was = (p.entry.marks || []).find(x => x.kind === 'curse' && (x.name || '').trim().toLowerCase() === (m.name || '').trim().toLowerCase());
+            const a = was ? (was.stage || 0) : null, b = m.stage || 0;
+            if (was && a !== b) out.push({ ch, tag: 'Curse', bad: b > a, text: `${m.name || 'curse'}: ${a ? 'stage ' + a : 'initial'} → ${b ? 'stage ' + b + ' · ' + (m.stages && m.stages[b - 1] && m.stages[b - 1].name || Lib.STAGE_NAMES[b - 1]) : 'initial'} · ${h.c.name || 'Unnamed'}` });
+          });
       });
       prev.forEach((h, id) => { if (!cur.has(id)) out.push({ ch, tag: 'Lost', text: h.c.name || 'Unnamed', bad: true }); });
       prev = cur;

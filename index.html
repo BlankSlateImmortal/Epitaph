@@ -1180,7 +1180,7 @@
   .mode-reader #mwOpenArc, .mode-reader #mwOpenKnowledge,
   .mode-reader a[href="#generationSection"], .mode-reader #generationSection{ display:none !important; }
 </style>
-<link rel="stylesheet" href="assets/epitaph-theme.css?v=25">
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=26">
 <link rel="stylesheet" href="assets/epitaph-editors.css?v=8">
 <link rel="stylesheet" href="assets/epitaph-book.css?v=6">
 <link rel="stylesheet" href="assets/epitaph-codex-views.css?v=2">
@@ -1196,7 +1196,7 @@
 <script src="assets/epitaph-sites-ui.js?v=5"></script>
 <script src="assets/epitaph-publish.js?v=4"></script>
 <script src="assets/epitaph-library.js?v=13"></script>
-<script src="assets/epitaph-marks.js?v=5"></script>
+<script src="assets/epitaph-marks.js?v=6"></script>
 <script src="assets/epitaph-states.js?v=3"></script>
 <script src="assets/epitaph-item-fields.js?v=4"></script>
 <script src="assets/epitaph-checks.js?v=11"></script>
@@ -4630,7 +4630,7 @@ function markLinesHtml(list, isNew){
     <div>${markTag(m.kind)} <b>${escapeHtml(m.name || 'Unnamed mark')}</b>${isNew && isNew(m) ? ' ' + NEW_TAG : ''}</div>
     ${m.source ? `<small>Source: ${escapeHtml(m.source)}</small>` : ''}
     ${m.effect ? `<p>${escapeHtml(m.effect)}</p>` : ''}
-    ${EpitaphLibrary.markDetailLines(m).map(l => `<small class="mark-detail"><b>${escapeHtml(l.label)}:</b> ${escapeHtml(l.text)}</small>`).join('')}
+    ${EpitaphMarks.detailHtml(m)}
   </div></div>`).join('');
 }
 // ---- Inventory entries: Library items or old free-text items ----
@@ -4805,7 +4805,7 @@ function itemMonitorHtml(char, snap, sel, idx){
         <p class="item-prose">${v.desc ? escapeHtml(v.desc) : '<span class="dim">No description.</span>'}</p>
         ${v.stateDesc ? `<p class="item-prose"><em>${escapeHtml(v.state)} ·</em> ${escapeHtml(v.stateDesc)}</p>` : ''}
         ${v.note ? `<p class="item-prose dim">${escapeHtml(v.note)}</p>` : ''}
-        ${marks.length ? `<div class="item-marks">${marks.map(m => `<div class="item-mk kind-${escapeAttr(m.kind)}"><div><span class="item-kind">${escapeHtml((MARK_KIND_LABEL[m.kind] || m.kind).toUpperCase())}</span><h5>${escapeHtml(m.name || 'Unnamed mark')}</h5>${m.effect ? `<p>${escapeHtml(m.effect)}</p>` : ''}<dl>${row('SOURCE', m.source)}${EpitaphLibrary.markDetailLines(m).map(l => row(l.label.toUpperCase(), l.text)).join('')}</dl></div>${sigil(m)}</div>`).join('')}</div>` : ''}
+        ${marks.length ? `<div class="item-marks">${marks.map(m => `<div class="item-mk kind-${escapeAttr(m.kind)}"><div><span class="item-kind">${escapeHtml((MARK_KIND_LABEL[m.kind] || m.kind).toUpperCase())}</span><h5>${escapeHtml(m.name || 'Unnamed mark')}</h5>${m.effect ? `<p>${escapeHtml(m.effect)}</p>` : ''}<dl>${row('SOURCE', m.source)}${EpitaphLibrary.markDetailLines(m).filter(l => !(m.kind === 'curse' && EpitaphMarks.ladderHtml(m) && EpitaphMarks.isStageLine(l))).map(l => row(l.label.toUpperCase(), l.text)).join('')}</dl>${EpitaphMarks.ladderHtml(m)}</div>${sigil(m)}</div>`).join('')}</div>` : ''}
       </div>
     </div>
   </div><span class="item-led" aria-hidden="true"></span></div>`;
@@ -6342,7 +6342,7 @@ function restoreLeftPage(){
 
 
 </script>
-<script src="assets/epitaph-book.js?v=13"></script>
+<script src="assets/epitaph-book.js?v=14"></script>
 
 <script src="assets/epitaph-editors.js?v=14"></script>
 <script src="assets/epitaph-book-tools.js?v=6"></script>

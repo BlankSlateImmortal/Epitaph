@@ -192,7 +192,13 @@ Not every item has every part: a blade may have no usage states; many items have
   a change in any track (2.2). The **item log** now includes the item's own **history** entries, merged with the chapter events in timeline
   order (before the story first; an entry tied to a chapter the ruler hasn't reached is left out). Reader mode is unchanged: the book's
   Library card for readers is built from the snapshot, which has no history. Tested in the real book: web, log, vault.
-- [ ] **3.3 Curse stages.** A stage ladder on the item and on a character's marks: which stage a curse is at in the chapter you're on.
+- [x] **3.3 Curse stages.** *(Done 2026-11-21, Sonnet.)* `EpitaphMarks.ladderHtml`: a four-step ladder (Initial state · Awakening · Fluctuation ·
+  Stabilization) with the author's own stage names under the steps, earlier steps marked done, the current one highlighted and its text
+  shown below. Used wherever marks are shown: a person's marks (Marks tab), a chapter's copy of an item and the inventory monitor (the
+  stage that holder is at **in the chapter you're on**, since marks live in chapter versions), and the Library drawer's item detail (the
+  curse as defined: no step marked). It shows for a curse that has stage text, or whose holder has moved past the initial state; the old
+  "Stage 2/3 · …" line is not repeated next to it. The book's item log reports a curse moving ("Taint: stage 1 → stage 2 · Splitting · Orin").
+  Tooltip: a curse does not recover. Tested in the real Dossier (Marks tab, monitor, drawer, log) and in Node.
 - [ ] **3.4 Powers page.** Add Bindings · Blessings · Curses (with the consent rule) and Item ranks and tiers as written rules
   (`powers.html`).
 
@@ -288,6 +294,8 @@ When the user says "get back to it" / "back to the plan":
 ## Tweak log
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-21 — **3.3 done (Sonnet).** The ladder is for display; changing a stage is still done in the mark editor ("Stage now", 2.3).
 
 - 2026-11-21 — **3.2 done (Sonnet).** New styles went in `epitaph-theme.css`, not `epitaph-book.css` (the other session has uncommitted edits in the latter).
 
