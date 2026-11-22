@@ -107,7 +107,7 @@
     likelihood: { id: 'likelihood', label: 'Scenario likelihood', rule: 'How likely it is to happen', steps: ['Unthinkable', 'Remote', 'Unlikely', 'Possible', 'Likely', 'Expected', 'Inevitable'] }
   };
   const TABS = ['overview', 'history', 'domestic', 'foreign', 'economy', 'beasts', 'intrigue'];
-  const TAB_LABEL = { overview: 'Overview', history: 'History', domestic: 'Domestic', foreign: 'Foreign', economy: 'Economy', beasts: 'Beasts', intrigue: 'Intrigue' };
+  const TAB_LABEL = { overview: 'Overview', history: 'History', domestic: 'Domestic', foreign: 'Foreign', economy: 'Economy', beasts: 'Beasts', intrigue: 'Intrigue', scenarios: 'What-ifs' };
   /** Everything a save can carry: the seven tabs plus the what-if scenarios, which belong to no tab. */
   const DATA_TABS = TABS.concat(['scenarios']);
   const V1_KEYS = ['states', 'rule', 'alliances', 'resources', 'founding'];
@@ -238,11 +238,34 @@
   function importData(o) { return validData(o) ? writeStore({ version: VERSION, places: clone(o.places) }) : false; }
   /** Place ids in a backup that this browser has no edits for (what a merge would add). */
   function newInData(o) { if (!validData(o)) return []; const have = readStore().places; return Object.keys(o.places).filter(id => !(id in have)); }
-  /** Merge: add the places this browser has no edits for; never touches an existing one. Returns how many. */
+  /** Tabs a backup can update for places you already have: only tabs that are still drafts here (never saved by you) and that differ.
+   *  [{ placeId, tabs: ['history', …] }]. A tab you have saved (draft false) is never offered. */
+  function draftUpdatesIn(o) {
+    if (!validData(o)) return [];
+    const have = readStore().places, out = [];
+    Object.keys(o.places).forEach(id => {
+      if (!(id in have)) return;                                   // a new place: newInData's job
+      const inc = upgradeRaw(o.places[id]), mine = get(id) || empty(id), theirs = normalise(Object.assign({ placeId: id }, o.places[id]));
+      const tabs = DATA_TABS.filter(t => t in inc && mine.draft[t] !== false && JSON.stringify(theirs[t]) !== JSON.stringify(mine[t]));
+      if (tabs.length) out.push({ placeId: id, tabs });
+    });
+    return out;
+  }
+  /** Merge: add the places this browser has no edits for, and update tabs that are still drafts here (draftUpdatesIn).
+   *  Never touches a tab you have saved. Returns how many places were added or updated. */
   function mergeData(o) {
-    const add = newInData(o); if (!add.length) return 0;
-    const s = readStore(); add.forEach(id => { s.places[id] = clone(o.places[id]); });
-    return writeStore(s) ? add.length : 0;
+    const add = newInData(o), upd = draftUpdatesIn(o);
+    if (!add.length && !upd.length) return 0;
+    const s = readStore();
+    add.forEach(id => { s.places[id] = clone(o.places[id]); });
+    upd.forEach(u => {
+      const inc = upgradeRaw(o.places[u.placeId]), next = upgradeRaw(s.places[u.placeId] || {});
+      next.draft = Object.assign({}, next.draft || {});
+      u.tabs.forEach(t => { next[t] = clone(inc[t]); next.draft[t] = inc.draft && t in inc.draft ? inc.draft[t] : true; });
+      delete next.placeId;
+      s.places[u.placeId] = next;
+    });
+    return writeStore(s) ? add.length + upd.length : 0;
   }
 
   // ---- reading with the reader's chapter ----
@@ -335,6 +358,6 @@
     KEY, VERSION, BACKUP_KEY, STATUS, SCALES, SCALE_SETS, FORMS, ALLIANCE_KINDS, BEAST_RELATIONS, RESOURCE_CATEGORIES, RESOURCE_ROLES, FOUNDING_STAGES,
     MOTIVES, FACTION_KINDS, TIE_ENDINGS, TEMPERAMENTS, SOCIAL_SHAPES, WARD_KINDS, RUMOUR_INTENTS, TRIGGER_GROUPS,
     TABS, TAB_LABEL, DATA_TABS, DEFAULTS,
-    alliancesAt, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
+    alliancesAt, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, draftUpdatesIn, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
   };
 })(typeof window !== 'undefined' ? window : globalThis);
