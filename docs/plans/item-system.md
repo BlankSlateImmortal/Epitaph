@@ -283,7 +283,7 @@ When the user says "get back to it" / "back to the plan":
 Newest first. One line each: date, what changed, and what it does to the plan.
 
 - 2026-11-21 — **2.4 done; Phase 2 complete (Opus).** Added curse-gone (not in the plan, follows the lore); dropped the unknown-source rule.
-  Fixed history sorting from 2.1 (it kept the typed order). Next: Phase 3 (views), all Sonnet except none; 3.4's wording on the Powers page
+  Fixed history sorting from 2.1 (it kept the typed order). Next: Phase 3 (views), all Sonnet; 3.4's wording on the Powers page
   is written lore, so check it with the user.
 
 - 2026-11-21 — **2.3 done (Sonnet).** 1.4 left old `cost` / `ends` untouched because three editors still wrote them; with one editor now, the
