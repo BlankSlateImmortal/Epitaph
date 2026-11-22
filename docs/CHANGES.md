@@ -2,6 +2,16 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Site Encyclopedia: a place's entry in the book (assets/epitaph-site-entry.js, epitaph-dither.js) — step 2.2
+
+Click a place in the book's Site Encyclopedia (`opse`) and its entry opens over the index: seven tabs down the left page (Overview · History · Domestic · Foreign · Economy · Beasts · Intrigue) and a **dither map** on the right page above the terminal. Built from the round-4 mockups.
+
+- **The map** is drawn flat from the Atlas's own heightmap (the same projection, so places sit where the 3D map puts them): dot size is height, teal is land the sea took. Each tab picks its zoom: the **world** (Foreign: ties as arcs, coloured by kind; Intrigue: where rumours spread), the **region** (Overview, Economy with numbered resource pins, Beasts), or the **founding model** (History, Domestic): a stacked contour block you can turn by dragging or with the arrow keys, with landmark or faction pins and the seven founding stages under it. Only places with a model switched on get one (the statue sites by default); others show their region.
+- **◆ markers** on factions, figures, landmarks, the record and resources point at the secrets and rumours pinned to them; clicking one jumps to that line in Intrigue.
+- **Readers** see only what they have reached: states, ties, rulers, chronicle lines and founding stages follow the timeline; hidden factions, agents, covert ties, truths and what-ifs are author-only; an Intrigue line shows once its reveal chapter is published. The author sees everything, with what readers can't see dashed.
+- "◂ All places" or Esc goes back to the index. Outside the encyclopedia, place links still open the Atlas.
+- Marked spots wait for their steps: "In the story" (2.3), "known by" from the Dossier (2.6), the setup → payoff check in the Checks list (2.7).
+
 ## Site Encyclopedia: schema v2 (assets/epitaph-sites.js) — plan: `docs/plans/site-encyclopedia.md`, step 1.5
 
 A place's record now has seven tabs: **Overview · History · Domestic · Foreign · Economy · Beasts · Intrigue** (plus what-if `scenarios`), as laid out in `docs/plans/site-schema-v2.md`. Nothing you could see changes yet: the pages that show the new tabs come next.
