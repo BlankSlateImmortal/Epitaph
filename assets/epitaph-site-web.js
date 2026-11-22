@@ -45,10 +45,14 @@
     const now = Si.webAt(ch, recs, v.author);
     const widest = Si.webAt(v.top, recs, v.author);                     // seats come from the widest set this viewer may see
     const ids = [...new Set(widest.nodes.map(n => n.id).concat(now.nodes.map(n => n.id)))];
-    const ring = Si.ringSeats(ids, web.group === 'country' ? countryOf : typeOf, nameOf, isStatue);
+    const blocsNow = Si.blocsAt(ch, recs, v.author), blocsWide = Si.blocsAt(v.top, recs, v.author);
+    // seating by bloc uses the widest chapter, so seats stay put while scrubbing; a place in two blocs sits with the larger one
+    const home = new Map(); blocsWide.slice().sort((x, y) => y.members.length - x.members.length || x.name.localeCompare(y.name)).forEach(b => b.members.forEach(mm => { if (!home.has(mm.place)) home.set(mm.place, b.name || 'Unnamed bloc'); }));
+    const groupOf = web.group === 'country' ? countryOf : web.group === 'bloc' ? (id => home.get(id) || 'No bloc') : typeOf;
+    const ring = Si.ringSeats(ids, groupOf, nameOf, isStatue);
     const edges = now.edges.filter(e => !web.off.has(e.kind));
     const present = new Map(now.nodes.map(n => [n.id, n]));
-    return { Si, v, recs, ch, now, ring, edges, present };
+    return { Si, v, recs, ch, now, ring, edges, present, blocsNow };
   }
 
   // ---------------------------------------------------------------- the ring (right page)
@@ -61,7 +65,8 @@
     // the curve's middle and direction, for the arrow on directed ties (from the owner, who serves or spies)
     const B = t => [(1 - t) * (1 - t) * p[0] + 2 * (1 - t) * t * c[0] + t * t * q[0], (1 - t) * (1 - t) * p[1] + 2 * (1 - t) * t * c[1] + t * t * q[1]];
     const m0 = B(0.5), m1 = B(0.53), ang = Math.atan2(m1[1] - m0[1], m1[0] - m0[0]) * 180 / Math.PI;
-    const sel = web.sel, mine = sel && (sel.place ? (e.a === sel.place || e.b === sel.place) : sel.edge === e.key);
+    const sel = web.sel, bl = sel && sel.bloc && m.blocsNow.find(x => x.key === sel.bloc), inB = id => !!bl && bl.members.some(x => x.place === id && !x.left);
+    const mine = sel && (sel.place ? (e.a === sel.place || e.b === sel.place) : sel.bloc ? (inB(e.a) && inB(e.b)) : sel.edge === e.key);
     const cls = ['sw-ch', 'k-' + e.kind, e.hidden ? 'hid' : '', e.ended ? 'end' : '', sel ? (mine ? 'on' : 'off') : '', e.kind === 'war' ? 'war' : ''].filter(Boolean).join(' ');
     const tip = `${nameOf(e.a)} ${DIRECTED[e.kind] ? '→' : '↔'} ${nameOf(e.b)} · ${m.Si.label(m.Si.ALLIANCE_KINDS, e.kind)}${e.ended ? ' (ended)' : ''}${e.hidden ? ' · readers can’t see this yet' : ''}`;
     return `<g class="${cls}" data-sw-edge="${esc(e.key)}" tabindex="0" role="button" aria-label="${esc(tip)}"><title>${esc(tip)}</title>
@@ -71,7 +76,7 @@
     const a = m.ring.seats[id], [x, y] = pt(a), n = m.present.get(id), st = isStatue(id), r = st ? 17 : 12;
     const right = Math.cos(a) > 0.05, left = Math.cos(a) < -0.05, lx = x + Math.cos(a) * (r + 12), ly = y + Math.sin(a) * (r + 12) + 6;
     const anchor = right ? 'start' : left ? 'end' : 'middle', dy = !right && !left ? (Math.sin(a) < 0 ? -10 : 16) : 0;
-    const sel = web.sel && web.sel.place === id, ties = m.edges.filter(e => e.a === id || e.b === id).length;
+    const bl = web.sel && web.sel.bloc && m.blocsNow.find(x => x.key === web.sel.bloc), sel = (web.sel && web.sel.place === id) || (!!bl && bl.members.some(x => x.place === id && !x.left)), ties = m.edges.filter(e => e.a === id || e.b === id).length;
     const col = TYPE_COL[typeOf(id)] || 'var(--amber)';
     if (!n) return `<g class="sw-seat empty"><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5"/></g>`;
     const tip = `${place(id).name}${ties ? ' · ' + ties + ' tie' + (ties === 1 ? '' : 's') : ''}${n.hidden ? ' · readers haven’t reached it yet' : ''}`;
@@ -135,6 +140,14 @@
         <div class="se-kv">${terms ? `<span>Terms</span><span>${esc(terms)}</span>` : ''}${why ? `<span>Why</span><span>${esc(why)}</span>` : ''}<span>From</span><span>${esc(evTitle(m, e.from))}</span><span>Ends</span><span>${esc(end)}</span></div>
         <div class="se-row"><button type="button" class="se-link" data-sw-open="${esc(e.owner)}">Open ${esc(nameOf(e.owner))} · Foreign ▸</button>${e.b !== e.owner ? `<button type="button" class="se-link" data-sw-open="${esc(e.b)}">Open ${esc(nameOf(e.b))} ▸</button>` : ''}</div></div>`;
     }
+    if (sel.bloc) {
+      const b = m.blocsNow.find(x => x.key === sel.bloc); if (!b) return '';
+      const mem = b.members.map(x => `<button type="button" class="se-chip sw-chipbtn${x.left ? ' dash' : ''}${x.hidden ? ' dash' : ''}" data-sw-seat="${esc(x.place)}">${esc(nameOf(x.place))}${x.left ? ' · left' + (x.endCh ? ' Ch ' + x.endCh : '') : (x.startCh ? ' · joined Ch ' + x.startCh : '')}${m.v.author && x.endHidden ? ' · →?' : ''}</button>`).join('');
+      return `<div class="se-card sw-pick"><div class="se-lbl">Picked bloc · ${b.size} member${b.size === 1 ? '' : 's'}</div><div class="sw-ptl">${esc(b.name || 'Unnamed bloc')}</div>
+        <div class="se-row">${mem}${b.hidden ? '<span class="se-chip dash">Hidden from readers</span>' : ''}${b.members.length < 3 && m.v.author ? '<span class="se-chip" style="color:var(--ember);border-color:var(--ember)">needs 3 or more</span>' : ''}</div>
+        <div class="se-kv">${b.charter ? `<span>Charter</span><span>${esc(b.charter)}</span>` : ''}${b.purpose ? `<span>Purpose</span><span>${esc(b.purpose)}</span>` : ''}${b.tension && m.v.author ? `<span>Tension</span><span>${esc(b.tension)}</span>` : ''}</div>
+        <div class="se-row"><button type="button" class="se-link" data-sw-open="${esc(b.owner)}">Open ${esc(nameOf(b.owner))} · Foreign ▸</button></div></div>`;
+    }
     const id = sel.place, n = m.present.get(id); if (!n) return '';
     const mine = m.edges.filter(e => e.a === id || e.b === id);
     return `<div class="se-card sw-pick"><div class="se-lbl">Picked place · ${esc(title(typeOf(id)))}${isStatue(id) ? ' · statue site' : ''}</div>
@@ -147,6 +160,10 @@
     const rows = began.map(e => tieRow(m, e, 'began')).concat(ended.map(e => tieRow(m, e, 'ended')));
     return `<div class="se-card"><div class="se-lbl">${m.ch == null ? 'Everything' : 'What changed in Ch ' + m.ch}</div>${rows.length ? rows.join('') : '<p class="se-empty">No tie began or ended in this chapter.</p>'}</div>`;
   }
+  function blocsHtml(m) {
+    if (!m.blocsNow.length) return '';
+    return `<div class="se-lbl">Blocs at this chapter</div><div class="se-row">${m.blocsNow.map(b => `<button type="button" class="se-chip sw-chipbtn${web.sel && web.sel.bloc === b.key ? ' on' : ''}${b.hidden ? ' dash' : ''}" data-sw-bloc="${esc(b.key)}" aria-pressed="${!!(web.sel && web.sel.bloc === b.key)}">${esc(b.name || 'Unnamed bloc')} · ${b.size}</button>`).join('')}</div>`;
+  }
   function busiestHtml(m) {
     const n = new Map(); m.edges.filter(e => !e.ended).forEach(e => [e.a, e.b].forEach(id => n.set(id, (n.get(id) || 0) + 1)));
     const top = [...n.entries()].sort((x, y) => y[1] - x[1] || nameOf(x[0]).localeCompare(nameOf(y[0]))).slice(0, 7);
@@ -158,10 +175,11 @@
     return `<div class="se-main sw-main">
       <div class="se-hd"><button type="button" class="se-back" data-sw-back>◂ ${web.from ? esc(nameOf(web.from)) : 'All places'}</button>
         <div class="se-ttl"><b>RELATIONS · THE RING</b><small>${esc(sub)}</small></div>
-        <span class="sw-grpby"><label for="swGrp">Seats by</label><select id="swGrp"><option value="type"${web.group === 'type' ? ' selected' : ''}>type</option><option value="country"${web.group === 'country' ? ' selected' : ''}>country</option></select></span></div>
+        <span class="sw-grpby"><label for="swGrp">Seats by</label><select id="swGrp"><option value="type"${web.group === 'type' ? ' selected' : ''}>type</option><option value="country"${web.group === 'country' ? ' selected' : ''}>country</option><option value="bloc"${web.group === 'bloc' ? ' selected' : ''}>bloc</option></select></span></div>
       <div class="se-body sw-body" tabindex="0">
         ${pickedHtml(m)}
         ${changedHtml(m)}
+        ${blocsHtml(m)}
         ${busiestHtml(m)}
         <details class="sw-all"${web.sel ? '' : ' open'}><summary class="se-lbl">All ties at this chapter (${live.length}${gone.length ? ' · ' + gone.length + ' ended' : ''})</summary>
           ${m.edges.length ? live.concat(gone).map(e => tieRow(m, e, since(m, e))).join('') : '<p class="se-empty">No ties yet.</p>'}</details>
@@ -185,10 +203,10 @@
     return true;
   }
   /** Open the ring. from: a place id when opened from its entry (Back returns there), and that place starts picked. */
-  function open(from) {
+  function open(from, by) {
     if (!S() || !inEncyclopedia()) return false;
     const Ent = global.EpitaphSiteEntry, curE = Ent && Ent.current ? Ent.current() : null;
-    web = { ch: null, group: (web && web.group) || 'type', sel: from ? { place: from } : null, off: new Set(), from: from || null, fromTab: curE && curE.placeId === from ? curE.tab : 'foreign' };
+    web = { ch: null, group: by === 'bloc' ? 'bloc' : (web && web.group) || 'type', sel: from && by !== 'bloc' ? { place: from } : null, off: new Set(), from: from || null, fromTab: curE && curE.placeId === from ? curE.tab : 'foreign' };
     return render();
   }
   function close(toEntry) {
@@ -207,18 +225,19 @@
   if (typeof document !== 'undefined') {
     document.addEventListener('click', e => {
       const t = e.target && e.target.closest ? e.target : null; if (!t) return;
-      const go = t.closest('[data-se-web]'); if (go && inEncyclopedia()) { e.preventDefault(); open(go.dataset.seWeb || null); return; }
+      const go = t.closest('[data-se-web]'); if (go && inEncyclopedia()) { e.preventDefault(); open(go.dataset.seWeb || null, go.dataset.seBy || null); return; }
       if (!isOpen()) return;
       if (!t.closest('#seWeb, #bookPanel')) return;
       if (t.closest('[data-sw-back]')) { close(); return; }
       const op = t.closest('[data-sw-open]'); if (op) { close(op.dataset.swOpen); return; }
       const k = t.closest('[data-sw-kind]'); if (k) { const kk = k.dataset.swKind; web.off.has(kk) ? web.off.delete(kk) : web.off.add(kk); render(); return; }
       const st = t.closest('[data-sw-step]'); if (st) { step(+st.dataset.swStep); return; }
+      const bc = t.closest('[data-sw-bloc]'); if (bc) { const key = bc.dataset.swBloc; web.sel = web.sel && web.sel.bloc === key ? null : { bloc: key }; render(); return; }
       const s = t.closest('[data-sw-seat]'); if (s) { const id = s.dataset.swSeat; web.sel = web.sel && web.sel.place === id ? null : { place: id }; render(); return; }
       const ed = t.closest('[data-sw-edge], [data-sw-pick]'); if (ed) { const key = ed.dataset.swEdge || ed.dataset.swPick; web.sel = web.sel && web.sel.edge === key ? null : { edge: key }; render(); return; }
     });
     document.addEventListener('input', e => { if (!isOpen() || !e.target) return; if (e.target.id === 'swSl') { const L = viewer().list, v = L[+e.target.value]; if (v != null && v !== web.ch) { web.ch = v; render(); const n = document.getElementById('swSl'); if (n) n.focus(); } } });
-    document.addEventListener('change', e => { if (!isOpen() || !e.target) return; if (e.target.id === 'swGrp') { web.group = e.target.value === 'country' ? 'country' : 'type'; render(); } });
+    document.addEventListener('change', e => { if (!isOpen() || !e.target) return; if (e.target.id === 'swGrp') { web.group = ['country', 'bloc'].includes(e.target.value) ? e.target.value : 'type'; render(); } });
     document.addEventListener('keydown', e => {
       if (!isOpen()) return;
       const inField = e.target && e.target.closest && e.target.closest('input:not(#swSl),textarea,select');

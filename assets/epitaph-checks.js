@@ -312,6 +312,17 @@
         const f = evOf(a.from), t = evOf(a.to);
         if (f && t && TL.compare(f, t) > 0) out.push({ level: 'warn', rule: 'site-order', ...at, text: `${me}'s ${a.kind} with ${placeName(other)} ends (${t.title.slice(0, 40)}…) before it starts (${f.title.slice(0, 40)}…).` });
       });
+      (r.foreign.blocs || []).forEach(bl => {
+        const nm = bl.name || bl.id || 'a bloc', ms = bl.members || [], ids = ms.map(m => bare(m.place));
+        if (ids.length < 3) out.push({ level: 'warn', rule: 'bloc-small', ...at, text: `${me}: the bloc “${nm}” has ${ids.length} member${ids.length === 1 ? '' : 's'}; a bloc is a pact of three or more places (use a tie for two).` });
+        ids.forEach((id, i) => { if (ids.indexOf(id) !== i) out.push({ level: 'warn', rule: 'bloc-dup', ...at, text: `${me}: ${placeName(id)} is listed twice in the bloc “${nm}”.` }); });
+        ms.forEach(m => {
+          if (!World.place(bare(m.place))) out.push({ level: 'warn', rule: 'site-place', ...at, text: `${me}: the bloc “${nm}” has a member “${bare(m.place)}”, which is not a place on the map.` });
+          need(m.from, 'a bloc member\'s start'); need(m.to, 'a bloc member\'s departure');
+          const f = evOf(m.from), t = evOf(m.to);
+          if (f && t && TL.compare(f, t) > 0) out.push({ level: 'warn', rule: 'site-order', ...at, text: `${me}: ${placeName(bare(m.place))} leaves the bloc “${nm}” before it joins.` });
+        });
+      });
       if (Cr && typeof Cr.byId === 'function') r.beasts.forEach(b => {
         const id = String(b.ref || '').replace(/^creature:/, '');
         if (!Cr.byId(id)) out.push({ level: 'warn', rule: 'site-beast', ...at, text: `${me} lists a beast (“${id}”) that is not in the Creature Log.` });

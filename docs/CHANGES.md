@@ -2,6 +2,15 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Site Encyclopedia: blocs (epitaph-sites.js `blocsAt`, the Foreign tab, the ring, Checks) — step 4.4
+
+A bloc is a named pact of **three or more** places, stored on one place's Foreign tab with members who join and leave on timeline dates. They now show everywhere a tie does.
+
+- **One gate:** `EpitaphSites.blocsAt(chapter, recs, author)` returns the blocs at a chapter. A reader sees a bloc only once it is revealed (not `hidden`, or its `revealedIn` reached), a member only from the chapter their start is reached and only if they've reached that place, and a departure only once reached. The author sees all of it, following the chapter for what has *started*, with hidden bloc / member / departure marked. This also fixed the Foreign tab, which used to read other places' blocs straight from the raw records.
+- **Foreign tab:** each bloc a place belongs to shows its members as chips ("joined Ch 2", "left Ch 3"), charter, purpose, seat, rival and tension (tension is author-only for readers' scrubbed text), plus a link to the ring. The faint polygon on the map uses only members still in.
+- **The ring:** *Seats by* now has **bloc** (a place sits with the larger bloc it is in, else "No bloc"; seats use the widest chapter so they still don't move while scrubbing). **Blocs at this chapter** lists them; pick one to light its members and the chords among them, and read its charter and members on the left.
+- **Checks:** `bloc-small` (fewer than 3 members), `bloc-dup` (a place listed twice), plus the existing unknown-place, unknown-event and leaves-before-it-joins rules, now covering blocs.
+
 ## Atlas: Politics toggle (atlas-3d.html, assets/atlas3d/epitaph-map.js) — step 4.3
 
 A **Politics** button in the Atlas header draws the ties between places as arcs on the board and the planet, at the chapter on the slider. It is the same data and the same reader gate as the relations ring (`EpitaphSites.webAt`), so the two always agree.

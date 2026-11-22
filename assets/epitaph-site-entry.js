@@ -201,12 +201,26 @@ ${r.state === 'ongoing' ? 'still going' : r.state === 'unknown' ? 'ends later (n
     return `<div class="se-tl2"><div class="se-tlabs">${labels}</div><div class="se-tltrack" style="height:${L.rows.length * ROW + 52}px"><div class="se-tlrows" style="height:${L.rows.length * ROW}px">${bars}${nowLine}</div><div class="se-tlaxis" style="top:${L.rows.length * ROW + 4}px">${ticks}</div></div></div>
       <div class="se-row se-tlleg">${kinds.map(k => `<span class="se-lg"><i style="background:${KIND_COL[k] || 'var(--amber)'}"></i>${esc(c.Si.label(c.Si.ALLIANCE_KINDS, k))}</span>`).join('')}<span class="se-dim">dashed = secret${c.author ? '' : ' or not yet revealed'} · ? = it ends later</span></div>`;
   }
+  /** One bloc: who is in it and since when, with a link to the ring grouped by bloc. */
+  function blocCard(c, b, all) {
+    const idx = b.owner === c.pid ? c.rec.foreign.blocs.findIndex(x => x.id === b.id) : -1;
+    const mem = b.members.map(m => {
+      const when = m.left ? `left${m.endCh ? ' Ch ' + m.endCh : ''}` : (m.startCh ? `joined Ch ${m.startCh}` : ''), cls = m.left ? 'dash' : (m.place === c.pid ? 'am' : '');
+      return `<button type="button" class="se-chip se-link-chip ${cls}${m.hidden ? ' dash' : ''}" data-ref="place:${esc(m.place)}" title="${esc(c.name('place:' + m.place) + (when ? ' · ' + when : '') + (m.endHidden && c.author ? ' · leaves later (readers can’t see it yet)' : '') + (m.hidden ? ' · hidden from readers' : ''))}">${esc(c.name('place:' + m.place))}${when ? ` <span class="se-dim">${esc(when)}</span>` : ''}${m.endHidden && c.author ? ' <span class="se-dim">→?</span>' : ''}</button>`;
+    }).join('');
+    const rival = b.rival ? ((all.find(x => b.rival === 'bloc:' + x.key || b.rival === 'bloc:' + x.id || b.rival === x.key || b.rival === x.id) || {}).name || '') : '';
+    return ecard(idx >= 0 ? 'foreign.blocs.' + idx : '', 'Bloc · ' + b.name + ' · ' + b.size + (b.size === 1 ? ' member' : ' members'),
+      `<div class="se-row">${mem}${b.hidden ? chip('Hidden from readers', 'dash') : ''}${b.members.length < 3 && c.author ? chip('a bloc needs 3 or more', 'red') : ''}</div>` +
+      kv([['Charter', esc(c.txt(b.charter))], ['Purpose', esc(c.txt(b.purpose))], ['Seat', b.seat ? esc(c.name(b.seat)) : ''], ['Rival', esc(rival)], ['Tension', c.author ? esc(b.tension) : esc(c.txt(b.tension))]]) +
+      `<div class="se-row"><button type="button" class="se-link" data-se-web="${esc(c.pid)}" data-se-by="bloc">◯ See the blocs in the ring ▸</button></div>`, b.hidden ? 'se-hid' : '', 'bloc:' + b.key);
+  }
   function foreign(c) {
     const Si = c.Si, f = c.rec.foreign;
     const ties = Si.alliancesAt(c.pid, c.chapter, c.recs);
     const own = id => (f.ties || []).find(t => t.id === id) || {};
     const agentsIn = c.author ? c.recs.flatMap(r => (r.foreign.agents || []).filter(a => String(a.in || '').replace(/^place:/, '') === c.pid).map(a => Object.assign({ from: r.placeId }, a))) : [];
-    const blocs = c.recs.flatMap(r => (r.foreign.blocs || []).filter(b => (b.members || []).some(m => String(m.place || '').replace(/^place:/, '') === c.pid)));
+    // blocs this place belongs to, through the reader gate (a bloc, member or departure a reader hasn't reached is not here)
+    const allBlocs = Si.blocsAt(c.chapter, c.recs, c.author), blocs = allBlocs.filter(b => b.members.some(m => m.place === c.pid));
     const tieCard = t => { const full = t.owner === c.pid ? Object.assign({}, own(t.id), t) : t; const other = c.name('place:' + t.other);
       return ecard(t.owner === c.pid ? 'foreign.ties.' + f.ties.findIndex(x => x.id === t.id) : '', '', `<div class="se-row"><button type="button" class="se-link" data-ref="place:${esc(t.other)}">${esc(other)}</button>${chip(label('ALLIANCE_KINDS', t.kind), { alliance: 'teal', trade: 'am', vassal: 'am', truce: '', rivalry: 'red', war: 'red', covert: 'red' }[t.kind] || '')}${full.motive ? chip('Motive · ' + label('MOTIVES', full.motive), 'am') : ''}${t.owner !== c.pid ? chip('stored on ' + c.name('place:' + t.owner)) : ''}${t.hidden ? chip('Hidden from readers', 'dash') : ''}${markers(c, 'tie:' + t.owner + '/' + t.id)}</div>
         ${kv([['Terms', (full.terms || []).map(x => esc(`${x.side || ''}: gives ${x.gives || '—'}, gets ${x.gets || '—'}`)).join('<br>') || esc(c.txt(full.note))],
@@ -219,12 +233,12 @@ ${r.state === 'ongoing' ? 'still going' : r.state === 'unknown' ? 'ends later (n
       <div class="se-row sw-open"><button type="button" class="se-link" data-se-web="${esc(c.pid)}">◯ See ${esc(c.place.name.split(/\s+[—–-]\s+/).pop())} in the relations ring ▸</button></div>
       ${ties.length ? card('Ties over time · bars run from where a tie starts to where it ends', tieTimelineHtml(c, ties)) : ''}
       ${ties.length ? ties.map(tieCard).join('') : empty('No ties written yet.')}
-      ${blocs.map(b => ecard(f.blocs.indexOf(b) >= 0 ? 'foreign.blocs.' + f.blocs.indexOf(b) : '', 'Bloc · ' + b.name, kv([['Members', esc(b.members.map(m => c.name(m.place) + (m.to ? ' (left)' : '')).join(' · '))], ['Purpose', esc(b.purpose)], ['Seat', esc(c.name(b.seat))], ['Rival', esc(c.name(b.rival))], ['Tension', esc(b.tension)]]))).join('')}
+      ${blocs.map(b => blocCard(c, b, allBlocs)).join('')}
       <div class="se-g2">
         ${c.author ? card('Agents in ' + c.place.name + ' · author only', agentsIn.length ? agentsIn.map(a => `<span>${esc(a.ref ? c.name(a.ref) : a.name)} <span class="se-dim">for ${esc(c.name('place:' + a.from))}${a.cover ? ', cover: ' + esc(a.cover) : ''}</span></span>`).join('') : '<span class="se-dim">None known.</span>', 'se-hid') : ''}
         ${ecard('foreign.envoys', 'Envoys · hostages · borders · routes', `<span class="se-dim">Envoys: ${esc((f.envoys || []).map(e => e.name || c.name(e.ref)).join(', ') || 'none')} · Hostages: ${esc((f.hostages || []).map(e => e.name || c.name(e.ref)).join(', ') || 'none')}</span><span class="se-dim">Routes: ${esc((f.routes || []).map(r => c.name(r.to) + (r.carries && r.carries.length ? ' (' + r.carries.join(', ') + ')' : '')).join(' · ') || 'none')}</span><span class="se-dim">Borders: ${esc((f.borders || []).map(b => b.land).join(', ') || 'none')} · Migration: ${esc((f.migration || []).map(m => m.who).join(', ') || 'none')}</span>`)}
       </div>`;
-    return { html, map: { ties, agentsIn, blocs } };
+    return { html, map: { ties, agentsIn, blocs: blocs.map(b => ({ name: b.name, members: b.members.filter(x => !x.left) })) } };
   }
 
   function economy(c) {
@@ -472,7 +486,7 @@ ${r.state === 'ongoing' ? 'still going' : r.state === 'unknown' ? 'ends later (n
       if (!cur || !document.getElementById('seEntry')) return;
       if (global.EpitaphSiteWeb && global.EpitaphSiteWeb.isOpen()) return;   // the relations ring is on top; it handles its own keys
       if (e.key === 'Escape' && global.EpitaphSiteEdit && global.EpitaphSiteEdit.hasPending(cur.placeId)) { global.EpitaphSiteEdit.cancel(cur.placeId); render(); e.stopPropagation(); e.preventDefault(); return; }
-      if (e.key === 'Escape' && !e.target.closest('input,textarea,select')) { close(); e.stopPropagation(); return; }
+      if (e.key === 'Escape' && !(e.target.closest && e.target.closest('input,textarea,select'))) { close(); e.stopPropagation(); return; }
       if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && e.target.closest && e.target.closest('.se-cv')) { cur.angle += (e.key === 'ArrowLeft' ? -0.2 : 0.2); drawMap(context(cur.placeId), RENDER[cur.tab](context(cur.placeId))); e.preventDefault(); }
     }, true);
     // leaving the encyclopedia (another book page, or closing the book) ends the entry

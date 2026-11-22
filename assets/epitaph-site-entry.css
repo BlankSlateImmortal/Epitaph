@@ -219,3 +219,5 @@ button.se-tbar{ cursor:pointer; } button.se-tbar:hover, button.se-tbar:focus-vis
 .sw-chipbtn{ cursor:pointer; background:transparent; } .sw-chipbtn:hover{ border-color:var(--amber); color:var(--amber-hi); }
 .sw-all summary{ cursor:pointer; margin:4px 0; } .sw-help{ margin-top:6px; }
 .sw-open{ justify-content:flex-end; margin-bottom:-4px; }
+.se-link-chip{ cursor:pointer; background:transparent; font:inherit; font-family:var(--f-crt); font-size:16px; } .se-link-chip:hover, .se-link-chip:focus-visible{ border-color:var(--amber); color:var(--amber-hi); outline:none; }
+.sw-chipbtn.on{ background:var(--amber); color:var(--ink-deep); border-color:var(--amber); }

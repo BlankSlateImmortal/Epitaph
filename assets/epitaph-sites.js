@@ -381,6 +381,35 @@
     }));
     return { nodes: [...nodes.values()], edges };
   }
+  /** Blocs at a chapter (step 4.4): named pacts of places, from every place's `foreign.blocs`, through the reader gate.
+   *  A reader sees a bloc only once it is revealed (not `hidden`, or its `revealedIn` reached), its members only from the chapter their
+   *  start is reached and only if they've reached the place, and a member's end only once reached. The author sees them all, following
+   *  the chapter for what has *started*, with `hidden` marking what a reader would not see.
+   *  -> [{ key, id, owner, name, charter, purpose, seat, rival, tension, hidden, size, members: [{ place, from, to, left, endHidden, hidden, startCh, endCh }] }]
+   *  size = members present now (started, not left). A bloc with no visible member is left out for a reader. */
+  function blocsAt(chapter, list, author) {
+    const t = TL(), recs = list || load(), asAuthor = author === undefined ? authoring() : !!author;
+    const revCh = id => { if (id == null || !t) return 0; const e = t.byId(id); return e ? t.revealChapter(e) : null; };
+    const pid = m => String(m.place || '').replace(/^place:/, '');
+    const out = [];
+    recs.forEach(r => {
+      const rv = asAuthor ? null : forReader(r, chapter, { recs }), seen = rv ? (rv.foreign.blocs || []) : null;
+      ((asAuthor ? (r.foreign && r.foreign.blocs) : seen) || []).forEach(b => {
+        const pub = asAuthor ? ((forReader(r, chapter, { recs }).foreign.blocs || []).find(x => x.id === b.id) || null) : b;   // what a reader would see of it
+        const pubMembers = pub ? pub.members : [];
+        const members = (b.members || []).filter(m => asAuthor ? (m.from == null || reached(m.from, chapter)) : true).map(m => {
+          const vis = pubMembers.some(x => pid(x) === pid(m));
+          const ended = m.to != null && reached(m.to, chapter);
+          return { place: pid(m), from: m.from == null ? null : m.from, to: asAuthor || ended ? (m.to == null ? null : m.to) : null, left: ended, endHidden: m.to != null && !ended, hidden: asAuthor && !vis,
+            startCh: revCh(m.from), endCh: m.to == null ? null : (asAuthor || ended ? revCh(m.to) : null) };
+        });
+        if (!asAuthor && !members.length) return;
+        out.push({ key: r.placeId + '/' + b.id, id: b.id, owner: r.placeId, name: b.name || '', charter: b.charter || '', purpose: b.purpose || '', seat: b.seat || '', rival: b.rival || '', tension: b.tension || '',
+          hidden: asAuthor && !pub, size: members.filter(m => !m.left).length, members });
+      });
+    });
+    return out.sort((x, y) => String(x.name).localeCompare(String(y.name)) || x.key.localeCompare(y.key));
+  }
   /** Seats on the relations ring (step 4.2). Places are grouped (groupOf(id) -> a group name), biggest group first, statue sites
    *  first inside a group, then by name; one empty seat between groups. Seats depend only on the ids given, so pass the widest set the
    *  viewer may see and the seats stay put while the chapter changes.
@@ -647,6 +676,6 @@
     KEY, VERSION, BACKUP_KEY, STATUS, SCALES, SCALE_SETS, FORMS, ALLIANCE_KINDS, BEAST_RELATIONS, RESOURCE_CATEGORIES, RESOURCE_ROLES, FOUNDING_STAGES,
     MOTIVES, FACTION_KINDS, TIE_ENDINGS, TEMPERAMENTS, SOCIAL_SHAPES, WARD_KINDS, RUMOUR_INTENTS, TRIGGER_GROUPS,
     TABS, TAB_LABEL, DATA_TABS, DEFAULTS,
-    alliancesAt, tieBars, webAt, ringSeats, storyOf, forReader, secretHolders, couldFind, plantPayoff, SECRET_REF, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, draftUpdatesIn, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
+    alliancesAt, tieBars, webAt, blocsAt, ringSeats, storyOf, forReader, secretHolders, couldFind, plantPayoff, SECRET_REF, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, draftUpdatesIn, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
   };
 })(typeof window !== 'undefined' ? window : globalThis);
