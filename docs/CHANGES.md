@@ -10,7 +10,8 @@ Click a place in the book's Site Encyclopedia (`opse`) and its entry opens over 
 - **◆ markers** on factions, figures, landmarks, the record and resources point at the secrets and rumours pinned to them; clicking one jumps to that line in Intrigue.
 - **Readers** see only what they have reached: states, ties, rulers, chronicle lines and founding stages follow the timeline; hidden factions, agents, covert ties, truths and what-ifs are author-only; an Intrigue line shows once its reveal chapter is published. The author sees everything, with what readers can't see dashed.
 - "◂ All places" or Esc goes back to the index. Outside the encyclopedia, place links still open the Atlas.
-- Marked spots wait for their steps: "In the story" (2.3), "known by" from the Dossier (2.6), the setup → payoff check in the Checks list (2.7).
+- **In the story (Overview tab)** is derived, nothing is typed in: the chapters set here, who was here (arrived, left or still there, and why, from their objective that chapter, † if they died here), and the timeline's moments set at the place. It reads each character's per-chapter location, the same data the map's sword trails use. A reader only sees stays that began by their chapter, an end they haven't reached shows as "now", and a moment appears once its chapter is revealed. The author sees all of it, with what readers can't see dashed.
+- Marked spots wait for their steps: "known by" from the Dossier (2.6), the setup → payoff check in the Checks list (2.7).
 
 ## Site Encyclopedia: schema v2 (assets/epitaph-sites.js) — plan: `docs/plans/site-encyclopedia.md`, step 1.5
 

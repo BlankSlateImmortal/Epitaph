@@ -49,6 +49,16 @@
       }
       return r;
     };
+    // "In the story": derived from the Dossier's per-chapter locations and the timeline's moments set here (nothing is typed in)
+    c.story = () => {
+      if (c._story) return c._story;
+      const W = Wd(), st = (typeof state !== 'undefined' && state) ? state : (() => { try { return JSON.parse(localStorage.getItem('epitaph-character-profiles') || 'null') || {}; } catch (e) { return {}; } })();
+      const story = Si.storyOf({ placeId, characters: st.characters || [], chapters: st.chapters || [], at: c.at, author,
+        resolve: loc => { const r = W && W.resolve(loc); return r && r.place ? r.place.id : null; } });
+      const moments = T ? T.load().filter(e => (e.refs || []).includes('place:' + placeId) && (author || T.isRevealed(e, chapter)))
+        .sort((x, y) => T.compare(x, y)).map(e => ({ title: e.title, when: T.label(e.when), hidden: !T.isRevealed(e, chapter), kind: e.kind })) : [];
+      return (c._story = Object.assign(story, { moments }));
+    };
     // Intrigue markers: field ref -> the secrets and rumours pinned to it that this viewer may see
     c.pins = new Map();
     const add = (ref, kind, it) => { if (!c.pins.has(ref)) c.pins.set(ref, []); c.pins.get(ref).push({ kind, it }); };
@@ -74,6 +84,17 @@
   const label = (set, id) => S().label(S()[set], id);
 
   // ---------------------------------------------------------------- the seven tabs: { html, map }
+  const chLabel = n => 'Ch ' + n;
+  function storyHtml(c) {
+    const sy = c.story();
+    if (!sy.people.length && !sy.chapters.length && !sy.moments.length) return '<span class="se-dim">Nothing in the Dossier or the timeline puts anyone here yet. Give a character this place as their location in a chapter and they appear here.</span>';
+    const stay = st => (st.to != null ? `${chLabel(st.from)}–${chLabel(st.to).replace('Ch ', '')}` : `${chLabel(st.from)} → ${c.at != null && !c.author ? 'now' : 'still there'}`);
+    return `
+      ${sy.chapters.length ? `<div class="se-row"><span class="se-lbl">Chapters set here</span>${sy.chapters.map(h => `<span class="se-chip${h.hidden ? ' dash' : ' am'}" title="${esc((h.title ? h.title + ' · ' : '') + h.who.join(', '))}">${esc(chLabel(h.n))}</span>`).join('')}</div>` : ''}
+      ${sy.people.length ? `<div class="se-ppl">${sy.people.map(p => `<span class="se-ppl-n${p.hidden ? ' se-hidtxt' : ''}"><button type="button" class="se-link" data-ref="char:${esc(p.id)}">${esc(p.name)}</button>${p.dead ? ' †' : ''}</span>
+        <span class="se-ppl-s">${p.stays.map(st => `<span class="${st.hidden ? 'se-hidtxt' : ''}">${esc(stay(st))}${st.why ? ` <span class="se-dim">${esc(c.txt(st.why))}</span>` : ''}</span>`).join('<br>')}</span>`).join('')}</div>` : ''}
+      ${sy.moments.length ? `<div class="se-row"><span class="se-lbl">Moments</span>${sy.moments.map(m => `<span class="se-chip${m.hidden ? ' dash' : ''}" title="${esc(m.when)}">${esc(m.title)} · ${esc(m.when)}</span>`).join('')}</div>` : ''}`;
+  }
   function overview(c) {
     const Si = c.Si, rec = c.rec, st = Si.stateAt(rec, c.chapter) || (c.author ? rec.overview.states[0] : null);
     if (!st) return { html: empty(c.author ? 'No state written for this place yet.' : 'Nothing about this place is known yet.'), map: {} };
@@ -90,8 +111,8 @@
       ${st.note ? `<p class="se-lead">${esc(c.txt(st.note))}</p>` : ''}
       ${card('The seven scales · bigger dot, higher step', scales.map(([l, v, s]) => `<div class="se-scale"><span class="se-lbl">${esc(l)}</span><span class="se-sdots">${[1, 2, 3, 4, 5, 6, 7].map(k => `<i style="width:${4 + k * 2}px;height:${4 + k * 2}px"${k > (v || 0) ? ' class="o"' : ''}></i>`).join('')}</span><span class="se-vt se-hi">${esc(s)}</span></div>`).join(''))}
       ${card('Over time', `<div class="se-row">${states}</div>`)}
+      ${card('In the story · from the Dossier and the timeline', storyHtml(c))}
       <div class="se-g2">
-        ${card('In the story', '<span class="se-dim">Chapters set here and who passed through, from the Dossier: step 2.3.</span>')}
         ${card('At a glance', `<span class="se-vt"><b>${n.f}</b> factions · <b>${n.g}</b> figures · <b>${n.t}</b> ties</span><span class="se-vt"><b>${rec.history.landmarks.length}</b> landmarks · <b>${rec.economy.resources.length}</b> resources</span>
           <span class="se-row">${sec ? `<button type="button" class="se-mk" data-se-tab="intrigue">◆ ${sec} secret${sec === 1 ? '' : 's'}</button>` : ''}${rum ? `<button type="button" class="se-mk" data-se-tab="intrigue">◆ ${rum} rumour${rum === 1 ? '' : 's'}</button>` : ''}${wi ? `<button type="button" class="se-mk" data-se-tab="intrigue">${wi} what-if${wi === 1 ? '' : 's'}</button>` : ''}</span>`)}
       </div>`;

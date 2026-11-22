@@ -46,6 +46,8 @@
 .se-tl{ display:grid; grid-template-columns:14px 1fr; gap:3px 8px; align-items:start; }
 .se-tl b{ width:8px; height:8px; margin-top:6px; background:var(--amber-dim); transform:rotate(45deg); } .se-tl b.tp{ background:var(--amber); width:10px; height:10px; }
 .se-hidtxt{ opacity:.6; }
+.se-ppl{ display:grid; grid-template-columns:minmax(110px,max-content) 1fr; gap:3px 14px; align-items:start; }
+.se-ppl-n{ padding-top:1px; } .se-ppl-s{ line-height:1.45; }
 .se-rec{ display:grid; grid-template-columns:120px 1fr 1fr; gap:4px 10px; } .se-rec.one{ grid-template-columns:120px 1fr; }
 .se-tbl{ display:grid; grid-template-columns:20px 1.6fr .9fr .8fr 74px 1.5fr; align-items:center; }
 .se-tbl > span{ padding:5px 6px; border-bottom:1px solid var(--line); min-width:0; }

@@ -351,6 +351,50 @@
     return alliancesOf(placeId, recs).filter(a => asAuthor || seen(a))
       .map(a => Object.assign({}, a, { hidden: !seen(a), ended: a.to != null && reached(a.to, chapter), endHidden: a.to != null && !reached(a.to, chapter) }));
   }
+  /** "In the story", derived from the Dossier (nothing is typed in): who was at a place and when, and which chapters were set there.
+   *  opt: { placeId, characters, chapters: [{ number, title }], resolve(location) -> placeId|null, at (the reader's chapter; null = everything), author }
+   *  A character's location is kept per version (snapshots[].location from startChapter on). A stay runs from the version that puts them
+   *  here to the next version that puts them elsewhere. A reader sees only stays that began by `at`, and an end they haven't reached
+   *  shows as "still there"; the author sees everything, with `hidden` marking what a reader would not.
+   *  -> { people: [{ id, name, first, hidden, dead, stays: [{ from, to, why, hidden }] }], chapters: [{ n, title, hidden, who: [name] }] } */
+  function storyOf(opt) {
+    const o = opt || {}, pid = o.placeId, author = !!o.author, at = o.at == null ? Infinity : o.at;
+    const start = v => Number.isInteger(v.startChapter) ? v.startChapter : null;
+    const here = v => { try { return o.resolve ? o.resolve(v.location) === pid : false; } catch (e) { return false; } };
+    const chars = (o.characters || []).map(c => ({ c, vs: (c.snapshots || []).filter(v => start(v) != null).sort((a, b) => start(a) - start(b)) }));
+    const people = [];
+    chars.forEach(({ c, vs }) => {
+      const stays = [];
+      vs.forEach((v, i) => {
+        const h = here(v), prev = i > 0 && here(vs[i - 1]);
+        if (h && !prev) stays.push({ from: start(v), to: null, why: v.objective || '', presence: v.presence || 'alive' });
+        else if (!h && prev && stays.length) stays[stays.length - 1].to = start(v);
+        if (h && v.presence === 'dead' && stays.length && stays[stays.length - 1].deadFrom == null) stays[stays.length - 1].deadFrom = start(v);
+      });
+      const shown = stays.map(st => {
+        const hidden = st.from > at;
+        const endHidden = st.to != null && st.to > at;
+        return { from: st.from, to: endHidden && !author ? null : st.to, why: st.why, dead: st.deadFrom != null && !hidden && (author || st.deadFrom <= at), hidden, endHidden };
+      }).filter(st => author || !st.hidden);
+      if (!shown.length) return;
+      people.push({ id: c.id, name: c.name || 'Unnamed', first: shown[0].from, hidden: shown.every(st => st.hidden), dead: shown.some(st => st.dead), stays: shown });
+    });
+    people.sort((a, b) => a.first - b.first || a.name.localeCompare(b.name));
+    const nums = new Set((o.chapters || []).map(x => x.number).filter(Number.isInteger));
+    chars.forEach(({ vs }) => vs.forEach(v => nums.add(start(v))));
+    const titleOf = n => ((o.chapters || []).find(x => x.number === n) || {}).title || '';
+    const chaps = [];
+    [...nums].sort((a, b) => a - b).forEach(n => {
+      const who = [];
+      chars.forEach(({ c, vs }) => {
+        const v = vs.filter(x => start(x) <= n).pop();
+        if (v && here(v)) who.push(c.name || 'Unnamed');
+      });
+      if (!who.length || (!author && n > at)) return;
+      chaps.push({ n, title: titleOf(n), hidden: n > at, who });
+    });
+    return { people, chapters: chaps };
+  }
   const label = (set, id) => (set.find(x => x.id === id) || {}).label || id || '';
   const step = (scaleId, n) => { const s = SCALES.find(x => x.id === scaleId); return s && n >= 1 && n <= 7 ? s.steps[n - 1] : '?'; };
 
@@ -358,6 +402,6 @@
     KEY, VERSION, BACKUP_KEY, STATUS, SCALES, SCALE_SETS, FORMS, ALLIANCE_KINDS, BEAST_RELATIONS, RESOURCE_CATEGORIES, RESOURCE_ROLES, FOUNDING_STAGES,
     MOTIVES, FACTION_KINDS, TIE_ENDINGS, TEMPERAMENTS, SOCIAL_SHAPES, WARD_KINDS, RUMOUR_INTENTS, TRIGGER_GROUPS,
     TABS, TAB_LABEL, DATA_TABS, DEFAULTS,
-    alliancesAt, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, draftUpdatesIn, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
+    alliancesAt, storyOf, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, draftUpdatesIn, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
   };
 })(typeof window !== 'undefined' ? window : globalThis);
