@@ -232,12 +232,13 @@ Not every item has every part: a blade may have no usage states; many items have
 
 ## Phase 5 — Data and finish
 
-- [ ] **5.0 Merge: "update items".** *(Decided by the user 2026-11-21: this, not Import.)* Merge today only adds unseen ids. Add an option on
-  the Merge dialog, off by default: **"Also update items that already exist"**. When on, the dialog lists each existing item the file would
-  change with a per-item tick box (all ticked) and a short "what changes" line (fields that differ); only ticked items are replaced
-  (the whole item, as the file has it, through the Library normalizer). Before applying, the current Library is copied to
-  `epitaph-library-backup-before-merge` in the browser. Characters, chapters, sites and the timeline keep today's rules (never
-  overwritten). Library only; places and countries are not updated by this option. Sonnet (UI); test with the Seal-style case.
+- [x] **5.0 Merge: "update items".** *(Done 2026-11-21, Sonnet.)* The Merge dialog shows **"Also update items that already exist (N differ)"**,
+  off by default. Ticking it lists each existing item the file would change, with a tick box (all ticked) and plain words for what differs
+  (description, states, marks, history, note…; `EpitaphLibrary.itemChanges`). Only ticked items are replaced, as a whole, by the file's version
+  (so a note the file doesn't have is gone: the list says "note" when it differs). Before anything is replaced the current Library is copied to
+  `epitaph-library-backup-before-merge`; if that copy can't be kept (storage full) nothing is replaced. Characters, chapters, sites, the timeline,
+  places and countries keep the old never-overwrite rule. The dialog also opens when the file only has changed items ("has nothing new to add").
+  Tested in the real page by feeding a file: off = the Seal untouched and a new item added, no backup; ticked = the Seal replaced, backup holds the old one.
 - [ ] **5.1 Converted data file (Opus).** The user exports their current data; Claude converts every existing item and mark to the new
   layout (the automatic fold of cost / ends is already done by 2.3; this refines it by judgment: blessing cost → price or terms, ends →
   lasts until or breach; curse and binding text → effect or stage text; duplicate marks folded into the library once Phase 6 exists) and adds the author's Items-page items, then saves one file in `Site work/files/` (never in
@@ -313,6 +314,8 @@ When the user says "get back to it" / "back to the plan":
 ## Tweak log
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-21 — **5.0 done (Sonnet).** 5.1's converted file now loads through this option. Next: 5.1 (Opus).
 
 - 2026-11-21 — **CORRECTED by the user right after:** I first built this as "frozen per viewed chapter" (a chapter-1 version could never show more than
   chapter 1 did). The author meant the opposite: **information updates when the author WRITES the reveal in a later chapter, not by the chapter

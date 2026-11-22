@@ -1195,7 +1195,7 @@
 <script src="assets/epitaph-sites.js?v=9"></script>
 <script src="assets/epitaph-sites-ui.js?v=5"></script>
 <script src="assets/epitaph-publish.js?v=6"></script>
-<script src="assets/epitaph-library.js?v=15"></script>
+<script src="assets/epitaph-library.js?v=16"></script>
 <script src="assets/epitaph-marks.js?v=7"></script>
 <script src="assets/epitaph-states.js?v=3"></script>
 <script src="assets/epitaph-item-fields.js?v=5"></script>
@@ -4635,6 +4635,8 @@ function markLinesHtml(list, isNew){
 }
 // ---- Inventory entries: Library items or old free-text items ----
 const Lib = window.EpitaphLibrary;
+// plain words for the item fields Merge can list as changed
+const MERGE_FIELD_WORDS = { name: 'name', desc: 'description', origin: 'origin', originCircumstance: 'origin story', history: 'history', wip: 'W.I.P', weight: 'weight', appearance: 'appearance', maker: 'maker', marks: 'marks', note: 'note', icon: 'icon', image: 'picture', rank: 'rank', tier: 'tier', stateTracks: 'states' };
 function invView(entry){
   const li = entry.itemId && Lib ? Lib.item(entry.itemId) : null;
   const origin = li && Lib.placeIdOf(li) ? World.place(Lib.placeIdOf(li)) : null;
@@ -6107,15 +6109,17 @@ document.getElementById('mergeFileInput').addEventListener('change', (e) => {
       const lib = Lib ? Lib.get() : null, inLib = library && typeof library === 'object' ? library : {};
       const newOf = (k) => lib ? (Array.isArray(inLib[k]) ? inLib[k] : []).filter(x => x && x.id && !lib[k].some(y => y.id === x.id)) : [];
       const siteAdd = window.EpitaphSites ? EpitaphSites.newInData(sites) : [], timeAdd = window.EpitaphTimeline ? EpitaphTimeline.newInData(timeline) : [];
-      plan = { add, skipped, sameName, chapters, titled, libAdd: { countries: newOf('countries'), places: newOf('places'), items: newOf('items') }, siteAdd, timeAdd, sites, timeline };
+      // items the file has that you already have, and that differ: Merge can replace them if you tick them
+      const libUpd = lib ? (Array.isArray(inLib.items) ? inLib.items : []).filter(x => x && x.id).map(x => { const cur = lib.items.find(y => y.id === x.id); return cur ? { item: x, cur, changes: Lib.itemChanges(cur, x) } : null; }).filter(u => u && u.changes.length) : [];
+      plan = { add, skipped, sameName, chapters, titled, libAdd: { countries: newOf('countries'), places: newOf('places'), items: newOf('items') }, libUpd, siteAdd, timeAdd, sites, timeline };
     }catch(err){
       console.error('Merge read failed', err);
       showToast('Could not read the characters in that file.', { duration: 5500 });
       return;
     }
-    const { add, skipped, sameName, chapters, titled, libAdd, siteAdd, timeAdd, sites, timeline } = plan;
+    const { add, skipped, sameName, chapters, titled, libAdd, libUpd, siteAdd, timeAdd, sites, timeline } = plan;
     const libCount = libAdd.countries.length + libAdd.places.length + libAdd.items.length;
-    if(!add.length && !chapters.length && !titled.length && !libCount && !siteAdd.length && !timeAdd.length){
+    if(!add.length && !chapters.length && !titled.length && !libCount && !libUpd.length && !siteAdd.length && !timeAdd.length){
       showToast('Nothing to merge: everything in that file is already here.', { duration: 5500 });
       return;
     }
@@ -6131,11 +6135,16 @@ document.getElementById('mergeFileInput').addEventListener('change', (e) => {
     modalContent.innerHTML = `
       <div class="confirm-box">
         <div class="display">Merge this file?</div>
-        <p>${escapeHtml(file.name)} will add:</p>
-        <ul>${li.join('')}</ul>
+        <p>${escapeHtml(file.name)} ${li.length ? 'will add:' : 'has nothing new to add.'}</p>
+        ${li.length ? `<ul>${li.join('')}</ul>` : ''}
+        ${libUpd.length ? `<label class="merge-upd"><input type="checkbox" id="mergeUpd"> Also update items that already exist <small>(${libUpd.length} differ)</small></label>
+          <div id="mergeUpdList" hidden>
+            ${libUpd.map((u, i) => `<label class="merge-upd-row"><input type="checkbox" data-upd="${i}" checked> <b>${escapeHtml(u.cur.name || 'Unnamed')}</b> <small>changes: ${escapeHtml(u.changes.map(k => MERGE_FIELD_WORDS[k] || k).join(', '))}</small></label>`).join('')}
+            <p class="dim">Each ticked item is replaced by the file's version. Your current Library is saved first (epitaph-library-backup-before-merge).</p>
+          </div>` : ''}
         ${skipped.length ? `<p class="dim">Already here, left as they are: ${skipped.map(c => escapeHtml(c.name || 'Unnamed')).join(', ')}.</p>` : ''}
         ${sameName.length ? `<p class="inv-warn">⚠ You already have a character named ${sameName.map(c => escapeHtml(c.name)).join(', ')}. Merging adds a second one.</p>` : ''}
-        <p>Nothing you have now is removed or changed.</p>
+        <p id="mergeNote">Nothing you have now is removed or changed.</p>
         <div class="confirm-actions">
           <button class="btn ghost" id="cancelMerge">Cancel</button>
           <button class="btn primary" id="confirmMerge">Merge</button>
@@ -6143,8 +6152,18 @@ document.getElementById('mergeFileInput').addEventListener('change', (e) => {
       </div>`;
     openModal();
     document.getElementById('cancelMerge').addEventListener('click', closeModal);
+    const updBox = document.getElementById('mergeUpd');
+    if(updBox) updBox.addEventListener('change', () => {
+      document.getElementById('mergeUpdList').hidden = !updBox.checked;
+      document.getElementById('mergeNote').textContent = updBox.checked ? 'Items you leave ticked are replaced by the file\'s version. Everything else you have now is left as it is.' : 'Nothing you have now is removed or changed.';
+    });
     document.getElementById('confirmMerge').addEventListener('click', async () => {
       const before = JSON.stringify(state);
+      const upd = updBox && updBox.checked ? libUpd.filter((u, i) => { const cb = document.querySelector(`[data-upd="${i}"]`); return cb && cb.checked; }) : [];
+      if(upd.length){   // the Library as it is now, kept before anything is replaced; if it can't be kept, nothing is replaced
+        try{ localStorage.setItem(Lib.BACKUP_BEFORE_MERGE, JSON.stringify(Lib.get())); }
+        catch(e){ showToast('Could not keep a backup copy of the Library (browser storage is full), so no item was updated. Use Export first, or untick the update option.', { duration: 8000 }); return; }
+      }
       try{
         state.characters.push(...add);
         if(!Array.isArray(state.chapters)) state.chapters = [];
@@ -6153,14 +6172,15 @@ document.getElementById('mergeFileInput').addEventListener('change', (e) => {
         state.chapters.sort((a, b) => a.number - b.number);
         if(add.length) state.activeId = add[0].id;
         await persistState();
-        if(libCount && Lib && !Lib.update(l => ['countries', 'places', 'items'].forEach(k => libAdd[k].forEach(x => { if(!l[k].some(y => y.id === x.id)) l[k].push(x); })))){
+        if((libCount || upd.length) && Lib && !Lib.update(l => { ['countries', 'places', 'items'].forEach(k => libAdd[k].forEach(x => { if(!l[k].some(y => y.id === x.id)) l[k].push(x); }));
+            upd.forEach(u => { const i = l.items.findIndex(y => y.id === u.item.id); if(i >= 0) l.items[i] = u.item; }); })){
           showToast('Characters merged, but the Library entries could not be saved — browser storage may be full.', { duration: 6500 });
         }
         if(siteAdd.length && !EpitaphSites.mergeData(sites)) showToast('Characters merged, but the site encyclopedia entries could not be saved.', { duration: 6500 });
         if(timeAdd.length && !EpitaphTimeline.mergeData(timeline)) showToast('Characters merged, but the timeline edits could not be saved.', { duration: 6500 });
         renderAll();
         closeModal();
-        const parts = []; if(add.length) parts.push(plural(add.length, 'character')); if(siteAdd.length) parts.push(plural(siteAdd.length, 'site entry').replace('entrys', 'entries')); if(timeAdd.length) parts.push(plural(timeAdd.length, 'timeline edit'));
+        const parts = []; if(add.length) parts.push(plural(add.length, 'character')); if(siteAdd.length) parts.push(plural(siteAdd.length, 'site entry').replace('entrys', 'entries')); if(timeAdd.length) parts.push(plural(timeAdd.length, 'timeline edit')); if(upd.length) parts.push(plural(upd.length, 'item') + ' updated');
         showToast(parts.length ? `Merged ${parts.join(', ')}.` : 'Merged.');
       }catch(err){
         console.error('Merge failed', err);

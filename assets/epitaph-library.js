@@ -43,6 +43,7 @@
 (function (global) {
   'use strict';
   const KEY = 'epitaph-library';
+  const BACKUP_BEFORE_MERGE = 'epitaph-library-backup-before-merge';   // the Library as it was before a Merge that updated existing items
   const BACKUP_V1 = 'epitaph-library-backup-v1', BACKUP_V2 = 'epitaph-library-backup-v2';   // raw copies kept once before an upgrade
   const MARK_KINDS = ['blessing', 'curse', 'binding'];
   const num = v => typeof v === 'number' && isFinite(v);
@@ -201,6 +202,13 @@
         stateTracks: normalizeTracks(i.stateTracks, Array.isArray(i.stateTracks) ? null : (Array.isArray(i.states) ? i.states : null)) }))
     };
   }
+  // One item through the normalizer, and which of its fields differ between two versions (for Merge's "update items").
+  const normalizeItem = i => normalize({ items: [i] }).items[0] || null;
+  function itemChanges(current, incoming) {
+    const a = normalizeItem(current), b = normalizeItem(incoming);
+    if (!a || !b) return [];
+    return Object.keys(b).filter(k => k !== 'id' && JSON.stringify(a[k]) !== JSON.stringify(b[k]));
+  }
   let cache = null, cacheRaw = null;
   function read() {
     let raw = null;
@@ -325,7 +333,7 @@
   }
 
   global.EpitaphLibrary = {
-    KEY, BACKUP_V1, BACKUP_V2, STATE_COLORS, TRACK_KINDS, TRACK_NAMES, MAX_STATES,
+    KEY, BACKUP_V1, BACKUP_V2, BACKUP_BEFORE_MERGE, normalizeItem, itemChanges, STATE_COLORS, TRACK_KINDS, TRACK_NAMES, MAX_STATES,
     newId, normalizeMark, normalizeState, normalizeTrack, normalizeStateIds, get, update, item, place: placeById,
     stateOf, trackOf, itemTrack, currentStates, uses, marksFor, stateIdOf, itemStates, primaryStateIds, stateKeyOf, revealedBy,
     CURSE_TYPES, STAGE_NAMES, markKindsFor, markDetailLines,
