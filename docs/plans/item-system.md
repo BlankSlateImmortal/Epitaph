@@ -239,11 +239,13 @@ Not every item has every part: a blade may have no usage states; many items have
   `epitaph-library-backup-before-merge`; if that copy can't be kept (storage full) nothing is replaced. Characters, chapters, sites, the timeline,
   places and countries keep the old never-overwrite rule. The dialog also opens when the file only has changed items ("has nothing new to add").
   Tested in the real page by feeding a file: off = the Seal untouched and a new item added, no backup; ticked = the Seal replaced, backup holds the old one.
-- [ ] **5.1 Converted data file (Opus).** The user exports their current data; Claude converts every existing item and mark to the new
-  layout (the automatic fold of cost / ends is already done by 2.3; this refines it by judgment: blessing cost → price or terms, ends →
-  lasts until or breach; curse and binding text → effect or stage text; duplicate marks folded into the library once Phase 6 exists) and adds the author's Items-page items, then saves one file in `Site work/files/` (never in
-  the repo). It is loaded with **Merge → "Also update items that already exist"** (step 5.0). W.I.P items flagged. List every judgment
-  call made in the conversion.
+- [x] **5.1 Converted data file (Opus).** *(Done 2026-11-21, Opus.)* `~/Downloads/Epitaph/Site work/files/epitaph-items-converted-2026-11-21.json`
+  (+ `…-notes.md` with every judgment call and the manual follow-ups), built from the 2026-11-18 export and the Notion Items page; never in the
+  repo. Adds Book of the Void, Character Dossier, Mother's Necklace; updates Seal, Dot-Glass Lens, Observance, Repentance, Skull of Oblivion,
+  Star of Ruin (pictures carried over; replaced descriptions kept in each item's note); leaves Conquest, Margin Book and Mother's Ration Card
+  untouched (the last two flagged as probably replaced). Loaded with Merge → "Also update items that already exist". Character marks can't be
+  changed by Merge: the notes list the few to tidy by hand (Yona's lens copy, Orin's Taint, Yona's Halftone). God-sourced curses kept as written,
+  per the user. Verified: the real normalizer and checks (no warnings), and the real Merge flow with the 2026-11-18 data seeded.
 - [ ] **5.2 Cross-links.** Items' origin places link to the Site Encyclopedia; items that are organisms can link to a Creature Log entry
   (`creature:<id>`) once that exists; Resources on a place can list the items made there.
 - [ ] **5.3 Mobile and both themes.**
@@ -314,6 +316,9 @@ When the user says "get back to it" / "back to the plan":
 ## Tweak log
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-21 — **5.1 done (Opus).** Two lore clashes surfaced and are in the notes for the user: "Vanishing Point" and "The Halftone" have an
+  ending, which clashes with "curses can't be removed". Next: 5.2 cross-links (Sonnet).
 
 - 2026-11-21 — **5.0 done (Sonnet).** 5.1's converted file now loads through this option. Next: 5.1 (Opus).
 
