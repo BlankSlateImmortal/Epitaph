@@ -146,6 +146,13 @@ When the user says "get back to it" / "back to the plan":
 
 Newest first. One line each: date, what changed, and what it does to the plan.
 
+- 2026-11-21 — **0.2 checked in a browser (Sonnet), still `[~]`.** In the real Dossier with 30 chapters: the book's Library ruler **starts at the shared reader chapter**
+  (set to 12, it opened at 12) and **follows a change made elsewhere** (`setReaderChapter(20)` moved it to 20). Not exercised headless, so the author should try them by hand:
+  a user's own swipe on the ruler **saving** the position (the code path is `pick()` in `epitaph-book.js`: it saves, and saves "latest" for the newest chapter, but scroll
+  events don't fire in a headless browser), and the **map's** slider (the Atlas page needs WebGL). **Next step is 2.2 (Opus)**: design the entry view's seven tabs; I will show
+  two or three layouts to pick from before building (the author reacts better to concrete options). Suggested branch: `site-encyclopedia-entries`, cut from `item-system`
+  (the entry needs the items helper `EpitaphLibrary.itemsFromPlace`).
+
 - 2026-11-21 — **From the item plan (5.2), for the entry view and the Resources tab:** items' origin links already use `place:<id>` and will open the
   entry once it registers `EpitaphLinks.register('place', …)`. For "made here" call `EpitaphLibrary.itemsFromPlace(placeId, only)`; in the Reader view pass a
   filter that keeps only items a published chapter has revealed (the snapshot only contains those, so it is just the list), and tag items as made, not
