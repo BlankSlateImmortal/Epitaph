@@ -10,9 +10,9 @@ Sister plans: [site-encyclopedia.md](site-encyclopedia.md) (places), [creature-l
 
 ## Status (2026-11-21)
 
-Phases 0–5 are done: the design, the data (Library v3, Dossier schema 9), the editors and checks, the views, the reader snapshot and its checker, Merge's update option,
-the author's items converted, cross-links, the phone check and the docs. **What is left: Phase 6** (prospective skills `opsp` and the shared mark library, 6 steps), and
-two things that wait for other plans: the "items made here" list (site-encyclopedia entry view) and the Creature Log link. The lore clashes found along the way are
+**All 32 steps are done:** the design, the data (Library v3, Dossier schema 9), the editors and checks, the views, the reader snapshot and its checker, Merge's update option,
+the author's items converted, cross-links, the phone check, the docs, and Phase 6 (the mark library, prospective skills with assign and a fit helper, and the chapters
+check). Two things wait for other plans: the "items made here" list (site-encyclopedia entry view) and the Creature Log link. The lore clashes found along the way are
 in the vault note `Exploratory Ideas/Lore/Continuity Issues - Items 2026-11-21.md` (kept out of this public file on purpose).
 
 ## Purpose (from the user, 2026-11-21)
@@ -330,8 +330,14 @@ Design agreed in the same conversation (Opus):
   who holds it, the chapter, the curse's own stage ("stage 2/3 · Budding"), in sync or differs. **Update all copies** brings the drifted ones back in line (each
   copy keeps its own id and stage); **Delete** removes the definition and leaves the copies as ordinary marks. Library items and their states are covered as holders too.
   Never published; readers are refused. Tested in the real page: all three editor paths, the board, the update and the delete.
-- [ ] **6.6 In chapters.** Chapters may mention a prospective skill while drafting; the chapter check flags a skill used in a canon
-  chapter that is still a draft (assign it first). Sonnet.
+- [x] **6.6 In chapters.** *(Done 2026-11-21, Sonnet.)* A chapter lists the skills it shows in a new **`skills:`** property (`tools/sync-chapters.py` copies it into
+  `chapters/index.json` next to `status`; the vault's Chapter Template and the Chapter Pipeline note got the property). `EpitaphTimeline.chapterSkills()` returns
+  what each chapter names. New Checks (`skillProspectChecks`): **skill-prospect**: a **canon** chapter naming a skill that is still only a prospect **warns**
+  ("assign it to a character first (opsp)"); a **draft** chapter naming one is only information, so a prospect can be mentioned while drafting; **skill-unknown**:
+  a name no character has and no prospect either is noted (a typo?). A skill a character has is never flagged, whatever its case, even if a prospect shares
+  its name. The Checks module starts loading the chapter index itself. Note: the sync tool publishes canon chapters into the public `chapters/index.json`, so
+  a canon chapter's `skills:` list is public there, like the chapter's text; draft chapters only appear with `--drafts`. Tested: 5 Node tests, the sync tool on a
+  temporary copy (canon only, then with drafts), and the real Dossier reading a chapter index (warn, inform, then assign Hush through the board and the notices go).
 
 ---
 
@@ -370,6 +376,8 @@ When the user says "get back to it" / "back to the plan":
 ## Tweak log
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-21 — **6.6 done (Sonnet): the item plan is complete (all 32 steps).** The vault notes and the repo are updated; next is the continuity list for the user.
 
 - 2026-11-21 — **6.5 done (Sonnet).** Next: 6.6 (Sonnet), the last step of the plan.
 

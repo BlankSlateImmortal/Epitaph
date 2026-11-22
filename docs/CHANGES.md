@@ -32,6 +32,8 @@ Items now carry what the author's Items page describes: a rank and tier, up to t
 
 **Mark library (step 6.5):** blessings, curses and bindings you use again can be saved to a shared library ("Save to the library" under any mark) and copied onto people and items ("Add from the library" in every mark editor). A copy shows whether it still matches its library mark and can be updated from it. Type **opmk** (or use the "Mark library" link) for a board that lists every library mark with all its copies, who holds each one and at which curse stage, and has **Update all copies**.
 
+**Chapters and skills (step 6.6):** a chapter can list the skills it shows in a `skills:` property. The Checks warn when a **canon** chapter names a skill that is still only a prospect (assign it to a character first), and only note it while the chapter is a draft. The sync tool copies the property; the Chapter Template and Chapter Pipeline note have it.
+
 **Not built yet:** the place entry's "items made here" list (needs the Site Encyclopedia entry view), the Creature Log link for items that are organisms, and prospective skills with a shared mark library (item plan Phase 6).
 
 Scripts: Library `?v=19`, marks `?v=8`, state editor `?v=3`, item fields `?v=5`, checks `?v=11`, publish `?v=6`. Tested in Node (Library and marks 32 tests, checks 7, snapshot builder 10) and in the real pages in headless Chromium.

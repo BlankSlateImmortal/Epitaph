@@ -132,10 +132,11 @@
   // A chapter's properties list what it shows the reader for the first time: moments (timeline ids), characters, world
   // (places, written "Place = state") and reveals (items, marks and the like, by name). The first chapter that lists a thing reveals it.
   let chapterLists = { world: {}, character: {}, reveal: {} }, anyCharacterLists = false, indexPromise = null;
+  let chapterSkillList = [];   // [{ skill, chapter, status }]: the skills each chapter names in its `skills:` property
   const norm = s => String(s == null ? '' : s).trim().toLowerCase().replace(/^the\s+/, '').replace(/\s+/g, ' ');
   /** chapters/index.json entries ({ chapter, moments, characters, world, reveals }) date what they contain. */
   function applyChapterIndex(index) {
-    chapterMoments = {}; chapterLists = { world: {}, character: {}, reveal: {} }; anyCharacterLists = false;
+    chapterMoments = {}; chapterLists = { world: {}, character: {}, reveal: {} }; anyCharacterLists = false; chapterSkillList = [];
     const first = (map, key, n) => { const k = norm(key); if (k && (map[k] == null || n < map[k])) map[k] = n; };
     (Array.isArray(index) ? index : []).forEach(c => {
       const n = Number(c && c.chapter);
@@ -144,6 +145,7 @@
       (c.world || []).forEach(w => first(chapterLists.world, String(w).split('=')[0], n));
       (c.characters || []).forEach(x => { first(chapterLists.character, x, n); anyCharacterLists = true; });
       (c.reveals || []).forEach(x => first(chapterLists.reveal, x, n));
+      (c.skills || []).forEach(x => { if (String(x || '').trim()) chapterSkillList.push({ skill: String(x).trim(), chapter: n, status: String(c.status || 'canon').toLowerCase() }); });
     });
   }
   /** The first published chapter whose `world` / `character` / `reveal` list names any of `keys` (names or ids), or null. */
@@ -154,6 +156,8 @@
     return best;
   }
   const hasCharacterLists = () => anyCharacterLists;
+  /** The skills named by each chapter's `skills:` property (from chapters/index.json): [{ skill, chapter, status: 'canon'|'draft' }]. */
+  const chapterSkills = () => chapterSkillList.slice();
   /** Fetch chapters/index.json once, apply it, and tell every view (the reader-change event). Safe to call often. */
   function loadChapterIndex() {
     if (indexPromise) return indexPromise;
@@ -275,7 +279,7 @@
 
   global.EpitaphTimeline = {
     KEY, READER_KEY, AUTHOR_KEY, VERSION, CH1_YEAR, ERAS, KINDS, DEFAULTS,
-    load, save, remove, reset, exportData, importData, newInData, mergeData, byId, applyChapterIndex, firstChapter, hasCharacterLists, loadChapterIndex, revealChapter,
+    load, save, remove, reset, exportData, importData, newInData, mergeData, byId, applyChapterIndex, firstChapter, hasCharacterLists, chapterSkills, loadChapterIndex, revealChapter,
     compare, chapters, latestChapter, setLatestOverride, readerChapter, setReaderChapter, authorMode, setAuthorMode, onReaderChange,
     isRevealed, label, view
   };

@@ -21,6 +21,8 @@
  *   curse-gone      a person's own curse disappears in a later chapter (curses can't be removed)
  *   mark-kind       a blessing on an item, or a binding on a person (information: older data may have them)
  *   curse-stages    a curse with fewer than its three stages written (information)
+ *   skill-prospect  a CANON chapter's `skills:` names a skill that is still only a prospect: assign it first (a draft chapter: information)
+ *   skill-unknown   a chapter's `skills:` names a skill that no character has and that is not a prospect either (information: a typo?)
  * Site encyclopedia (assets/epitaph-sites.js), added with `placeId` instead of a character:
  *   site-place      an entry, or an alliance in it, points at a place that doesn't exist
  *   site-order      an alliance ends before it starts on the timeline
@@ -181,10 +183,30 @@
         out.push({ level: 'warn', rule: 'missing-place', itemId: i.id, text: `Item “${i.name}” comes from a place that no longer exists.` });
     });
 
-    if (Lib) itemSystemChecks(out, chars, Lib, at);
+    if (Lib) { itemSystemChecks(out, chars, Lib, at); skillProspectChecks(out, chars, Lib); }
     siteChecks(out);
 
     return out.sort((a, b) => (a.level === b.level ? 0 : a.level === 'warn' ? -1 : 1));
+  }
+
+  // ---- Skills a chapter shows vs skills that are real (plan 6.6) ----
+  // A chapter lists the skills it shows in its `skills:` property (chapters/index.json). A skill that exists only as a prospect on the
+  // board (opsp) isn't real for the story yet: in a canon chapter that is a warning (assign it to a character first); while a chapter is a
+  // draft it's fine (information). A name nobody has, and no prospect either, is most likely a typo.
+  function skillProspectChecks(out, chars, Lib) {
+    const TL = global.EpitaphTimeline; if (!TL || !TL.chapterSkills) return;
+    const mentions = TL.chapterSkills(); if (!mentions.length) return;
+    const norm = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    const real = new Set(); chars.forEach(c => (c.snapshots || []).forEach(s => (s.skills || []).forEach(k => real.add(norm(k.name)))));
+    const prospects = new Map(); (Lib.get().skillDrafts || []).forEach(d => prospects.set(norm(d.name), d));
+    const said = new Set();
+    mentions.forEach(m => {
+      const k = norm(m.skill), key = k + '|' + m.chapter + '|' + m.status; if (!k || said.has(key) || real.has(k)) return; said.add(key);
+      if (prospects.has(k)) out.push({ level: m.status === 'canon' ? 'warn' : 'info', rule: 'skill-prospect', chapter: m.chapter,
+        text: m.status === 'canon' ? `Chapter ${m.chapter} (canon) shows the skill “${m.skill}”, which is still only a prospect: assign it to a character first (opsp).`
+          : `Draft chapter ${m.chapter} mentions the prospect “${m.skill}”. Fine while drafting; assign it before the chapter is canon.` });
+      else out.push({ level: 'info', rule: 'skill-unknown', chapter: m.chapter, text: `Chapter ${m.chapter} lists the skill “${m.skill}”, but no character has it and it is not a prospect. A typo?` });
+    });
   }
 
   // ---- The item system: tiers, mark kinds, history states, curse stages ----
@@ -287,5 +309,7 @@
     const missing = World.places().filter(p => (p.eras || []).includes('ERA_1') && !have.has(p.id));
     if (missing.length) out.push({ level: 'info', rule: 'site-missing', text: `${missing.length} Era 1 place${missing.length === 1 ? ' has' : 's have'} no encyclopedia entry yet: ${missing.slice(0, 8).map(p => p.name).join(', ')}${missing.length > 8 ? '…' : ''}.` });
   }
+  // the chapter index (chapters/index.json) must be loaded for the skills check; this starts it once and is harmless if it can't be fetched
+  try { if (global.EpitaphTimeline && global.EpitaphTimeline.loadChapterIndex) global.EpitaphTimeline.loadChapterIndex(); } catch (e) { /* no chapter index here */ }
   global.EpitaphChecks = { run };
 })(typeof window !== 'undefined' ? window : globalThis);
