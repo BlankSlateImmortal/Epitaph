@@ -85,8 +85,10 @@
   const chip = (t, cls) => t ? `<span class="se-chip${cls ? ' ' + cls : ''}">${esc(t)}</span>` : '';
   const dots = (n, cls) => n ? `<span class="se-dots${cls ? ' ' + cls : ''}" role="img" aria-label="${n} of 7">${[1, 2, 3, 4, 5, 6, 7].map(k => `<i${k > n ? ' class="o"' : ''}></i>`).join('')}</span>` : '';
   /** A boxed section. `id` (optional) is an anchor an Intrigue marker can jump to. */
-  const card = (label, inner, cls, id) => `<div class="se-card${cls ? ' ' + cls : ''}"${id ? ` data-se-id="${esc(id)}"` : ''}>${label ? `<span class="se-lbl">${esc(label)}</span>` : ''}${inner}</div>`;
+  const card = (label, inner, cls, id, edit) => `<div class="se-card${cls ? ' ' + cls : ''}"${id ? ` data-se-id="${esc(id)}"` : ''}${edit ? ` data-se-edit="${esc(edit)}"` : ''}>${label ? `<span class="se-lbl">${esc(label)}</span>` : ''}${inner}</div>`;
   const kv = rows => `<div class="se-kv">${rows.filter(r => r && r[1]).map(r => `<span>${esc(r[0])}</span><span>${r[1]}</span>`).join('')}</div>`;
+  /** A card the author can edit: `edit` is the path the editor opens (EpitaphSiteEdit); readers never get the attribute. */
+  const ecard = (edit, label, inner, cls, id) => card(label, inner, cls, id, edit);
   const empty = t => `<p class="se-empty">${esc(t)}</p>`;
   function markers(c, ref) {
     const list = c.pins.get(ref); if (!list) return '';
@@ -120,7 +122,7 @@
     const html = `
       <div class="se-row">${chip(label('STATUS', st.status), 'fill')}${chip(label('FORMS', rec.domestic.government.form), 'am')}${st.techLevel ? chip('Tech ' + st.techLevel + ' · ' + Si.SCALE_SETS.tech.steps[st.techLevel - 1]) : ''}${chip(c.chapter == null ? 'As of the latest chapter' : 'As of your chapter · Ch ' + c.chapter, 'dash')}${c.author && rec.draft.overview ? chip('Draft', 'dash') : ''}</div>
       ${st.note ? `<p class="se-lead">${esc(c.txt(st.note))}</p>` : ''}
-      ${card('The seven scales · bigger dot, higher step', scales.map(([l, v, s]) => `<div class="se-scale"><span class="se-lbl">${esc(l)}</span><span class="se-sdots">${[1, 2, 3, 4, 5, 6, 7].map(k => `<i style="width:${4 + k * 2}px;height:${4 + k * 2}px"${k > (v || 0) ? ' class="o"' : ''}></i>`).join('')}</span><span class="se-vt se-hi">${esc(s)}</span></div>`).join(''))}
+      ${ecard('overview.states.' + rec.overview.states.indexOf(st), 'The seven scales · bigger dot, higher step', scales.map(([l, v, s]) => `<div class="se-scale"><span class="se-lbl">${esc(l)}</span><span class="se-sdots">${[1, 2, 3, 4, 5, 6, 7].map(k => `<i style="width:${4 + k * 2}px;height:${4 + k * 2}px"${k > (v || 0) ? ' class="o"' : ''}></i>`).join('')}</span><span class="se-vt se-hi">${esc(s)}</span></div>`).join(''))}
       ${card('Over time', `<div class="se-row">${states}</div>`)}
       ${card('In the story · from the Dossier and the timeline', storyHtml(c))}
       <div class="se-g2">
@@ -136,13 +138,13 @@
     const chron = (h.chronicle || []).filter(e => c.author || c.seen(e.when));
     const html = `
       <div class="se-g2">
-        ${(c.author || h.purpose.original || h.purpose.now || h.purpose.drift) ? card('Original purpose → now', `<span>${esc(c.txt(h.purpose.original)) || '<span class="se-dim">—</span>'}</span>${h.purpose.now ? `<span class="se-dim">Now: ${esc(c.txt(h.purpose.now))}</span>` : ''}${h.purpose.drift ? `<span class="se-dim">Drift: ${esc(c.txt(h.purpose.drift))}</span>` : ''}`) : ''}
-        ${card('Founders · first settlers', `${(h.founders || []).map(f => `<span>${chip(c.name(f.ref || f.name), 'am')} <span class="se-dim">${esc(f.role)}</span></span>`).join('')}${h.settlers.who ? `<span>${esc(c.txt(h.settlers.who))}${h.settlers.from ? ` <span class="se-dim">from ${esc(c.txt(h.settlers.from))}</span>` : ''}</span>` : ''}` || '<span class="se-dim">—</span>')}
-        ${card('The founding myth', h.myth.text ? `<span>“${esc(c.txt(h.myth.text))}”</span>${c.author && h.myth.true ? `<span class="se-row">${chip(h.myth.true === 'half' ? 'Half-true' : h.myth.true === 'true' ? 'True' : 'False', 'am')}</span>` : ''}` : '<span class="se-dim">—</span>')}
-        ${card('The name · eras', `<span>${esc(h.name.meaning) || '<span class="se-dim">—</span>'}</span>${(h.name.outsiders || []).length ? `<span class="se-dim">Outsiders: ${esc(h.name.outsiders.join(', '))}</span>` : ''}<span class="se-row">${(h.eras || []).filter(e => c.author || c.seen(e.from)).map(e => chip(e.name, c.seen(e.from) ? '' : 'dash')).join('')}</span>`)}
+        ${(c.author || h.purpose.original || h.purpose.now || h.purpose.drift) ? ecard('history.purpose', 'Original purpose → now', `<span>${esc(c.txt(h.purpose.original)) || '<span class="se-dim">—</span>'}</span>${h.purpose.now ? `<span class="se-dim">Now: ${esc(c.txt(h.purpose.now))}</span>` : ''}${h.purpose.drift ? `<span class="se-dim">Drift: ${esc(c.txt(h.purpose.drift))}</span>` : ''}`) : ''}
+        ${ecard('history.settlers', 'Founders · first settlers', `${(h.founders || []).map(f => `<span>${chip(c.name(f.ref || f.name), 'am')} <span class="se-dim">${esc(f.role)}</span></span>`).join('')}${h.settlers.who ? `<span>${esc(c.txt(h.settlers.who))}${h.settlers.from ? ` <span class="se-dim">from ${esc(c.txt(h.settlers.from))}</span>` : ''}</span>` : ''}` || '<span class="se-dim">—</span>')}
+        ${ecard('history.myth', 'The founding myth', h.myth.text ? `<span>“${esc(c.txt(h.myth.text))}”</span>${c.author && h.myth.true ? `<span class="se-row">${chip(h.myth.true === 'half' ? 'Half-true' : h.myth.true === 'true' ? 'True' : 'False', 'am')}</span>` : ''}` : '<span class="se-dim">—</span>')}
+        ${ecard('history.name', 'The name · eras', `<span>${esc(h.name.meaning) || '<span class="se-dim">—</span>'}</span>${(h.name.outsiders || []).length ? `<span class="se-dim">Outsiders: ${esc(h.name.outsiders.join(', '))}</span>` : ''}<span class="se-row">${(h.eras || []).filter(e => c.author || c.seen(e.from)).map(e => chip(e.name, c.seen(e.from) ? '' : 'dash')).join('')}</span>`)}
       </div>
-      ${card('Chronicle · ◆ turning point' + (c.author ? ' · dashed = readers haven\'t reached it' : ''), chron.length ? `<div class="se-tl">${chron.map(e => `<b class="${e.turningPoint ? 'tp' : ''}"></b><span class="${c.seen(e.when) ? '' : 'se-hidtxt'}"><span class="se-hi">${esc(c.txt(e.title))}</span>${e.text ? ` <span class="se-dim">${esc(c.txt(e.text))}</span>` : ''} ${markers(c, 'chronicle:' + e.id)}</span>`).join('')}</div>` : empty('No dated events yet.'))}
-      ${(h.record || []).length ? card('The record · official version' + (c.author ? ' vs what really happened' : ''), `<div class="se-rec${c.author ? '' : ' one'}"><span class="se-lbl">topic</span><span class="se-lbl">official</span>${c.author ? '<span class="se-lbl">truth · author only</span>' : ''}${h.record.map(r => `<span class="se-hi">${esc(r.topic)} ${markers(c, 'record:' + slug(r.topic))}</span><span>${esc(c.txt(r.official))}</span>${c.author ? `<span class="se-dim">${esc(r.truth)}</span>` : ''}`).join('')}</div>${c.author ? `<div class="se-row">${h.record.flatMap(r => (r.evidence || []).map(e => chip(e.what))).join('')}${h.record.filter(r => r.forbidden).map(r => chip('Forbidden: ' + r.forbidden, 'dash')).join('')}</div>` : ''}`) : ''}
+      ${ecard('history.chronicle', 'Chronicle · ◆ turning point' + (c.author ? ' · dashed = readers haven\'t reached it' : ''), chron.length ? `<div class="se-tl">${chron.map(e => `<b class="${e.turningPoint ? 'tp' : ''}"></b><span class="${c.seen(e.when) ? '' : 'se-hidtxt'}"><span class="se-hi">${esc(c.txt(e.title))}</span>${e.text ? ` <span class="se-dim">${esc(c.txt(e.text))}</span>` : ''} ${markers(c, 'chronicle:' + e.id)}</span>`).join('')}</div>` : empty('No dated events yet.'))}
+      ${(h.record || []).length ? ecard('history.record', 'The record · official version' + (c.author ? ' vs what really happened' : ''), `<div class="se-rec${c.author ? '' : ' one'}"><span class="se-lbl">topic</span><span class="se-lbl">official</span>${c.author ? '<span class="se-lbl">truth · author only</span>' : ''}${h.record.map(r => `<span class="se-hi">${esc(r.topic)} ${markers(c, 'record:' + slug(r.topic))}</span><span>${esc(c.txt(r.official))}</span>${c.author ? `<span class="se-dim">${esc(r.truth)}</span>` : ''}`).join('')}</div>${c.author ? `<div class="se-row">${h.record.flatMap(r => (r.evidence || []).map(e => chip(e.what))).join('')}${h.record.filter(r => r.forbidden).map(r => chip('Forbidden: ' + r.forbidden, 'dash')).join('')}</div>` : ''}`) : ''}
       <div class="se-row"><span class="se-lbl">Landmarks</span>${(h.landmarks || []).map(l => chip(l.name, l.sealed ? 'dash' : '') + markers(c, 'landmark:' + l.id)).join('') || '<span class="se-dim">none yet</span>'}</div>
       ${(h.lost || []).length ? `<div class="se-row"><span class="se-lbl">Lost</span>${h.lost.filter(l => c.author || c.seen(l.when)).map(l => chip(l.name + (l.how ? ' · ' + l.how : ''), c.seen(l.when) ? '' : 'dash')).join('')}</div>` : ''}`;
     return { html, map: { model: true, landmarks: h.landmarks || [], stages: founding } };
@@ -154,20 +156,20 @@
     const factions = (d.factions || []).filter(f => (c.author || !f.hidden) && (c.author || c.seen(f.from)));
     const figures = (d.figures || []).filter(f => c.author || !(d.factions.find(x => x.id === f.faction) || {}).hidden);
     const html = `
-      ${card('Government · ' + label('FORMS', g.form), `<div class="se-row">${(g.offices || []).map((o, i) => chip(o.title + (o.holder ? ' · ' + c.name(o.holder) : ''), i ? '' : 'fill')).join('')}${holders.map(x => chip(c.name(x.ref) + (x.title ? ' · ' + x.title : ''), 'am')).join('')}</div>
+      ${ecard('domestic.government', 'Government · ' + label('FORMS', g.form), `<div class="se-row">${(g.offices || []).map((o, i) => chip(o.title + (o.holder ? ' · ' + c.name(o.holder) : ''), i ? '' : 'fill')).join('')}${holders.map(x => chip(c.name(x.ref) + (x.title ? ' · ' + x.title : ''), 'am')).join('')}</div>
         ${kv([['Succession', esc(c.txt(g.succession))], ['Citizenship', esc(c.txt(g.citizenship))], ['Justice', esc(c.txt(g.justice))], ['Corruption', c.author ? esc(g.corruption) : '']])}
         ${(g.laws || []).length ? `<div class="se-row"><span class="se-lbl">Laws</span>${g.laws.filter(l => c.author || c.seen(l.from)).map(l => chip(c.txt(l.text))).join('')}</div>` : ''}`)}
       <span class="se-lbl">Factions · strength 1–7${c.author ? ' · dashed = hidden from readers' : ''}</span>
-      ${factions.length ? `<div class="se-g2">${factions.map(f => card('', `<div class="se-row"><span class="se-hi">${esc(f.name)}</span>${chip(label('FACTION_KINDS', f.kind))}${dots(f.strength)}${f.hidden ? chip('Hidden', 'dash') : ''}${markers(c, 'faction:' + c.pid + '/' + f.id)}</div>
+      ${factions.length ? `<div class="se-g2">${factions.map(f => ecard('domestic.factions.' + d.factions.indexOf(f), '', `<div class="se-row"><span class="se-hi">${esc(f.name)}</span>${chip(label('FACTION_KINDS', f.kind))}${dots(f.strength)}${f.hidden ? chip('Hidden', 'dash') : ''}${markers(c, 'faction:' + c.pid + '/' + f.id)}</div>
           ${f.goals.public ? `<span><span class="se-dim">Public:</span> ${esc(c.txt(f.goals.public))}</span>` : ''}${c.author && f.goals.secret ? `<span><span class="se-dim">Secret:</span> ${esc(f.goals.secret)}</span>` : ''}
           ${f.stance ? `<span class="se-dim">${esc(c.txt(f.stance))}${f.size ? ' · ' + esc(c.txt(f.size)) : ''}</span>` : ''}`, f.hidden ? 'se-hid' : '')).join('')}</div>` : empty('No factions written yet.')}
       <span class="se-lbl">Key figures</span>
       ${figures.length ? `<div class="se-g3">${figures.map(f => { const nm = f.ref ? c.name(f.ref) : f.name; const stt = (f.status || []).filter(s => c.author || c.seen(s.from)).map(s => s.value).join(' → ');
-          return card('', `<div class="se-fig"><span class="se-av">${esc((nm || '?').charAt(0))}</span><span><span class="se-hi">${esc(nm)}</span> · ${esc(c.txt(f.role))} ${f.ref ? markers(c, f.ref) : ''}${f.goals && f.goals.public ? `<br><span class="se-dim">Wants:</span> ${esc(c.txt(f.goals.public))}` : ''}${c.author && f.goals && f.goals.secret ? `<br><span class="se-dim">Secretly:</span> ${esc(f.goals.secret)}` : ''}${c.author && f.fears ? `<br><span class="se-dim">Fears:</span> ${esc(f.fears)}` : ''}${stt ? `<br><span class="se-dim">${esc(stt)}</span>` : ''}</span></div>`); }).join('')}</div>` : empty('No key figures yet.')}
+          return ecard('domestic.figures.' + d.figures.indexOf(f), '', `<div class="se-fig"><span class="se-av">${esc((nm || '?').charAt(0))}</span><span><span class="se-hi">${esc(nm)}</span> · ${esc(c.txt(f.role))} ${f.ref ? markers(c, f.ref) : ''}${f.goals && f.goals.public ? `<br><span class="se-dim">Wants:</span> ${esc(c.txt(f.goals.public))}` : ''}${c.author && f.goals && f.goals.secret ? `<br><span class="se-dim">Secretly:</span> ${esc(f.goals.secret)}` : ''}${c.author && f.fears ? `<br><span class="se-dim">Fears:</span> ${esc(f.fears)}` : ''}${stt ? `<br><span class="se-dim">${esc(stt)}</span>` : ''}</span></div>`); }).join('')}</div>` : empty('No key figures yet.')}
       <div class="se-g3">
-        ${card('Unrest', (d.unrest || []).length ? d.unrest.map(u => `<span>${esc((u.causes || []).join(', '))}</span>${u.response ? `<span class="se-dim">Response: ${esc(u.response)}</span>` : ''}`).join('') : '<span class="se-dim">None recorded.</span>')}
-        ${card('Society & faith', `${d.society.daily ? `<span>${esc(c.txt(d.society.daily))}</span>` : ''}${d.society.faith ? `<span class="se-dim">${esc(c.txt(d.society.faith))}</span>` : ''}${d.society.customs ? `<span class="se-dim">${esc(c.txt(d.society.customs))}</span>` : ''}${d.society.culture ? `<span class="se-dim">${esc(c.txt(d.society.culture))}</span>` : ''}` || '<span class="se-dim">—</span>')}
-        ${card('Knowledge · military', `${d.knowledge.education ? `<span>${esc(c.txt(d.knowledge.education))}</span>` : ''}${(d.knowledge.forbidden || []).map(x => `<span class="se-dim">Forbidden: ${esc(x.what)}</span>`).join('')}${d.military.doctrine ? `<span class="se-dim">Defence: ${esc(c.txt(d.military.doctrine))}</span>` : ''}${(d.military.ranks || []).length ? `<span class="se-dim">Ranks: ${esc(d.military.ranks.join(' · '))}</span>` : ''}` || '<span class="se-dim">—</span>')}
+        ${ecard('domestic.unrest', 'Unrest', (d.unrest || []).length ? d.unrest.map(u => `<span>${esc((u.causes || []).join(', '))}</span>${u.response ? `<span class="se-dim">Response: ${esc(u.response)}</span>` : ''}`).join('') : '<span class="se-dim">None recorded.</span>')}
+        ${ecard('domestic.society', 'Society & faith', `${d.society.daily ? `<span>${esc(c.txt(d.society.daily))}</span>` : ''}${d.society.faith ? `<span class="se-dim">${esc(c.txt(d.society.faith))}</span>` : ''}${d.society.customs ? `<span class="se-dim">${esc(c.txt(d.society.customs))}</span>` : ''}${d.society.culture ? `<span class="se-dim">${esc(c.txt(d.society.culture))}</span>` : ''}` || '<span class="se-dim">—</span>')}
+        ${ecard('domestic.knowledge', 'Knowledge · military', `${d.knowledge.education ? `<span>${esc(c.txt(d.knowledge.education))}</span>` : ''}${(d.knowledge.forbidden || []).map(x => `<span class="se-dim">Forbidden: ${esc(x.what)}</span>`).join('')}${d.military.doctrine ? `<span class="se-dim">Defence: ${esc(c.txt(d.military.doctrine))}</span>` : ''}${(d.military.ranks || []).length ? `<span class="se-dim">Ranks: ${esc(d.military.ranks.join(' · '))}</span>` : ''}` || '<span class="se-dim">—</span>')}
       </div>`;
     return { html, map: { model: true, factions } };
   }
@@ -179,7 +181,7 @@
     const agentsIn = c.author ? c.recs.flatMap(r => (r.foreign.agents || []).filter(a => String(a.in || '').replace(/^place:/, '') === c.pid).map(a => Object.assign({ from: r.placeId }, a))) : [];
     const blocs = c.recs.flatMap(r => (r.foreign.blocs || []).filter(b => (b.members || []).some(m => String(m.place || '').replace(/^place:/, '') === c.pid)));
     const tieCard = t => { const full = t.owner === c.pid ? Object.assign({}, own(t.id), t) : t; const other = c.name('place:' + t.other);
-      return card('', `<div class="se-row"><button type="button" class="se-link" data-ref="place:${esc(t.other)}">${esc(other)}</button>${chip(label('ALLIANCE_KINDS', t.kind), { alliance: 'teal', trade: 'am', vassal: 'am', truce: '', rivalry: 'red', war: 'red', covert: 'red' }[t.kind] || '')}${full.motive ? chip('Motive · ' + label('MOTIVES', full.motive), 'am') : ''}${t.owner !== c.pid ? chip('stored on ' + c.name('place:' + t.owner)) : ''}${t.hidden ? chip('Hidden from readers', 'dash') : ''}${markers(c, 'tie:' + t.owner + '/' + t.id)}</div>
+      return ecard(t.owner === c.pid ? 'foreign.ties.' + f.ties.findIndex(x => x.id === t.id) : '', '', `<div class="se-row"><button type="button" class="se-link" data-ref="place:${esc(t.other)}">${esc(other)}</button>${chip(label('ALLIANCE_KINDS', t.kind), { alliance: 'teal', trade: 'am', vassal: 'am', truce: '', rivalry: 'red', war: 'red', covert: 'red' }[t.kind] || '')}${full.motive ? chip('Motive · ' + label('MOTIVES', full.motive), 'am') : ''}${t.owner !== c.pid ? chip('stored on ' + c.name('place:' + t.owner)) : ''}${t.hidden ? chip('Hidden from readers', 'dash') : ''}${markers(c, 'tie:' + t.owner + '/' + t.id)}</div>
         ${kv([['Terms', (full.terms || []).map(x => esc(`${x.side || ''}: gives ${x.gives || '—'}, gets ${x.gets || '—'}`)).join('<br>') || esc(c.txt(full.note))],
               ['Signed', full.signed && (full.signed.when || full.signed.by) ? esc([full.signed.when, (full.signed.by || []).map(c.name).join(', '), full.signed.where].filter(Boolean).join(' · ')) : ''],
               ['Renewal', full.renewal && (full.renewal.expires || full.renewal.conditions) ? esc([full.renewal.expires, full.renewal.conditions].filter(Boolean).join(' · ')) : ''],
@@ -188,10 +190,10 @@
               ['Wants it to fail', c.author ? (full.wantsItToFail || []).map(r => chip(c.name(r), 'red')).join('') : '']])}`, t.hidden ? 'se-hid' : ''); };
     const html = `
       ${ties.length ? ties.map(tieCard).join('') : empty('No ties written yet.')}
-      ${blocs.map(b => card('Bloc · ' + b.name, kv([['Members', esc(b.members.map(m => c.name(m.place) + (m.to ? ' (left)' : '')).join(' · '))], ['Purpose', esc(b.purpose)], ['Seat', esc(c.name(b.seat))], ['Rival', esc(c.name(b.rival))], ['Tension', esc(b.tension)]]))).join('')}
+      ${blocs.map(b => ecard(f.blocs.indexOf(b) >= 0 ? 'foreign.blocs.' + f.blocs.indexOf(b) : '', 'Bloc · ' + b.name, kv([['Members', esc(b.members.map(m => c.name(m.place) + (m.to ? ' (left)' : '')).join(' · '))], ['Purpose', esc(b.purpose)], ['Seat', esc(c.name(b.seat))], ['Rival', esc(c.name(b.rival))], ['Tension', esc(b.tension)]]))).join('')}
       <div class="se-g2">
         ${c.author ? card('Agents in ' + c.place.name + ' · author only', agentsIn.length ? agentsIn.map(a => `<span>${esc(a.ref ? c.name(a.ref) : a.name)} <span class="se-dim">for ${esc(c.name('place:' + a.from))}${a.cover ? ', cover: ' + esc(a.cover) : ''}</span></span>`).join('') : '<span class="se-dim">None known.</span>', 'se-hid') : ''}
-        ${card('Envoys · hostages · borders · routes', `<span class="se-dim">Envoys: ${esc((f.envoys || []).map(e => e.name || c.name(e.ref)).join(', ') || 'none')} · Hostages: ${esc((f.hostages || []).map(e => e.name || c.name(e.ref)).join(', ') || 'none')}</span><span class="se-dim">Routes: ${esc((f.routes || []).map(r => c.name(r.to) + (r.carries && r.carries.length ? ' (' + r.carries.join(', ') + ')' : '')).join(' · ') || 'none')}</span><span class="se-dim">Borders: ${esc((f.borders || []).map(b => b.land).join(', ') || 'none')} · Migration: ${esc((f.migration || []).map(m => m.who).join(', ') || 'none')}</span>`)}
+        ${ecard('foreign.envoys', 'Envoys · hostages · borders · routes', `<span class="se-dim">Envoys: ${esc((f.envoys || []).map(e => e.name || c.name(e.ref)).join(', ') || 'none')} · Hostages: ${esc((f.hostages || []).map(e => e.name || c.name(e.ref)).join(', ') || 'none')}</span><span class="se-dim">Routes: ${esc((f.routes || []).map(r => c.name(r.to) + (r.carries && r.carries.length ? ' (' + r.carries.join(', ') + ')' : '')).join(' · ') || 'none')}</span><span class="se-dim">Borders: ${esc((f.borders || []).map(b => b.land).join(', ') || 'none')} · Migration: ${esc((f.migration || []).map(m => m.who).join(', ') || 'none')}</span>`)}
       </div>`;
     return { html, map: { ties, agentsIn, blocs } };
   }
@@ -202,13 +204,13 @@
     const items = global.EpitaphLibrary && global.EpitaphLibrary.itemsFromPlace ? (() => { try { return global.EpitaphLibrary.itemsFromPlace(c.pid) || []; } catch (x) { return []; } })() : [];
     const html = `
       ${list.length ? `<div class="se-tbl"><span class="th">★</span><span class="th">resource</span><span class="th">category</span><span class="th">role</span><span class="th">importance</span><span class="th">controlled by · if cut off</span>
-        ${list.map((r, i) => `<span class="se-star">${r.core ? '★' : ''}</span><span><b class="se-hi">${i + 1}</b> ${esc(c.txt(r.name))} ${markers(c, 'resource:' + r.id)}</span><span>${esc(label('RESOURCE_CATEGORIES', r.category))}</span><span>${esc(r.role)}</span><span>${dots(r.importance)}</span><span class="se-dim">${esc([r.controlledBy ? c.name(r.controlledBy) : '', r.ifCutOff].filter(Boolean).join(' · ')) || '—'}</span>`).join('')}</div>` : empty('No resources written yet.')}
+        ${list.map((r, i) => `<span class="se-star">${r.core ? '★' : ''}</span><span><b class="se-hi">${i + 1}</b> ${esc(c.txt(r.name))} ${markers(c, 'resource:' + r.id)}${c.author ? `<button type="button" class="se-pen-i" data-se-open="economy.resources.${i}" aria-label="Edit ${esc(r.name)}">✎</button>` : ''}</span><span>${esc(label('RESOURCE_CATEGORIES', r.category))}</span><span>${esc(r.role)}</span><span>${dots(r.importance)}</span><span class="se-dim">${esc([r.controlledBy ? c.name(r.controlledBy) : '', r.ifCutOff].filter(Boolean).join(' · ')) || '—'}</span>`).join('')}</div>` : empty('No resources written yet.')}
       ${list.some(r => r.role === 'needs' || r.role === 'scarce') ? '' : `<p class="se-dim">Needs and scarce: nothing written yet.</p>`}
       ${card('Items made here · once revealed', items.length ? `<div class="se-row">${items.map(i => chip(i.name)).join('')}</div>` : '<span class="se-dim">None revealed yet.</span>')}
       <div class="se-g3">
-        ${card('Currency', `<span>${esc(c.txt(e.currency)) || '<span class="se-dim">—</span>'}</span>`)}
-        ${card('Labour · wealth gap', `<span>${esc(c.txt(e.labour)) || '—'}</span><span class="se-dim">${esc(c.txt(e.wealthGap))}</span>`)}
-        ${card('Markets · taxes · black market · debts', `<span>${esc(c.txt(e.markets)) || '—'}</span><span class="se-dim">${esc([e.taxes, e.blackMarket, (e.debts || []).map(d => c.name(d.place)).join(', ')].filter(Boolean).join(' · ')) || '—'}</span>`)}
+        ${ecard('economy.prose', 'Currency', `<span>${esc(c.txt(e.currency)) || '<span class="se-dim">—</span>'}</span>`)}
+        ${ecard('economy.prose', 'Labour · wealth gap', `<span>${esc(c.txt(e.labour)) || '—'}</span><span class="se-dim">${esc(c.txt(e.wealthGap))}</span>`)}
+        ${ecard('economy.debts', 'Markets · taxes · black market · debts', `<span>${esc(c.txt(e.markets)) || '—'}</span><span class="se-dim">${esc([e.taxes, e.blackMarket, (e.debts || []).map(d => c.name(d.place)).join(', ')].filter(Boolean).join(' · ')) || '—'}</span>`)}
       </div>`;
     return { html, map: { resources: list } };
   }
@@ -240,7 +242,7 @@
     if (!c.author && !secrets.length && !rumours.length && !q.length && !hooks.length && !fore.length && !sealed.length) return { html: empty('Nothing here has come to light yet.'), map: { rumours: [] } };
     const html = `
       <div class="se-row">${['Secrets', 'Rumours', 'Questions', 'Hooks', 'Foreshadow', 'Sealed'].map((n, i) => chip(n + ' ' + [secrets, rumours, q, hooks, fore, sealed][i].length)).join('')}${c.author ? chip('What-ifs ' + whatIfs.length) : ''}</div>
-      ${secrets.map(s => card('', `<div class="se-row"><span class="se-red">◆</span><span class="se-hi">${esc(s.text)}</span></div>
+      ${secrets.map(s => ecard('intrigue.secrets.' + it.secrets.indexOf(s), '', `<div class="se-row"><span class="se-red">◆</span><span class="se-hi">${esc(s.text)}</span></div>
         ${kv([['About', aboutLinks(s.about)], ['Keepers · why', esc((s.keepers || []).map(k => c.name(k.ref) + (k.why ? ' (' + k.why + ')' : '')).join(', '))],
               ['Discoverable', s.discoverable && s.discoverable.where ? esc(c.name(s.discoverable.where) + (s.discoverable.how ? ' · ' + s.discoverable.how : '')) : ''],
               ['Evidence', c.author ? aboutLinks(s.evidence) : ''], ['Related', c.author ? (s.related || []).map(r => jump(r)).join('') : ''],
@@ -248,15 +250,15 @@
               ['Answers', answers(s.id).map(q => `<button type="button" class="se-link" data-se-focus="question:${esc(q.id)}">${esc((q.text || '').slice(0, 48))}</button>`).join('')],
               ['Known by', c.author ? knownByHtml(c, s) : ''], ['Could be found by', c.author ? findersHtml(c, s) : ''],
               ['Setup → payoff', c.author ? chip('setup ' + (s.setup == null ? '—' : 'Ch ' + s.setup), 'dash') + chip('payoff ' + (s.payoff == null ? '—' : 'Ch ' + s.payoff), 'dash') + reveal(s) : '']])}`, 'se-sec', 'secret:' + s.id)).join('')}
-      ${rumours.length ? `<div class="se-g2">${rumours.map(r => card('', `<div class="se-row"><span class="se-hi">“${esc(r.text)}”</span>${c.author ? chip(r.truth === 'half' ? 'Half-true' : r.truth === 'true' ? 'True' : 'False', 'am') : ''}</div>
+      ${rumours.length ? `<div class="se-g2">${rumours.map(r => ecard('intrigue.rumours.' + it.rumours.indexOf(r), '', `<div class="se-row"><span class="se-hi">“${esc(r.text)}”</span>${c.author ? chip(r.truth === 'half' ? 'Half-true' : r.truth === 'true' ? 'True' : 'False', 'am') : ''}</div>
         ${kv([['Origin', esc([c.name(r.origin.where), c.name(r.origin.who), r.origin.when].filter(Boolean).join(' · '))], ['Intent', c.author && r.origin.intent ? chip(label('RUMOUR_INTENTS', r.origin.intent)) : ''],
               ['Spread', esc((r.spread || []).map(x => c.name(x.to)).join(' → '))], ['Distorts', r.aboutSecret ? jump(r.aboutSecret) : ''], ['Effect', esc(r.effect)]])}`, '', 'rumour:' + r.id)).join('')}</div>` : ''}
       ${c.author ? card('Setup → payoff · the same check as the Dossier\'s Checks list', plantHtml(c), plantCls(c)) : ''}
-      ${whatIfs.map(w => card('What-if', `<div class="se-row"><span class="se-hi">${esc(w.trigger)}</span>${chip(label('TRIGGER_GROUPS', w.triggerKind))}${dots(w.likelihood)}${chip(w.status, 'dash')}</div>
+      ${whatIfs.map(w => ecard('scenarios.' + c.rec.scenarios.indexOf(w), 'What-if', `<div class="se-row"><span class="se-hi">${esc(w.trigger)}</span>${chip(label('TRIGGER_GROUPS', w.triggerKind))}${dots(w.likelihood)}${chip(w.status, 'dash')}</div>
         ${kv([['Causes', (w.causes || []).map(x => chip(x.cause)).join('')], ['Fallout', esc((w.fallout || []).map(x => c.name(x.place) + ': ' + x.what).join(' · '))], ['Warning signs', esc((w.warnings || []).map(x => x.text + (x.plantIn ? ' (Ch ' + x.plantIn + ')' : '')).join(' · ')) || '<span class="se-dim">none planted yet</span>']])}`, 'se-hid')).join('')}
       <div class="se-g2">
-        ${card('Questions · hooks', `${q.map(x => `<span data-se-id="question:${esc(x.id)}">${esc(x.text)}${c.author && x.answeredBy ? ' ' + jump(x.answeredBy, '◆ answered') : ''}</span>`).join('')}${hooks.map(x => `<span class="se-dim">Hook${x.for ? ' for ' + esc(c.name(x.for)) : ''}: ${esc(x.text)}</span>`).join('')}` || '<span class="se-dim">—</span>')}
-        ${card('Foreshadow · sealed', `${fore.map(x => `<span>${esc(x.text)}</span>`).join('')}${sealed.map(x => `<span class="se-dim">Sealed: ${esc(c.name(x.place))} · ${esc(x.why)}</span>`).join('')}` || '<span class="se-dim">—</span>')}
+        ${ecard('intrigue.questions', 'Questions · hooks', `${q.map(x => `<span data-se-id="question:${esc(x.id)}">${esc(x.text)}${c.author && x.answeredBy ? ' ' + jump(x.answeredBy, '◆ answered') : ''}</span>`).join('')}${hooks.map(x => `<span class="se-dim">Hook${x.for ? ' for ' + esc(c.name(x.for)) : ''}: ${esc(x.text)}</span>`).join('')}` || '<span class="se-dim">—</span>')}
+        ${ecard('intrigue.foreshadow', 'Foreshadow · sealed', `${fore.map(x => `<span>${esc(x.text)}</span>`).join('')}${sealed.map(x => `<span class="se-dim">Sealed: ${esc(c.name(x.place))} · ${esc(x.why)}</span>`).join('')}` || '<span class="se-dim">—</span>')}
       </div>`;
     return { html, map: { rumours } };
   }
@@ -384,6 +386,7 @@
         </div>
         <div class="se-body" tabindex="0">${html}</div>
       </div>`;
+    if (c.author && global.EpitaphSiteEdit) global.EpitaphSiteEdit.decorate(layer, c, cur);
     // the map, in the right page's panel
     const panel = document.getElementById('bookPanel');
     if (panel) {
@@ -421,7 +424,7 @@
   if (typeof document !== 'undefined') {
     document.addEventListener('click', e => {
       const t = e.target && e.target.closest ? e.target : null; if (!t || !cur) return;
-      const tabBtn = t.closest('[data-se-tab]'); if (tabBtn && t.closest('#seEntry')) { cur.tab = tabBtn.dataset.seTab; render(); return; }
+      const tabBtn = t.closest('[data-se-tab]'); if (tabBtn && t.closest('#seEntry')) { if (global.EpitaphSiteEdit && tabBtn.dataset.seTab !== cur.tab) global.EpitaphSiteEdit.cancel(cur.placeId); cur.tab = tabBtn.dataset.seTab; render(); return; }
       if (t.closest('[data-se-back]')) { close(); return; }
       const f = t.closest('[data-se-focus]'); if (f) { cur.tab = 'intrigue'; cur.focus = f.dataset.seFocus; render(); return; }
       const st = t.closest('[data-se-stage]'); if (st) { cur.stage = +st.dataset.seStage; drawMap(context(cur.placeId), RENDER[cur.tab](context(cur.placeId))); return; }
@@ -438,6 +441,7 @@
     document.addEventListener('pointerup', () => { drag = null; });
     document.addEventListener('keydown', e => {
       if (!cur || !document.getElementById('seEntry')) return;
+      if (e.key === 'Escape' && global.EpitaphSiteEdit && global.EpitaphSiteEdit.hasPending(cur.placeId)) { global.EpitaphSiteEdit.cancel(cur.placeId); render(); e.stopPropagation(); e.preventDefault(); return; }
       if (e.key === 'Escape' && !e.target.closest('input,textarea,select')) { close(); e.stopPropagation(); return; }
       if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && e.target.closest && e.target.closest('.se-cv')) { cur.angle += (e.key === 'ArrowLeft' ? -0.2 : 0.2); drawMap(context(cur.placeId), RENDER[cur.tab](context(cur.placeId))); e.preventDefault(); }
     }, true);
@@ -479,5 +483,5 @@
     ta.value = lines.join('\n'); sel.value = ''; ta.dispatchEvent(new Event('input', { bubbles: true })); ta.focus();
   });
 
-  global.EpitaphSiteEntry = { open, close, render, context, ZOOM, secretOptions, secretLabel, secretPickerHtml, _render: RENDER };
+  global.EpitaphSiteEntry = { open, close, render, context, current: () => cur, setTab: t => { if (cur) { cur.tab = t; render(); } }, ZOOM, secretOptions, secretLabel, secretPickerHtml, _render: RENDER };
 })(typeof window !== 'undefined' ? window : globalThis);

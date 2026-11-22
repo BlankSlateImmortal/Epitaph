@@ -2,6 +2,16 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Site Encyclopedia: the editor (assets/epitaph-site-edit.js) — step 3.1
+
+In the author's view every card of a place's entry gets a ✎, and each tab has an **Edit bar** at the top. Pick a card's ✎ and it opens into its form right where it was (a list card opens just that item); pick a chip in the bar to edit a whole list or block, or **+** to add one. Nothing is deleted without a second click. Readers never get any of it.
+
+- **Every field of every tab is editable** from one table: states, the seven scales and technology; purpose, founders, settlers, founding stages, myth, name, chronicle, eras, landmarks, lost things, the record and its evidence; government (offices, rulers over time, laws), factions, figures, unrest, society, knowledge, military; ties, blocs, envoys, hostages, agents, borders, routes, migration, reputation; resources, the wider economy, debts; beasts; secrets, rumours, questions, hooks, foreshadowing, sealed places; what-ifs. Plus the **founding model** switch.
+- **Pickers:** seven-option chips for the seven-sets (and multiple for wards), a 7-dot clicker that shows the step name, a **timeline picker** (event title, "since the start", "ongoing"), place, character and secret pickers you can also type into, chip lists, one-per-line lists and repeatable rows.
+- **The reader gate:** every item readers can be held back from has *Hidden from readers* and *Reveal in Ch*; the author-only fields (secret goals, truths, fears, leverage, real reasons…) are marked ◆ author.
+- **Saving:** a saved tab is yours, so Merge no longer replaces it (the form says so while a tab is still a draft). Each save keeps the tab as it was: **Undo** in the bar, or Ctrl+Z (last 30). Esc closes a form without closing the entry.
+- **Checked:** opening and saving every record in the six drafted places with no change reads back identically (2,039 fields), plus 48 real clicks (edit, add, delete, validation, rows, the timeline picker, undo, Esc, the reader seeing none of it).
+
 ## Site Encyclopedia: the reader gate and the published snapshot (assets/epitaph-sites.js `forReader`, epitaph-publish.js) — step 2.4
 
 The published file now carries all seven tabs of every place readers have reached (snapshot schema 3), already gated, and the book's **Reader view** shows exactly that, through the same function.
