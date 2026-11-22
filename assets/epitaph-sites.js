@@ -3,14 +3,20 @@
  * assets/epitaph-world.js; this file only adds records keyed by place id. Dates are timeline event ids
  * (assets/epitaph-timeline.js), so spoilers follow the reader's chapter.
  *
- * Record: { placeId, states, rule, alliances, resources, beasts, founding, draft }
- *   states:    [{ from: eventId|null, status, scales: { size … written: 1..7 }, note }]  (null = since before the story)
- *   rule:      { form, holders: [{ ref, title, from, to }], laws: [..], outsiders, stance }
- *   alliances: [{ with: 'place:<id>', kind, from, to, secret, note }]  stored on one side, shown on both (alliancesOf)
- *   resources: [{ name, category, role, source? }]
- *   beasts:    [{ ref: 'creature:<id>', relation, note }]
- *   founding:  [{ stage, when, why, who, materials, reused, change }]
- *   draft:     { <tab>: true } for each tab that is still Claude's draft
+ * Schema v2 (2026-11-22): docs/plans/site-schema-v2.md. Seven tabs: Overview · History · Domestic · Foreign · Economy · Beasts · Intrigue.
+ * Record: { placeId, model, overview, history, domestic, foreign, economy, beasts, intrigue, scenarios, draft }
+ *   overview: { states: [{ from: eventId|null, status, scales: { size … written: 1..7 }, techLevel?, note }] }  (null = since before the story)
+ *   history:  { purpose, founders, settlers, founding: [{ stage, when, why, who, materials, reused, change }], myth, name, chronicle,
+ *               eras, landmarks, lost, record }
+ *   domestic: { government: { form, offices, holders: [{ ref, title, from, to }], succession, laws: [{ text, from, to }], justice,
+ *               corruption, citizenship, outsiders, stance }, factions, figures, unrest, society, knowledge, military }
+ *   foreign:  { ties: [{ id, with: 'place:<id>', kind, motive, terms, from, to, secret, note … }], blocs, envoys, hostages, agents, borders,
+ *               routes, migration, reputation }   ties are stored on one side, shown on both (alliancesOf)
+ *   economy:  { resources: [{ id, name, category, role, core, importance, … }], currency, markets, taxes, blackMarket, labour, wealthGap, debts }
+ *   beasts:   [{ ref: 'creature:<id>', relation, wards, incidents, … }]
+ *   intrigue: { secrets, rumours, questions, hooks, foreshadow, sealed }       scenarios: [what-if records]
+ *   draft:    { <tab>: true } for each tab that is still Claude's draft
+ * v1 records (states, rule, alliances, resources, founding) are upgraded on load (upgradeRaw) and the old store is backed up once.
  *
  * The records are stored under 'epitaph-sites' as whole tabs per place (on top of DEFAULTS, which is empty: the lore drafts are
  * private and are merged in from the vault, see docs/plans/publish-readonly.md).
@@ -18,7 +24,8 @@
 (function (global) {
   'use strict';
   const KEY = 'epitaph-sites';
-  const VERSION = 1;
+  const VERSION = 2;
+  const BACKUP_KEY = 'epitaph-sites-backup-v1';
 
   // ---- the seven 7-sets (docs/plans/site-schema.md) ----
   const STATUS = [
@@ -76,7 +83,35 @@
     { id: 'growth', label: 'Growth' }, { id: 'disaster', label: 'Disaster' }, { id: 'rebuilt', label: 'Rebuilt' },
     { id: 'present', label: 'As it stands' }
   ];
-  const TABS = ['states', 'rule', 'alliances', 'resources', 'beasts', 'founding'];
+  // ---- v2: the new 7-sets (docs/plans/site-schema-v2.md; the merged sevens and the four scales were approved 2026-11-22) ----
+  const sset = rows => rows.map(r => ({ id: r[0], label: r[1], rule: r[2] || '' }));
+  const MOTIVES = sset([['faith', 'Faith', 'A shared god or creed'], ['trade', 'Trade', 'Resources, convenience'], ['protection', 'Protection', 'Defence, a beast threat, fear of a third power'],
+    ['conquest', 'Conquest', 'Teaming up to overpower someone'], ['bonds', 'Bonds', 'Kinship or marriage, gratitude'], ['tribute', 'Tribute', 'Debt, dues'], ['secrets', 'Secrets', 'Knowledge, infiltration']]);
+  const FACTION_KINDS = sset([['ruling', 'Ruling power'], ['faith', 'Faith', 'Religious order, cult'], ['trade', 'Trade', 'Guild or merchant house'], ['arms', 'Arms', 'Military or guard'],
+    ['blood', 'Blood', 'Noble houses or bloodlines'], ['learning', 'Learning', 'Scholars, archivists'], ['shadow', 'Shadow', 'Rebels or underground, criminal network']]);
+  const TIE_ENDINGS = sset([['lapsed', 'Lapsed', 'Expired, not renewed, quietly lapsed'], ['renegotiated', 'Renegotiated', 'Became something new'], ['betrayed', 'Betrayed'], ['war', 'War'],
+    ['absorbed', 'Absorbed', 'One side conquered'], ['erased', 'Erased', 'One side ruined or erased'], ['realigned', 'Realigned', 'A coup or new ruler, a better offer']]);
+  const TEMPERAMENTS = sset([['docile', 'Docile'], ['skittish', 'Skittish'], ['territorial', 'Territorial'], ['predatory', 'Predatory'], ['aggressive', 'Aggressive'], ['cunning', 'Cunning'], ['sapient', 'Sapient', 'Thinks, plans, may talk']]);
+  const SOCIAL_SHAPES = sset([['solitary', 'Solitary'], ['pair', 'Pair or family'], ['pack', 'Pack'], ['herd', 'Herd or migratory'], ['colony', 'Colony'], ['hive', 'Hive'], ['nest', 'Nest-builders']]);
+  const WARD_KINDS = sset([['walls', 'Walls'], ['barriers', 'Barriers of power'], ['culls', 'Culls and hunts'], ['guardians', 'Tamed guardians'], ['offerings', 'Offerings or tribute'], ['pacts', 'Pacts'], ['hidden', 'Hidden location']]);
+  const RUMOUR_INTENTS = sset([['mistake', 'Honest mistake'], ['gossip', 'Embellished gossip'], ['slander', 'Malicious slander'], ['propaganda', 'Propaganda'], ['cover', 'Cover story', 'Hides a secret'],
+    ['bait', 'Bait', 'A trap'], ['powers', 'The world\'s powers', 'A Narrative rewrite or a Storyborn\'s doing']]);
+  const TRIGGER_GROUPS = sset([['ties', 'Ties', 'An alliance breaks'], ['power', 'Power', 'A ruler falls, a faction seizes power, a rebellion'], ['supply', 'Supply', 'A resource runs out, a route is cut'],
+    ['beasts', 'Beasts', 'A surge or migration'], ['secrets', 'Secrets', 'One revealed; a key figure captured, killed or defecting'], ['discovery', 'Discovery', 'Technology or a relic'],
+    ['catastrophe', 'Catastrophe', 'Plague, flood, fire; a Storyborn or Voided intervention']]);
+  // four more 1–7 scales (each step is a rule, not a number)
+  const SCALE_SETS = {
+    tech: { id: 'tech', label: 'Technology', rule: 'What the place can build and run', steps: ['Scavenged', 'Craft', 'Workshop', 'Industrial', 'Restored', 'Advanced', 'Transcendent'] },
+    strength: { id: 'strength', label: 'Faction strength', rule: 'How much it can actually do', steps: ['Fringe', 'Minor', 'Notable', 'Influential', 'Powerful', 'Dominant', 'Unchallenged'] },
+    importance: { id: 'importance', label: 'Resource importance', rule: 'What the place does without it', steps: ['Trivial', 'Minor', 'Useful', 'Valued', 'Vital', 'Lifeblood', 'Existential'] },
+    likelihood: { id: 'likelihood', label: 'Scenario likelihood', rule: 'How likely it is to happen', steps: ['Unthinkable', 'Remote', 'Unlikely', 'Possible', 'Likely', 'Expected', 'Inevitable'] }
+  };
+  const TABS = ['overview', 'history', 'domestic', 'foreign', 'economy', 'beasts', 'intrigue'];
+  const TAB_LABEL = { overview: 'Overview', history: 'History', domestic: 'Domestic', foreign: 'Foreign', economy: 'Economy', beasts: 'Beasts', intrigue: 'Intrigue' };
+  /** Everything a save can carry: the seven tabs plus the what-if scenarios, which belong to no tab. */
+  const DATA_TABS = TABS.concat(['scenarios']);
+  const V1_KEYS = ['states', 'rule', 'alliances', 'resources', 'founding'];
+  const V1_DRAFT_TAB = { states: 'overview', rule: 'domestic', alliances: 'foreign', resources: 'economy', founding: 'history', beasts: 'beasts' };
 
   // No lore ships in this file (it is public). The drafts live in the author's vault (epitaph-drafts.json) and come in through
   // the Dossier's Data > Merge; readers get a filtered snapshot instead. DEFAULTS stays so a default can be added again.
@@ -89,34 +124,106 @@
     return { version: VERSION, places: {} };
   }
   function writeStore(s) {
-    try { localStorage.setItem(KEY, JSON.stringify(Object.assign({}, s, { version: VERSION }))); return true; } catch (e) { return false; }
+    try {
+      // the first write after the v1 → v2 upgrade keeps the old store, once
+      const raw = localStorage.getItem(KEY);
+      if (raw && !localStorage.getItem(BACKUP_KEY)) { const old = JSON.parse(raw); if (old && old.places && (old.version || 1) < 2) localStorage.setItem(BACKUP_KEY, raw); }
+      localStorage.setItem(KEY, JSON.stringify(Object.assign({}, s, { version: VERSION }))); return true;
+    } catch (e) { return false; }
   }
+  const slug = t => String(t == null ? '' : t).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'x';
+  /** A unique id for a new list entry: the base text, then -2, -3 … when it is taken. */
+  function uid(base, list) {
+    const b = slug(base); let id = b, n = 1;
+    while ((list || []).some(x => x && x.id === id)) id = b + '-' + (++n);
+    return id;
+  }
+  /** Fill what is missing from `def` into `obj` (objects deep, arrays and scalars only when absent). */
+  function fill(obj, def) {
+    Object.keys(def).forEach(k => {
+      const d = def[k];
+      if (Array.isArray(d)) { if (!Array.isArray(obj[k])) obj[k] = []; }
+      else if (d && typeof d === 'object') { if (!obj[k] || typeof obj[k] !== 'object' || Array.isArray(obj[k])) obj[k] = {}; fill(obj[k], d); }
+      else if (obj[k] === undefined || obj[k] === null) obj[k] = d;
+    });
+    return obj;
+  }
+  const TAB_DEFAULTS = () => ({
+    overview: { states: [] },
+    history: { purpose: { original: '', now: '', drift: '' }, founders: [], settlers: { who: '', from: '', why: '' }, founding: [],
+      myth: { text: '', true: '', secret: false }, name: { meaning: '', older: [], outsiders: [] }, chronicle: [], eras: [], landmarks: [], lost: [], record: [] },
+    domestic: { government: { form: 'none', offices: [], holders: [], succession: '', laws: [], justice: '', corruption: '', citizenship: '', outsiders: '', stance: '' },
+      factions: [], figures: [], unrest: [],
+      society: { daily: '', customs: '', festivals: '', taboos: '', faith: '', outsiders: { storyborn: '', voided: '', fallen: '', foreign: '' }, culture: '' },
+      knowledge: { era0: [], energy: '', medicine: '', communication: '', weapons: '', education: '', forbidden: [] },
+      military: { forces: [], ranks: [], doctrine: '', commanders: [], campaigns: [] } },
+    foreign: { ties: [], blocs: [], envoys: [], hostages: [], agents: [], borders: [], routes: [], migration: [], reputation: [] },
+    economy: { resources: [], currency: '', markets: '', taxes: '', blackMarket: '', labour: '', wealthGap: '', debts: [] },
+    beasts: [],
+    intrigue: { secrets: [], rumours: [], questions: [], hooks: [], foreshadow: [], sealed: [] },
+    scenarios: []
+  });
+  /** Turn whatever is stored for one place into v2's shape, for the tabs it has (a stored place holds whole tabs, so it can be partial).
+   *  v1 keys are mapped over without loss; a record that already has the v2 tab wins over a leftover v1 key. */
+  function upgradeRaw(r) {
+    if (!r || typeof r !== 'object') return {};
+    const o = {};
+    Object.keys(r).forEach(k => { if (!V1_KEYS.includes(k) && k !== 'draft') o[k] = clone(r[k]); });
+    if ('states' in r && !('overview' in r)) o.overview = { states: Array.isArray(r.states) ? clone(r.states) : [] };
+    if ('founding' in r && !('history' in r)) o.history = { founding: Array.isArray(r.founding) ? clone(r.founding) : [] };
+    if ('rule' in r && !('domestic' in r)) {
+      const u = r.rule || {};
+      o.domestic = { government: { form: u.form || 'none', holders: clone(u.holders || []), outsiders: u.outsiders || '', stance: u.stance || '',
+        laws: (u.laws || []).map(l => typeof l === 'string' ? { text: l, from: null, to: null } : clone(l)) } };
+    }
+    if ('alliances' in r && !('foreign' in r)) {
+      const ties = [];
+      (r.alliances || []).forEach(a => { const t = clone(a); t.id = t.id || uid(slug(String(a.with || '').replace(/^place:/, '')) + '-' + (a.kind || 'tie'), ties); ties.push(t); });
+      o.foreign = { ties };
+    }
+    if ('resources' in r && !('economy' in r)) {
+      const list = [];
+      (r.resources || []).forEach(x => { const c = clone(x); c.id = c.id || uid(x.name, list); list.push(c); });
+      o.economy = { resources: list };
+    }
+    if (r.draft && typeof r.draft === 'object') {
+      o.draft = {};
+      Object.keys(r.draft).forEach(k => { const t = V1_DRAFT_TAB[k] || k; if (r.draft[k] || !(t in o.draft)) o.draft[t] = !!r.draft[k] || !!o.draft[t]; });
+    }
+    return o;
+  }
+  const isStatue = id => { const W = global.EpitaphWorld; return !!(W && W.STATUES && W.STATUES.includes(id)); };
+  /** Does this place get a founding model? On for the statue sites until the author switches it; the author can switch any place. */
+  function hasModel(rec) { return rec && rec.model !== undefined && rec.model !== null ? !!rec.model : isStatue(rec && rec.placeId); }
   function empty(placeId) {
-    return { placeId, states: [], rule: { form: 'none', holders: [], laws: [], outsiders: '', stance: '' }, alliances: [], resources: [], beasts: [], founding: [], draft: {} };
+    return Object.assign({ placeId, draft: {} }, TAB_DEFAULTS());
   }
   function normalise(r) {
-    const out = Object.assign(empty(r && r.placeId), r || {});
-    ['states', 'alliances', 'resources', 'beasts', 'founding'].forEach(k => { if (!Array.isArray(out[k])) out[k] = []; });
-    out.rule = Object.assign(empty().rule, out.rule || {});
+    const up = upgradeRaw(r);
+    const out = Object.assign({ placeId: up.placeId }, up);
+    fill(out, TAB_DEFAULTS());
     out.draft = Object.assign({}, out.draft || {});
+    if (!out.placeId && r && r.placeId) out.placeId = r.placeId;
     return out;
   }
   /** Every record: defaults with the user's tabs on top, plus places only the user has written. */
   function load() {
     const s = readStore();
-    const out = DEFAULTS.map(d => normalise(Object.assign(clone(d), s.places[d.placeId] || {})));
+    const out = DEFAULTS.map(d => normalise(Object.assign(clone(d), upgradeRaw(s.places[d.placeId]))));
     Object.keys(s.places).forEach(id => { if (!DEFAULTS.some(d => d.placeId === id)) out.push(normalise(Object.assign({ placeId: id }, s.places[id]))); });
     return out;
   }
   function get(placeId, list) { return (list || load()).find(r => r.placeId === placeId) || null; }
-  /** Save the given tabs of one place (e.g. { placeId, rule }). A saved tab stops being a draft unless it says otherwise. */
+  /** Save the given tabs of one place (e.g. { placeId, domestic }). A saved tab stops being a draft unless it says otherwise.
+   *  Old v1 tab names (rule, alliances…) are accepted and upgraded. */
   function save(rec) {
-    const s = readStore(), cur = s.places[rec.placeId] || {};
-    const next = Object.assign({}, cur, clone(rec));
+    const s = readStore(), cur = upgradeRaw(s.places[rec.placeId] || {});
+    const inc = upgradeRaw(rec);
+    const next = Object.assign({}, cur, inc);
     const base = get(rec.placeId) || empty(rec.placeId);
     next.draft = Object.assign({}, base.draft, cur.draft || {});
-    TABS.forEach(t => { if (t in rec && !(rec.draft && t in rec.draft)) next.draft[t] = false; });
-    if (rec.draft) Object.assign(next.draft, rec.draft);
+    DATA_TABS.forEach(t => { if (t in inc && !(inc.draft && t in inc.draft)) next.draft[t] = false; });
+    if (inc.draft) Object.assign(next.draft, inc.draft);
     delete next.placeId;
     s.places[rec.placeId] = next;
     return writeStore(s);
@@ -150,13 +257,13 @@
   /** The place's state a reader on `chapter` sees: the last state whose start they've reached. */
   function stateAt(rec, chapter) {
     let cur = null;
-    (rec.states || []).forEach(st => { if (reached(st.from, chapter)) cur = st; });
+    ((rec.overview && rec.overview.states) || []).forEach(st => { if (reached(st.from, chapter)) cur = st; });
     return cur;
   }
   /** Alliances touching a place, from both sides, each with `other` (the other place's id), seen from that place. */
   function alliancesOf(placeId, list) {
     const out = [];
-    (list || load()).forEach(r => (r.alliances || []).forEach(a => {
+    (list || load()).forEach(r => ((r.foreign && r.foreign.ties) || []).forEach(a => {
       const w = String(a.with || '').replace(/^place:/, '');
       if (r.placeId === placeId) out.push(Object.assign({ other: w, owner: r.placeId }, a));
       else if (w === placeId) out.push(Object.assign({ other: r.placeId, owner: r.placeId }, a));
@@ -225,7 +332,9 @@
   const step = (scaleId, n) => { const s = SCALES.find(x => x.id === scaleId); return s && n >= 1 && n <= 7 ? s.steps[n - 1] : '?'; };
 
   global.EpitaphSites = {
-    KEY, VERSION, STATUS, SCALES, FORMS, ALLIANCE_KINDS, BEAST_RELATIONS, RESOURCE_CATEGORIES, RESOURCE_ROLES, FOUNDING_STAGES, TABS, DEFAULTS,
-    alliancesAt, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, mergeData, empty, normalise, reached, stateAt, alliancesOf, label, step
+    KEY, VERSION, BACKUP_KEY, STATUS, SCALES, SCALE_SETS, FORMS, ALLIANCE_KINDS, BEAST_RELATIONS, RESOURCE_CATEGORIES, RESOURCE_ROLES, FOUNDING_STAGES,
+    MOTIVES, FACTION_KINDS, TIE_ENDINGS, TEMPERAMENTS, SOCIAL_SHAPES, WARD_KINDS, RUMOUR_INTENTS, TRIGGER_GROUPS,
+    TABS, TAB_LABEL, DATA_TABS, DEFAULTS,
+    alliancesAt, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
   };
 })(typeof window !== 'undefined' ? window : globalThis);

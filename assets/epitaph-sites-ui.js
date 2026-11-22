@@ -19,7 +19,7 @@
   const Sites = () => global.EpitaphSites, World = () => global.EpitaphWorld, TL = () => global.EpitaphTimeline;
 
   function factionOf(place, rec) {
-    const k = String((rec && rec.rule && rec.rule.stance) || place.group || '').toLowerCase();
+    const k = String((rec && rec.domestic && rec.domestic.government.stance) || place.group || '').toLowerCase();
     return GROUPS.some(g => g.id === k) ? k : 'other';
   }
 
@@ -35,18 +35,18 @@
     return list.filter(({ place, rec }) => author || S.placeReached(rec, chapter)).map(({ place, rec }) => {
       const reachedByReader = S.placeReached(rec, chapter);
       // a reader sees the state they've reached; the author also gets the first state of a place readers haven't reached
-      const state = rec ? (S.stateAt(rec, chapter) || (author && rec.states[0]) || null) : null;
+      const state = rec ? (S.stateAt(rec, chapter) || (author && rec.overview.states[0]) || null) : null;
       const allies = rec ? S.alliancesAt(place.id, chapter, recs, author) : [];
       const visible = rec && state;
       const words = [place.name, (W.continent(place.continentId) || {}).name, (W.country(place.countryId) || {}).name];
       if (visible) {
-        words.push(state.note, state.status, S.label(S.STATUS, state.status), S.label(S.FORMS, rec.rule.form), rec.rule.stance, rec.rule.outsiders);
-        rec.rule.holders.forEach(h => { if (S.reached(h.from, chapter)) words.push(String(h.ref).replace(/^char:/, ''), h.title); });
-        (rec.rule.laws || []).forEach(l => words.push(l));
+        words.push(state.note, state.status, S.label(S.STATUS, state.status), S.label(S.FORMS, rec.domestic.government.form), rec.domestic.government.stance, rec.domestic.government.outsiders);
+        rec.domestic.government.holders.forEach(h => { if (S.reached(h.from, chapter)) words.push(String(h.ref).replace(/^char:/, ''), h.title); });
+        (rec.domestic.government.laws || []).forEach(l => words.push(l.text));
         allies.forEach(a => words.push(name(a.other), a.kind, S.label(S.ALLIANCE_KINDS, a.kind), a.note));
-        rec.resources.forEach(x => words.push(x.name, S.label(S.RESOURCE_CATEGORIES, x.category), x.role));
+        rec.economy.resources.forEach(x => words.push(x.name, S.label(S.RESOURCE_CATEGORIES, x.category), x.role));
         rec.beasts.forEach(b => words.push(String(b.ref).replace(/^creature:/, ''), b.relation));
-        rec.founding.forEach(f => { if (S.reached(f.when, chapter)) words.push(f.change, f.why, f.materials, f.reused); });
+        rec.history.founding.forEach(f => { if (S.reached(f.when, chapter)) words.push(f.change, f.why, f.materials, f.reused); });
       }
       const safe = author ? (t => t) : (t => S.clean(t, chapter, recs, false));   // a reader's search never sees text that names a place they haven't reached
       return { place, rec, state: visible ? state : null, allies, hidden: !!rec && !reachedByReader, revealIn: rec ? S.placeRevealChapter(rec) : null, faction: factionOf(place, visible ? rec : null), words: ' ' + words.filter(Boolean).map(safe).join(' ').toLowerCase().replace(/[^a-z0-9\u00c0-\u024f]+/g, ' ') };
@@ -60,7 +60,7 @@
   function pass(r) {
     if (filters.era && !(r.place.eras || []).includes(filters.era)) return false;
     if (filters.continent && r.place.continentId !== filters.continent) return false;
-    if (filters.form && !(r.state && r.rec.rule.form === filters.form)) return false;
+    if (filters.form && !(r.state && r.rec.domestic.government.form === filters.form)) return false;
     if (filters.status && !(r.state && r.state.status === filters.status)) return false;
     const toks = tokens(filters.q);
     return toks.every(t => r.words.includes(' ' + t));        // a word that starts with it, so "val" doesn't find "valley"
@@ -78,7 +78,7 @@
     const readerText = chapter == null ? 'the latest chapter' : 'Ch ' + chapter;
     const hiddenCount = all.filter(r => r.hidden).length;
     const place = r => {
-      const st = r.state, rule = st ? S.label(S.FORMS, r.rec.rule.form) : '';
+      const st = r.state, rule = st ? S.label(S.FORMS, r.rec.domestic.government.form) : '';
       const sz = st ? S.step('size', st.scales.size) : '';
       return `<li><button type="button" class="bk-si-row" data-ref="place:${esc(r.place.id)}">
         <b>${esc(r.place.name)}</b>

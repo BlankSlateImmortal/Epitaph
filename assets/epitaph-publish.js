@@ -245,16 +245,16 @@
       const sites = [], heldSites = [];
       recs.forEach(r => {
         if (!S.placeReached(r, N)) { heldSites.push(r.placeId); return; }
-        const states = r.states.filter(st => S.reached(st.from, N)).map(st => ({ from: st.from, status: st.status, scales: clone(st.scales || {}), note: scrub(st.note) }));
-        const holders = (r.rule.holders || []).filter(h => S.reached(h.from, N) && (!/^char:/.test(String(h.ref)) || charRef(h.ref)))
+        const states = r.overview.states.filter(st => S.reached(st.from, N)).map(st => ({ from: st.from, status: st.status, scales: clone(st.scales || {}), note: scrub(st.note) }));
+        const holders = (r.domestic.government.holders || []).filter(h => S.reached(h.from, N) && (!/^char:/.test(String(h.ref)) || charRef(h.ref)))
           .map(h => ({ ref: scrub(String(h.ref).replace(/^char:/, '')) ? h.ref : '', title: scrub(h.title), from: h.from, to: S.reached(h.to, N) ? h.to : null })).filter(h => h.ref);
         const alliances = S.alliancesAt(r.placeId, N, recs, false).filter(a => a.owner === r.placeId).map(a => ({
           with: a.with, kind: a.kind, from: a.from, to: a.endHidden ? null : a.to, endsLater: !!a.endHidden, note: scrub(a.note) }));
-        const resources = (r.resources || []).map(x => ({ name: scrub(x.name), category: x.category, role: x.role, source: x.source && !hiddenPlace(String(x.source).replace(/^place:/, '')) ? x.source : undefined })).filter(x => x.name).map(x => { if (x.source === undefined) delete x.source; return x; });
+        const resources = (r.economy.resources || []).map(x => ({ name: scrub(x.name), category: x.category, role: x.role, source: x.source && !hiddenPlace(String(x.source).replace(/^place:/, '')) ? x.source : undefined })).filter(x => x.name).map(x => { if (x.source === undefined) delete x.source; return x; });
         const beasts = (r.beasts || []).map(b => ({ ref: b.ref, relation: b.relation, note: scrub(b.note) }));
-        const founding = (r.founding || []).filter(f => S.reached(f.when, N)).map(f => ({ stage: f.stage, when: f.when, why: scrub(f.why), who: scrub(String(f.who || '').replace(/^char:/, '')), materials: scrub(f.materials), reused: scrub(f.reused), change: scrub(f.change) }));
+        const founding = (r.history.founding || []).filter(f => S.reached(f.when, N)).map(f => ({ stage: f.stage, when: f.when, why: scrub(f.why), who: scrub(String(f.who || '').replace(/^char:/, '')), materials: scrub(f.materials), reused: scrub(f.reused), change: scrub(f.change) }));
         sites.push({ placeId: r.placeId, revealedIn: S.placeRevealChapter(r), states,
-          rule: { form: r.rule.form, holders, laws: (r.rule.laws || []).map(scrub).filter(Boolean), outsiders: scrub(r.rule.outsiders), stance: r.rule.stance || '' },
+          rule: { form: r.domestic.government.form, holders, laws: (r.domestic.government.laws || []).map(l => scrub(l.text)).filter(Boolean), outsiders: scrub(r.domestic.government.outsiders), stance: r.domestic.government.stance || '' },
           alliances, resources, beasts, founding });
       });
       // a tie must not name a place that was held back (alliancesAt already hides those), but a second pass is cheap

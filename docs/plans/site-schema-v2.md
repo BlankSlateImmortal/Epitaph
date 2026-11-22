@@ -193,6 +193,6 @@ fire; a Storyborn or Voided intervention).
 
 ## From v1 to v2
 
-v1 data moves over without loss: `states` → `overview.states`, `rule` → `domestic.government` (+ `stance` → society.outsiders note),
+v1 data moves over without loss: `states` → `overview.states`, `rule` → `domestic.government` (`stance` and `outsiders` stay there, since the index groups places by stance; laws become `{ text, from, to }`),
 `alliances` → `foreign.ties` (kind kept; motive empty), `resources` → `economy.resources`, `beasts` → `beasts`, `founding` →
 `history.founding`. Storage keeps one record per place per tab, now per v2 tab. The schema version goes to 2 with a backup before the upgrade.

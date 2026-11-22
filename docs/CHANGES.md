@@ -2,6 +2,15 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Site Encyclopedia: schema v2 (assets/epitaph-sites.js) — plan: `docs/plans/site-encyclopedia.md`, step 1.5
+
+A place's record now has seven tabs: **Overview · History · Domestic · Foreign · Economy · Beasts · Intrigue** (plus what-if `scenarios`), as laid out in `docs/plans/site-schema-v2.md`. Nothing you could see changes yet: the pages that show the new tabs come next.
+
+- **Your old entries upgrade themselves.** The first time the page loads, each place is mapped over without loss: states → Overview, the rule → Domestic (laws become dated lines), alliances → Foreign ties (each gets an id), resources → Economy (each gets an id), founding stages → History. Draft flags follow. The old store is copied once to `epitaph-sites-backup-v1` the first time anything is saved.
+- **New 7-sets** (exactly seven each): motives, faction kinds, ways a tie ends, beast temperament, social shape, kinds of ward, rumour intent and scenario trigger kinds. Four new 1–7 scales: technology, faction strength, resource importance and scenario likelihood.
+- **Founding model switch** (`EpitaphSites.hasModel`): on for the statue sites by default, off elsewhere, and the author can switch any place.
+- Export, Import and Merge still work with old backups. The index, the Checks list and the published snapshot read the new shape; the snapshot readers load is unchanged (checked byte for byte against the old one), and the new tabs join it with the spoiler gate (step 2.4).
+
 ## Item system (assets/epitaph-library.js, epitaph-item-fields.js, epitaph-marks.js, epitaph-states.js) — plan: `docs/plans/item-system.md`
 
 Items now carry what the author's Items page describes: a rank and tier, up to three tracks of states, a history, and marks with their own fields. Everything below is built; what is left is listed at the end.

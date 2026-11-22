@@ -289,10 +289,10 @@
       const me = placeName(r.placeId), at = { placeId: r.placeId };
       if (!World.place(r.placeId)) out.push({ level: 'warn', rule: 'site-place', ...at, text: `An encyclopedia entry is for “${r.placeId}”, which is not a place on the map.` });
       const need = (id, where) => { if (id != null && TL && !TL.byId(id)) out.push({ level: 'warn', rule: 'site-event', ...at, text: `${me}: ${where} points at “${id}”, which is not on the timeline.` }); };
-      r.states.forEach(s => need(s.from, 'a state'));
-      r.rule.holders.forEach(h => { need(h.from, 'a ruler\'s start'); need(h.to, 'a ruler\'s end'); });
-      r.founding.forEach(f => need(f.when, 'a founding stage'));
-      r.alliances.forEach(a => {
+      r.overview.states.forEach(s => need(s.from, 'a state'));
+      r.domestic.government.holders.forEach(h => { need(h.from, 'a ruler\'s start'); need(h.to, 'a ruler\'s end'); });
+      r.history.founding.forEach(f => need(f.when, 'a founding stage'));
+      r.foreign.ties.forEach(a => {
         const other = bare(a.with);
         if (!World.place(other)) out.push({ level: 'warn', rule: 'site-place', ...at, text: `${me} has an alliance with “${other}”, which is not a place on the map.` });
         need(a.from, 'an alliance\'s start'); need(a.to, 'an alliance\'s end');
@@ -303,7 +303,7 @@
         const id = String(b.ref || '').replace(/^creature:/, '');
         if (!Cr.byId(id)) out.push({ level: 'warn', rule: 'site-beast', ...at, text: `${me} lists a beast (“${id}”) that is not in the Creature Log.` });
       });
-      r.resources.forEach(x => { if (x.source && /^place:/.test(x.source) && !World.place(bare(x.source))) out.push({ level: 'warn', rule: 'site-place', ...at, text: `${me}: the resource “${x.name}” comes from “${bare(x.source)}”, which is not a place on the map.` }); });
+      r.economy.resources.forEach(x => { if (x.source && /^place:/.test(x.source) && !World.place(bare(x.source))) out.push({ level: 'warn', rule: 'site-place', ...at, text: `${me}: the resource “${x.name}” comes from “${bare(x.source)}”, which is not a place on the map.` }); });
     });
     const have = new Set(recs.map(r => r.placeId));
     const missing = World.places().filter(p => (p.eras || []).includes('ERA_1') && !have.has(p.id));
