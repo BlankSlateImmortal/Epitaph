@@ -102,7 +102,7 @@ Then make the site a complete public web page, and make publishing new chapters 
 
 ## Phase 4 — Publishing chapters
 
-- [ ] **4.1 One command.** `tools/publish.py`: runs `sync-chapters.py`, picks up the newest `published.json` from Downloads, runs the
+- [x] **4.1 One command.** `tools/publish.py`: runs `sync-chapters.py`, picks up the newest `published.json` from Downloads, runs the
   snapshot check, shows what changed, then **asks before** `git commit` and `git push`. Canon chapters only; drafts never leave the vault.
 - [ ] **4.2 Chapter flow, written down.** Write in the vault → mark `status: canon` and list `moments:` → `publish` → live in a minute.
   The published chapter number becomes `publishedThrough`, which reveals the moments and places that chapter reaches.
@@ -141,6 +141,8 @@ When the user says "get back to it" and this is the active plan:
 
 ## Tweak log
 Newest first.
+
+- 2026-11-23 — 4.1 done (Sonnet). `python3 tools/publish.py`: syncs canon chapters, takes the newest `epitaph-data*.js` from Downloads (the Dossier's download is named `epitaph-data.js`, not `published.json` as the plan first said; or `--snapshot PATH`), requires its `publishedThrough` to equal the highest chapter in `chapters/index.json`, runs `check-snapshot.py` on it before copying, copies it to `published/`, runs the visitor test (rolls the copy back if it fails), shows the diff, then asks before commit and again before push (stages only `chapters/` and `published/`; warns if not on main). `--dry-run` changes nothing; `--skip-visitor` skips the test. Tried: dry run, wrong chapter number, junk file, a full run answering no (all stop or ask as intended). Not tried: an actual push, and a snapshot with chapters (none are published yet).
 
 - 2026-11-23 — 3.5 done (Opus). `node tools/visitor-test/run.js`: headless Chromium on a non-local host name (`epitaph.test`, so reader mode without `?author=0`), a fresh empty profile per page, every page plus the book's `opl`/`ops`/`opse`/`opcl`, twice (the repo's own snapshot and a synthetic one built by `fixture.js` through the real `EpitaphPublish.build`). Checks reader mode, the snapshot layer, no visible write controls, real localStorage keys, errors, and that the fixture's secrets / later-chapter text / unpublished character never reach the page. **It found two real gaps, both fixed:** the Library's upgrade backup (`epitaph-library-backup-v1`) was written to a reader's real storage (now every `epitaph-*-backup*` key stays in memory, `epitaph-reader-data.js`), and the Dossier's hidden import/merge file inputs were still reachable (hidden in reader mode). A run with the reader CSS removed fails as it should. The `sites/*.html` 3D scenes read no stored data and carry no mode; they are checked for writes and storage only. The fixture also carries two encyclopedia entries: an open one the test opens in `opse` (no edit bar or pens; the site editor is gated in its own JS too, `epitaph-site-edit.js` `c.author`), and one a chapter hasn't reached, which must not be in the snapshot. Creatures are not in the snapshot at all (readers get the Creature Log's note). **4.1 should run this test before every push.**
 
