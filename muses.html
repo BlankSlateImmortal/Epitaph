@@ -102,7 +102,7 @@
   <div class="top-nav">
     <div class="brand">EPITAPH // MUSES</div>
     <div class="actions">
-      <a class="btn ghost" href="index.html">Dossier</a>
+      <a class="btn ghost" href="dossier.html">Dossier</a>
       <a class="btn ghost" href="atlas-3d.html">Map</a>
       <a class="btn ghost" href="powers.html">Powers</a>
       <a class="btn ghost" href="read.html">Read</a>
@@ -117,7 +117,7 @@
     </div>
     <span class="jp" lang="ja">霊感</span>
   </header>
-  <p class="m-reader-note">Muses are the author's private reference notes and are not part of the published site. <a href="index.html">Back to the Dossier</a></p>
+  <p class="m-reader-note">Muses are the author's private reference notes and are not part of the published site. <a href="dossier.html">Back to the Dossier</a></p>
 
   <div class="m-tools">
     <span class="count" id="mCount">— MUSES ON FILE</span>
@@ -166,7 +166,7 @@
         <dl>${M.FIELDS.map(f => `<dt>${esc(f.label)}</dt><dd class="${m[f.key] ? '' : 'empty'}">${m[f.key] ? esc(m[f.key]) : 'Not written yet'}</dd>`).join('')}</dl>
         ${m.quotes.length ? `<div class="quotes">${m.quotes.map((q, i) => `<div class="q"><span>${esc(q)}</span><button type="button" data-qdel="${esc(m.id)}:${i}" aria-label="Remove this line">×</button></div>`).join('')}</div>` : ''}
         <form class="qadd" data-qadd="${esc(m.id)}"><input type="text" id="q_${esc(m.id)}" placeholder="Add a line you love (saved in this browser only)" aria-label="Add a line for ${esc(m.name)}"><button type="submit">+ ADD</button></form>
-        <div class="used">USED BY: ${users.length ? users.map(c => `<a href="index.html">${esc(c.name || 'Unnamed')}</a>`).join(' · ') : 'no characters yet'}</div>
+        <div class="used">USED BY: ${users.length ? users.map(c => `<a href="dossier.html">${esc(c.name || 'Unnamed')}</a>`).join(' · ') : 'no characters yet'}</div>
       </div>
     </article>`;
   }

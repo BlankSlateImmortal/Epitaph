@@ -12,7 +12,7 @@
 const http = require('http'), fs = require('fs'), path = require('path'), os = require('os'), { spawn, execFileSync } = require('child_process');
 const ROOT = path.resolve(__dirname, '../..');
 const HOST = 'epitaph.test';
-const PAGES = ['index.html', 'atlas-3d.html', 'muses.html', 'powers.html', 'read.html'].concat(
+const PAGES = ['index.html', 'dossier.html', 'atlas-3d.html', 'muses.html', 'powers.html', 'read.html'].concat(
   fs.readdirSync(path.join(ROOT, 'sites')).filter(f => f.endsWith('.html')).map(f => 'sites/' + f));
 const BOOK = ['opl', 'ops', 'opse', 'opcl'];
 // keys a reader's browser may really store: their own chapter position and harmless view preferences
@@ -28,6 +28,7 @@ let snapshotOverride = null;
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.gif': 'image/gif', '.svg': 'image/svg+xml', '.glb': 'model/gltf-binary', '.woff2': 'font/woff2', '.webp': 'image/webp', '.md': 'text/plain' };
 const server = http.createServer((req, res) => {
   const p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  if (p === '/chapters/index.json' && snapshotOverride) { res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify([{ chapter: 1, title: 'Test Chapter One', file: '001-test-chapter-one.md' }])); }
   if (p === '/published/epitaph-data.js' && snapshotOverride) { res.writeHead(200, { 'content-type': 'text/javascript' }); return res.end(snapshotOverride); }
   const f = path.join(ROOT, p === '/' ? 'index.html' : p);
   if (!f.startsWith(ROOT) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); return res.end(); }
@@ -58,6 +59,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // the standalone 3D site scenes (sites/*.html) read no stored data, so they carry no mode; they are still checked for writes and storage
 const STATIC = p => p.startsWith('sites/');
+// the front door reads only chapters/index.json: reader mode, but no snapshot layer
+const LIGHT = p => p === 'index.html';
 
 // runs in the page: what a visitor can see
 function inspect(WRITE_SEL, WRITE_WORD_SRC) {
@@ -95,7 +98,7 @@ async function visit(c, port, page, scenario) {
   for (let t = 0; t < 60; t++) { let done = false; try { done = await ev(() => document.readyState === 'complete' && location.href !== 'about:blank'); } catch (e) { /* navigating */ } if (done) break; await sleep(500); }
   await sleep(page.startsWith('atlas') || page.startsWith('sites/') ? 6000 : 2500);
   const views = [{ view: page, ...(await ev(inspect, WRITE_SEL, WRITE_WORD.source)) }];
-  if (page === 'index.html') {
+  if (page === 'dossier.html') {
     // the book and each of its views, the way a reader would open them
     await ev(() => { if (typeof openTheBook === 'function') openTheBook(); });
     await sleep(2500);
@@ -131,14 +134,16 @@ async function visit(c, port, page, scenario) {
         for (const v of r.views) {
           const w = `[${scenario}] ${v.view}`;
           if (!STATIC(page) && !/\bmode-reader\b/.test(v.cls)) fail(w, 'not in reader mode (' + v.cls + ')');
-          if (!STATIC(page) && !v.reader) fail(w, 'the snapshot layer (EpitaphReaderData) is not on');
+          if (!STATIC(page) && !LIGHT(page) && !v.reader) fail(w, 'the snapshot layer (EpitaphReaderData) is not on');
           if (v.writers.length) fail(w, 'write controls visible: ' + v.writers.join(' | '));
           if (scenario === 'fixture' && /MUST-NOT-LEAK|Hiddenghost/.test(v.text)) fail(w, 'private or later text is on the page');
         }
         const bad = r.keys.filter(k => !ALLOWED.test(k));
         if (bad.length) fail(where, 'stored in the real localStorage: ' + bad.join(', '));
         if (r.errors.length) fail(where, 'errors: ' + [...new Set(r.errors)].join(' || ').slice(0, 600));
-        if (page === 'index.html') {
+        if (page === 'index.html' && scenario === 'fixture' && !/Test Chapter One/.test(r.views[0].text)) fail(where, 'the front door does not show the published chapter');
+        if (page === 'index.html' && /pitch is empty/i.test(r.views[0].text)) fail(where, 'a visitor sees the author\'s pitch reminder');
+        if (page === 'dossier.html') {
           const h = r.views[0].help;
           if (h && (h.hasChanges || h.hasExport)) fail(where, 'help lists author commands');
           if (h && !h.changesBlocked) fail(where, '"changes" is not refused');
@@ -148,6 +153,15 @@ async function visit(c, port, page, scenario) {
         }
         console.log(`    ${where}  views:${r.views.length}  stored:[${r.keys.join(', ')}]`);
       }
+    }
+    {
+      const { browserContextId } = await c.send('Target.createBrowserContext');
+      const { targetId } = await c.send('Target.createTarget', { url: `http://${HOST}:${port}/index.html?char=tv-wren`, browserContextId });
+      await sleep(3000);
+      const t = (await c.send('Target.getTargets')).targetInfos.find(x => x.targetId === targetId);
+      if (!t || !/\/dossier\.html\?char=tv-wren$/.test(t.url)) fail('index.html?char=…', 'not forwarded to the Dossier (' + (t && t.url) + ')');
+      else console.log('    index.html?char=… forwards to ' + t.url.replace(/^.*\//, ''));
+      await c.send('Target.disposeBrowserContext', { browserContextId });
     }
   } finally { c.close(); b.proc.kill(); server.close(); fs.rmSync(b.dir, { recursive: true, force: true }); }
   console.log(fails ? fails + ' failed' : 'all passed'); process.exitCode = fails ? 1 : 0;

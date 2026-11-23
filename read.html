@@ -78,7 +78,7 @@
   <div class="top-nav">
     <div class="brand">EPITAPH // CHAPTERS</div>
     <div class="actions">
-      <a class="btn ghost" href="index.html">Dossier</a>
+      <a class="btn ghost" href="dossier.html">Dossier</a>
       <a class="btn ghost" href="atlas-3d.html">Map</a>
       <a class="btn ghost" href="muses.html">Muses</a>
       <a class="btn ghost" href="powers.html">Powers</a>
@@ -98,7 +98,7 @@
   // Dossier characters by name, so chips can open their file (same browser = same data)
   let people = {};
   try{ const st = JSON.parse(localStorage.getItem('epitaph-character-profiles') || '{}'); (st.characters || []).forEach(c => { if(c.name) people[c.name.trim().toLowerCase()] = c.id; }); }catch(e){}
-  const personChip = name => { const id = people[String(name).trim().toLowerCase()]; return id ? `<a class="chip" href="index.html?char=${encodeURIComponent(id)}">${esc(name)}</a>` : `<span class="chip">${esc(name)}</span>`; };
+  const personChip = name => { const id = people[String(name).trim().toLowerCase()]; return id ? `<a class="chip" href="dossier.html?char=${encodeURIComponent(id)}">${esc(name)}</a>` : `<span class="chip">${esc(name)}</span>`; };
 
   // Markdown for prose: headings, paragraphs, emphasis, quotes, lists, rules. Obsidian bits:
   // [[links]] become plain names, ![[embeds]] are dropped, ==highlights== become <mark>,

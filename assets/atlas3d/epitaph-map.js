@@ -1033,7 +1033,7 @@ function openRecord(id) {
        : `<p>Not in the story yet at this chapter.</p>`) +
     `<dt style="font-family:'Bebas Neue',sans-serif;letter-spacing:.1em;font-size:13px;color:var(--amber)">Trail</dt><ol>${trail}</ol>` +
     (s && s.r.kind !== 'point' && entryUrlOf(s.r.place) ? `<a href="${esc(entryUrlOf(s.r.place))}">Read the entry for ${esc(s.r.place.name.split(/\s+[—–-]\s+/).pop())} →</a><br>` : '') +
-    `<a href="index.html?char=${encodeURIComponent(c.id)}${Number.isInteger(ch) ? '&ch=' + ch : ''}">Open in the Dossier →</a>`;
+    `<a href="dossier.html?char=${encodeURIComponent(c.id)}${Number.isInteger(ch) ? '&ch=' + ch : ''}">Open in the Dossier →</a>`;
   box.hidden = false; $('lore').hidden = true;
   $('recordClose').addEventListener('click', closeRecord);
 }
@@ -1236,7 +1236,7 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 // a place opens a site if it has one, or if it belongs to a city that has one (e.g. a temple in Aurelia)
 const siteOf = p => p ? ((World.SITES || {})[p.id] || (World.SITES || {})[p.cityId] || null) : null;
 // the Site Encyclopedia entry for a place, if there is one this viewer may read (an author: any; a reader: places they've reached)
-const entryUrlOf = p => { const S = window.EpitaphSites, id = p && S && S.entryFor ? S.entryFor(p) : null; return id ? 'index.html?place=' + encodeURIComponent(id) : null; };
+const entryUrlOf = p => { const S = window.EpitaphSites, id = p && S && S.entryFor ? S.entryFor(p) : null; return id ? 'dossier.html?place=' + encodeURIComponent(id) : null; };
 function describe(obj) {
   if (obj.userData.earth) return '<b>Earth</b><span>An island on Epitaph. Click to open the board.</span>';
   if (obj.userData.char) {

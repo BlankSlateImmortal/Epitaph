@@ -1,7 +1,7 @@
 /* Epitaph — Links: one format for pointing at a place, a creature or a character, from any page.
  *
  *   place:<id>      a map place (EpitaphWorld ids, e.g. place:aurelia)
- *   creature:<id>   a Creature Log entry (opens its page in the book; from other pages, index.html?creature=<id>)
+ *   creature:<id>   a Creature Log entry (opens its page in the book; from other pages, dossier.html?creature=<id>)
  *   char:<id|name>  a Dossier character, by id or by name (char:Orin)
  *
  * EpitaphLinks.open(ref) opens the right page. A page that can show the thing itself (the book's
@@ -53,8 +53,8 @@
     const r = resolve(ref);
     if (!r) return null;
     if (r.kind === 'place') return 'atlas-3d.html?place=' + encodeURIComponent(r.id);
-    if (r.kind === 'char') return 'index.html?char=' + encodeURIComponent(r.id);
-    if (r.kind === 'creature') return 'index.html?creature=' + encodeURIComponent(r.id);      // the Creature Log lives in the book
+    if (r.kind === 'char') return 'dossier.html?char=' + encodeURIComponent(r.id);
+    if (r.kind === 'creature') return 'dossier.html?creature=' + encodeURIComponent(r.id);      // the Creature Log lives in the book
     return null;
   }
 
