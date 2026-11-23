@@ -367,7 +367,7 @@
       ${r('changes', 'Audit log of changes from your chapter markers (dies, at, travel, item). Nothing applies until you say so.', 'changes · changes apply all · changes apply 1 3 · changes skip 2')}
       ${r('export <i>Name</i>', 'Download a character as a Markdown note for the Obsidian vault.', 'export Orin')}
       ${r('opl · ops · back · clear', 'The Library · the skill tree · the storybook page · empty this log.', '')}
-      ${r('opse · opcl', 'The Site Encyclopedia · the Creature Log (placeholder pages for now).', '')}
+      ${r('opse · opcl', 'The Site Encyclopedia · the Creature Log.', '')}
       </tbody></table>
       <div class="bt-hint">Automatic: two-way ties · shared secrets · save history · a "what changed?" prompt after a new chapter · more lore warnings in Checks.</div>`);
   }

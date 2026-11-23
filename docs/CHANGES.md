@@ -2,6 +2,26 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## The Creature Log, at a glance — step 7.3
+
+*The entries below are step by step (plan: [creature-log.md](plans/creature-log.md)); this is the map.*
+
+**Open it:** type `opcl` in the Storybook terminal, or follow `dossier.html?creature=<id>` (a `creature:<id>` link from any page lands there). Seven tabs: **Tree** (lineage by descent) · **Web** (who eats whom) · **World** (the creatures over time) · **Chains** (cause and effect) · **Creatures** (the records and their editor) · **Biomes** · **Places**. A creature's own page is the "field journal": anatomy with your pins, traits (each with a 7-step power), field notes, what its body yields, encounters, ties to powers.
+
+| Where | What | Who sees it |
+|---|---|---|
+| Tree, Web, World, Chains | the log's four views of the same records | readers: only forms, notes and encounters their chapter has reached |
+| A creature's page | field journal, 3D specimen, pins, notes, resources | readers through the reader gate (no ties, no Library ids) |
+| Atlas, Creatures layer (`atlas-3d.html`, Era 1) | each creature's range, migration routes and sightings up to the chapter | readers through the same gate |
+| Library item, Dossier | a creature-sourced item says which creature yields it; a character lists their encounters | author (Library); readers see encounters from their chapter |
+| The Site Encyclopedia | a place's Beasts tab links to the creature; the log's Range tab lists the places | the entry's own gate |
+
+**Not in the published snapshot yet:** the Creature Log's records live in the author's browser. A reader gets the log's polite note, not the log, until a later step adds creatures to the snapshot (`docs/plans/publish-readonly.md`).
+
+**Tests:** `tools/site-tests/run.sh` (eleven `test-creature-*.js` files: store, tree, web, world, chains, page, fields, food, gate, ui, creatures) and `node tools/visitor-test/run.js` (a stranger's view of every page).
+
+**Still open (Site Encyclopedia 6.4):** a *site's* Economy resource cannot name its creature source; only the creature side links to Library items. Needs a schema decision.
+
 ## Creature Log: the specimen, field notes, resources and the Dossier — steps 3.3, 3.7, 6.3, 6.4 (and trait power)
 
 Your answers, built:

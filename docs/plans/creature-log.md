@@ -109,7 +109,7 @@ made to show how deeply the world has been thought through.
 
 - [x] **7.1 Mobile and keyboard.** The tree works by touch (pinch, drag) and keyboard; both themes.
 - [x] **7.2 Performance.** The tree stays smooth with hundreds of nodes; lazy-load the 3D specimens.
-- [ ] **7.3 Docs.** `docs/CHANGES.md`, the help text, this plan's status.
+- [x] **7.3 Docs.** `docs/CHANGES.md`, the help text, this plan's status.
 
 ---
 
@@ -149,6 +149,7 @@ When the user says "get back to it" / "back to the plan":
 
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+- 2026-11-23 — **7.3 done (Sonnet). The plan is at 100%.** `docs/CHANGES.md` has a Creature Log "at a glance" section (seven tabs, who sees what, tests); the `help` line no longer says "placeholder pages for now". Left open elsewhere: Site Encyclopedia 6.4 (a site's Economy resource cannot name its creature source: a schema decision) and the Creature Log is not in the published snapshot yet.
 
 - 2026-11-23 — **3.3, 3.7, 6.3, 6.4 done (Opus), plus trait power.** The user chose: own image + draggable pins (3.3), you write the notes and I add the tools (3.7), new fields on the creature with the Library and Dossier linking back (6.3, 6.4), and the 7-step power with the proposed names. Schema extended (`creature-schema.md`), reader gate updated (notes and encounters by chapter, no ties, no Library ids), deep link `index.html?creature=<id>`. A real bug found and fixed: after a pin drag the book ate the next click. 9 Node checks; real page checked. **Left: 7.3 (docs and help text), the last step.**
 
