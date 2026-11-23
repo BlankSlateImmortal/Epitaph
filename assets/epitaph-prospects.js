@@ -219,7 +219,7 @@
     // the card shows the name as you type it
     const nm = q('#spMain [data-spf="name"]'); if (nm) nm.addEventListener('input', () => {
       const v = nm.value || 'Unnamed prospect';
-      root().querySelectorAll('.sp-card.on b, .gr-toc a.on b, .gr-name, .gr-panel-name').forEach(el => { el.textContent = v; });
+      root().querySelectorAll(`.sp-card.on b, .gr-page .gr-name, .gr-panel-name, .gr-cover[data-sp="${CSS.escape(sel)}"] b`).forEach(el => { el.textContent = v; });
     });
   }
   function wireAssign() {
@@ -293,55 +293,102 @@
       <g fill="${c}.7)" font-size="14" text-anchor="middle"><text x="115" y="11">ᚠ</text><text x="224" y="120">ᚱ</text><text x="115" y="228">ᛟ</text><text x="7" y="120">ᛉ</text></g>
       ${corrupted ? `<path d="M70 40 L98 92 L84 118 L112 168" fill="none" stroke="${c}.85)" stroke-width="1.6"/><path d="M160 60 L138 110 L150 140" fill="none" stroke="${c}.7)" stroke-width="1.2"/>` : ''}</svg>`;
   }
-  function tocHtml(order) {
-    const shown = order.filter(matches);
-    if (!order.length) return '<p class="gr-empty">No pages yet.</p>';
+  // ---- books: every primary (root) prospect is its own book; its derivatives are the pages after its front page ----
+  function books() {
+    const names = new Set(drafts().map(x => x.name.trim()).filter(Boolean)), out = [];
+    ordered().forEach(d => { const primary = !d.parent || !names.has(d.parent); if (primary || !out.length) out.push([d]); else out[out.length - 1].push(d); });
+    return out;
+  }
+  const bookOf = (id, all) => (all || books()).find(bk => bk.some(d => d.id === id)) || null;
+  const depthIn = (bk, d) => { let n = 0, p = d.parent; const byName = new Map(bk.map(x => [x.name.trim(), x])); while (p && byName.has(p) && n < 20) { n++; p = byName.get(p).parent; } return n; };
+  const cornerSvg = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M1 12 V1 H12 M4 8 V4 H8" fill="none" stroke="currentColor" stroke-width="1"/></svg>';
+  const corners = () => `<span class="gr-c tl">${cornerSvg}</span><span class="gr-c tr">${cornerSvg}</span><span class="gr-c bl">${cornerSvg}</span><span class="gr-c br">${cornerSvg}</span>`;
+  const glyphOf = x => (x.glyph || '').trim() || (x.name || '?').trim().charAt(0).toUpperCase() || '?';
+  const pips = x => `<span class="gr-lv" aria-label="${x.level ? 'Level ' + x.level + ' of 7' : 'No level set'}">${[1, 2, 3, 4, 5, 6, 7].map(n => `<i class="${n <= x.level ? 'on' : ''}"></i>`).join('')}</span>`;
+  // the shelf: one cover per book, with the deck's card details
+  function shelfHtml(all) {
+    const shown = all.filter(bk => bk.some(matches));
+    if (!all.length) return '<p class="gr-empty">No books yet.</p>';
     if (!shown.length) return '<p class="gr-empty">Nothing matches.</p>';
-    return shown.map(d => `<a href="#" role="button" data-sp="${esc(d.id)}" class="${d.id === sel ? 'on' : ''}${d.corrupted ? ' cor' : ''}"><span>${ROMAN(order.indexOf(d) + 1)}</span><b>${esc(d.name || 'Unnamed prospect')}</b>${d.corrupted ? '<i aria-label="corrupted">✕</i>' : ''}</a>`).join('');
+    const cur = bookOf(sel, all);
+    return shown.map(bk => { const r = bk[0], n = bk.length - 1, i = all.indexOf(bk) + 1, cor = bk.some(d => d.corrupted);
+      return `<a href="#" role="button" class="gr-cover${bk === cur ? ' on' : ''}${r.corrupted ? ' cor' : ''}" data-sp="${esc(r.id)}" aria-label="Book ${ROMAN(i)}: ${esc(r.name || 'Unnamed')}, ${n} derivative${n === 1 ? '' : 's'}">
+        ${corners()}<span class="gr-cv-num">${ROMAN(i)}</span>
+        <span class="gr-cv-sig">${sigilSvg(r.corrupted)}<span lang="ja">${esc(glyphOf(r))}</span></span>
+        <b>${esc(r.name || 'Unnamed prospect')}</b>
+        <span class="gr-cv-foot"><span class="gr-seals" aria-hidden="true">${Array.from({ length: Math.min(n, 6) }, () => '<i></i>').join('')}</span><small>${n ? n + ' page' + (n === 1 ? '' : 's') : 'one page'}${cor ? ' · ✕' : ''}</small></span></a>`; }).join('');
   }
-  function pageHtml(order, x, i) {
-    if (!x) return `<div class="gr-page gr-blank"><div class="gr-ord">AN EMPTY GRIMOIRE</div><p>No prospects yet. A prospect is a skill no one holds: write it here, see who it would fit, and assign it when the story needs it.</p>
-      <button type="button" class="slant-btn primary" data-sp-new>+ New page</button></div>`;
-    const parent = x.parent ? order.find(d => d.name.trim() === x.parent) : null;
-    const kids = x.name.trim() ? order.filter(d => d.parent === x.name.trim()) : [];
-    const glyph = (x.glyph || '').trim() || (x.name || '?').trim().charAt(0).toUpperCase() || '?';
-    const prev = order[i - 1], next = order[i + 1];
-    const link = d => `<a href="#" role="button" data-sp="${esc(d.id)}">${esc(d.name || 'Unnamed')}</a> <small>(page ${ROMAN(order.indexOf(d) + 1)})</small>`;
-    return `<article class="gr-page${x.corrupted ? ' cor' : ''}" aria-label="Page ${i + 1}: ${esc(x.name || 'Unnamed prospect')}">
-      <div class="gr-ribbon" aria-hidden="true"></div>
-      <div class="gr-ord">PAGE ${ROMAN(i + 1)} OF ${ROMAN(order.length)}${x.corrupted ? ' · <b>CORRUPTED</b>' : ''}</div>
-      <div class="gr-sig">${sigilSvg(x.corrupted)}<span lang="ja">${esc(glyph)}</span></div>
-      <h3 class="gr-name">${esc(x.name || 'Unnamed prospect')}</h3>
-      <div class="gr-lv" aria-label="${x.level ? 'Level ' + x.level + ' of 7' : 'No level set'}">${[1, 2, 3, 4, 5, 6, 7].map(n => `<i class="${n <= x.level ? 'on' : ''}"></i>`).join('')}</div>
-      <div class="gr-from">${x.level ? 'LEVEL ' + x.level : 'NO LEVEL YET'} · ${x.parent ? (parent ? 'GROWS FROM ' + link(parent) : 'GROWS FROM <b>' + esc(x.parent) + '</b> <small>(not a prospect)</small>') : 'A CORE OR LOOSE SKILL'}</div>
-      ${kids.length ? `<div class="gr-from">BRANCHES: ${kids.map(link).join(' · ')}</div>` : ''}
-      ${x.desc ? `<p class="gr-desc">${esc(x.desc.length > 220 ? x.desc.slice(0, 220) + '…' : x.desc)}</p>` : ''}
-      <nav class="gr-turn" aria-label="Turn the page">
-        ${prev ? `<button type="button" data-gr-turn="-1">◂ ${ROMAN(i)} · ${esc(prev.name || 'Unnamed')}</button>` : '<span></span>'}
-        ${next ? `<button type="button" data-gr-turn="1">${ROMAN(i + 2)} · ${esc(next.name || 'Unnamed')} ▸</button>` : '<span></span>'}
-      </nav></article>`;
+  // the front page: the primary skill, then the book's own contents (its derivatives)
+  function frontHtml(bk, bi) {
+    const r = bk[0], rest = bk.slice(1);
+    return `<article class="gr-page gr-front tex-0${r.corrupted ? ' cor' : ''}" aria-label="Book ${ROMAN(bi + 1)}, front page: ${esc(r.name || 'Unnamed prospect')}">
+      ${corners()}<div class="gr-ribbon" aria-hidden="true"></div>
+      <div class="gr-ord">BOOK ${ROMAN(bi + 1)}${r.corrupted ? ' · <b>CORRUPTED</b>' : ''}</div>
+      <div class="gr-sig sm">${sigilSvg(r.corrupted)}<span lang="ja">${esc(glyphOf(r))}</span></div>
+      <h3 class="gr-name">${esc(r.name || 'Unnamed prospect')}</h3>${pips(r)}
+      <div class="gr-from">${r.level ? 'LEVEL ' + r.level : 'NO LEVEL YET'} · ${r.parent ? 'GROWS FROM <b>' + esc(r.parent) + '</b> <small>(not a prospect)</small>' : 'A PRIMARY SKILL'}</div>
+      ${r.desc ? `<p class="gr-desc">${esc(r.desc)}</p>` : '<p class="gr-desc gr-dim">No description yet.</p>'}
+      <div class="gr-rule" aria-hidden="true"><span>❦</span></div>
+      <div class="gr-contents"><h5>DERIVATIVES</h5>${rest.length ? `<ol>${rest.map((d, k) => `<li style="--depth:${depthIn(bk, d) - 1}"><a href="#" role="button" data-sp="${esc(d.id)}"><span class="gr-pg">${ROMAN(k + 2)}</span><b>${esc(d.name || 'Unnamed')}</b><span class="gr-dots"></span>${pips(d)}${d.corrupted ? '<i class="gr-x">✕</i>' : ''}</a></li>`).join('')}</ol>` : '<p class="gr-dim">None yet. A prospect that grows from this one becomes a page of this book.</p>'}</div>
+    </article>`;
   }
+  // a derivative's page: three layouts and three papers take turns, so turning a page looks like a new page
+  function leafHtml(bk, bi, x, pi) {
+    const preset = (pi - 1) % 3, tex = 1 + (pi % 3), byName = new Map(bk.map(d => [d.name.trim(), d]));
+    const trail = []; let p = x.parent; while (p && byName.has(p) && trail.length < 12) { trail.unshift(byName.get(p)); p = byName.get(p).parent; }
+    const kids = x.name.trim() ? bk.filter(d => d.parent === x.name.trim()) : [];
+    const link = d => `<a href="#" role="button" data-sp="${esc(d.id)}">${esc(d.name || 'Unnamed')}</a>`;
+    const lineage = `<div class="gr-trail">${trail.map(link).join(' <span>›</span> ')} <span>›</span> <b>${esc(x.name || 'Unnamed')}</b></div>`;
+    const branches = kids.length ? `<div class="gr-from">BRANCHES: ${kids.map(link).join(' · ')}</div>` : '';
+    const desc = x.desc ? `<p class="gr-desc">${esc(x.desc)}</p>` : '<p class="gr-desc gr-dim">No description yet.</p>';
+    const head = `<div class="gr-ord">BOOK ${ROMAN(bi + 1)} · PAGE ${ROMAN(pi + 1)} OF ${ROMAN(bk.length)}${x.corrupted ? ' · <b>CORRUPTED</b>' : ''}</div>`;
+    const sig = cls => `<div class="gr-sig ${cls}">${sigilSvg(x.corrupted)}<span lang="ja">${esc(glyphOf(x))}</span></div>`;
+    const name = `<h3 class="gr-name">${esc(x.name || 'Unnamed prospect')}</h3>`;
+    const lvl = `${pips(x)}<div class="gr-from">${x.level ? 'LEVEL ' + x.level : 'NO LEVEL YET'}</div>`;
+    const body = preset === 0
+      // FOLIO: the sigil in the corner, a drop cap, the text set like a page of a book
+      ? `${head}<div class="gr-folio">${sig('xs')}<div>${name}${lvl}</div></div>${lineage}<div class="gr-cap">${desc}</div>${branches}`
+      // PLATE: a full sigil plate in the middle, the name under it like a caption
+      : preset === 1 ? `${head}<div class="gr-plate">${sig('')}</div>${name}${lvl}${desc}${lineage}${branches}`
+      // CODEX: a tall margin with the sigil and level, the text beside it
+      : `${head}<div class="gr-codex"><aside>${sig('sm')}${lvl}</aside><div>${name}${lineage}${desc}${branches}</div></div>`;
+    return `<article class="gr-page gr-leaf p-${['folio', 'plate', 'codex'][preset]} tex-${tex}${x.corrupted ? ' cor' : ''}" aria-label="Book ${ROMAN(bi + 1)}, page ${pi + 1}: ${esc(x.name || 'Unnamed prospect')}">
+      ${corners()}<div class="gr-ribbon" aria-hidden="true"></div>
+      <div class="gr-wm" aria-hidden="true" lang="ja">${esc(glyphOf(x))}</div>${body}</article>`;
+  }
+  function pageHtml(all, x) {
+    if (!x) return `<div class="gr-page gr-blank tex-0">${corners()}<div class="gr-ord">AN EMPTY SHELF</div><p>No prospects yet. Every primary skill is a book; the skills that grow from it are its pages. Write one here, see who it would fit, and assign it when the story needs it.</p>
+      <button type="button" class="slant-btn primary" data-sp-new>+ New book</button></div>`;
+    const bk = bookOf(x.id, all), bi = all.indexOf(bk), pi = bk.indexOf(x);
+    const prev = pi > 0 ? bk[pi - 1] : (all[bi - 1] ? all[bi - 1][0] : null), next = bk[pi + 1] || (all[bi + 1] ? all[bi + 1][0] : null);
+    const nextLabel = bk[pi + 1] ? `${ROMAN(pi + 2)} · ${esc(next.name || 'Unnamed')} ▸` : next ? `BOOK ${ROMAN(bi + 2)} · ${esc(next.name || 'Unnamed')} ▸` : '';
+    const prevLabel = pi > 0 ? `◂ ${ROMAN(pi)} · ${esc(prev.name || 'Unnamed')}` : prev ? `◂ BOOK ${ROMAN(bi)} · ${esc(prev.name || 'Unnamed')}` : '';
+    return `${pi === 0 ? frontHtml(bk, bi) : leafHtml(bk, bi, x, pi)}
+      <nav class="gr-turn" aria-label="Turn the page">${prev ? `<button type="button" data-gr-turn="-1">${prevLabel}</button>` : '<span></span>'}${next ? `<button type="button" data-gr-turn="1">${nextLabel}</button>` : '<span></span>'}</nav>`;
+  }
+  let lastPage = '';
   function drawBook() {
     const page = document.getElementById('bkBoard'), panel = document.getElementById('bookPanel'); if (!page || !panel) return;
-    const order = ordered();
-    if (!find(sel)) sel = order.length ? order[0].id : '';
-    const x = find(sel), i = order.findIndex(d => d.id === sel);
+    const all = books();
+    if (!find(sel)) sel = all.length ? all[0][0].id : '';
+    const x = find(sel), bk = x ? bookOf(x.id, all) : null, bi = bk ? all.indexOf(bk) : -1, pi = bk ? bk.indexOf(x) : -1;
     page.innerHTML = `<div class="gr">
-      <nav class="gr-toc" aria-label="Contents"><h4>CONTENTS</h4>
+      <nav class="gr-toc" aria-label="The shelf"><h4>THE SHELF</h4>
         <input type="search" id="spQ" value="${esc(filter.q)}" placeholder="search…" aria-label="Search the prospects">
-        <div class="gr-toc-list" id="grToc">${tocHtml(order)}</div>
-        <button type="button" class="ed-chip sp-new" data-sp-new>+ NEW PAGE</button></nav>
-      <div class="gr-desk">${pageHtml(order, x, i)}</div></div>`;
+        <div class="gr-toc-list" id="grToc">${shelfHtml(all)}</div>
+        <button type="button" class="ed-chip sp-new" data-sp-new>+ NEW BOOK</button></nav>
+      <div class="gr-desk">${pageHtml(all, x)}</div></div>`;
+    // a new page gets a short "fresh paper" flash: the texture changes, nothing moves
+    const art = page.querySelector('.gr-page'); if (art && x && lastPage && lastPage !== x.id) art.classList.add('turned'); lastPage = x ? x.id : '';
     panel.className = 'book-panel';
-    panel.innerHTML = x ? `<div class="bk-panel-head"><span class="bk-big">${pad2(i + 1)}</span><div><small>PROSPECT · PAGE ${ROMAN(i + 1)} OF ${ROMAN(order.length)} · PRIVATE</small><h2 class="gr-panel-name">${esc(x.name || 'Unnamed prospect')}</h2></div></div>
+    panel.innerHTML = x ? `<div class="bk-panel-head"><span class="bk-big">${pad2(pi + 1)}</span><div><small>PROSPECT · BOOK ${ROMAN(bi + 1)} · ${pi ? 'PAGE ' + ROMAN(pi + 1) + ' OF ' + ROMAN(bk.length) : 'FRONT PAGE'} · PRIVATE</small><h2 class="gr-panel-name">${esc(x.name || 'Unnamed prospect')}</h2></div></div>
       <div class="sp-main gr-editor" id="spMain">${editorHtml(x)}</div>`
-      : `<div class="bk-panel-head"><span class="bk-big">00</span><div><small>SKILL PROSPECTS · PRIVATE</small><h2>An empty grimoire</h2></div></div><div class="bk-form"><p class="bk-dim">Skills with no character yet, the author's drafts. They are not part of the published site. Add a page to start.</p></div>`;
-    const idx = document.querySelector('.bk-title .bk-idx'); if (idx) idx.textContent = pad2(order.length);
-    // contents, page links and turning
+      : `<div class="bk-panel-head"><span class="bk-big">00</span><div><small>SKILL PROSPECTS · PRIVATE</small><h2>An empty shelf</h2></div></div><div class="bk-form"><p class="bk-dim">Skills with no character yet, the author's drafts. They are not part of the published site. Add a book to start.</p></div>`;
+    const idx = document.querySelector('.bk-title .bk-idx'); if (idx) idx.textContent = pad2(all.length);
     root().querySelectorAll('[data-sp]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); pick(a.dataset.sp); }));
     root().querySelectorAll('[data-gr-turn]').forEach(b => b.addEventListener('click', () => turn(+b.dataset.grTurn)));
     const sq = document.getElementById('spQ'); if (sq) sq.addEventListener('input', () => {
-      filter.q = sq.value; const l = document.getElementById('grToc'); l.innerHTML = tocHtml(ordered());
+      filter.q = sq.value; const l = document.getElementById('grToc'); l.innerHTML = shelfHtml(books());
       l.querySelectorAll('[data-sp]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); pick(a.dataset.sp); }));
     });
     root().querySelectorAll('[data-sp-new]').forEach(b => b.addEventListener('click', () => {
@@ -350,7 +397,8 @@
       const f = document.querySelector('#spMain [data-spf="name"]'); if (f) { f.focus(); f.select(); } }));
     if (x) wireForm();
   }
-  function turn(d) { const order = ordered(), i = order.findIndex(x => x.id === sel), n = order[i + d]; if (n) pick(n.id); }
+  // pages run through each book, then on to the next book's front page
+  function turn(d) { const order = books().flat(), i = order.findIndex(x => x.id === sel), n = order[i + d]; if (n) pick(n.id); }
   // ← and → turn the page when the grimoire has focus (not while typing)
   if (typeof document !== 'undefined') document.addEventListener('keydown', e => {
     if (!inBook() || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
@@ -365,7 +413,7 @@
     if (!canEdit()) return 'Skill prospects are the author\'s drafts: they are not part of the published site.';
     if (!find(sel)) sel = '';
     if (window.EpitaphBook && EpitaphBook.mountBoard && EpitaphBook.isOpen()) {      // inside the book, like opl and ops
-      EpitaphBook.mountBoard({ kind: 'prospects', title: 'Skill Prospects', jp: '候補', count: drafts().length, sub: 'a grimoire of skills no one holds yet · ← → turn the page',
+      EpitaphBook.mountBoard({ kind: 'prospects', title: 'Skill Prospects', jp: '候補', count: drafts().length, sub: 'every primary skill is a book · ← → turn the pages',
         note: "Free-draft skills with no character yet. They are the author's drafts and are not part of the published site. Assign one to a character when the story needs it. Changes save when you press Back.",
         build: el => { host = document.getElementById('theBook'); el.tabIndex = 0; drawBook(); return () => { try { save(false); } catch (e) { /* closing */ } host = null; }; } });
       return 'Opening the skill prospects…';
