@@ -56,7 +56,7 @@ made to show how deeply the world has been thought through.
     scales: { threat: 1..7, … } }
   ```
   *Done when:* the user agrees the fields and the 7-step scales.
-- [ ] **1.4 Food web.** Links `{ eater, eaten, epoch }` so the ecosystem view can draw who eats whom at any time; flag keystones and
+- [x] **1.4 Food web.** Links `{ eater, eaten, epoch }` so the ecosystem view can draw who eats whom at any time; flag keystones and
   apex predators.
 - [ ] **1.5 Defaults from the lore.** Draft one full lineage first, root to living creature, every mutation caused, to prove the shape.
   Then the creatures the story already shows. *Done when:* one complete lineage is approved by the user.
@@ -149,6 +149,8 @@ When the user says "get back to it" / "back to the plan":
 
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-22 — **1.4 done (Opus, on the user's go; a Sonnet step).** `assets/epitaph-creatures.js` started with the agreed schema's fixed parts (seven epochs, ages A–G with the curse cycle on E–G, a time order across both, the three scales, `isConscious` at awareness 5+, curse states, the curse rules, `curseExtras`, `restFor`) and the food web: `foodAt` (links in force at an age: begun, both creatures alive, each pair once), `webRoles` (apex: eats and is eaten by none; keystone: the only food of 2+ eaters or eaten by 4+; base: eats nothing in the log) and `wouldStarve` (what a creature's loss would take with it, in chains). 18 checks in `tools/site-tests/test-creature-food.js`. **Not loaded by any page yet** (the Beasts tab's 'once it is built' note stays true until storage in 1.6). Next: 1.5, defaults from the lore (Opus).
 
 - 2026-11-22 — **1.3 done (Opus).** The user agreed all four points of [creature-schema.md](creature-schema.md): curses as Library marks, the three scales and their names, the new curse fields, traits instead of abilities. Next: 1.4 food web (Sonnet).
 
