@@ -64,7 +64,7 @@ Then make the site a complete public web page, and make publishing new chapters 
   place; nothing is saved). Hidden: every form, editor, import/merge/export, delete, the Library editor, the book's editors, Muses.
 
 **New step from 0.2 (the user chose to move the drafts out):**
-- [~] **1.3 Move the lore drafts out of public files.** *(Steps 1–4 done 2026-11-18; step 5, the history squash, waits for the user's yes.)* (Sonnet, but read every line twice: this is about secrets.)
+- [x] **1.3 Move the lore drafts out of public files.** *(Steps 1–4 done 2026-11-18; step 5, the history squash, turned out not to be needed: see the 2026-11-23 tweak-log line.)* (Sonnet, but read every line twice: this is about secrets.)
   1. Write the current `DEFAULTS` of `assets/epitaph-sites.js` and `assets/epitaph-timeline.js` into a private backup-shaped file in the vault,
      `~/Downloads/Epitaph/Site work/files/epitaph-drafts.json`: `{ characters: [], chapters: [], sites: { version, places: { <placeId>: <record minus placeId> } },
      timeline: { version, events: { <id>: <event> }, removed: [] } }`, so the Dossier's **Merge** imports it (Merge requires a `characters` array).
@@ -141,6 +141,8 @@ When the user says "get back to it" and this is the active plan:
 
 ## Tweak log
 Newest first.
+
+- 2026-11-23 — 1.3 step 5 closed, **no squash needed** (the user said yes; I checked first). The drafts were only in the local `backup/shared-timeline-full-history` branch (13 commits). The user's merge of PR #34 was already a squash, so `origin/main` is clean: 89 phrases from the private drafts file (timeline titles and summaries, every long text field of the six sites) were searched across all remote refs (`git log --remotes -S`) and found in **0** commits; the same search finds them in 2 commits of the backup branch (positive control). Every branch the work descends from (the current branch, `item-system`, `publish-mode`, `settlement-statues`) also has 0. So nothing was rewritten and the current branch (107 commits ahead of `origin/main`) is safe to push as far as the drafts go. The backup branch stays local; never push it. Not covered by this search: other private lore (e.g. Muses text, character notes) that was never in the drafts file; the snapshot's leak check covers only the snapshot.
 
 - 2026-11-23 — 5.6 done (Sonnet). Measured first load (`node tools/visitor-test/perf.js`: Slow 4G, 4× slower CPU, 390px, gzipped like GitHub Pages, empty snapshot): front door 137 KB / 1.6 s · Read 263 KB / 2.0 s · Powers 670 KB / 4.3 s · Dossier 801 KB / 4.4 s · Map 529 KB / 4.9 s (budget: 8 s). Changes: 37 `<img>` templates are now `loading="lazy" decoding="async"`, and every page preconnects to the font file host (Dossier 4.7→4.4 s, Map 5.1→4.9 s). **Decided against** splitting the book out of the Dossier (about 100 KB gzipped, a risky reorder of ~15 scripts and shared globals, for under a second on a slow phone), and the Map is already its own page, so its 3D library (203 KB) loads only there. **Re-measure once real chapters and portraits are published:** the numbers above have no characters in them, and a character's render (the hero video poster) is the heavy part. Fonts are the largest single cost on every page (Source Serif 4 about 170 KB on the Dossier); self-hosting a subset is the next step if it ever matters.
 
