@@ -104,7 +104,7 @@ Then make the site a complete public web page, and make publishing new chapters 
 
 - [x] **4.1 One command.** `tools/publish.py`: runs `sync-chapters.py`, picks up the newest `published.json` from Downloads, runs the
   snapshot check, shows what changed, then **asks before** `git commit` and `git push`. Canon chapters only; drafts never leave the vault.
-- [ ] **4.2 Chapter flow, written down.** Write in the vault → mark `status: canon` and list `moments:` → `publish` → live in a minute.
+- [x] **4.2 Chapter flow, written down.** Write in the vault → mark `status: canon` and list `moments:` → `publish` → live in a minute.
   The published chapter number becomes `publishedThrough`, which reveals the moments and places that chapter reaches.
 - [ ] **4.3 (Later, optional)** A GitHub Action that only validates (it can't read the vault); uploading from the browser is **not**
   possible on a static site without a token, so it isn't planned.
@@ -141,6 +141,8 @@ When the user says "get back to it" and this is the active plan:
 
 ## Tweak log
 Newest first.
+
+- 2026-11-23 — 4.2 done (Sonnet). `docs/PUBLISHING.md`: the five-step flow, what `publishedThrough` does, a table of what each stop means, what only the author does. Does not mention `published.json`; the real file is `epitaph-data.js`.
 
 - 2026-11-23 — 4.1 done (Sonnet). `python3 tools/publish.py`: syncs canon chapters, takes the newest `epitaph-data*.js` from Downloads (the Dossier's download is named `epitaph-data.js`, not `published.json` as the plan first said; or `--snapshot PATH`), requires its `publishedThrough` to equal the highest chapter in `chapters/index.json`, runs `check-snapshot.py` on it before copying, copies it to `published/`, runs the visitor test (rolls the copy back if it fails), shows the diff, then asks before commit and again before push (stages only `chapters/` and `published/`; warns if not on main). `--dry-run` changes nothing; `--skip-visitor` skips the test. Tried: dry run, wrong chapter number, junk file, a full run answering no (all stop or ask as intended). Not tried: an actual push, and a snapshot with chapters (none are published yet).
 
