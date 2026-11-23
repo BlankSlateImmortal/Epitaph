@@ -89,7 +89,7 @@ made to show how deeply the world has been thought through.
 - [x] **4.1 World over time.** The same scrubber on a small globe or the map: the crater cooling, coasts drowning, ice spreading
   (reuse the map's era data where it fits).
 - [x] **4.2 Food web.** Who eats whom at the scrubbed epoch; keystones and apex predators marked.
-- [ ] **4.3 Cause-and-effect chains.** Readable chains ("the flood drowned the plains → grazers moved to the impact mountains →
+- [x] **4.3 Cause-and-effect chains.** Readable chains ("the flood drowned the plains → grazers moved to the impact mountains →
   their predators grew climbing claws"), each step linking to its node or event.
 
 ## Phase 5 — Editing
@@ -149,6 +149,8 @@ When the user says "get back to it" / "back to the plan":
 
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-23 — **4.3 done (Opus). Phase 4 is finished.** New `assets/epitaph-creature-chains.js` and a **Chains** tab (authors and readers): by lineage (the trunk follows the biggest branch, side branches start at their fork, no form repeated) or by cause (every form a cause changed, and the line after it); gaps show "?". Built only from each form's cause and change. 12 Node checks; real page checked. **Left: 3.3 and 3.7 (Opus, need the user's lore), 6.2 (3D Atlas layer, Opus), 6.3 and 6.4 (schema, design with the user), 7.3 (docs, last).**
 
 - 2026-11-23 — **7.1 and 7.2 done (Sonnet), measured not assumed.** Real-page timings with 600 and 1500 forms (CDP, real clock): picking a form went from 59/136 ms to 6 ms (only the two forms that change are touched), wheel/drag/pinch redraws coalesced per frame; keyboard use of the tree, web, world and page checked; one theme only. 3D specimen lazy-loading waits for 3.3. **Left in this plan: 3.3 and 3.7 (Opus), 4.3 (Opus), 6.2 (3D map layer: Opus), 6.3 and 6.4 (need schema: Opus), and 7.3 (docs and help text, last).**
 

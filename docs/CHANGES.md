@@ -2,6 +2,18 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Creature Log: cause and effect (assets/epitaph-creature-chains.js) — step 4.3
+
+A **Chains** tab (layout AF from Round 10): readable chains, left to right, each change after the cause that made it. They are drawn **only** from what each form says (its cause and its change), so nothing is invented.
+
+- **By lineage:** every line split into branches. The first chain runs from the root along the line's biggest branch; every other branch starts at its fork with a small "from …" card, so no form appears twice. A cause named twice in a row is shown once. A line that died out ends on an "ended" card.
+- **By cause:** pick a cause (on the right page, or click any cause card) to see every form it changed: the form it came from, the cause, the change, then the line after it until it forks ("2 branches from here") or ends.
+- **Gaps:** a form with no cause written shows a red "?" card where the cause would be; the right page lists them (Checks lists them too).
+- Cause cards say what kind they are (EPOCH, AGE or EVENT, with the timeline event's title); form cards open the creature's page; ⛓ marks a change that brought a curse.
+- **Readers** get a Chains tab, built from the gated copy (step 2.4): forms they haven't found are "? ? ?" cards with no cause, and causes naming events they haven't reached are dropped.
+
+Tests: `tools/site-tests/test-creature-chains.js` (12 checks: branches, no repeats, the trunk, endings, gaps, by cause, silhouettes, loops), and the real page (both readings, a cause filter, opening a page from a card).
+
 ## Creature Log: touch, keyboard and speed — steps 7.1, 7.2
 
 - **Touch (7.1):** the tree pans by drag and zooms by pinch (and by +/− and the wheel); the Web, World and page views work with taps on large (36–40 px) buttons on a phone, and the terminal hides while a log view is open so the pages get its height.
