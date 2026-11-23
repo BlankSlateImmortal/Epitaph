@@ -97,7 +97,7 @@ Then make the site a complete public web page, and make publishing new chapters 
 - [x] **3.2 Map.** Library drawer editing, place adding, character moves: hidden. Swords can still be dragged, but nothing is saved.
 - [x] **3.3 Book (`opl`, `ops`, `opse`, `opcl`).** Editors hidden; the views stay.
 - [x] **3.4 Muses, Powers, Read.** Same rule.
-- [ ] **3.5 A test as a visitor.** Headless Chromium with empty storage: every page loads from the snapshot, no write controls exist, and
+- [x] **3.5 A test as a visitor.** Headless Chromium with empty storage: every page loads from the snapshot, no write controls exist, and
   nothing is written to localStorage except the reader chapter.
 
 ## Phase 4 — Publishing chapters
@@ -141,6 +141,8 @@ When the user says "get back to it" and this is the active plan:
 
 ## Tweak log
 Newest first.
+
+- 2026-11-23 — 3.5 done (Opus). `node tools/visitor-test/run.js`: headless Chromium on a non-local host name (`epitaph.test`, so reader mode without `?author=0`), a fresh empty profile per page, every page plus the book's `opl`/`ops`/`opse`/`opcl`, twice (the repo's own snapshot and a synthetic one built by `fixture.js` through the real `EpitaphPublish.build`). Checks reader mode, the snapshot layer, no visible write controls, real localStorage keys, errors, and that the fixture's secrets / later-chapter text / unpublished character never reach the page. **It found two real gaps, both fixed:** the Library's upgrade backup (`epitaph-library-backup-v1`) was written to a reader's real storage (now every `epitaph-*-backup*` key stays in memory, `epitaph-reader-data.js`), and the Dossier's hidden import/merge file inputs were still reachable (hidden in reader mode). A run with the reader CSS removed fails as it should. The `sites/*.html` 3D scenes read no stored data and carry no mode; they are checked for writes and storage only. **Gap:** the fixture has no site records or creatures, so the Site Encyclopedia and Creature Log editors are only checked as empty views; add synthetic ones when 4.1 runs this test before a push.
 
 - 2026-11-23 — 3.4 done (Sonnet). Muses: a reader sees a short "private reference notes, not published" note instead of the page (the editors and generator settings are hidden). Powers and Read have no write controls; Read only keeps the reader's own last chapter. Checked headless with `?author=0` on all three: `mode-reader`, no errors.
 

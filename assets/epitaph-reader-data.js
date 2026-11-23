@@ -6,7 +6,7 @@
  * over `localStorage`:
  *   - the data keys (Dossier, Library, site encyclopedia, timeline, muses) answer from the snapshot;
  *   - writes to them are kept in memory for the page only and never saved, so nothing a visitor does survives a reload;
- *   - the author's private records (save history, chapter-marker log, thrown-sword poses, migration backups) read as empty and are not saved;
+ *   - the author's private records (save history, chapter-marker log, thrown-sword poses, every `epitaph-*-backup*` key) read as empty and are not saved;
  *   - everything else (the reader's own chapter, view preferences) passes through to the real storage.
  * The author's browser (EpitaphMode.isAuthor()) is left alone. If there is no snapshot, readers get the empty "coming soon" data.
  * The mode is decided when the page loads: to switch, reload.
@@ -31,7 +31,7 @@
     'epitaph-timeline': () => JSON.stringify({ version: 1, events: byKey(snap.timeline, 'id', false), removed: [] }),
     'epitaph-muses': () => '[]'                      // the Muses page is the author's; readers get no list
   };
-  const PRIVATE = /^(epitaph-history|epitaph-marker-log|epitaph-map-pin-poses|epitaph-character-profiles-backup)/;
+  const PRIVATE = /^(epitaph-history|epitaph-marker-log|epitaph-map-pin-poses)|^epitaph-.*-backup/;   // any upgrade/merge backup (Dossier, Library) too
   const mem = {}, cached = {};
 
   const shim = {
