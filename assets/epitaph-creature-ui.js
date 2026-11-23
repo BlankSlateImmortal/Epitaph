@@ -41,6 +41,9 @@
   const biomeOptions = () => C().load().biomes.map(b => [b.id, b.name]);
   const curseOptions = () => [['', '— none —']].concat(cursesInLibrary().map(m => [m.id, m.name || m.id]));
   const placeOptions = () => [['', '— none —']].concat(((W() && W().places()) || []).filter(p => p.fictional || p.group).map(p => [p.id, String(p.name).split(/\s+[—–-]\s+/).pop()]));
+  const charOptions = () => { let list = []; try { const st = JSON.parse(localStorage.getItem('epitaph-character-profiles') || 'null'); list = (st && st.characters) || []; } catch (e) { list = []; } return [['', '— none —']].concat(list.filter(c => c && c.id).map(c => [c.id, c.name || c.id])); };
+  const itemOptions = () => { let items = []; try { items = (Lib() && Lib().get().items) || []; } catch (e) { items = []; } return [['', '— none —']].concat(items.map(i => [i.id, i.name || i.id])); };
+  const powerOptions = () => [['', '—']].concat(C().POWER.steps.map((n, i) => [String(i + 1), (i + 1) + ' · ' + n]));
   const sinceOptions = () => [['', '— unknown —']].concat(C().AGES.map(a => [a.id, 'Age ' + a.id + ' · ' + a.label]));
 
   // ---------------------------------------------------------------- the form (declarative)
@@ -58,12 +61,16 @@
     if (kind === 'nodes') return lineage.concat(hold);
     if (kind === 'creatures') return lineage.concat([f.dots('awareness', 'Awareness', 'awareness'), f.dots('threat', 'Threat to people', 'threat'), f.dots('size', 'Size', 'size'),
       f.rows('curses', 'Curses it carries (written in the Library, opmk)', [f.sel('libId', 'Curse', curseOptions()), f.sel('stage', 'Stage', [['0', 'Initial'], ['1', 'Stage 1 · Awakening'], ['2', 'Stage 2 · Fluctuation'], ['3', 'Stage 3 · Stabilization']], { int: true })]),
-      f.rows('traits', 'Traits (what its body can do; creatures get no skills)', [f.text('name', 'Trait'), f.text('does', 'What it does'), f.text('counters', 'What counters it')]),
-      f.rows('anatomy.parts', 'Anatomy', [f.text('name', 'Part'), f.text('note', 'Note')]), f.lines('nests', 'Where it nests (only cursed creatures nest)'),
+      f.rows('traits', 'Traits (what its body can do; creatures get no skills)', [f.text('name', 'Trait'), f.text('does', 'What it does'), f.text('counters', 'What counters it'), f.sel('power', 'Power', powerOptions(), { int: true })]),
+      { t: 'image', k: 'anatomy.image', l: 'Anatomy image (your drawing or render; drag the numbered pins on its page)' },
+      f.rows('anatomy.parts', 'Anatomy parts (each is a numbered pin on the image)', [f.text('name', 'Part'), f.text('note', 'Note'), { t: 'hid', k: 'x' }, { t: 'hid', k: 'y' }]),
+      f.rows('resources', 'What its body yields (resources)', [f.text('name', 'Resource'), f.sel('kind', 'Kind', C().RESOURCE_KINDS), f.text('use', 'What it is used for'), f.sel('libId', 'Library item', itemOptions())]), f.lines('nests', 'Where it nests (only cursed creatures nest)'),
       f.text('diet', 'Diet'), f.text('hunting', 'Hunting'), f.text('breeding', 'Breeding'),
       f.rows('names', 'What settlements call it', [f.sel('placeId', 'Place', placeOptions()), f.text('localName', 'Local name'), f.text('belief', 'What they believe')]),
       f.rows('sightings', 'Sightings', [f.num('chapter', 'Chapter', { min: 1 }), f.sel('placeId', 'Place', placeOptions()), f.text('note', 'Note')]),
-      f.rows('fieldNotes', 'Field notes', [f.text('author', 'Author'), f.text('text', 'Note')]), f.lines('range.places', 'Range: places'), f.rows('range.migrations', 'Migration routes (a path of lat,lng points)', [f.sel('when', 'When', whenOptions()), f.text('pathText', 'Path: lat,lng; lat,lng; …')]), { t: 'eats', k: '__eats', l: 'Eats (creatures in the log)' }]).concat(hold);
+      f.rows('fieldNotes', 'Field notes (yours; readers see a note from its chapter on)', [f.sel('charId', 'Written by (Dossier)', charOptions()), f.text('author', 'or by (a name)'), f.num('chapter', 'From chapter', { min: 1 }), f.text('text', 'Note')]),
+      f.rows('encounters', 'Encounters with characters', [f.sel('charId', 'Character', charOptions()), f.num('chapter', 'Chapter', { min: 1 }), f.text('note', 'What happened')]),
+      f.rows('ties', 'Tied to a character\'s powers (author only)', [f.sel('charId', 'Character', charOptions()), f.text('how', 'How')]), f.lines('range.places', 'Range: places'), f.rows('range.migrations', 'Migration routes (a path of lat,lng points)', [f.sel('when', 'When', whenOptions()), f.text('pathText', 'Path: lat,lng; lat,lng; …')]), { t: 'eats', k: '__eats', l: 'Eats (creatures in the log)' }]).concat(hold);
     if (kind === 'chaos') return [f.text('name', 'Name'), f.rows('forms', 'Forms it takes', [f.sel('biome', 'Biome', biomeOptions()), f.text('looks', 'Looks like')]),
       f.rows('sightings', 'Sightings', [f.num('chapter', 'Chapter', { min: 1 }), f.sel('placeId', 'Place', placeOptions()), f.text('note', 'Note')]), f.text('curseLink', 'Tied to curses (how?)')].concat(hold);
     if (kind === 'biomes') return [f.text('name', 'Name'), f.area('desc', 'What it is'), f.checks('regions', 'Map regions it covers', REGIONS), f.bool('placeBound', 'Tied to particular places'), f.text('spread', 'How its curses spread'), f.sel('since', 'Cursed since', sinceOptions())];
@@ -73,7 +80,7 @@
   const selHtml = (opts, val, extra) => `<select${extra || ''}>${opts.map(([v, t]) => `<option value="${esc(v)}"${String(v) === String(val == null ? '' : val) ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
   const dotsHtml = (k, scale, n) => { const S = C().SCALES[scale]; return `<div class="cl-dots" data-f="${esc(k)}" data-t="dots" data-v="${n || 0}" role="group" aria-label="${esc(S.label)}">${[1, 2, 3, 4, 5, 6, 7].map(i => `<button type="button" class="cl-dot${i <= (n || 0) ? ' on' : ''}" data-dv="${i}" title="${i} · ${esc(S.steps[i - 1])}" aria-label="${i} of 7, ${esc(S.steps[i - 1])}"></button>`).join('')}<span class="cl-dn">${n ? esc(S.steps[n - 1]) : 'not set'}</span><button type="button" class="cl-clr" data-dv="0" title="Clear">×</button></div>`; };
   function fieldHtml(s, val, rec) {
-    const cls = 'cl-f' + (['area', 'checks', 'rows', 'lines', 'eats', 'curse'].includes(s.t) ? ' wide' : ''), lab = `<span class="cl-fl">${esc(s.l)}</span>`;
+    const cls = 'cl-f' + (['area', 'checks', 'rows', 'lines', 'eats', 'curse', 'image'].includes(s.t) ? ' wide' : ''), lab = `<span class="cl-fl">${esc(s.l)}</span>`;
     let inner;
     switch (s.t) {
       case 'text': inner = `<input type="text" data-f="${esc(s.k)}" data-t="text" value="${esc(val)}">`; break;
@@ -84,10 +91,11 @@
       case 'sel': inner = selHtml(s.opts, s.when ? whenValue(val) : val, ` data-f="${esc(s.k)}" data-t="${s.when ? 'when' : 'sel'}"`); break;
       case 'dots': inner = dotsHtml(s.k, s.scale, val); break;
       case 'checks': inner = `<div class="cl-checks" data-f="${esc(s.k)}" data-t="checks">${s.opts.map(([v, t]) => `<label class="cl-chk"><input type="checkbox" value="${esc(v)}"${(val || []).includes(v) ? ' checked' : ''}> ${esc(t)}</label>`).join('') || '<span class="cl-dim">none yet</span>'}</div>`; break;
-      case 'rows': { const arr = Array.isArray(val) ? val : [], row = r => `<div class="cl-row" data-row>${s.fields.map(g => `<label class="cl-rf"><span>${esc(g.l)}</span>${g.t === 'sel' ? selHtml(g.opts, gp(r || {}, g.k) == null ? '' : gp(r || {}, g.k), ` data-rf="${esc(g.k)}" data-int="${g.int ? 1 : ''}"`) : `<input type="${g.t === 'num' ? 'number' : 'text'}" data-rf="${esc(g.k)}" data-num="${g.t === 'num' ? 1 : ''}" value="${esc(gp(r || {}, g.k) == null ? '' : gp(r || {}, g.k))}">`}</label>`).join('')}<button type="button" class="cl-x" data-rowdel aria-label="Remove this row">×</button></div>`;
+      case 'rows': { const arr = Array.isArray(val) ? val : [], row = r => `<div class="cl-row" data-row>${s.fields.map(g => g.t === 'hid' ? `<input type="hidden" data-rf="${esc(g.k)}" data-float="1" value="${gp(r || {}, g.k) == null ? '' : esc(gp(r || {}, g.k))}">` : `<label class="cl-rf"><span>${esc(g.l)}</span>${g.t === 'sel' ? selHtml(g.opts, gp(r || {}, g.k) == null ? '' : gp(r || {}, g.k), ` data-rf="${esc(g.k)}" data-int="${g.int ? 1 : ''}"`) : `<input type="${g.t === 'num' ? 'number' : 'text'}" data-rf="${esc(g.k)}" data-num="${g.t === 'num' ? 1 : ''}" value="${esc(gp(r || {}, g.k) == null ? '' : gp(r || {}, g.k))}">`}</label>`).join('')}<button type="button" class="cl-x" data-rowdel aria-label="Remove this row">×</button></div>`;
         inner = `<div class="cl-rows" data-f="${esc(s.k)}" data-t="rows" data-tpl="${esc(row({}))}">${arr.map(row).join('')}<button type="button" class="cl-add" data-rowadd>+ add</button></div>`; break; }
       case 'eats': { const all = [].concat(C().load().creatures, C().load().nodes).filter(x => x.id !== rec.id), mine = C().load().food.filter(l => l.eater === rec.id).map(l => l.eaten);
         inner = `<div class="cl-checks" data-f="__eats" data-t="checks">${all.map(x => `<label class="cl-chk"><input type="checkbox" value="${esc(x.id)}"${mine.includes(x.id) ? ' checked' : ''}> ${esc(x.name || x.id)}</label>`).join('') || '<span class="cl-dim">no other creatures yet</span>'}</div>`; break; }
+      case 'image': inner = `<div class="cl-img"><input type="hidden" data-f="${esc(s.k)}" data-t="text" value="${esc(val || '')}"><img alt="" class="cl-img-prev"${val ? ` src="${esc(val)}"` : ' hidden'}><label class="cl-add">Choose an image…<input type="file" accept="image/*" data-imgfile hidden></label><input type="text" data-imgurl placeholder="or paste an image address" value="${val && !String(val).startsWith('data:') ? esc(val) : ''}"><button type="button" class="cl-x" data-imgclear aria-label="Remove the image">×</button></div>`; break;
       case 'curse': { const c = val || {}; inner = `<div class="cl-curse" data-f="curse" data-t="curse">${selHtml(curseOptions(), c.libId || '', ' data-cf="libId"')}${selHtml([['0', 'Initial'], ['1', 'Stage 1 · Awakening'], ['2', 'Stage 2 · Fluctuation'], ['3', 'Stage 3 · Stabilization']], c.stage || 0, ' data-cf="stage"')}</div>`; break; }
       default: inner = '';
     }
@@ -120,7 +128,7 @@
         ${isNew ? '' : '<button type="button" class="cl-del" data-del>Delete</button>'}<button type="button" class="cl-cancel" data-cancel>Cancel</button><button type="submit" class="cl-save">Save</button></div></form>`;
   }
   // ---- reading a form back
-  function readRows(el) { return [...el.querySelectorAll(':scope > [data-row]')].map(r => { const o = {}; r.querySelectorAll('[data-rf]').forEach(i => { let v = i.value; if (i.dataset.num) v = v === '' ? null : parseInt(v, 10); else if (i.dataset.int) v = parseInt(v, 10) || 0; setp(o, i.dataset.rf, v); }); return o; }).filter(o => Object.values(o).some(v => !(v === '' || v == null || v === 0))); }
+  function readRows(el) { return [...el.querySelectorAll(':scope > [data-row]')].map(r => { const o = {}; r.querySelectorAll('[data-rf]').forEach(i => { let v = i.value; if (i.dataset.float) v = v === '' ? null : parseFloat(v); else if (i.dataset.num) v = v === '' ? null : parseInt(v, 10); else if (i.dataset.int) v = parseInt(v, 10) || 0; setp(o, i.dataset.rf, v); }); return o; }).filter(o => Object.values(o).some(v => !(v === '' || v == null || v === 0))); }
   function setp(o, path, v) { const ks = String(path).split('.'); let x = o; ks.slice(0, -1).forEach(k => { x = x[k] = x[k] || {}; }); x[ks[ks.length - 1]] = v; }
   function readForm(form, base) {
     const rec = JSON.parse(JSON.stringify(base)); let eats = null;
@@ -139,6 +147,13 @@
     return { rec, eats };
   }
   const blank = kind => ({ id: '', name: '', draft: true, awareness: null, threat: null, size: null, biomes: [], regions: [], mutation: { change: '', advantage: '', curse: null }, anatomy: { parts: [] }, range: { biomes: [], places: [] } });
+
+  /** A picked image, shrunk to at most 900 px and saved as a JPEG data address (kept small: the log lives in the browser's storage). */
+  function shrinkImage(file) {
+    return new Promise((ok, no) => { const rd = new FileReader(); rd.onerror = no; rd.onload = () => { const im = new Image(); im.onerror = no; im.onload = () => {
+      const k = Math.min(1, 900 / Math.max(im.width, im.height)), cv = document.createElement('canvas'); cv.width = Math.round(im.width * k); cv.height = Math.round(im.height * k);
+      const g = cv.getContext('2d'); g.fillStyle = '#080603'; g.fillRect(0, 0, cv.width, cv.height); g.drawImage(im, 0, 0, cv.width, cv.height); ok(cv.toDataURL('image/jpeg', 0.82)); }; im.src = rd.result; }; rd.readAsDataURL(file); });
+  }
 
   // ---------------------------------------------------------------- lists
   const matches = (x, q) => !q || [x.name, x.id, x.country, x.continent, x.notes, x.desc, x.biome, x.mutation && x.mutation.change].join(' ').toLowerCase().includes(q.toLowerCase());
@@ -182,7 +197,7 @@
   function renderPage(host) {
     if (ui.pageH) { ui.pageH.destroy(); ui.pageH = null; } if (ui.tree) { ui.tree.destroy(); ui.tree = null; }
     const P = global.EpitaphCreaturePage; if (!P) { host.innerHTML = '<p class="cl-note">The creature page did not load.</p>'; return; }
-    ui.pageH = P.mount(host, { st: ui.reader ? gated() : C().load(), id: ui.page.id, reader: !!ui.reader, onBack: closePage, onOpen: openPage, onSection: i => { if (ui && ui.page) { ui.page.sec = i; drawSec(); } },
+    ui.pageH = P.mount(host, { st: ui.reader ? gated() : C().load(), id: ui.page.id, reader: !!ui.reader, onBack: closePage, onOpen: openPage, onPin: (id, i, x, y) => { const rec = C().load().creatures.find(c => c.id === id) || C().load().nodes.find(c => c.id === id); if (!rec || !rec.anatomy || !rec.anatomy.parts[i]) return; rec.anatomy.parts[i].x = +x.toFixed(4); rec.anatomy.parts[i].y = +y.toFixed(4); C().put(C().load().creatures.some(c => c.id === id) ? 'creatures' : 'nodes', rec); }, onSection: i => { if (ui && ui.page) { ui.page.sec = i; drawSec(); } },
       onEdit: (kind, id) => { ui.page = null; ui.tab = 'creatures'; ui.open = { kind, id }; ui.scrollTo = ui.open; render(ui.host); drawMap(); } });
   }
   function openPage(id) { if (!ui) return; ui.page = { id, sec: 0 }; ui.sel = id; ui.reader ? ui.redraw() : render(ui.host); drawMap(); }
@@ -346,6 +361,7 @@
       if (t.closest('[data-more]')) { ui.shown += PAGE; render(container); return; }
       if (t.closest('[data-cancel]')) { ui.open = null; render(container); drawMap(); return; }
       const dv = t.closest('[data-dv]'); if (dv) { const box = dv.closest('.cl-dots'); const v = +dv.dataset.dv; box.dataset.v = v; box.querySelectorAll('.cl-dot').forEach((b, i) => b.classList.toggle('on', i < v)); const S = C().SCALES[box.dataset.f]; box.querySelector('.cl-dn').textContent = v ? S.steps[v - 1] : 'not set'; return; }
+      const ic = t.closest('[data-imgclear]'); if (ic) { const box = ic.closest('.cl-img'); box.querySelector('[data-f]').value = ''; box.querySelector('[data-imgurl]').value = ''; box.querySelector('.cl-img-prev').hidden = true; return; }
       const ra = t.closest('[data-rowadd]'); if (ra) { ra.insertAdjacentHTML('beforebegin', ra.closest('[data-tpl]').dataset.tpl); return; }
       const rd = t.closest('[data-rowdel]'); if (rd) { rd.closest('[data-row]').remove(); return; }
       const del = t.closest('[data-del]'); if (del) {
@@ -366,7 +382,10 @@
       ui.open = null; render(container); drawMap();
     }));
     offs.push(on('input', e => { const t = e.target; if (t.id === 'clQ') { ui.q = t.value; ui.shown = PAGE; const pos = t.selectionStart; render(container); const n = container.querySelector('#clQ'); n.focus(); n.setSelectionRange(pos, pos); } }));
-    offs.push(on('change', e => { const t = e.target; if (t.id === 'clDrafts') ui.drafts = t.checked; else if (t.id === 'clNoCurse') ui.noCurse = t.checked; else if (t.id === 'clBiome') { ui.biome = t.value; ui.shown = PAGE; drawMap(); } else return; render(container); }));
+    offs.push(on('change', e => { const t = e.target;
+      if (t.matches && t.matches('[data-imgfile]') && t.files && t.files[0]) { const box = t.closest('.cl-img'); shrinkImage(t.files[0]).then(url => { box.querySelector('[data-f]').value = url; const im = box.querySelector('.cl-img-prev'); im.src = url; im.hidden = false; box.querySelector('[data-imgurl]').value = ''; }).catch(() => { const err = box.closest('form').querySelector('.cl-err'); if (err) err.textContent = 'That image could not be read.'; }); return; }
+      if (t.matches && t.matches('[data-imgurl]')) { const box = t.closest('.cl-img'), v = t.value.trim(); box.querySelector('[data-f]').value = v; const im = box.querySelector('.cl-img-prev'); if (v) { im.src = v; im.hidden = false; } else im.hidden = true; return; }
+      if (t.id === 'clDrafts') ui.drafts = t.checked; else if (t.id === 'clNoCurse') ui.noCurse = t.checked; else if (t.id === 'clBiome') { ui.biome = t.value; ui.shown = PAGE; drawMap(); } else return; render(container); }));
     return () => { offs.forEach(o => o()); if (ui && ui.tree) ui.tree.destroy(); if (ui && ui.pageH) ui.pageH.destroy(); if (ui && ui.webH) ui.webH.destroy(); ui = null; const p = document.getElementById('bookPanel'); if (p && p.classList.contains('se-panel')) { p.innerHTML = ''; p.classList.remove('se-panel'); } };
   }
 
@@ -376,5 +395,5 @@
     global.EpitaphBook.openCreatures(r.id); return true;
   });
 
-  global.EpitaphCreatureUI = { mountIndex, _t: { specFor, readForm, whenValue, whenFrom, whenText, parsePath, pathText } };
+  global.EpitaphCreatureUI = { mountIndex, _t: { specFor, readForm, whenValue, whenFrom, whenText, parsePath, pathText, charOptions, itemOptions, state: () => ui } };
 })(typeof window !== 'undefined' ? window : globalThis);

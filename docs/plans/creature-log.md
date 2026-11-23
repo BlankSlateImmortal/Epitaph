@@ -76,13 +76,13 @@ made to show how deeply the world has been thought through.
 
 - [x] **3.1 Lineage.** Its branch of the tree, with every ancestor form side by side, so the mutation steps can be seen.
 - [x] **3.2 Mutations.** Each change in order: what changed, what caused it, what it gained.
-- [ ] **3.3 Anatomy.** A labelled specimen: an illustration first; a turnable 3D model later (the hard-surface, block or traced
+- [x] **3.3 Anatomy.** A labelled specimen: an illustration first; a turnable 3D model later (the hard-surface, block or traced
   approaches from the sword pins; no faces, the user prefers objects).
 - [x] **3.4 Abilities.** What it can do and what counters it, with 7-step power; links to the Power systems page where it fits.
 - [x] **3.5 Range & movements.** A small map of its range and migration routes, and sightings by chapter (spoiler-gated).
 - [x] **3.6 Behaviour & lore.** Diet, hunting, breeding, and what each settlement calls it and believes about it (links to the
   Site Encyclopedia).
-- [ ] **3.7 Field notes.** Short in-world journal notes from characters or scholars, dated, spoiler-gated.
+- [x] **3.7 Field notes.** Short in-world journal notes from characters or scholars, dated, spoiler-gated.
 
 ## Phase 4 — The Ecosystem view
 
@@ -102,8 +102,8 @@ made to show how deeply the world has been thought through.
 
 - [x] **6.1 Site Encyclopedia.** The Range and lore sections link to places; places' Beasts tabs link back.
 - [x] **6.2 Map layer.** A "Creatures" toggle on `atlas-3d.html`: ranges, migrations and sightings at the reader's chapter.
-- [ ] **6.3 Resources.** Creature-sourced resources (hides, venom, bone) shown on both sides.
-- [ ] **6.4 Dossier.** Characters' encounters, and creatures tied to a character's powers, link both ways.
+- [x] **6.3 Resources.** Creature-sourced resources (hides, venom, bone) shown on both sides.
+- [x] **6.4 Dossier.** Characters' encounters, and creatures tied to a character's powers, link both ways.
 
 ## Phase 7 — Finish
 
@@ -149,6 +149,8 @@ When the user says "get back to it" / "back to the plan":
 
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-23 — **3.3, 3.7, 6.3, 6.4 done (Opus), plus trait power.** The user chose: own image + draggable pins (3.3), you write the notes and I add the tools (3.7), new fields on the creature with the Library and Dossier linking back (6.3, 6.4), and the 7-step power with the proposed names. Schema extended (`creature-schema.md`), reader gate updated (notes and encounters by chapter, no ties, no Library ids), deep link `index.html?creature=<id>`. A real bug found and fixed: after a pin drag the book ate the next click. 9 Node checks; real page checked. **Left: 7.3 (docs and help text), the last step.**
 
 - 2026-11-23 — **6.2 done (Opus).** A Creatures toggle on `atlas-3d.html` (Era 1, beside Politics): each story-time creature's range (infected places in its biomes), migration routes and sightings up to the chapter, labelled, with a legend; readers through the 2.4 gate. Tested in the real Atlas (swiftshader): toggle, legend, label, marks visible, no errors. **Left: 3.3, 3.7 (need the user's lore), 6.3, 6.4 (schema, design with the user), 7.3 (docs, last).**
 

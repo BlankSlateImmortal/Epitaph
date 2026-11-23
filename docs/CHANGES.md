@@ -2,6 +2,20 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Creature Log: the specimen, field notes, resources and the Dossier — steps 3.3, 3.7, 6.3, 6.4 (and trait power)
+
+Your answers, built:
+
+- **Anatomy (3.3): your own image and pins.** A creature's form has an *Anatomy image* (choose a file, shrunk to 900 px and kept in the browser, or paste an address). On its page each part is a **numbered pin**: drag it onto the body (or nudge it with the arrow keys once focused) and it stays where you drop it; parts not placed yet wait under the image. The numbered list of parts and notes follows. Nothing about a creature's look is invented. (A turnable 3D model can come later.)
+- **Trait power:** each trait has an optional **power, 7 dots**: Faint · Minor · Notable · Strong · Fierce · Overwhelming · Unstoppable. Shown on the page beside the trait.
+- **Field notes (3.7): you write them.** A note can be signed by a **Dossier character** (linked) or by any name, and has a **From chapter**: readers see it only from that chapter (a note with no chapter is author-only, and the page says so). Notes have a journal look (italic quote, signature below).
+- **Resources (6.3):** a creature lists *what its body yields* (name, one of 7 kinds: hide, bone, venom, blood, scale and shell, sinew and fibre, other; what it's used for; an optional **Library item**). The creature's page lists them under Anatomy; the **Library item** (in the book's editor and the Atlas Library) shows **"From the body of The Murmur"**, linking to the creature. Readers never see which Library item a resource is.
+- **The Dossier (6.4):** a creature lists its **encounters** (character, chapter, what happened) and the characters **tied to its powers**. The character's record shows **"Creatures met"** under *Status* and **"Creatures tied to these powers"** under *Power*, each linking to the creature's page. Readers see encounters only from chapters they've read, and never the power ties.
+- **Links from anywhere:** a `creature:<id>` link on a page without the log (the Atlas) goes to `index.html?creature=<id>`, which opens the book on that creature's page.
+- **Fixed on the way:** dragging a pin used to make the book swallow your next click (the book cancels the click after any drag, `epitaph-book.js`); the pin drag now keeps its pointer events to itself.
+
+Tests: `tools/site-tests/test-creature-fields.js` (9 checks: power, pins, resources, encounters, ties, note chapters, and what the reader gate keeps), and the real page: placing a pin by drag (saved), the editor keeping pins and the new rows on save, the Dossier rows, the Library item's link opening the creature, and the deep link.
+
 ## Creature Log on the Atlas: the Creatures layer (atlas-3d.html) — step 6.2
 
 A **Creatures** button beside Politics on the Atlas (Era 1 only, like Politics; `?creatures=1` turns it on; it's remembered). For each creature alive in the story (Age G) it draws, in its own bright colour:

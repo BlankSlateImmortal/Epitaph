@@ -53,6 +53,9 @@
 
   // ---------------------------------------------------------------- drawing
   const dots = (n, label, steps) => `<span class="cp-dots" title="${esc(label)}${n ? ': ' + n + ' · ' + esc(steps[n - 1]) : ''}" role="img" aria-label="${esc(label)} ${n || 0} of 7${n ? ', ' + esc(steps[n - 1]) : ''}">${[1, 2, 3, 4, 5, 6, 7].map(i => `<i class="${i <= (n || 0) ? 'on' : ''}"></i>`).join('')}</span>`;
+  const charName = id => { try { const st = JSON.parse(localStorage.getItem('epitaph-character-profiles') || 'null'); const c = ((st && st.characters) || []).find(x => x.id === id); return c ? c.name || id : null; } catch (e) { return null; } };
+  const charLink = id => { const n = charName(id); return n ? `<button type="button" class="cp-chip" data-ref="char:${esc(id)}" title="Open ${esc(n)} in the Dossier">${esc(n)} ▸</button>` : ''; };
+  const itemName = id => { try { const it = ((global.EpitaphLibrary && global.EpitaphLibrary.get().items) || []).find(x => x.id === id); return it ? it.name || id : null; } catch (e) { return null; } };
   const place = id => { const p = W() && W().place(id); return p ? { id, name: String(p.name).split(/\s+[—–-]\s+/).pop() } : null; };
   function formCard(f, mode) {
     if (f.sil) return `<div class="cp-form sil" aria-label="A form not yet discovered"><span class="cp-t">${esc(whenLbl(f.when))}</span><b>? ? ?</b></div>`;
@@ -72,11 +75,17 @@
     const mut = m.mutations.length ? m.mutations.map(x => `<div class="cp-mut${x.current ? ' cur' : ''}"><b>${esc(whenLbl(x.when) || '—')}</b><span>${x.change ? esc(x.change) : '<span class="cp-none">what changed is not written yet</span>'}<br><span class="cp-dim">${x.cause ? 'cause: ' + esc(causeLbl(x.cause)) : 'cause: none yet'}${x.gain ? ' · gained: ' + esc(x.gain) : ''}${x.cursed ? ' · ⛓ a curse came with it' : ''}</span></span><em>${esc(x.name)}</em></div>`).join('')
       : none('No change is written down for this line yet.');
     // 3 anatomy
-    const parts = (r.anatomy && r.anatomy.parts) || [];
-    const ana = parts.length ? `<ul class="cp-parts">${parts.map(p => `<li><b>${esc(p.name)}</b>${p.note ? ' · ' + esc(p.note) : ''}</li>`).join('')}</ul>` + '<p class="cp-dim">A labelled drawing of the body comes with the specimen plate.</p>' : none('No anatomy written yet. (A labelled drawing comes with the specimen plate.)');
+    const parts = (r.anatomy && r.anatomy.parts) || [], img = r.anatomy && r.anatomy.image, placed = p => p.x != null && p.y != null;
+    const plate = img ? `<div class="cp-plate" data-plate><img src="${esc(img)}" alt="${esc(r.name || '')}: the specimen">${parts.map((p, i) => placed(p) || !reader ? `<button type="button" class="cp-pin${placed(p) ? '' : ' tray'}" data-pin="${i}" style="${placed(p) ? `left:${(p.x * 100).toFixed(2)}%;top:${(p.y * 100).toFixed(2)}%` : `left:${4 + i * 7}%;top:104%`}" aria-label="${i + 1}: ${esc(p.name)}${reader ? '' : ', drag to place it'}" title="${esc(p.name)}">${i + 1}</button>` : '').join('')}</div>${!reader && parts.some(p => !placed(p)) ? '<p class="cp-dim">Drag the pins below the image onto the body; they stay where you drop them.</p>' : ''}` : '';
+    const yields = (r.resources || []).filter(x => x.name), kindName = k => ((K.RESOURCE_KINDS || []).find(q => q[0] === k) || [k, k])[1];
+    const ana = (plate + (parts.length ? `<ol class="cp-parts">${parts.map(p => `<li><b>${esc(p.name)}</b>${p.note ? ' · ' + esc(p.note) : ''}</li>`).join('')}</ol>` : '') ||
+      none(reader ? 'Nothing of its body is known yet.' : 'No anatomy written yet: add an image and its parts in the editor.')) +
+      (yields.length ? `<p><span class="cp-fl">What its body yields</span></p>${yields.map(x => `<div class="cp-trait"><b>${esc(x.name)}</b><span>${esc(kindName(x.kind))}${x.use ? ' · ' + esc(x.use) : ''}${x.libId && itemName(x.libId) ? ` · <span class="cp-dim">Library: ${esc(itemName(x.libId))}</span>` : ''}</span></div>`).join('')}` : '');
     // 4 abilities
     const traits = r.traits || [];
-    const abl = traits.length ? traits.map(t => `<div class="cp-trait"><b>${esc(t.name)}</b><span>${esc(t.does)}${t.counters ? `<br><span class="cp-dim">countered by: ${esc(t.counters)}</span>` : ''}</span></div>`).join('') : none(creature ? 'No traits written yet.' : 'A lineage step has no traits of its own.');
+    const P = K.POWER, ties = (r.ties || []).filter(x => x.charId);
+    const abl = (traits.length ? traits.map(t => `<div class="cp-trait"><b>${esc(t.name)}</b><span>${esc(t.does)}${t.counters ? `<br><span class="cp-dim">countered by: ${esc(t.counters)}</span>` : ''}</span>${t.power ? `<em class="cp-pow">${dots(t.power, 'Power', P.steps)} ${esc(P.steps[t.power - 1])}</em>` : ''}</div>`).join('') : none(reader ? 'Not known yet.' : creature ? 'No traits written yet.' : 'A lineage step has no traits of its own.')) +
+      (ties.length ? `<p><span class="cp-fl">Tied to the powers of</span></p>${ties.map(x => `<div class="cp-trait"><b>${charLink(x.charId) || esc(x.charId)}</b><span>${esc(x.how)}</span></div>`).join('')}` : '');
     // 5 range
     const bios = (st => (r.biomes || []).concat((r.range && r.range.biomes) || []).filter((b, i, a) => a.indexOf(b) === i).map(b => (st.biomes || []).find(x => x.id === b)).filter(Boolean))(o.st);
     const placesR = ((r.range && r.range.places) || []).filter(Boolean), nests = (r.nests || []).filter(Boolean), sight = (r.sightings || []).filter(s => s.chapter != null).sort((a, b) => a.chapter - b.chapter);
@@ -90,8 +99,9 @@
       names.length ? `<p><span class="cp-fl">What settlements call it</span></p>${names.map(x => `<div class="cp-sight"><span><button type="button" class="cp-chip" data-open-entry="${esc(x.placeId)}">${esc((place(x.placeId) || { name: x.placeId }).name)} ▸</button></span><span>${x.localName ? '“' + esc(x.localName) + '”' : ''}${x.belief ? ' · ' + esc(x.belief) : ''}</span></div>`).join('')}` : ''].filter(Boolean).join('');
     const behHtml = beh || none('Nothing about its habits is written yet.');
     // 7 field notes
-    const notes = (r.fieldNotes || []).filter(x => x.text);
-    const fn = notes.length ? notes.map(x => `<div class="cp-note"><b>${esc(x.author || 'Unsigned')}${x.when ? ' · ' + esc(whenLbl(x.when)) : ''}</b><p>${esc(x.text)}</p></div>`).join('') : none('No field notes yet.');
+    const notes = (r.fieldNotes || []).filter(x => x.text), enc = (r.encounters || []).filter(x => x.charId || x.note).sort((a, b) => (a.chapter || 0) - (b.chapter || 0));
+    const fn = (notes.length ? notes.map(x => `<figure class="cp-note"><blockquote>${esc(x.text)}</blockquote><figcaption>— ${x.charId && charName(x.charId) ? charLink(x.charId) : esc(x.author || 'Unsigned')}${x.when ? ' · ' + esc(whenLbl(x.when)) : ''}${!reader && x.chapter ? ` <span class="cp-dim">· readers see it from Ch ${x.chapter}</span>` : ''}${!reader && !x.chapter ? ' <span class="cp-dim">· no chapter set: readers never see it</span>' : ''}</figcaption></figure>`).join('') : none('No field notes yet.')) +
+      (enc.length ? `<p><span class="cp-fl">Encounters</span></p>${enc.map(x => `<div class="cp-sight"><b>${x.chapter ? 'Ch ' + x.chapter : '—'}</b><span>${x.charId ? charLink(x.charId) || esc(x.charId) : ''} ${esc(x.note)}</span></div>`).join('')}` : '');
     return [sec(0, `${n} form${n === 1 ? '' : 's'}${m.root ? ' from ' + m.root : ''}`, lin), sec(1, 'each change, its cause, what it gained', mut), sec(2, parts.length ? `${parts.length} part${parts.length === 1 ? '' : 's'}` : 'nothing written yet', ana),
       sec(3, 'what its body can do, and what counters it', abl), sec(4, 'where it lives and moves: the map follows', rangeHtml), sec(5, 'habits, and what each settlement says', behHtml), sec(6, 'in-world notes', fn)].join('');
   }
@@ -117,8 +127,17 @@
       const op = t.closest('[data-form]'); if (op) { if (o.onOpen) o.onOpen(op.dataset.form); return; }
     };
     host.addEventListener('click', click);
+    // author: drag a pin onto the image; it saves where it is dropped (o.onPin)
+    let drag = null;
+    const down = e => { const pin = !o.reader && e.target.closest && e.target.closest('[data-pin]'); if (!pin) return; e.preventDefault(); e.stopPropagation(); drag = { pin, plate: pin.closest('[data-plate]') }; try { pin.setPointerCapture(e.pointerId); } catch (x) { /* fine */ } pin.classList.add('dragging'); };
+    const move = e => { if (!drag) return; e.stopPropagation(); const b = drag.plate.getBoundingClientRect(), x = Math.min(1, Math.max(0, (e.clientX - b.left) / b.width)), y = Math.min(1, Math.max(0, (e.clientY - b.top) / b.height));
+      drag.pin.style.left = (x * 100).toFixed(2) + '%'; drag.pin.style.top = (y * 100).toFixed(2) + '%'; drag.x = x; drag.y = y; drag.pin.classList.remove('tray'); };
+    const up = e => { if (!drag) return; if (e) e.stopPropagation(); const d = drag; drag = null; d.pin.classList.remove('dragging'); try { if (e && e.pointerId != null && d.pin.hasPointerCapture(e.pointerId)) d.pin.releasePointerCapture(e.pointerId); } catch (x) { /* fine */ } if (d.x != null && o.onPin) o.onPin(m.rec.id, +d.pin.dataset.pin, d.x, d.y); };
+    const keyPin = e => { const pin = !o.reader && e.target.closest && e.target.closest('[data-pin]'); if (!pin) return; const st = { ArrowLeft: [-0.01, 0], ArrowRight: [0.01, 0], ArrowUp: [0, -0.01], ArrowDown: [0, 0.01] }[e.key]; if (!st) return; e.preventDefault();
+      const x = Math.min(1, Math.max(0, (parseFloat(pin.style.left) || 0) / 100 + st[0])), y = Math.min(1, Math.max(0, (parseFloat(pin.style.top) || 0) / 100 + st[1])); pin.style.left = (x * 100) + '%'; pin.style.top = (y * 100) + '%'; pin.classList.remove('tray'); if (o.onPin) o.onPin(m.rec.id, +pin.dataset.pin, x, y); };
+    host.addEventListener('pointerdown', down); host.addEventListener('pointermove', move); host.addEventListener('pointerup', up); host.addEventListener('pointercancel', up); host.addEventListener('keydown', keyPin);
     return { goto: i => { const s = body.querySelector(`[data-sec="${i}"]`); if (s) body.scrollTo({ top: s.offsetTop - body.offsetTop - 4, behavior: global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); },
-      destroy: () => { host.removeEventListener('click', click); body.removeEventListener('scroll', sync); } };
+      destroy: () => { host.removeEventListener('click', click); host.removeEventListener('pointerdown', down); host.removeEventListener('pointermove', move); host.removeEventListener('pointerup', up); host.removeEventListener('pointercancel', up); host.removeEventListener('keydown', keyPin); body.removeEventListener('scroll', sync); } };
   }
   global.EpitaphCreaturePage = { SECTIONS, model, mount, _t: { whenLbl, causeLbl } };
 })(typeof window !== 'undefined' ? window : globalThis);

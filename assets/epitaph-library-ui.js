@@ -463,6 +463,15 @@ function renderItemForm(v){
   });
 }
 function historyWhen(w){ return Lib.whenText(w); }
+/** The Creature Log's side of an item (step 6.3): the creatures whose bodies yield it. Author only: a reader's copy of the log never
+ *  says which Library item a resource is. A click opens the creature's page (EpitaphLinks 'creature'). */
+function creatureSourcesHtml(it){
+  const K = window.EpitaphCreatures, T = window.EpitaphTimeline;
+  if(!K || !K.sourcesOf || (T && !T.authorMode())) return '';
+  let src = []; try { src = K.sourcesOf(it.id); } catch(e){ return ''; }
+  if(!src.length) return '';
+  return `<p class="lib-desc">From the body of ${src.map(s => `<button type="button" class="lib-link" data-ref="creature:${escapeHud(s.id)}" title="Open ${escapeHud(s.name).replace(/"/g, '&quot;')} in the Creature Log">${escapeHud(s.name)}</button> <span style="opacity:.7">(${escapeHud(s.resource)})</span>`).join(', ')}</p>`;
+}
 function renderItemDetail(v){
   const it = Lib.item(v.id);
   if(!it){ libView = { mode: 'list' }; return renderLibrary(); }
@@ -472,6 +481,7 @@ function renderItemDetail(v){
     <div class="lib-item-head">${it.image ? `<img src="${it.image}" alt="">` : (it.icon ? `<img src="${it.icon}" alt="">` : '')}<div><h3>${escapeHud(it.name)}</h3>
       <p class="lib-origin">${Lib.placeIdOf(it) ? `from <button type="button" class="lib-link" id="liGoOrigin">${escapeHud(placeName(Lib.placeIdOf(it)) || 'a missing place')}</button>` : escapeHud(EpitaphItemFields.originText(it, placeName))} ${EpitaphItemFields.badgesHtml(it)}</p></div></div>
     ${it.originCircumstance ? `<p class="lib-desc">${escapeHud(it.originCircumstance)}</p>` : ''}
+    ${creatureSourcesHtml(it)}
     ${it.desc ? `<p class="lib-desc">${escapeHud(it.desc)}</p>` : ''}
     ${it.marks.length ? `<div class="mark-lines">${EpitaphMarks.linesHtml(it.marks, { definition: true })}</div>` : ''}
     ${it.note ? `<p class="lib-desc dim">${escapeHud(it.note)}</p>` : ''}

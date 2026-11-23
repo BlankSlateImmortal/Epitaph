@@ -1191,7 +1191,7 @@
 <script src="assets/archetypes.js?v=2"></script>
 <script src="assets/epitaph-world.js?v=9"></script>
 <script src="assets/epitaph-timeline.js?v=8"></script>
-<script src="assets/epitaph-links.js?v=1"></script>
+<script src="assets/epitaph-links.js?v=2"></script>
 <script src="assets/epitaph-sites.js?v=24"></script>
 <script src="assets/epitaph-sites-ui.js?v=10"></script>
 <link rel="stylesheet" href="assets/epitaph-site-entry.css?v=17">
@@ -1200,14 +1200,14 @@
 <script src="assets/epitaph-site-web.js?v=3"></script>
 <script src="assets/epitaph-site-whatif.js?v=2"></script>
 <script src="assets/epitaph-site-edit.js?v=3"></script>
-<script src="assets/epitaph-creatures.js?v=2"></script>
-<link rel="stylesheet" href="assets/epitaph-creature-ui.css?v=10">
+<script src="assets/epitaph-creatures.js?v=3"></script>
+<link rel="stylesheet" href="assets/epitaph-creature-ui.css?v=11">
 <script src="assets/epitaph-creature-tree.js?v=5"></script>
-<script src="assets/epitaph-creature-page.js?v=1"></script>
+<script src="assets/epitaph-creature-page.js?v=2"></script>
 <script src="assets/epitaph-creature-web.js?v=1"></script>
 <script src="assets/epitaph-creature-world.js?v=2"></script>
 <script src="assets/epitaph-creature-chains.js?v=1"></script>
-<script src="assets/epitaph-creature-ui.js?v=10"></script>
+<script src="assets/epitaph-creature-ui.js?v=11"></script>
 <script src="assets/epitaph-publish.js?v=8"></script>
 <script src="assets/epitaph-library.js?v=20"></script>
 <script src="assets/epitaph-marks.js?v=8"></script>
@@ -2817,6 +2817,18 @@ const REC_ITEMS = [
   { k: 'edit', label: 'Edit', jp: '編集' }
 ].map((it, i) => ({ ...it, x: 70 + i * 1.6, y: 21 + i * 9 }));
 let recOpen = false, recCmd = 'identity';
+/** The Creature Log's side of a character (step 6.4): the creatures they met (Status) and the ones tied to their powers (Power).
+ *  A reader gets the log through its gate: encounters only from chapters they've read, and never the power ties. */
+function creatureLinksHtml(char, which){
+  const K = window.EpitaphCreatures, T = window.EpitaphTimeline; if(!K || !K.forCharacter || !char || !char.id) return '';
+  let st; try {
+    st = K.load();
+    if(T && !T.authorMode()){ const r = T.readerChapter(), at = r == null ? T.latestChapter() : r; st = K.forReader(st, at, { eventOk: id => { const e = T.byId && T.byId(id); return !!(e && T.isRevealed(e, at)); } }); }
+  } catch(e){ return ''; }
+  const f = K.forCharacter(char.id, st), list = which === 'ties' ? f.ties : f.encounters; if(!list.length) return '';
+  const link = c => `<button type="button" class="lib-link" data-ref="creature:${escapeAttr(c.id)}" title="Open ${escapeAttr(c.name)} in the Creature Log">${escapeHtml(c.name)}</button>`;
+  return `<div class="rec-row"><span>${which === 'ties' ? 'Creatures tied to these powers' : 'Creatures met'}</span><b>${list.map(c => link(c) + (which === 'ties' ? (c.how ? ' · ' + escapeHtml(c.how) : '') : (c.chapter ? ' · Ch ' + c.chapter : '') + (c.note ? ' · ' + escapeHtml(c.note) : ''))).join('<br>')}</b></div>`;
+}
 function renderCharacterRecord(char, snap, portraitSrc, sPos, recordIndex, statusLabel){
   const isGen = portraitSrc === SILHOUETTE_SVG;
   return `
@@ -2852,10 +2864,10 @@ function recDetailHtml(cmd, char, snap, sortedTitles){
   switch(cmd){
     case 'identity': return head('IDENTITY', it.jp) + row('Name', char.name) + row('Type', (RACES.find(r => r.id === char.race) || {}).label || '', typeUnset()) + row(hasArchetype(char) ? 'Archetype' : hasTrueName(char) ? (typeOf(char) === 'godling' ? 'Plane-name' : 'True name') : isGodType(char) ? 'Concept' : 'Name', archetypeLabel(snap, char)) + row('Glyph', glyphFor(char)) + row('Chapter', snap.chapterRange, 'No chapter set') + row('Starts at', chapterLabel(snap.startChapter), '⚠ Not set') + row('Presence', PRESENCE_LABEL[snap.presence]);
     case 'titles': return head('TITLES', it.jp) + (sortedTitles.length ? `<div class="titles-row">${sortedTitles.map((t, idx) => renderTitleChip(t, idx)).join('')}</div>` : `<p class="rec-empty">No titles yet.</p>`);
-    case 'status': return head('STATUS', it.jp) + row('Marks', markSummary(snap).text, 'None') + row('Marked / bound items', String(markedItems(snap).length)) + row('Type', (RACES.find(r => r.id === char.race) || {}).label || '', typeUnset()) + `<div class="rec-marks">${divineStatuses.map(ds => `<span class="${char.divineStatus === ds ? 'on' : ''}">[${char.divineStatus === ds ? '●' : '○'} ${ds.toUpperCase()}]</span>`).join('')}</div>`;
+    case 'status': return head('STATUS', it.jp) + row('Marks', markSummary(snap).text, 'None') + row('Marked / bound items', String(markedItems(snap).length)) + row('Type', (RACES.find(r => r.id === char.race) || {}).label || '', typeUnset()) + `<div class="rec-marks">${divineStatuses.map(ds => `<span class="${char.divineStatus === ds ? 'on' : ''}">[${char.divineStatus === ds ? '●' : '○'} ${ds.toUpperCase()}]</span>`).join('')}</div>` + creatureLinksHtml(char, 'met');
     case 'authority': return head('AUTHORITY', it.jp) + row('Concept', char.authority) + row('Skills', String((snap.skills || []).length));
     case 'faction': return head('FACTION', it.jp) + row('Faction', char.faction, 'Unassigned') + row('Type', (RACES.find(r => r.id === char.race) || {}).label || '', typeUnset());
-    case 'power': return head('POWER', it.jp) + `<button type="button" class="slant-btn primary" id="recPowerBtn" style="margin:0 0 8px">Edit power</button>` + powerRowsHtml(char, snap, row) + `<p class="rec-empty"><a href="powers.html" target="_blank" rel="noopener">How the power systems work ↗</a></p>`;
+    case 'power': return head('POWER', it.jp) + `<button type="button" class="slant-btn primary" id="recPowerBtn" style="margin:0 0 8px">Edit power</button>` + powerRowsHtml(char, snap, row) + `<p class="rec-empty"><a href="powers.html" target="_blank" rel="noopener">How the power systems work ↗</a></p>` + creatureLinksHtml(char, 'ties');
     case 'state': return head('STATE', it.jp) + row('Emotional state', snap.emotionalState);
     case 'portrait': return head('PORTRAIT', it.jp) + `<p class="rec-empty">${snap.systemPortrait || snap.portrait ? 'Uses your uploaded image.' : 'Uses the generated figure.'}</p><button type="button" class="slant-btn" id="recPortraitBtn">Change or reposition</button>`;
     case 'edit': return head('EDIT', it.jp) + `<p class="rec-empty">${hasTrueName(char) ? 'True name history' : 'Titles'}, concept and emotional state. Type, faction and lore are in the profile.</p><button type="button" class="slant-btn primary" id="recEditBtn">Edit identity</button>`;
@@ -6294,6 +6306,12 @@ modalBackdrop.addEventListener('click', (e) => {
   const placeId = params.get('place');
   if(placeId){
     openEntryInBook(placeId, params.get('tab'));
+  }
+  // index.html?creature=<id>: open the Creature Log on that creature's page (links from the Atlas, where the log isn't shown)
+  const creatureId = params.get('creature');
+  if(creatureId && !placeId && window.EpitaphCreatures && EpitaphCreatures.byId(creatureId)){
+    const show = () => { if(window.EpitaphBook && EpitaphBook.openCreatures) EpitaphBook.openCreatures(creatureId); };
+    if(document.getElementById('theBook').classList.contains('open')) show(); else { openTheBook(); setTimeout(show, 1700); }
   }
 })();
 

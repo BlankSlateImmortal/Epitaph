@@ -174,3 +174,13 @@ button.cc-card{ cursor:pointer; } button.cc-card:hover, button.cc-card:focus-vis
 .cc-card.from{ flex-basis:auto; min-width:0; background:none; border-style:dotted; } .cc-card.from b{ font-size:14px; color:var(--dust); } .cc-card.sil{ border-style:dotted; border-color:#8a6a34; } .cc-card.sil b{ color:#8a6a34; letter-spacing:.2em; }
 .cc-causes{ display:flex; flex-wrap:wrap; gap:4px; } .cc-causes .cwo-form i{ font-style:normal; font-size:12px; color:var(--dim); margin-left:4px; } .cc-causes .cwo-form.on i{ color:var(--ink-deep); }
 @media (max-width:760px){ .cc-card{ flex:1 1 120px; } .cc-body{ padding:8px 10px 24px; } .book.wide:has(#bkCreatures .cc) .terminal{ display:none; } .book.wide:has(#bkCreatures .cc) .book-page.left-page{ flex:0 0 64%; } .book.wide:has(#bkCreatures .cc) .book-page.right-page{ flex:1 1 0; min-height:0; } }
+/* the anatomy image field (step 3.3) */
+.cl-img{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; } .cl-img-prev{ max-width:160px; max-height:110px; border:1px solid var(--amber-dim); } .cl-img input[type=text]{ flex:1 1 220px; }
+.cl-img .cl-add{ display:inline-flex; align-items:center; } .cl-img .cl-add:focus-within{ outline:2px solid var(--amber-hi); outline-offset:1px; }
+/* the specimen plate and field notes (steps 3.3, 3.7) */
+.cp-plate{ position:relative; align-self:flex-start; width:min(100%, 520px); margin-bottom:34px; border:1px solid var(--amber-dim); background:var(--ink-deep); } .cp-plate img{ display:block; width:100%; height:auto; }
+.cp-pin{ position:absolute; transform:translate(-50%,-50%); width:26px; height:26px; border-radius:50%; border:2px solid var(--ink-deep); background:var(--amber); color:var(--ink-deep); font-family:var(--f-crt); font-size:16px; line-height:1; padding:0; cursor:pointer; box-shadow:0 0 0 2px var(--amber-hi); touch-action:none; }
+.cp-pin.tray{ background:var(--ink); color:var(--amber-hi); box-shadow:0 0 0 1px var(--amber-dim); } .cp-pin.dragging{ cursor:grabbing; box-shadow:0 0 0 3px #fff3d6; } .cp-pin:focus-visible{ outline:2px solid #fff3d6; outline-offset:2px; }
+.cp-parts{ margin:0; padding-left:22px; } .cp-pow{ grid-column:2; font-style:normal; font-family:var(--f-crt); font-size:15px; color:var(--amber-hi); display:inline-flex; align-items:center; gap:6px; }
+.cp-note{ margin:0; padding:8px 12px; border-left:2px solid var(--amber-dim); background:rgba(255,178,56,.03); } .cp-note blockquote{ margin:0; font-family:var(--f-jp, serif); font-size:14px; line-height:1.6; color:var(--bone); font-style:italic; }
+.cp-note figcaption{ margin-top:4px; font-size:11.5px; color:var(--dust); display:flex; flex-wrap:wrap; align-items:center; gap:4px; }

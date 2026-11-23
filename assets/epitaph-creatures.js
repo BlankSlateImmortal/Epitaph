@@ -55,6 +55,10 @@
     size: { id: 'size', label: 'Size', rule: 'What it can nest in, and how far off it is seen',
       steps: ['Mote', 'Small', 'Person-sized', 'Large', 'Huge', 'Colossal', 'Titanic'] }
   };
+  /** A trait's power (agreed 2026-11-23, Round 9). */
+  const POWER = { id: 'power', label: 'Power', steps: ['Faint', 'Minor', 'Notable', 'Strong', 'Fierce', 'Overwhelming', 'Unstoppable'] };
+  /** What a creature's body yields (step 6.3): seven kinds. */
+  const RESOURCE_KINDS = [['hide', 'Hide'], ['bone', 'Bone'], ['venom', 'Venom'], ['blood', 'Blood'], ['scale', 'Scale and shell'], ['sinew', 'Sinew and fibre'], ['other', 'Other']];
   const CONSCIOUS_FROM = 5;
   const isConscious = c => !!c && Number.isInteger(c.awareness) && c.awareness >= CONSCIOUS_FROM;
 
@@ -154,6 +158,7 @@
   const str = v => (v == null ? '' : String(v));
   const lst = v => (Array.isArray(v) ? v : []);
   const scale = v => (Number.isInteger(v) && v >= 1 && v <= 7 ? v : null);
+  const frac = v => (Number.isFinite(v) && v >= 0 && v <= 1 ? v : null);      // a pin's place on the anatomy image, 0..1
   const whenOf = w => (w == null || w === '' ? null : (timeIndex(w) == null && typeof w !== 'string' ? null : w));      // an epoch, an age, or a timeline event id
   const curseRef = c => (c && typeof c === 'object' && c.libId ? { libId: String(c.libId), stage: Number.isInteger(c.stage) && c.stage >= 0 && c.stage <= 3 ? c.stage : 0 } : null);
   const base = r => ({ id: str(r.id), name: str(r.name), draft: r.draft === undefined ? true : !!r.draft, hidden: !!r.hidden,
@@ -168,15 +173,18 @@
     r = r || {};
     return Object.assign(normNode(r), { awareness: scale(r.awareness), threat: scale(r.threat), size: scale(r.size),
       curses: lst(r.curses).map(curseRef).filter(Boolean),
-      traits: lst(r.traits).map(t => ({ name: str(t && t.name), does: str(t && t.does), counters: str(t && t.counters) })).filter(t => t.name || t.does),
-      anatomy: { parts: lst(r.anatomy && r.anatomy.parts).map(x => ({ name: str(x && x.name), note: str(x && x.note) })), model: str(r.anatomy && r.anatomy.model) },
+      traits: lst(r.traits).map(t => ({ name: str(t && t.name), does: str(t && t.does), counters: str(t && t.counters), power: scale(t && t.power) })).filter(t => t.name || t.does),
+      anatomy: { parts: lst(r.anatomy && r.anatomy.parts).map(x => ({ name: str(x && x.name), note: str(x && x.note), x: frac(x && x.x), y: frac(x && x.y) })), image: str(r.anatomy && r.anatomy.image), model: str(r.anatomy && r.anatomy.model) },
+      resources: lst(r.resources).map(x => ({ name: str(x && x.name), kind: RESOURCE_KINDS.some(k => k[0] === (x && x.kind)) ? x.kind : 'other', use: str(x && x.use), libId: str(x && x.libId) })).filter(x => x.name),
+      encounters: lst(r.encounters).map(x => ({ charId: str(x && x.charId), chapter: Number.isInteger(x && x.chapter) ? x.chapter : null, note: str(x && x.note) })).filter(x => x.charId || x.note),
+      ties: lst(r.ties).map(x => ({ charId: str(x && x.charId), how: str(x && x.how) })).filter(x => x.charId),
       range: { biomes: lst(r.range && r.range.biomes).map(str), places: lst(r.range && r.range.places).map(str),
         migrations: lst(r.range && r.range.migrations).map(m => ({ path: lst(m && m.path).filter(q => Array.isArray(q) && q.length === 2 && q.every(Number.isFinite)), when: whenOf(m && m.when) })) },
       nests: lst(r.nests).map(str),
       sightings: lst(r.sightings).map(x => ({ chapter: Number.isInteger(x && x.chapter) ? x.chapter : null, placeId: str(x && x.placeId), note: str(x && x.note) })),
       diet: str(r.diet), hunting: str(r.hunting), breeding: str(r.breeding),
       names: lst(r.names).map(x => ({ placeId: str(x && x.placeId), localName: str(x && x.localName), belief: str(x && x.belief) })),
-      fieldNotes: lst(r.fieldNotes).map(x => ({ author: str(x && x.author), charId: str(x && x.charId), when: whenOf(x && x.when), text: str(x && x.text) })) });
+      fieldNotes: lst(r.fieldNotes).map(x => ({ author: str(x && x.author), charId: str(x && x.charId), when: whenOf(x && x.when), chapter: Number.isInteger(x && x.chapter) ? x.chapter : null, text: str(x && x.text) })) });
   }
   function normChaos(r) {
     r = r || {};
@@ -316,7 +324,7 @@
       const r = cl(x); out.count.known++; r.draft = false; r.parentId = pid; r.cause = r.cause && evOk(r.cause) ? r.cause : null; r.silhouette = ''; r.biomes = lst(r.biomes).filter(b => biomeOk.has(b));
       if (!evOk(r.when)) r.when = null; if (!evOk(r.extinct)) r.extinct = null;
       if (r.mutation && r.mutation.curse) r.mutation.curse = 'curse';          // that it is cursed, not which curse
-      if (k === 'creatures') { r.curses = lst(r.curses).map(c => ({ libId: 'curse', stage: 0 })); r.names = []; r.fieldNotes = []; r.sightings = lst(r.sightings).filter(q => q.chapter != null && q.chapter <= chapter); r.nests = []; r.traits = []; }
+      if (k === 'creatures') { r.curses = lst(r.curses).map(c => ({ libId: 'curse', stage: 0 })); r.names = []; r.fieldNotes = lst(r.fieldNotes).filter(q => q.chapter != null && q.chapter <= chapter); r.encounters = lst(r.encounters).filter(q => q.chapter != null && q.chapter <= chapter); r.ties = []; r.resources = lst(r.resources).map(q => Object.assign({}, q, { libId: '' })); r.sightings = lst(r.sightings).filter(q => q.chapter != null && q.chapter <= chapter); r.nests = []; r.traits = []; }
       out[k].push(r); });
     lst(st.chaos).filter(x => !x.hidden).forEach(x => { if (isKnown(x)) { const r = cl(x); r.draft = false; r.sightings = lst(r.sightings).filter(q => q.chapter != null && q.chapter <= chapter); r.curseLink = ''; out.chaos.push(r); } else out.chaos.push({ id: '?c' + out.chaos.length, name: '', silhouette: true, forms: [], sightings: [], draft: false, hidden: false, revealedIn: null }); });
     lst(st.places).filter(x => !x.hidden && isKnown(x)).forEach(x => { const r = cl(x); r.draft = false; r.curse = null; r.notes = ''; out.places.push(r); });
@@ -325,10 +333,24 @@
     return out;
   }
 
+  // ---------------------------------------------------------------- links to the rest of the site (steps 6.3, 6.4)
+  /** The creatures whose bodies yield a Library item: [{ id, name, resource, kind }]. */
+  function sourcesOf(itemId, st) { const out = []; lst((st || readStore()).creatures).forEach(c => lst(c.resources).forEach(r => { if (itemId && r.libId === itemId) out.push({ id: c.id, name: c.name || c.id, resource: r.name, kind: r.kind }); })); return out; }
+  /** What the log says about a character: the creatures they met, and the creatures tied to their powers. Pass a gated store for readers. */
+  function forCharacter(charId, st) {
+    const S = st || readStore(), enc = [], ties = [];
+    lst(S.creatures).filter(c => !c.silhouette).forEach(c => {
+      lst(c.encounters).filter(e => e.charId === charId).forEach(e => enc.push({ id: c.id, name: c.name || c.id, chapter: e.chapter, note: e.note }));
+      lst(c.ties).filter(t => t.charId === charId).forEach(t => ties.push({ id: c.id, name: c.name || c.id, how: t.how }));
+    });
+    enc.sort((a, b) => (a.chapter || 0) - (b.chapter || 0));
+    return { encounters: enc, ties };
+  }
+
   global.EpitaphCreatures = {
-    EPOCHS, AGES, AGE_IDS, timeIndex, SCALES, CONSCIOUS_FROM, isConscious,
+    EPOCHS, AGES, AGE_IDS, timeIndex, SCALES, POWER, RESOURCE_KINDS, CONSCIOUS_FROM, isConscious,
     CURSE_STATES, CURSE_PHASES, CURSE_RULES, curseExtras, restFor,
-    normFood, aliveAt, foodAt, webRoles, wouldStarve, forReader,
+    normFood, aliveAt, foodAt, webRoles, wouldStarve, forReader, sourcesOf, forCharacter,
     KEY, BACKUP_KEY, VERSION, KINDS, load, byId, put, remove, putFood, uid, exportData, importData, newInData, mergeData, problems
   };
 })(typeof window !== 'undefined' ? window : globalThis);

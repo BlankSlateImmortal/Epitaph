@@ -58,14 +58,17 @@ creature = node + {
              awareness: 1..7, threat: 1..7, size: 1..7,        // the three scales below
              conscious: derived (awareness ≥ 5)                  // conscious cursed creatures cycle fast (rest: 'short')
              curses: [Mark],                                     // copies from the Library, each at its own stage
-             traits: [{ name, does, counters }],                 // what its body can do; creatures get no skills (yours)
-             anatomy: { parts: [{ name, note }], model? },
+             traits: [{ name, does, counters, power: 1..7 }],    // what its body can do; creatures get no skills (yours); power: Faint … Unstoppable
+             anatomy: { image, parts: [{ name, note, x, y }], model? },   // your drawing or render; x,y = a part's pin on it (0..1)
+             resources: [{ name, kind, use, libId }],            // what its body yields; kind: hide · bone · venom · blood · scale · sinew · other; libId: a Library item
+             encounters: [{ charId, chapter, note }],            // Dossier characters who met it (readers see them from that chapter)
+             ties: [{ charId, how }],                            // tied to a character's powers (author only)
              range: { biomes, places, migrations: [{ path: [[lat,lng]…], when }] },
              nests: [placeId],                                   // only cursed creatures nest (yours)
              sightings: [{ chapter, placeId, note }],
              diet, hunting, breeding,
              names: [{ placeId, localName, belief }],            // what each settlement calls it (links the encyclopedia's Beasts tab)
-             fieldNotes: [{ author | charId, when, text }] }
+             fieldNotes: [{ author | charId, when, chapter, text }] }   // readers see a note from its chapter on; none without one
 chaos:     { id, name, forms: [{ biome, looks }], sightings, curseLink?, hidden, revealedIn }
            // the shelf beside the tree: deathless, shifting with its region, maybe tied to curses
 food:      { eater, eaten, when }                               // who eats whom, at an age
@@ -86,6 +89,10 @@ food:      { eater, eaten, when }                               // who eats whom
 - **Drafts:** every default carries `draft` until approved (like the encyclopedia).
 - **Checks** (step 1.6): a node with a missing parent, a mutation with no cause, a creature dated before its ancestor, a food link to a
   missing creature, an extinct creature sighted later, a curse copy whose `libId` is gone. An unwritten place curse is not a problem.
+
+## Added 2026-11-23 (the user's answers)
+
+Trait power (7 steps), the anatomy image with pins, resources, encounters and power ties, and a chapter on each field note. All live on the creature; the Library and the Dossier read them and link back.
 
 ## Agreed (2026-11-22)
 

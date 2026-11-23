@@ -657,6 +657,7 @@
         <div class="bk-field"><span>History <em>— what happened to it before the story or off the page</em></span><div id="biHistory"></div></div>
         <label class="bk-field"><span>Note</span><textarea id="biNote" rows="2">${esc(draft.note)}</textarea></label>
         <div class="bk-field"><span>Held by</span>${held.length ? `<ul class="bk-held">${held.map(h => `<li><b>${esc(h.name)}</b> <small>${esc(h.chapters.join(' · '))}</small></li>`).join('')}</ul>` : '<p class="bk-dim">Nobody carries it yet. Add it from a character’s Inventory tab.</p>'}</div>
+        ${(() => { const src = window.EpitaphCreatures && EpitaphCreatures.sourcesOf ? EpitaphCreatures.sourcesOf(it.id) : []; return src.length ? `<div class="bk-field"><span>From the body of <em>— from the Creature Log</em></span><ul class="bk-held">${src.map(c => `<li><a href="#" data-ref="creature:${attr(c.id)}" title="Open ${attr(c.name)} in the Creature Log"><b>${esc(c.name)}</b></a> <small>${esc(c.resource)}</small></li>`).join('')}</ul></div>` : ''; })()}
         <div class="bk-actions">
           <button type="button" class="slant-btn primary" id="biSave">Save</button>
           ${Lib.get().items.length > 1 ? '<button type="button" class="slant-btn" id="biFold" title="Make this item a state of another item">Fold into…</button>' : ''}
