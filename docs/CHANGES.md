@@ -2,6 +2,16 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Skill prospects are a grimoire (opsp) — item-system 6.2, restyled
+
+Type `opsp` in the Storybook terminal. Inside the book the prospects are an open **grimoire**:
+
+- **Contents** on the left: every prospect as a page, in reading order (each one after the prospect it grows from), corrupted ones in red with ✕. A search box filters them; **+ New page** adds one.
+- **The spell page**: a sigil ring around the prospect's glyph (its first letter if it has none), the name in the skill tree's blackletter, seven level diamonds, what it grows from and its branches as links to their pages, and its text. Turn with the ◂ ▸ buttons or the arrow keys.
+- **The right page** is the editor you had before: Save, Duplicate, Delete, Assign to a character, and Who could take it. Turning a page saves what you typed.
+
+Private like before: readers never see it. Test: `node tools/visitor-test/author-book.js`.
+
 ## The Creature Log, at a glance — step 7.3
 
 *The entries below are step by step (plan: [creature-log.md](plans/creature-log.md)); this is the map.*

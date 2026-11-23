@@ -6,7 +6,9 @@
  * (the prospect is gone from the board), after checking the version's own rules: the type lock, the true-name branch caps, a locked chapter,
  * the skills it grows from, and name clashes.
  *
- *   EpitaphProspects.open()   opens the board in the wide modal; returns a short message for the terminal
+ *   EpitaphProspects.open()   opens the board; returns a short message for the terminal. Inside the book (the usual way: opsp) it is a
+ *                             GRIMOIRE: the left page has the contents and one spell page per prospect (sigil, name, level, what it grows
+ *                             from), turned with the arrows; the right page is the editor. Outside the book it falls back to the wide modal.
  * The board also lists who could take a prospect (step 6.4): rules first, then room, then hints. No scores.
  *
  * Needs assets/epitaph-library.js; uses the page's modal (openModal, closeModal, modalContent) and the terminal runner.
@@ -22,8 +24,9 @@
 
   const drafts = () => Lib().get().skillDrafts;
   const find = id => drafts().find(x => x.id === id) || null;
-  let host = null;   // the book's page when the board is opened inside the book; otherwise the page's modal
+  let host = null;   // the book (both pages) when the grimoire is open inside it; otherwise the page's modal
   const root = () => host || (typeof modalContent !== 'undefined' ? modalContent : null);
+  const inBook = () => !!(host && host.id === 'theBook');
   const q = s => root().querySelector(s);
 
   function matches(x) {
@@ -197,6 +200,7 @@
 
   function redraw(full) {
     armed = armed && find(armed) ? armed : null;
+    if (inBook()) { drawBook(); return; }
     if (full) { root().innerHTML = shell(); wire(); return; }
     q('#spList').innerHTML = listHtml(); q('#spMain').innerHTML = editorHtml(find(sel)); wireList(); wireForm();
   }
@@ -213,7 +217,10 @@
       const gone = sel; sel = ''; armed = null; Lib().update(l => { l.skillDrafts = l.skillDrafts.filter(d => d.id !== gone); }); redraw(true); });
     wireAssign();
     // the card shows the name as you type it
-    const nm = q('#spMain [data-spf="name"]'); if (nm) nm.addEventListener('input', () => { const c = q(`.sp-card.on b`); if (c) c.textContent = nm.value || 'Unnamed prospect'; });
+    const nm = q('#spMain [data-spf="name"]'); if (nm) nm.addEventListener('input', () => {
+      const v = nm.value || 'Unnamed prospect';
+      root().querySelectorAll('.sp-card.on b, .gr-toc a.on b, .gr-name, .gr-panel-name').forEach(el => { el.textContent = v; });
+    });
   }
   function wireAssign() {
     const cs = q('#spChar'); if (!cs) return;
@@ -263,14 +270,104 @@
     wireList(); wireForm();
   }
 
+  // ==================================================================
+  // THE GRIMOIRE (inside the book): contents + a spell page on the left page, the editor on the right page
+  // ==================================================================
+  const ROMAN = n => { let r = '', x = n; [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']].forEach(([v, s]) => { while (x >= v) { r += s; x -= v; } }); return r || '0'; };
+  const pad2 = n => String(n).padStart(2, '0');
+  // page order: each prospect after the one it grows from, so the book reads root to branch
+  function ordered() {
+    const all = drafts().slice(), names = new Set(all.map(d => d.name.trim()).filter(Boolean)), out = [], seen = new Set();
+    const byName = (a, b) => String(a.name).localeCompare(String(b.name));
+    const kids = n => all.filter(d => d.parent && d.parent === n).sort(byName);
+    const visit = d => { if (seen.has(d.id)) return; seen.add(d.id); out.push(d); if (d.name.trim()) kids(d.name.trim()).forEach(visit); };
+    all.filter(d => !d.parent || !names.has(d.parent)).sort(byName).forEach(visit);
+    all.filter(d => !seen.has(d.id)).sort(byName).forEach(visit);          // loops (a grows from b grows from a) still get a page
+    return out;
+  }
+  function sigilSvg(corrupted) {
+    const c = corrupted ? 'rgba(217,120,100,' : 'rgba(255,178,56,';
+    return `<svg viewBox="0 0 230 230" aria-hidden="true"><circle cx="115" cy="115" r="104" fill="none" stroke="${c}.55)" stroke-width="1.5"/>
+      <circle cx="115" cy="115" r="92" fill="none" stroke="${c}.3)" stroke-dasharray="3 6"/>
+      <polygon points="115,18 198,163 32,163" fill="none" stroke="${c}.35)"/><polygon points="115,212 32,67 198,67" fill="none" stroke="${c}.35)"/>
+      <g fill="${c}.7)" font-size="14" text-anchor="middle"><text x="115" y="11">ᚠ</text><text x="224" y="120">ᚱ</text><text x="115" y="228">ᛟ</text><text x="7" y="120">ᛉ</text></g>
+      ${corrupted ? `<path d="M70 40 L98 92 L84 118 L112 168" fill="none" stroke="${c}.85)" stroke-width="1.6"/><path d="M160 60 L138 110 L150 140" fill="none" stroke="${c}.7)" stroke-width="1.2"/>` : ''}</svg>`;
+  }
+  function tocHtml(order) {
+    const shown = order.filter(matches);
+    if (!order.length) return '<p class="gr-empty">No pages yet.</p>';
+    if (!shown.length) return '<p class="gr-empty">Nothing matches.</p>';
+    return shown.map(d => `<a href="#" role="button" data-sp="${esc(d.id)}" class="${d.id === sel ? 'on' : ''}${d.corrupted ? ' cor' : ''}"><span>${ROMAN(order.indexOf(d) + 1)}</span><b>${esc(d.name || 'Unnamed prospect')}</b>${d.corrupted ? '<i aria-label="corrupted">✕</i>' : ''}</a>`).join('');
+  }
+  function pageHtml(order, x, i) {
+    if (!x) return `<div class="gr-page gr-blank"><div class="gr-ord">AN EMPTY GRIMOIRE</div><p>No prospects yet. A prospect is a skill no one holds: write it here, see who it would fit, and assign it when the story needs it.</p>
+      <button type="button" class="slant-btn primary" data-sp-new>+ New page</button></div>`;
+    const parent = x.parent ? order.find(d => d.name.trim() === x.parent) : null;
+    const kids = x.name.trim() ? order.filter(d => d.parent === x.name.trim()) : [];
+    const glyph = (x.glyph || '').trim() || (x.name || '?').trim().charAt(0).toUpperCase() || '?';
+    const prev = order[i - 1], next = order[i + 1];
+    const link = d => `<a href="#" role="button" data-sp="${esc(d.id)}">${esc(d.name || 'Unnamed')}</a> <small>(page ${ROMAN(order.indexOf(d) + 1)})</small>`;
+    return `<article class="gr-page${x.corrupted ? ' cor' : ''}" aria-label="Page ${i + 1}: ${esc(x.name || 'Unnamed prospect')}">
+      <div class="gr-ribbon" aria-hidden="true"></div>
+      <div class="gr-ord">PAGE ${ROMAN(i + 1)} OF ${ROMAN(order.length)}${x.corrupted ? ' · <b>CORRUPTED</b>' : ''}</div>
+      <div class="gr-sig">${sigilSvg(x.corrupted)}<span lang="ja">${esc(glyph)}</span></div>
+      <h3 class="gr-name">${esc(x.name || 'Unnamed prospect')}</h3>
+      <div class="gr-lv" aria-label="${x.level ? 'Level ' + x.level + ' of 7' : 'No level set'}">${[1, 2, 3, 4, 5, 6, 7].map(n => `<i class="${n <= x.level ? 'on' : ''}"></i>`).join('')}</div>
+      <div class="gr-from">${x.level ? 'LEVEL ' + x.level : 'NO LEVEL YET'} · ${x.parent ? (parent ? 'GROWS FROM ' + link(parent) : 'GROWS FROM <b>' + esc(x.parent) + '</b> <small>(not a prospect)</small>') : 'A CORE OR LOOSE SKILL'}</div>
+      ${kids.length ? `<div class="gr-from">BRANCHES: ${kids.map(link).join(' · ')}</div>` : ''}
+      ${x.desc ? `<p class="gr-desc">${esc(x.desc.length > 220 ? x.desc.slice(0, 220) + '…' : x.desc)}</p>` : ''}
+      <nav class="gr-turn" aria-label="Turn the page">
+        ${prev ? `<button type="button" data-gr-turn="-1">◂ ${ROMAN(i)} · ${esc(prev.name || 'Unnamed')}</button>` : '<span></span>'}
+        ${next ? `<button type="button" data-gr-turn="1">${ROMAN(i + 2)} · ${esc(next.name || 'Unnamed')} ▸</button>` : '<span></span>'}
+      </nav></article>`;
+  }
+  function drawBook() {
+    const page = document.getElementById('bkBoard'), panel = document.getElementById('bookPanel'); if (!page || !panel) return;
+    const order = ordered();
+    if (!find(sel)) sel = order.length ? order[0].id : '';
+    const x = find(sel), i = order.findIndex(d => d.id === sel);
+    page.innerHTML = `<div class="gr">
+      <nav class="gr-toc" aria-label="Contents"><h4>CONTENTS</h4>
+        <input type="search" id="spQ" value="${esc(filter.q)}" placeholder="search…" aria-label="Search the prospects">
+        <div class="gr-toc-list" id="grToc">${tocHtml(order)}</div>
+        <button type="button" class="ed-chip sp-new" data-sp-new>+ NEW PAGE</button></nav>
+      <div class="gr-desk">${pageHtml(order, x, i)}</div></div>`;
+    panel.className = 'book-panel';
+    panel.innerHTML = x ? `<div class="bk-panel-head"><span class="bk-big">${pad2(i + 1)}</span><div><small>PROSPECT · PAGE ${ROMAN(i + 1)} OF ${ROMAN(order.length)} · PRIVATE</small><h2 class="gr-panel-name">${esc(x.name || 'Unnamed prospect')}</h2></div></div>
+      <div class="sp-main gr-editor" id="spMain">${editorHtml(x)}</div>`
+      : `<div class="bk-panel-head"><span class="bk-big">00</span><div><small>SKILL PROSPECTS · PRIVATE</small><h2>An empty grimoire</h2></div></div><div class="bk-form"><p class="bk-dim">Skills with no character yet, the author's drafts. They are not part of the published site. Add a page to start.</p></div>`;
+    const idx = document.querySelector('.bk-title .bk-idx'); if (idx) idx.textContent = pad2(order.length);
+    // contents, page links and turning
+    root().querySelectorAll('[data-sp]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); pick(a.dataset.sp); }));
+    root().querySelectorAll('[data-gr-turn]').forEach(b => b.addEventListener('click', () => turn(+b.dataset.grTurn)));
+    const sq = document.getElementById('spQ'); if (sq) sq.addEventListener('input', () => {
+      filter.q = sq.value; const l = document.getElementById('grToc'); l.innerHTML = tocHtml(ordered());
+      l.querySelectorAll('[data-sp]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); pick(a.dataset.sp); }));
+    });
+    root().querySelectorAll('[data-sp-new]').forEach(b => b.addEventListener('click', () => {
+      if (!save(false)) return; const n = Lib().normalizeSkillDraft({ name: 'New prospect' });
+      Lib().update(l => l.skillDrafts.push(n)); sel = n.id; armed = null; drawBook();
+      const f = document.querySelector('#spMain [data-spf="name"]'); if (f) { f.focus(); f.select(); } }));
+    if (x) wireForm();
+  }
+  function turn(d) { const order = ordered(), i = order.findIndex(x => x.id === sel), n = order[i + d]; if (n) pick(n.id); }
+  // ← and → turn the page when the grimoire has focus (not while typing)
+  if (typeof document !== 'undefined') document.addEventListener('keydown', e => {
+    if (!inBook() || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+    const t = e.target, tag = t && t.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
+    if (!t || !t.closest || !t.closest('#bkBoard, #bkSandbox')) return;
+    e.preventDefault(); turn(e.key === 'ArrowLeft' ? -1 : 1);
+  });
+
   function open() {
     if (!Lib()) return 'The Library is not available on this page.';
     if (!canEdit()) return 'Skill prospects are the author\'s drafts: they are not part of the published site.';
     if (!find(sel)) sel = '';
     if (window.EpitaphBook && EpitaphBook.mountBoard && EpitaphBook.isOpen()) {      // inside the book, like opl and ops
-      EpitaphBook.mountBoard({ kind: 'prospects', title: 'Skill Prospects', jp: '候補', count: drafts().length, sub: 'private drafts · assigned to a character later',
+      EpitaphBook.mountBoard({ kind: 'prospects', title: 'Skill Prospects', jp: '候補', count: drafts().length, sub: 'a grimoire of skills no one holds yet · ← → turn the page',
         note: "Free-draft skills with no character yet. They are the author's drafts and are not part of the published site. Assign one to a character when the story needs it. Changes save when you press Back.",
-        build: el => { host = el; root().innerHTML = shell(); wire(); return () => { try { save(false); } catch (e) { /* closing */ } host = null; }; } });
+        build: el => { host = document.getElementById('theBook'); el.tabIndex = 0; drawBook(); return () => { try { save(false); } catch (e) { /* closing */ } host = null; }; } });
       return 'Opening the skill prospects…';
     }
     if (!root() || typeof openModal !== 'function') return 'The board needs the Dossier page.';
