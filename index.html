@@ -1301,7 +1301,7 @@
           <li class="edit-only"><a href="#" data-book="opsp">Skill prospects</a></li>
           <li class="edit-only"><a href="#" data-book="opmk">Mark library</a></li>
         </ul>
-        <p class="book-hint">Type <b>help</b> for every command: compare chapters (<b>cOrin 1 265</b>), search (<b>s: who holds seal</b>), history, chapter changes, export. <b>opl</b> opens the Library, <b>ops</b> the skill tree, <b>opse</b> the Site Encyclopedia, <b>opcl</b> the Creature Log.</p>
+        <p class="book-hint">Type <b>help</b> for every command: compare chapters (<b>cOrin 1 265</b>), search (<b>s: who holds seal</b>), history, chapter changes, export. <b>opl</b> opens the Library, <b>ops</b> the skill tree, <b>opse</b> the Site Encyclopedia (places, relations, what-ifs), <b>opcl</b> the Creature Log.</p>
       </div>
       <div class="book-page right-page">
         <div class="book-panel" id="bookPanel" hidden></div>
@@ -6385,7 +6385,7 @@ function initTerminal(){
 
 function runStorybookCommand(cmd){
   const lower = cmd.toLowerCase();
-  if(lower === 'help') return 'Commands: <b>opl</b> / open library — every Library item, editable · <b>ops</b> / open skills — the skill tree · <b>opse</b> / open site encyclopedia — every place · <b>opcl</b> / open creature log — how life developed · <b>back</b> — the storybook page · <b>clear</b> — empty this log.';
+  if(lower === 'help') return 'Commands: <b>opl</b> / open library — every Library item, editable · <b>ops</b> / open skills — the skill tree · <b>opse</b> / open site encyclopedia — every place, seven tabs each; <b>Relations</b> draws every tie on a ring, <b>What-ifs</b> (author only) is the planning board · <b>opcl</b> / open creature log — how life developed · <b>back</b> — the storybook page · <b>clear</b> — empty this log.';
   if(lower === 'clear'){
     setTimeout(() => { document.getElementById('terminalLog').innerHTML = ''; }, 0);
     return '';
@@ -6422,7 +6422,7 @@ const LEFT_PAGE_DEFAULT_HTML = `
           <li class="edit-only"><a href="#" data-book="opsp">Skill prospects</a></li>
           <li class="edit-only"><a href="#" data-book="opmk">Mark library</a></li>
         </ul>
-        <p class="book-hint">Type <b>help</b> for every command: compare chapters (<b>cOrin 1 265</b>), search (<b>s: who holds seal</b>), history, chapter changes, export. <b>opl</b> opens the Library, <b>ops</b> the skill tree, <b>opse</b> the Site Encyclopedia, <b>opcl</b> the Creature Log.</p>
+        <p class="book-hint">Type <b>help</b> for every command: compare chapters (<b>cOrin 1 265</b>), search (<b>s: who holds seal</b>), history, chapter changes, export. <b>opl</b> opens the Library, <b>ops</b> the skill tree, <b>opse</b> the Site Encyclopedia (places, relations, what-ifs), <b>opcl</b> the Creature Log.</p>
       `;
 
 function restoreLeftPage(){

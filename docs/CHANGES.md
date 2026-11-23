@@ -2,6 +2,37 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## The Site Encyclopedia, at a glance — step 7.3
+
+*The newest entries below are step by step (plan: [site-encyclopedia.md](plans/site-encyclopedia.md)); this is the map.*
+
+**Open it:** type `opse` in the Storybook terminal (or the Site Encyclopedia link), or follow `index.html?place=<id>[&tab=history]`. Every place with an entry has **seven tabs**: Overview · History · Domestic · Foreign · Economy · Beasts · Intrigue.
+
+| Where | What | Who sees it |
+|---|---|---|
+| Places index | every place by faction, filters and a search that finds places by what they hold ("who trades salt") | readers: places they've reached |
+| A place's entry | the seven tabs, with the founding model or the dither map on the right page | readers: only what their chapter has reached |
+| History → *How it was built* | the seven founding stages, dated; click one to turn the model; link to the 3D site at that stage | stages reached |
+| Foreign → *Ties over time*, blocs | bars from start to end per tie; blocs with who joined and left when | the reader gate |
+| **Relations** (index button, Foreign link) | every place on a ring, ties as chords, scrubbed by chapter, seats by type / country / bloc | the reader gate |
+| **What-ifs** (index button, Intrigue link) | the board by status, the four piles of what to work on, one what-if as a chain | **author only, never published** |
+| Intrigue | secrets, rumours, setup → payoff, with markers on every tab; a Dossier secret can point at one | secrets by `revealedIn` |
+| Atlas → **Politics** | the same ties as arcs on the map | the reader gate |
+| `sites/aurelia.html`, `sites/hollow-reach.html` → **Built** | the 3D sites as they stood at a founding stage (`?stage=N`) | — |
+| Atlas close-up, record panel, Dossier location → **Read the entry →** | links in | places the reader has reached |
+
+**Author vs reader.** One gate (`EpitaphSites.forReader`, `webAt`, `blocsAt`, `entryFor`) serves the entry, the ring, the Atlas and the published snapshot, so the Reader preview (the toggle in the index) is exactly what is published. Author-only data (what-ifs, drafts, agents, secret goals…) is never published; `tools/check-snapshot.py` refuses a snapshot that carries it.
+
+**Editing.** ✎ on any card (or the *Edit* bar, or the *Sheet* for a whole tab) edits in place; every save is an undo step; *Approve tab* marks a Claude draft as yours. Drafts of the six statue sites come from outside the repo and are merged with Dossier → Data → Merge.
+
+**Data.** Records live in the browser (`epitaph-sites`, backup `epitaph-sites-backup-v1`, undo `epitaph-sites-undo`), alongside the timeline (`epitaph-timeline`) and the reader's chapter (`epitaph-reader-chapter`). Export and import travel with the Dossier backup.
+
+**Checks.** The Dossier's Checks list covers the encyclopedia: places and events that don't exist, ties and founding stages out of order, blocs under three places, what-if links and loops, setup → payoff (Chekhov) problems.
+
+**Tests.** `tools/site-tests/run.sh` runs 245 Node checks on synthetic data (the reader gate, the web, blocs, what-ifs, founding stages, links). The real-page checks (headless browser) were run by hand and are described in the plan's tweak log.
+
+**Not built yet.** The Creature Log (steps 6.3 and 6.4 finish when it exists), and the public push (docs and history still name private story elements).
+
 ## Performance of the encyclopedia views — step 7.2
 
 **Measured first** (with the real timeline module): the places index took 0.8 s in a reader's view at today's 44 places, 40 s at 300, and a reader's view at 2,000 places took over a minute; the author's view grew quadratically too. Each place asked the same questions of every other place again (is this event reached, is that place reached, which place names must be hidden from text, who are my ties), and each of those re-parsed the timeline.

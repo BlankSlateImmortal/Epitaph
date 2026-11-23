@@ -1,7 +1,16 @@
 # Site Encyclopedia — action plan
 
-Command: **`opse`** (also `open site encyclopedia`, `open sites`), opened from the book's terminal like `opl` / `ops`.
+Command: **`opse`** (also `open site encyclopedia`, `open sites`), opened from the book's terminal like `opl` / `ops`. *(The seven tabs are now Overview · History · Domestic · Foreign · Economy · Beasts · Intrigue: see site-schema-v2.md.)*
 Sister plan: [creature-log.md](creature-log.md). Both share Phase 0 (the timeline and links). Build it once.
+
+## Status (2026-11-22)
+
+**30 of 34 steps done.** What remains does not depend on more building here:
+- **6.4** (a resource names its creature source) and the log's half of **6.3**, plus the creature link in **0.3**: all wait on the Creature Log ([creature-log.md](creature-log.md), step 1.7 lists the hooks).
+- **1.2**: the six statue sites' drafts exist; the Beasts tab is empty on all six and the Foreign tab on two, and approving the drafts is yours.
+- Not in this plan: the public push (docs and history still name private story elements) and the publish-readonly plan's remaining steps.
+
+The map of what was built is the first section of [CHANGES.md](../CHANGES.md); `tools/site-tests/run.sh` runs the Node tests.
 
 ## Purpose (from the user, 2026-11-17)
 
@@ -35,10 +44,10 @@ It should show how deeply the world has been thought through, not just list plac
   Era 1 → chapters 1…N. Each event: `{ id, when: { era, year?, chapter? }, title, kind, refs: [placeId|creatureId|charId] }`.
   Helpers: `isRevealed(when, readerChapter)`, `compare(a, b)`, `label(when)`.
   *Done when:* both systems and the map's chapter slider can ask "is this visible at chapter N?" from one function.
-- [~] **0.2 Reader position.** One "chapter I'm on" value shared by the book, map and both encyclopedias (key `epitaph-reader-chapter`),
-  defaulting to the latest chapter. *Done when:* changing it in one place hides or shows spoilers everywhere.
+- [x] **0.2 Reader position.** One "chapter I'm on" value shared by the book, map and both encyclopedias (key `epitaph-reader-chapter`),
+  defaulting to the latest chapter. *Done when:* changing it in one place hides or shows spoilers everywhere. *(Closed 2026-11-22: the book, the Atlas slider, the index, the entry, the ring, the Atlas Politics arcs and the published snapshot all follow it and redraw when it changes; the Creature Log will join when it exists.)*
 - [~] **0.3 Cross-links.** A link format `place:<id>`, `creature:<id>`, `char:<id>`, and one `EpitaphLinks.open(ref)` that opens the right
-  book page (or the map). *Done when:* a link to any of the three opens it from any page.
+  book page (or the map). *Done when:* a link to any of the three opens it from any page. *(2026-11-22: `place:` and `char:` open from any page; `creature:` opens as soon as the Creature Log registers its handler, see creature-log.md 1.7.)*
 - [x] **0.4 Commands.** Register `opse` / `opcl` in the terminal (index.html, next to `opl`/`ops`), add them to `help`, and to the
   book-links list. *Done when:* both commands open a placeholder page.
 
@@ -58,7 +67,7 @@ It should show how deeply the world has been thought through, not just list plac
   Every `from`/`to`/`when` is a timeline `when` (0.1). *Done when:* the user agrees the fields and the 7 alliance kinds.
 - [~] **1.2 Defaults from the lore.** Draft entries for the statue sites first (Aurelia, the Temple of the Voided, the Hollow Reach,
   the Church of the Storyborn, Verdant Reach, the Forgotten Grove), then the cities that matter to the story. Mark each field
-  `draft: true` until the user approves it. *Done when:* the six statue sites have all 7 tabs drafted.
+  `draft: true` until the user approves it. *Done when:* the six statue sites have all 7 tabs drafted. *(2026-11-22: all six have v2 drafts. **Still empty:** the Beasts tab on all six (the lore names no creatures yet), and the Foreign tab of the Church of the Storyborn and Verdant Reach (their ties are stored on the places that name them). Your approval of the drafts is the rest.)*
 - [x] **1.3 Storage, merge, backup.** Defaults plus user edits, export and import with the Dossier backup, and a schema version for later
   upgrades. *Done when:* an edit survives a reload and an export/import round trip.
 - [x] **1.4 Checks.** Add to `assets/epitaph-checks.js`: alliances that point at missing places, an alliance whose end comes before its
@@ -119,7 +128,7 @@ It should show how deeply the world has been thought through, not just list plac
 
 - [x] **7.1 Mobile layout and keyboard use.** Phone width, focus order, readable in both themes.
 - [x] **7.2 Performance.** Lazy-load the views; the index stays fast with every place.
-- [ ] **7.3 Docs.** `docs/CHANGES.md` entries, the help text, this plan's status updated.
+- [x] **7.3 Docs.** `docs/CHANGES.md` entries, the help text, this plan's status updated.
 
 ---
 
@@ -159,6 +168,7 @@ When the user says "get back to it" / "back to the plan":
 
 Newest first. One line each: date, what changed, and what it does to the plan.
 
+- 2026-11-22 — **7.3 done (Sonnet). The plan is finished except what waits on the Creature Log.** An overview section at the top of CHANGES.md (what's where, who sees it, editing, data, checks, tests), the terminal `help` and the book's hint line now mention Relations and What-ifs, a Status block at the top of this plan, and honest statuses on the three part-done steps: **0.2 closed** (the book, Atlas, index, entry, ring, Politics arcs and snapshot all follow the reader's chapter), **0.3** waits on the creature handler, **1.2** lists what's still empty (Beasts on all six sites, Foreign on two). The 13 Node suites that need no private data moved into `tools/site-tests/` with portable paths and a runner (245 checks); the two that need the private drafts file, and the one-off old-versus-new proof for 7.2, stay out of the repo.
 - 2026-11-22 — **7.2 done (Sonnet).** Measured before touching anything, and it was worth it: with the real timeline the reader's index took **0.8 s at today's 44 places, 40 s at 300** (author view quadratic too), because every place re-asked every other place the same questions and each ask re-parsed the timeline (the hidden-name scrub rebuilt its whole list per text). Added `EpitaphSites.bulk(fn)`, a scope in which answers that can't change during one operation are computed once (event reached, place reached, the chapter, the hidden-name pattern, every place's ties in one pass); the index, the web, the blocs and the creature lookup use it. Reader's index now 10 ms / 34 ms / 84 ms / ~150 ms at 44 / 300 / 1,000 / 2,000 places. **Proved identical to the old code on random data (90 comparisons)**, plus every earlier suite. **Lazy-loading the view scripts was dropped:** 3–5 ms of a ~300 ms load, so it would buy nothing for a load-order risk (the entry registers the place-link handler when it loads); the views already build only when opened. The publisher's own loops weren't touched (not slow at this size). Next: 7.3, docs (Sonnet).
 - 2026-11-22 — **7.1 done (Sonnet).** Audited at a real 390px viewport (the headless window can't go narrower than ~500px, so the pages run in a 390px iframe) and by keyboard. Found: the book stacks its pages on a phone so an entry got ~230px of height, headers squeezed titles to 'A…' / 'RELA…' / 'WHAT…', and every redraw dropped keyboard focus to the page (pressing a tab with the keyboard lost your place). Fixed with phone-only CSS (more height for the entry, terminal hidden, one-line book header, wrapping headers, bigger touch targets) and a shared `keepFocus` that restores focus after a redraw (landing focus on Back when a view opens, Back when the focused card vanishes), with a visible focus ring everywhere. Real-page keyboard checks: landing, tab press, ring seat via Enter, kind chip, card to page, score dot (and the value saved); no positive tabindex; no horizontal page scroll at 390px. The Dossier is dark-only, so 'both themes' covers the Atlas arcs and the 3D stage picker (checked on Paper). Not done: the founding model is still a drag-to-turn canvas on touch (it has turn buttons and arrow keys). Next: 7.2, performance (Sonnet).
 - 2026-11-22 — **6.3 half done (Sonnet), the rest waits on the Creature Log.** The log doesn't exist yet (no `EpitaphCreatures`; its plan is at 0%), so only the entry's side is built: creature names on the Beasts tab are links once the log registers a handler and has the creature (a plain note until then), a derived *Also found in* row, and `EpitaphSites.creaturePlaces()` for the log's Range tab to call (7 Node tests through the reader gate; real page with three places naming one creature, author vs Ch 2 reader, and a stub log turning the name into a link). **Still to do when the log exists (Creature Log Phase 1+):** its Range tab listing places via `creaturePlaces` and linking to `index.html?place=<id>`, and a check that the Beasts tab's creature ids exist in it (the `site-beast` check is already in place). **6.4 is blocked the same way** (a resource naming its creature source needs the creatures to exist). Next: Phase 7, the finish, which doesn't depend on the log (7.1 mobile and keyboard).
