@@ -5,6 +5,7 @@
  *                   Remembered per browser ('epitaph-author': '1' on, '0' off). With nothing remembered it is on for
  *                   localhost, 127.0.0.1, [::1] and file://, and off everywhere else: readers are the default.
  *                   Turn it on once with  ?author=1  (off with ?author=0); the parameter is then removed from the address bar.
+ *                   Or type the word  author  on any page (outside a text box): on, and again for off (the page reloads).
  *   authorView()    isAuthor() and not previewing as a reader. This is the one that gates editing and what readers can't see.
  *                   The author's "preview as reader" choice is 'epitaph-author-mode' ('0' = preview).
  *   canEdit()       same as authorView(): while previewing as a reader nothing is editable either.
@@ -122,8 +123,26 @@
     }
     drawTag();
   }
+  // Type  author  anywhere on a page (not in a text box) to switch this browser into author mode, and again to switch it off. Nothing on the
+  // page mentions it, so readers don't see it. The page reloads: what a page loads (your data or the published copy) is decided at load.
+  // A convenience like ?author=1, not security.
+  function wireTypedSwitch() {
+    const doc = global.document; if (!doc || typeof doc.addEventListener !== 'function') return;
+    let buf = '';
+    doc.addEventListener('keydown', e => {
+      if (e.ctrlKey || e.metaKey || e.altKey || !e.key || e.key.length !== 1) return;
+      const t = e.target, tag = t && t.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) { buf = ''; return; }
+      buf = (buf + e.key.toLowerCase()).slice(-6);
+      if (buf !== 'author') return;
+      buf = '';
+      setAuthor(!isAuthor());
+      try { global.location.reload(); } catch (x) { /* ignore */ }
+    });
+  }
   fromAddress();
   apply();
+  wireTypedSwitch();
   if (global.document) {
     if (global.document.readyState === 'loading') global.document.addEventListener('DOMContentLoaded', mountTag); else mountTag();
     onChange(drawTag);

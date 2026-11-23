@@ -194,6 +194,22 @@ async function visit(c, port, page, scenario) {
       else console.log('    index.html?char=… forwards to ' + t.url.replace(/^.*\//, ''));
       await c.send('Target.disposeBrowserContext', { browserContextId });
     }
+    {
+      // the hidden typed switch: typing "author" turns author mode on, again turns it off (never stored for a plain visit)
+      const { browserContextId } = await c.send('Target.createBrowserContext');
+      const { targetId } = await c.send('Target.createTarget', { url: `http://${HOST}:${port}/read.html`, browserContextId });
+      const { sessionId } = await c.send('Target.attachToTarget', { targetId, flatten: true });
+      const s = (m, p) => c.send(m, p, sessionId);
+      await s('Runtime.enable'); await s('Page.enable'); await sleep(3500);
+      const val = async () => (await s('Runtime.evaluate', { expression: "JSON.stringify([localStorage.getItem('epitaph-author'), document.documentElement.classList.contains('is-author')])", returnByValue: true })).result.value;
+      const type = async w => { for (const ch of w) { await s('Input.dispatchKeyEvent', { type: 'keyDown', text: ch, key: ch }); await s('Input.dispatchKeyEvent', { type: 'keyUp', key: ch }); } await sleep(3500); };
+      const before = await val(); await type('author'); const on = await val(); await type('author'); const off = await val();
+      if (before !== '[null,false]') fail('typed switch', 'a plain visitor starts as ' + before);
+      else if (on !== '["1",true]') fail('typed switch', 'typing "author" did not turn author mode on: ' + on);
+      else if (off !== '["0",false]') fail('typed switch', 'typing it again did not turn it off: ' + off);
+      else console.log('    typed "author" switches author mode on and off');
+      await c.send('Target.disposeBrowserContext', { browserContextId });
+    }
   } finally { c.close(); b.proc.kill(); server.close(); fs.rmSync(b.dir, { recursive: true, force: true }); }
   console.log(fails ? fails + ' failed' : 'all passed'); process.exitCode = fails ? 1 : 0;
 })().catch(e => { console.error(e); process.exit(2); });
