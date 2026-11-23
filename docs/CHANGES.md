@@ -16,7 +16,11 @@ The Creature Log now opens on a **Tree** tab, drawn in layout V (picked from the
 - **Bad data never breaks the tree:** a missing parent or a loop makes a root; a form dated before its ancestor is drawn just below it anyway (Checks already flags it); an undated form sits one band below its ancestor, marked "?".
 - **Phone:** the tree takes most of the height, the map the rest; the terminal hides while it's open.
 
-Still to come: fork details on hover (2.3), and the reader's view with "?" silhouettes (2.4). Tests: `tools/site-tests/test-creature-tree.js` (18 checks).
+Still to come: the reader's view with "?" silhouettes (2.4). Tests: `tools/site-tests/test-creature-tree.js` (18 checks).
+
+### Fork details (step 2.3)
+
+Hover a form (or Tab to it) and a card shows what changed, what it gained, its cause and when it appeared (and when it died out). **Click a form** to pin its card; a pinned card has **Show on the timeline ▸**, which moves the time scrubber to the band of the cause and lists that moment's timeline events beside it. (The site has no separate timeline page yet, so the scrubber is where a cause is "opened"; if one is built later, this button should open it there.) A **fork** (a form with two or more branches) gets a dashed ring. Tests: 19 checks in the tree suite.
 
 ### The time scrubber (step 2.2)
 

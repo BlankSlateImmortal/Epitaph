@@ -68,7 +68,8 @@
       nodes.push({ id: n.rec.id, kind: n.kind, name: n.rec.name || n.rec.id, x: n.x, y: n.y, band: n.band, depth, parentId: parent ? parent.rec.id : null,
         extinct: !!n.rec.extinct, extBand: n.extinctBand, tip, living: living && tip, endY,
         undated: bandOf(n.rec.when) == null, late: !!n.late, draft: !!n.rec.draft, biomes: n.rec.biomes || [], cause: n.rec.cause || null,
-        cursed: !!((n.rec.mutation && n.rec.mutation.curse) || (n.rec.curses || []).length) });
+        cursed: !!((n.rec.mutation && n.rec.mutation.curse) || (n.rec.curses || []).length), fork: n.kids.length > 1, forks: n.kids.length,
+        change: (n.rec.mutation && n.rec.mutation.change) || '', gain: (n.rec.mutation && n.rec.mutation.advantage) || '', curseId: (n.rec.mutation && n.rec.mutation.curse) || '', whenRaw: n.rec.when, extRaw: n.rec.extinct });
       if (parent) edges.push({ from: parent.rec.id, to: n.rec.id, x1: parent.x, y1: parent.y, x2: n.x, y2: n.y, extinct: !!n.rec.extinct });
       n.kids.forEach(k => walk(k, n, depth + 1));
     };
@@ -126,7 +127,7 @@
       const r = n.kind === 'creatures' ? 10 : 7, c = pal.of(n), on = n.id === sel;
       const tag = [n.kind === 'creatures' ? 'creature' : 'lineage step', gone(n) ? 'extinct' : n.tip ? 'living' : '', n.draft ? 'draft' : '', n.undated ? 'no date yet' : '', n.late ? 'dated before its ancestor' : ''].filter(Boolean).join(', ');
       return `<g class="ct-node${n.kind === 'creatures' ? ' cr' : ''}${on ? ' sel' : ''}${gone(n) ? ' ext' : ''}${n.draft ? ' draft' : ''}" data-node="${esc(n.id)}" transform="translate(${n.x},${n.y})" tabindex="0" role="button" aria-pressed="${on}" aria-label="${esc(n.name)}, ${esc(tag)}">
-        ${on ? `<circle r="${r + 7}" class="ct-ring"/>` : ''}<circle r="${r}" fill="${gone(n) ? 'var(--ink-deep)' : c}" stroke="${c}" class="ct-dot"/>${n.cursed ? `<text class="ct-curse" x="${r + 3}" y="-${r - 2}">⛓</text>` : ''}
+        ${n.fork ? `<circle r="${r + 4}" class="ct-fork"><title>A fork: ${n.forks} branches</title></circle>` : ''}${on ? `<circle r="${r + 7}" class="ct-ring"/>` : ''}<circle r="${r}" fill="${gone(n) ? 'var(--ink-deep)' : c}" stroke="${c}" class="ct-dot"/>${n.cursed ? `<text class="ct-curse" x="${r + 3}" y="-${r - 2}">⛓</text>` : ''}
         <text class="ct-name" x="${r + 7}" y="5">${esc(n.name)}${n.undated ? ' ?' : ''}</text></g>`;
     }).join('');
     return lines + tails + (shown ? glows : '') + dots;
@@ -151,7 +152,7 @@
         <input type="range" id="ctAt" min="0" max="13" step="1" value="13" aria-valuetext="Now">
         <button type="button" data-step="1" aria-label="Later">▸</button><button type="button" data-play aria-pressed="false">Play</button><button type="button" data-now>Now</button>
         <div class="ct-when" aria-live="polite"></div></div>
-      <div class="ct-main"><div class="ct-stage" tabindex="0" aria-label="The Tree of Descent. Drag or use the arrow keys to move, + and − to zoom, 0 to fit.">
+      <div class="ct-main"><div class="ct-tip" hidden></div><div class="ct-stage" tabindex="0" aria-label="The Tree of Descent. Drag or use the arrow keys to move, + and − to zoom, 0 to fit.">
         <svg class="ct-svg" role="group" aria-label="Lineages, oldest at the top"><g class="ct-bands"></g><g class="ct-world"></g></svg>
         ${nN ? '' : '<p class="ct-empty">No lineages yet. Add a lineage step or a creature (the Creatures tab), or merge the Creature Log file from your vault.</p>'}
         </div>
@@ -166,7 +167,18 @@
       rng.value = at; rng.setAttribute('aria-valuetext', b.label);
       whenEl.innerHTML = `<b>${esc(b.kind === 'epoch' ? 'Epoch ' + (b.i + 1) + ' · ' + b.label : b.label)}${at === 13 ? ' · now' : ''}</b> <span class="ct-dim">${shownN} of ${nN} form${nN === 1 ? '' : 's'}</span>` +
         (ev.length ? `<ul>${ev.map(e => `<li>${esc(e.title)}</li>`).join('')}</ul>` : '<span class="ct-dim"> · nothing on the timeline here yet</span>'); };
-    const apply = () => { const w = stage.clientWidth || 600; world.setAttribute('transform', `translate(${view.tx} ${view.ty}) scale(${view.k})`); bandG.innerHTML = bandsSvg(lay, w, view.k, view.ty, at === 13 ? null : at); };
+    const tipEl = host.querySelector('.ct-tip'); let hover = null;
+    const whenLbl = w => { const K = C(); if (w == null) return ''; if (typeof w === 'object' && w.age) return 'Age ' + w.age + ' · ' + (K.AGES.find(a => a.id === w.age) || {}).label; if (typeof w === 'object' && w.epoch) return (K.EPOCHS.find(e => e.id === w.epoch) || {}).label || w.epoch; return causeLabel(w); };
+    const placeTip = () => { const id = hover || sel, n = id && lay.nodes.find(x => x.id === id), vis = n && visibleAt(lay, at).nodes.includes(n);
+      if (!n || !vis) { tipEl.hidden = true; return; }
+      const pinned = !hover || hover === sel, cb = n.cause ? bandOf(n.cause) : null;
+      tipEl.innerHTML = `<b>${esc(n.name)}</b><span class="ct-dim">${n.fork ? 'a fork, ' + n.forks + ' branches · ' : ''}${esc(whenLbl(n.whenRaw))}${n.extinct ? ' → extinct ' + esc(whenLbl(n.extRaw)) : ''}</span>
+        ${n.change ? `<p>${esc(n.change)}</p>` : '<p class="ct-dim">What changed is not written yet.</p>'}${n.gain ? `<p class="ct-gain">Gained: ${esc(n.gain)}</p>` : ''}
+        <p class="ct-cause">Cause: ${n.cause ? esc(causeLabel(n.cause)) : '<span class="ct-dim">none yet</span>'}${pinned && cb != null ? ` <button type="button" data-cause="${cb}">Show on the timeline ▸</button>` : ''}</p>${n.curseId ? '<p class="ct-curse-l">⛓ a curse came with this change</p>' : ''}`;
+      tipEl.classList.toggle('pin', pinned); tipEl.hidden = false;
+      const w = stage.clientWidth, sx = n.x * view.k + view.tx, sy = n.y * view.k + view.ty, tw = tipEl.offsetWidth, th = tipEl.offsetHeight;
+      tipEl.style.left = Math.max(6, Math.min(w - tw - 6, sx + 18)) + 'px'; tipEl.style.top = Math.max(6, Math.min(stage.clientHeight - th - 6, sy - th / 2)) + 'px'; };
+    const apply = () => { const w = stage.clientWidth || 600; world.setAttribute('transform', `translate(${view.tx} ${view.ty}) scale(${view.k})`); bandG.innerHTML = bandsSvg(lay, w, view.k, view.ty, at === 13 ? null : at); placeTip(); };
     let timer = null; const stopPlay = () => { if (timer) { clearInterval(timer); timer = null; } const pb = host.querySelector('[data-play]'); if (pb) { pb.setAttribute('aria-pressed', 'false'); pb.textContent = 'Play'; } };
     const setAt = v => { at = Math.max(0, Math.min(13, v)); paint(); apply(); if (sel && !visibleAt(lay, at).nodes.some(n => n.id === sel) && lay.nodes.some(n => n.id === sel)) select(null); };
     const play = () => { if (timer) return stopPlay(); const pb = host.querySelector('[data-play]'); pb.setAttribute('aria-pressed', 'true'); pb.textContent = 'Stop'; if (at >= 13) setAt(0);
@@ -179,7 +191,7 @@
       if (sel) { const n = lay.nodes.find(x => x.id === sel); if (n) { const sy = n.y * k; if (sy > h - 24) view.ty = Math.max(h - lay.height * k, h / 2 - sy); const sx = n.x * k + view.tx; if (sx > w - 60 || sx < 60) view.tx = w / 2 - n.x * k; } }
       apply(); };
     paint(); fit();
-    const select = id => { sel = id; paint(); host.querySelectorAll('.ct-chaos [data-node]').forEach(b => b.classList.toggle('on', b.dataset.node === id)); if (opts.onSelect) opts.onSelect(id); };
+    const select = id => { sel = id; hover = null; paint(); placeTip(); host.querySelectorAll('.ct-chaos [data-node]').forEach(b => b.classList.toggle('on', b.dataset.node === id)); if (opts.onSelect) opts.onSelect(id); };
     // pointer: drag to pan (a short move is a click), wheel and pinch to zoom
     const pts = new Map(); let drag = null, pinch = null, moved = false;
     const local = e => { const r = stage.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
@@ -195,6 +207,7 @@
     const onWheel = e => { e.preventDefault(); const [x, y] = local(e); zoomAt(Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0015)), x, y); };
     const onClick = e => { const t = e.target.closest ? e.target : null; if (!t) return;
       const b = t.closest('[data-by]'); if (b) { by = b.dataset.by; pal = colours(lay, by, st); host.querySelectorAll('[data-by]').forEach(x => { const on = x.dataset.by === by; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); }); paint(); return; }
+      const cs = t.closest('[data-cause]'); if (cs) { stopPlay(); setAt(parseInt(cs.dataset.cause, 10)); return; }
       const sp = t.closest('[data-step]'); if (sp) { stopPlay(); setAt(at + parseInt(sp.dataset.step, 10)); return; }
       if (t.closest('[data-play]')) { play(); return; } if (t.closest('[data-now]')) { stopPlay(); setAt(13); return; }
       const z = t.closest('[data-z]'); if (z) { const w = stage.clientWidth / 2, h = stage.clientHeight / 2; if (z.dataset.z === 'fit') fit(); else zoomAt(z.dataset.z === 'in' ? 1.25 : 0.8, w, h); return; }
@@ -206,6 +219,10 @@
       const step = 50, w = stage.clientWidth / 2, h = stage.clientHeight / 2, mv = { ArrowLeft: [step, 0], ArrowRight: [-step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] }[e.key];
       if (mv && !n) { e.preventDefault(); view.tx += mv[0]; view.ty += mv[1]; apply(); }
       else if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomAt(1.25, w, h); } else if (e.key === '-') { e.preventDefault(); zoomAt(0.8, w, h); } else if (e.key === '0') { e.preventDefault(); fit(); } };
+    const nodeOf = e => { const g = e.target.closest && e.target.closest('g[data-node]'); return g ? g.dataset.node : null; };
+    stage.addEventListener('pointerover', e => { if (e.pointerType === 'touch') return; const id = nodeOf(e); if (id && id !== hover) { hover = id; placeTip(); } });
+    stage.addEventListener('pointerout', e => { if (nodeOf(e) && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('g[data-node]'))) { hover = null; placeTip(); } });
+    stage.addEventListener('focusin', e => { const id = nodeOf(e); if (id) { hover = id; placeTip(); } }); stage.addEventListener('focusout', () => { hover = null; placeTip(); });
     stage.addEventListener('pointerdown', onDown); stage.addEventListener('pointermove', onMove); stage.addEventListener('pointerup', onUp); stage.addEventListener('pointercancel', onUp);
     stage.addEventListener('wheel', onWheel, { passive: false }); host.addEventListener('click', onClick); stage.addEventListener('keydown', onKey);
     let touched = false; stage.addEventListener('pointerdown', () => { touched = true; }); stage.addEventListener('keydown', () => { touched = true; }); stage.addEventListener('wheel', () => { touched = true; }, { passive: true });

@@ -69,7 +69,7 @@ made to show how deeply the world has been thought through.
 - [x] **2.1 Tree layout.** A pannable, zoomable branching tree (SVG or canvas): roots at the old world, branch points at mutations,
   living tips glowing, extinct lines ending in a fossil mark. Branch colour by biome or by cause (toggle).
 - [x] **2.2 Time scrubber.** A slider across the 7 epochs; the tree grows as it moves, and the epoch's events show beside it.
-- [ ] **2.3 Branch points.** Hovering a fork shows the mutation, its cause and the advantage; clicking opens the cause on the timeline.
+- [x] **2.3 Branch points.** Hovering a fork shows the mutation, its cause and the advantage; clicking opens the cause on the timeline.
 - [ ] **2.4 Discovery.** Unrevealed nodes show as "?" silhouettes; revealed ones fill in. A count shows how much of the tree is known.
 
 ## Phase 3 — Creature page (the specimen)
@@ -149,6 +149,8 @@ When the user says "get back to it" / "back to the plan":
 
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-23 — **2.3 done (Sonnet).** Hover or focus a form for its card (change, gain, cause, dates); click pins it, with **Show on the timeline ▸** moving the scrubber to the cause's band and listing that moment's events. Forks get a dashed ring. **Deviation:** there's no timeline page in the site, so "opens the cause on the timeline" became "jumps the scrubber to it"; revisit if a timeline view is ever built. Tested in the real page, no console errors; 1 new Node check. **Next: 2.4 (discovery, "?" silhouettes), a Sonnet step.**
 
 - 2026-11-23 — **2.2 done (Sonnet).** A Time slider over the tree's 14 bands (7 epochs, then ages A–G; the plan said 7 epochs, the tree zooms into the ages as agreed in 1.1): the tree grows in place, living lines stop at the scrubbed time and glow at their front, extinct lines get their fossil only once they've died out, and the band's timeline events show beside it. Step buttons, Play, Now. 4 new Node checks (18 in the tree suite); tested in the real page on desktop and phone width, no console errors. **Next: 2.3 (branch points, hover details), a Sonnet step.**
 
