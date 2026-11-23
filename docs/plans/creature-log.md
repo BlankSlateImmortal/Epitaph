@@ -43,7 +43,7 @@ made to show how deeply the world has been thought through.
   *(Agreed 2026-11-22, a two-level shape: **seven epochs** from the start of everything to Epitaph, and **seven ages, A to G**, inside the Epitaph epoch, the last three following a curse's cycle. Names, timeline events and the tree's root are in the vault note `Exploratory Ideas/Lore/Creature Log Decisions 2026-11-22.md`. The scrubber (2.2) shows the epochs at equal widths and zooms into the ages.)*
 - [x] **1.2 Biomes.** The biomes over time, matched to the map's regions (plains, hills, mountains, ice, impact mountains, the crater,
   coast, open sea, sunken land), grouped into 7 if they become a scale. Each biome has a start and end, and what changed it.
-  *(Done 2026-11-22: **22 biomes, not 7** (the user: the world is vast; biomes are an open list, not a scale), each tied to a map region or to places, with when it became cursed and how its curses spread. 266 infected places checked against the Atlas heightmap. The list and the user's rules on who survives curses are in the vault: `Exploratory Ideas/Lore/Creature Log Biomes 2026-11-22.md`, data in `Site work/files/creature-log-infected-places-2026-11-22.json`. The user makes the curses.)*
+  *(Done 2026-11-22: **22 biomes, not 7** (the user: the world is vast; biomes are an open list, not a scale), each tied to a map region or to places, with when it became cursed and how its curses spread. 266 infected places checked against the Atlas heightmap. The list lives in the vault as a living set of notes: the index `Exploratory Ideas/Lore/Creature Log Biomes.md` (with the user's rules on who survives curses) and one note per biome in `Exploratory Ideas/Lore/Infected Places/`, each place with a **Curse** line the user fills in as the story reaches it; the seed data is `Site work/files/creature-log-infected-places-2026-11-22.json`.)*
 - [ ] **1.3 Schema.** `assets/epitaph-creatures.js`. Two record types:
   ```
   lineage node (a form on the tree):
@@ -149,6 +149,8 @@ When the user says "get back to it" / "back to the plan":
 
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-22 — **The infected places became living notes** (the user writes the curses as the story needs them, not up front). One vault note per biome, a Curse line per place that reads 'not written yet'. **Rule for 1.3 and 1.6:** a place's curse is optional; the site shows an unwritten curse as 'not known yet' and Checks never flag it. When the log is built, import reads these notes (the vault is the source), not the dated JSON.
 
 - 2026-11-22 — **1.2 done (Opus).** Biomes became an open list of 22 (memory rule updated: 'always 7' is for scales and sets, not catalogues of places). Each is tied to a map region the Atlas already knows (plains, hills, mountains, ice, pit, rim, coast, drowned, open sea) or to places (ruins, citadels, vaults, warded domains, null pockets); the sky over the crater needs a layer later (6.2). Every Era 0 city's fate is read from the Atlas heightmap, so the log and the map agree; six disagreements with the real world are flagged for the user. The user set who survives cursed ground and how curses spread; they'll write the curses themselves. **What it does to the plan:** 1.3's schema gains biomes and places with a curse slot each, and curses with a state (physical, infectious, stationary-metaphysical) and stages.
 
