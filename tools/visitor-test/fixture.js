@@ -15,5 +15,12 @@ const state = {
   ]
 };
 const INDEX = [{ chapter: 1, title: 'Test Chapter One', characters: ['Testwren Vale'], moments: [], world: [], reveals: [] }];
-const out = EpitaphPublish.build({ state, library: { version: 3, places: [], items: [] }, publishedThrough: 1, chapterIndex: INDEX, now: '2026-11-23T00:00:00Z' });
+// two encyclopedia entries: one open from page 1 (a reader sees it; its edit bar must not show), one a chapter hasn't reached yet
+const sites = [
+  { placeId: 'cairo', open: true, overview: { states: [{ from: null, status: 'standing', note: 'A test entry a visitor may read.' }] },
+    intrigue: { secrets: [{ text: 'SITE-SECRET-MUST-NOT-LEAK', hidden: true }] } },
+  { placeId: 'aurelia', revealedIn: 2, overview: { states: [{ from: null, status: 'standing', note: 'UNREACHED-SITE-MUST-NOT-LEAK' }] } }
+];
+const out = EpitaphPublish.build({ state, library: { version: 3, places: [], items: [] }, publishedThrough: 1, chapterIndex: INDEX, sites, now: '2026-11-23T00:00:00Z' });
+if (out.data.sites.length !== 1 || out.data.sites[0].placeId !== 'cairo') throw new Error('fixture: expected only the open site in the snapshot, got ' + JSON.stringify(out.data.sites.map(r => r.placeId)));
 process.stdout.write(EpitaphPublish.toScript(out.data));

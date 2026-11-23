@@ -104,6 +104,8 @@ async function visit(c, port, page, scenario) {
       await sleep(1500);
       // open the first entry of the view too, where the editors live
       await ev(() => { const el = document.querySelector('#bookStage .bk-node, #bookStage [data-id], #bookStage .bk-item, #bookStage [data-se-site], #bookStage .cl-card'); if (el) el.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+      // in the encyclopedia, open an entry the snapshot has (the fixture's open site), where the edit bar and pens would be
+      if (cmd === 'opse') await ev(() => { const S = window.EpitaphSites, E = window.EpitaphSiteEntry; const r = S && S.load()[0]; if (r && E) E.open(r.placeId, 'overview'); });
       await sleep(800);
       const r = await ev(inspect, WRITE_SEL, WRITE_WORD.source);
       views.push({ view: page + ' > ' + cmd, ...r });
@@ -141,6 +143,7 @@ async function visit(c, port, page, scenario) {
           if (h && (h.hasChanges || h.hasExport)) fail(where, 'help lists author commands');
           if (h && !h.changesBlocked) fail(where, '"changes" is not refused');
           if (scenario === 'fixture' && !r.views.some(v => /Testwren Vale/.test(v.text))) fail(where, 'the published character does not show');
+          if (scenario === 'fixture' && !r.views.some(v => /A test entry a visitor may read/.test(v.text))) fail(where, 'the open encyclopedia entry was not opened (its editors went unchecked)');
           if (scenario === 'fixture' && r.views[0].through !== 1) fail(where, 'publishedThrough is ' + r.views[0].through);
         }
         console.log(`    ${where}  views:${r.views.length}  stored:[${r.keys.join(', ')}]`);
