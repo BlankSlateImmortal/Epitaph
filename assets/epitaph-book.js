@@ -267,6 +267,7 @@
     return map;
   }
   const chNumLabel = n => n == null ? 'NOW' : (typeof chapterLabel === 'function' ? chapterLabel(n) : 'CH ' + n);
+  const canEdit = () => !(window.EpitaphMode && !EpitaphMode.canEdit());   // false for readers and the author's preview
   const TL = () => window.EpitaphTimeline || null;
   let libCh = TL() ? TL().readerChapter() : null; // chapter number shown by the web (null = latest); shared with the map via EpitaphTimeline
   if (TL()) TL().onReaderChange(r => { if (r !== libCh) { libCh = r; redrawWeb(); } });
@@ -511,13 +512,13 @@
         else {
           if (Lib.stateKeyOf(p.entry) !== Lib.stateKeyOf(h.entry)) out.push({ ch, tag: 'State', text: (names || 'no state') + ' · ' + (h.c.name || 'Unnamed') });
           if (!(p.entry.boundTo || '').trim() && (h.entry.boundTo || '').trim()) out.push({ ch, tag: 'Bound', text: 'to ' + h.entry.boundTo.trim() });
-        }
           // a curse on this holder's copy moving to another stage
           (h.entry.marks || []).filter(m => m.kind === 'curse').forEach(m => {
             const was = (p.entry.marks || []).find(x => x.kind === 'curse' && (x.name || '').trim().toLowerCase() === (m.name || '').trim().toLowerCase());
             const a = was ? (was.stage || 0) : null, b = m.stage || 0;
             if (was && a !== b) out.push({ ch, tag: 'Curse', bad: b > a, text: `${m.name || 'curse'}: ${a ? 'stage ' + a : 'initial'} → ${b ? 'stage ' + b + ' · ' + (m.stages && m.stages[b - 1] && m.stages[b - 1].name || Lib.STAGE_NAMES[b - 1]) : 'initial'} · ${h.c.name || 'Unnamed'}` });
           });
+        }
       });
       prev.forEach((h, id) => { if (!cur.has(id)) out.push({ ch, tag: 'Lost', text: h.c.name || 'Unnamed', bad: true }); });
       prev = cur;
@@ -638,6 +639,21 @@
     if (!isImg(draft.image)) draft.image = '';
     const held = heldBy(it.id);
     const uses = Lib.uses(it.id, state.characters);
+    if (!canEdit()) {            // a reader gets the item as a card, not the editor
+      panel.innerHTML = `
+        <div class="bk-panel-head">
+          <span class="bk-big">${pad2(no || 0)}</span>
+          <div><small>LIBRARY ITEM · ${no || '—'} OF ${list.length}</small><h2>${esc(it.name || 'Untitled')}</h2>${Lib.placeIdOf(it) ? `<span class="from-tag">FROM ${esc(placeName(Lib.placeIdOf(it)).toUpperCase())}</span>` : ''}${EpitaphItemFields.badgesHtml(it)}</div>
+        </div>
+        <div class="bk-form bk-readonly">
+          ${isImg(it.icon) || isImg(it.image) ? `<div class="bk-pics">${isImg(it.icon) ? `<span class="bk-pic"><img src="${attr(it.icon)}" alt=""></span>` : ''}${isImg(it.image) ? `<span class="bk-pic large"><img src="${attr(it.image)}" alt=""></span>` : ''}</div>` : ''}
+          ${it.desc ? `<p class="bk-desc">${esc(it.desc)}</p>` : ''}
+          ${(it.marks || []).length ? `<div class="bk-field"><span>Marks</span><ul class="bk-held">${it.marks.map(m => `<li><b>${esc(m.name)}</b> <small>${esc(m.kind || '')}</small></li>`).join('')}</ul></div>` : ''}
+          ${(it.stateTracks || []).map(tr => `<div class="bk-field"><span>${esc(tr.name)}${tr.oneWay ? ' <em>— one-way</em>' : ''}</span><ul class="bk-held">${tr.states.map(st => `<li><b>${esc(st.name)}</b>${st.desc ? ` <small>${esc(st.desc)}</small>` : ''}</li>`).join('')}</ul></div>`).join('')}
+          <div class="bk-field"><span>Held by</span>${held.length ? `<ul class="bk-held">${held.map(h => `<li><b>${esc(h.name)}</b> <small>${esc(h.chapters.join(' · '))}</small></li>`).join('')}</ul>` : '<p class="bk-dim">Nobody carries it yet.</p>'}</div>
+        </div>`;
+      return;
+    }
     panel.innerHTML = `
       <div class="bk-panel-head">
         <span class="bk-big">${pad2(no || 0)}</span>
@@ -1113,10 +1129,10 @@
         <div class="bk-panel-head"><span class="bk-big">${pad2(tree.nodes.size - 1)}</span><div><small>SKILL TREE · CENTRE</small><h2>All skills</h2><span class="bk-dim">${top} root branch${top === 1 ? '' : 'es'} · each character at their current chapter</span></div></div>
         <div class="bk-form">
           <p class="bk-dim">Root skills branch from the centre. A skill whose <b>parent</b> is another of the same character’s skills grows from it. When characters share a skill name under the same parent, they share one node (the number inside it).</p>
-          ${chars.length ? `<div class="bk-field"><span>Add a root skill to</span><div class="bk-row"><select id="bsNewFor">${chars.map(c => `<option value="${attr(c.id)}"${isLocked(getActiveSnapshot(c)) ? ' disabled' : ''}>${esc(c.name || 'Unnamed')}${isLocked(getActiveSnapshot(c)) ? ' (locked)' : ''}</option>`).join('')}</select>
+          ${!canEdit() ? '' : chars.length ? `<div class="bk-field"><span>Add a root skill to</span><div class="bk-row"><select id="bsNewFor">${chars.map(c => `<option value="${attr(c.id)}"${isLocked(getActiveSnapshot(c)) ? ' disabled' : ''}>${esc(c.name || 'Unnamed')}${isLocked(getActiveSnapshot(c)) ? ' (locked)' : ''}</option>`).join('')}</select>
           <button type="button" class="slant-btn primary" id="bsNewRoot">+ Root skill</button></div></div>` : '<p class="bk-dim">No characters yet.</p>'}
         </div>`;
-      const nb = $('#bsNewRoot');
+      const nb = $('#bsNewRoot'); if (!nb) return;
       if (nb) nb.addEventListener('click', () => {
         const c = state.characters.find(x => x.id === $('#bsNewFor').value); const s = c && getActiveSnapshot(c);
         if (!s || isLocked(s)) return;
@@ -1131,7 +1147,8 @@
     const sk = h.skill;
     const snap = snapOf(h);
     const others = (snap.skills || []).map((s, i) => ({ s, i })).filter(o => o.i !== h.idx && !isDescendant(snap, o.s.name, sk.name));
-    const locked = h.locked;
+    const readOnly = !canEdit();          // readers (and the author's preview) see a skill the way a locked chapter shows it
+    const locked = h.locked || readOnly;
     const dis = locked ? ' disabled' : '';
     panel.innerHTML = `
       <div class="bk-panel-head">
@@ -1140,7 +1157,7 @@
       </div>
       ${n.holders.length > 1 ? `<div class="bk-holders" role="tablist">${n.holders.map((x, i) => `<button type="button" role="tab" class="${i === selHolder ? 'on' : ''}" data-h="${i}">${esc(x.name)}</button>`).join('')}</div>` : ''}
       <div class="bk-form">
-        <div class="bk-whose">${esc(h.name)} · ${esc(h.chapter || 'current chapter')}${locked ? ' · <span class="bk-lock">CANON · LOCKED — reopen it in the Chapter Brief to edit</span>' : ''}</div>
+        <div class="bk-whose">${esc(h.name)} · ${esc(h.chapter || 'current chapter')}${locked && !readOnly ? ' · <span class="bk-lock">CANON · LOCKED — reopen it in the Chapter Brief to edit</span>' : ''}</div>
         <label class="bk-field"><span>Name</span><input type="text" id="bsName" value="${attr(sk.name)}"${dis}></label>
         <label class="bk-field"><span>Description</span><textarea id="bsDesc" rows="3"${dis}>${esc(sk.desc)}</textarea></label>
         <label class="bk-field"><span>Level <em id="bsLvlOut">${Math.round(+sk.level || 0)}</em></span><input type="range" id="bsLevel" min="0" max="100" value="${+sk.level || 0}"${dis}></label>

@@ -350,6 +350,10 @@
   // =====================================================================
   // HELP + the command router
   // =====================================================================
+  // the help table without the author's commands and the line about automatic save helpers
+  function readerHelp(html) {
+    return String(html).replace(/<tr>(?:(?!<\/tr>)[\s\S])*?<b>(?:u<i>|h<i>|changes|export)[\s\S]*?<\/tr>/g, '').replace(/<div class="bt-hint">[\s\S]*?<\/div>/, '');
+  }
   function help() {
     const r = (cmd, what, ex) => `<tr><td><b>${cmd}</b></td><td>${what}${ex ? `<br><small>e.g. ${ex}</small>` : ''}</td></tr>`;
     return out('COMMANDS', `<table class="bt-table help"><tbody>
@@ -368,10 +372,17 @@
       <div class="bt-hint">Automatic: two-way ties · shared secrets · save history · a "what changed?" prompt after a new chapter · more lore warnings in Checks.</div>`);
   }
   const baseRun = runStorybookCommand;
+  // readers (and the author's preview) get the reading commands only: no rolling back saves, save history, chapter-marker changes or vault export
+  const isReader = () => !!(window.EpitaphMode && !EpitaphMode.canEdit());
+  const authorOnly = () => err('That command is for the author.');
   runStorybookCommand = function (cmd) {
     const t = cmd.trim(), lower = t.toLowerCase();
     let m;
-    if (lower === 'help' || lower === '?') return help();
+    if (isReader()) {
+      if (/^changes\b/i.test(t) || /^export\s+/i.test(t)) return authorOnly();
+      if (((m = t.match(/^h\s*([^\d\s][^\d]*?)\s*$/i)) || (m = t.match(/^u\s*([^\d\s][^\d]*?)(?:\s+\d+)?\s*$/i))) && findChar(m[1])) return authorOnly();
+    }
+    if (lower === 'help' || lower === '?') return isReader() ? readerHelp(help()) : help();
     if (['clear', 'opl', 'open library', 'open lib', 'ops', 'open skills', 'open skill', 'opse', 'open site encyclopedia', 'open sites', 'opcl', 'open creature log', 'open creatures', 'back', 'home'].includes(lower)) return baseRun(cmd);
     if ((m = t.match(/^s\s*:\s*(.+)$/i))) return search(m[1]);
     if ((m = t.match(/^changes\b\s*(.*)$/i))) return changes(m[1]);
@@ -387,6 +398,7 @@
   // AUTOMATIC: two-way ties, shared secrets, history — on every save
   // =====================================================================
   function automate() {
+    if (isReader()) return;               // the automatic helpers (two-way ties, shared secrets, history) are for the author's saves
     const toasts = [];
     chars().forEach(c => {
       const prev = lastSaved(c.id); if (!prev) return;
