@@ -17,7 +17,7 @@
   const KIND_LABEL = { creatures: 'Creature', nodes: 'Lineage step', chaos: 'Chaos' };
   const TABS = [['tree', 'Tree'], ['creatures', 'Creatures'], ['biomes', 'Biomes'], ['places', 'Places']];
   const PAGE = 120;
-  let ui = null;          // { tab, q, biome, drafts, noCurse, open: { kind, id } | null, shown, sel (the tree's picked form), tree (its handle) }
+  let ui = null;          // { page ({ id, sec } while a creature's page is open), pageH, tab, q, biome, drafts, noCurse, open: { kind, id } | null, shown, sel (the tree's picked form), tree (its handle) }
 
   const author = () => { const T = TL(); return T ? T.authorMode() : true; };
   const cursesInLibrary = () => { try { return ((Lib() && Lib().get().marks) || []).filter(m => m.kind === 'curse'); } catch (e) { return []; } };
@@ -174,7 +174,23 @@
     ui.tree = T.mount(box, { colourBy: ui.colourBy, sel: ui.sel, onSelect: id => { ui.sel = id; drawMap(); } });
   }
   const tabsHtml = st => `<div class="cl-tabs" role="tablist">${TABS.map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${ui.tab === k}" class="${ui.tab === k ? 'on' : ''}">${l}<b>${k === 'tree' ? st.nodes.length + st.creatures.length : st[k].length + (k === 'creatures' ? st.nodes.length + st.chaos.length : 0)}</b></button>`).join('')}</div>`;
+  // ---- the creature page (Phase 3): the field journal, with the map following the section being read
+  function renderPage(host) {
+    if (ui.pageH) { ui.pageH.destroy(); ui.pageH = null; } if (ui.tree) { ui.tree.destroy(); ui.tree = null; }
+    const P = global.EpitaphCreaturePage; if (!P) { host.innerHTML = '<p class="cl-note">The creature page did not load.</p>'; return; }
+    ui.pageH = P.mount(host, { st: ui.reader ? gated() : C().load(), id: ui.page.id, reader: !!ui.reader, onBack: closePage, onOpen: openPage, onSection: i => { if (ui && ui.page) { ui.page.sec = i; drawSec(); } },
+      onEdit: (kind, id) => { ui.page = null; ui.tab = 'creatures'; ui.open = { kind, id }; ui.scrollTo = ui.open; render(ui.host); drawMap(); } });
+  }
+  function openPage(id) { if (!ui) return; ui.page = { id, sec: 0 }; ui.sel = id; ui.reader ? ui.redraw() : render(ui.host); drawMap(); }
+  function closePage() { if (!ui) return; ui.page = null; ui.reader ? ui.redraw() : render(ui.host); drawMap(); }
+  function drawSec() {
+    const box = document.querySelector('.cp-here'); if (!box || !ui || !ui.page) return; const P = global.EpitaphCreaturePage, i = ui.page.sec;
+    box.innerHTML = `<span class="cp-hl">YOU ARE AT</span><b>${i + 1} · ${esc(P.SECTIONS[i])}</b><span class="cp-nums">${P.SECTIONS.map((x, k) => `<button type="button" data-go="${k}" class="${k === i ? 'on' : ''}" aria-label="${k + 1}, ${esc(x)}"${k === i ? ' aria-current="true"' : ''}>${k + 1}</button>`).join('')}</span>`;
+    box.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => { if (ui && ui.pageH) ui.pageH.goto(+b.dataset.go); }));
+  }
   function render(host) {
+    if (ui.pageH) { ui.pageH.destroy(); ui.pageH = null; }
+    if (ui.page) return renderPage(host);
     if (ui.tree) { ui.tree.destroy(); ui.tree = null; }
     const st = C().load(), q = ui.q;
     if (ui.tab === 'tree') return renderTree(host, st);
@@ -207,7 +223,7 @@
     drawMap.tries = 0;
     const cv = host.querySelector('.se-cv'), svg = host.querySelector('.se-svg'), w = host.clientWidth, h = host.clientHeight, st = ui.reader ? gated() : C().load();
     const pr = D.world(cv, {}).project; svg.setAttribute('viewBox', `0 0 ${w} ${h}`); svg.setAttribute('width', w); svg.setAttribute('height', h);
-    if (ui.tab === 'tree') return drawRange(host, svg, pr, st);
+    if (ui.tab === 'tree' || ui.page) return drawRange(host, svg, pr, st);
     const sel = ui.open && ui.open.kind === 'places' ? ui.open.id : null;
     const pts = st.places.filter(p => Number.isFinite(p.lon) && Number.isFinite(p.lat) && (!ui.biome || p.biome === ui.biome));
     svg.innerHTML = pts.map(p => { const [x, y] = pr(p.lon, p.lat); return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${p.id === sel ? 7 : 3.2}" fill="${p.curse ? 'var(--ember)' : 'none'}" stroke="${p.id === sel ? 'var(--amber-hi)' : 'var(--amber)'}" stroke-width="${p.id === sel ? 2.5 : 1}"/>`; }).join('');
@@ -218,7 +234,7 @@
    *  settlements that have a name for it in teal; a card with its time, change and curse, and Edit. */
   const gatedById = (st, id) => { for (const k of ['creatures', 'nodes', 'chaos']) { const x = st[k].find(q => q.id === id && !q.silhouette); if (x) return Object.assign({}, x, { kind: k }); } return null; };
   function drawRange(host, svg, pr, st) {
-    const r = ui.sel && (ui.reader ? gatedById(st, ui.sel) : C().byId(ui.sel)), rec = r || null, leg = host.querySelector('.se-legend');
+    const selId = ui.page ? ui.page.id : ui.sel, r = selId && (ui.reader ? gatedById(st, selId) : C().byId(selId)), rec = r || null, leg = host.querySelector('.se-legend');
     const bio = new Set(rec ? [].concat(rec.biomes || [], (rec.range && rec.range.biomes) || [], (rec.forms || []).map(f => f.biome)) : []);
     const named = new Set(rec && rec.range ? rec.range.places || [] : []);
     const lit = p => rec && (bio.has(p.biome) || named.has(p.id) || named.has(p.name));
@@ -233,12 +249,14 @@
     const carried = ui.reader ? [] : (rec.curses || []).map(k => ((cursesInLibrary().find(m => m.id === k.libId) || {}).name || k.libId) + (k.stage ? ' · ' + k.stage : ''));
     const bnames = [...bio].map(b => (st.biomes.find(x => x.id === b) || {}).name || b).filter(Boolean);
     leg.innerHTML = '';
+    if (ui.page) { const hb = document.createElement('div'); hb.className = 'cp-here'; host.appendChild(hb); drawSec(); leg.innerHTML = `${on.length} infected place${on.length === 1 ? '' : 's'} in range${towns.length ? ' · <span style="color:var(--verdigris)">●</span> settlements that name it' : ''}`; return; }
     const card = document.createElement('div'); card.className = 'cl-card';
     card.innerHTML = `<b>${esc(rec.name || rec.id)}</b><span class="cl-dim">${esc(KIND_LABEL[r.kind] || '')}${rec.when ? ' · ' + esc(whenText(rec.when)) : ''}${rec.extinct ? ' · extinct from ' + esc(whenText(rec.extinct)) : ''}</span>
       ${rec.mutation && rec.mutation.change ? `<p>${esc(rec.mutation.change)}</p>` : ''}${rec.mutation && rec.mutation.advantage ? `<p class="cl-dim">Gained: ${esc(rec.mutation.advantage)}</p>` : ''}
       ${curse || carried.length ? `<p class="cl-hot">⛓ ${esc([curse].concat(carried).filter(Boolean).join(' · '))}</p>` : ''}
       <span class="cl-dim">${bnames.length ? esc(bnames.join(' · ')) + ' · ' : ''}${on.length || !ui.reader ? on.length + ' infected place' + (on.length === 1 ? '' : 's') + ' in range' : ''}${towns.length ? ' · <span style="color:var(--verdigris)">●</span> settlements that name it' : ''}</span>
-      ${ui.reader ? '' : '<button type="button" class="cl-new" data-edit>Edit ▸</button>'}`;
+      ${r.kind === 'chaos' ? '' : '<button type="button" class="cl-new" data-page>Open page ▸</button> '}${ui.reader ? '' : '<button type="button" class="cl-new" data-edit>Edit ▸</button>'}`;
+    const pb = card.querySelector('[data-page]'); if (pb) pb.addEventListener('click', () => openPage(rec.id));
     const eb = card.querySelector('[data-edit]'); if (eb) eb.addEventListener('click', () => { if (!ui || !ui.host) return; ui.tab = 'creatures'; ui.open = { kind: r.kind, id: rec.id }; ui.scrollTo = ui.open; render(ui.host); drawMap(); });
     host.appendChild(card);
   }
@@ -248,24 +266,25 @@
   const gated = () => C().forReader(C().load(), readerChapter(), { eventOk: id => { const T = TL(), e = T && T.byId && T.byId(id); return !!(e && T.isRevealed(e, readerChapter())); } });
   /** A reader sees the tree only: forms their chapter has revealed, "? ? ?" for what comes next, and no editor. */
   function mountReader(container, opts) {
-    ui = { tab: 'tree', reader: true, sel: null, tree: null, colourBy: 'biome', host: container };
-    const focus = opts && opts.focus; const draw = () => { if (ui.tree) { ui.tree.destroy(); ui.tree = null; }
+    ui = { tab: 'tree', reader: true, sel: null, tree: null, colourBy: 'biome', host: container, page: null, pageH: null };
+    const focus = opts && opts.focus; const draw = () => { if (ui.pageH) { ui.pageH.destroy(); ui.pageH = null; } if (ui.tree) { ui.tree.destroy(); ui.tree = null; }
+      if (ui.page) return renderPage(container);
       container.innerHTML = '<div class="cl"><p class="cl-note">What has been found of the creatures of Epitaph, as far as you have read. Pick a form to see where it lives.</p><div class="cl-tree"></div></div>';
       const T = global.EpitaphCreatureTree, box = container.querySelector('.cl-tree'); if (!T) { box.innerHTML = '<p class="cl-note">The tree did not load.</p>'; return; }
       ui.tree = T.mount(box, { colourBy: ui.colourBy, sel: ui.sel, reader: { chapter: readerChapter() }, onSelect: id => { ui.sel = id; drawMap(); } }); drawMap(); };
-    if (focus) { const g = gated(); if (g.nodes.concat(g.creatures).some(x => x.id === focus && !x.silhouette)) ui.sel = focus; }
-    draw();
-    const off = TL() && TL().onReaderChange ? TL().onReaderChange(() => { if (ui) { ui.sel = null; draw(); } }) : null;
-    return () => { if (off) off(); if (ui && ui.tree) ui.tree.destroy(); ui = null; const p = document.getElementById('bookPanel'); if (p && p.classList.contains('se-panel')) { p.innerHTML = ''; p.classList.remove('se-panel'); } };
+    if (focus) { const g = gated(); if (g.nodes.concat(g.creatures).some(x => x.id === focus && !x.silhouette)) { ui.sel = focus; ui.page = { id: focus, sec: 0 }; } }
+    ui.redraw = draw; draw();
+    const off = TL() && TL().onReaderChange ? TL().onReaderChange(() => { if (ui) { ui.sel = null; ui.page = null; draw(); } }) : null;
+    return () => { if (off) off(); if (ui && ui.tree) ui.tree.destroy(); if (ui && ui.pageH) ui.pageH.destroy(); ui = null; const p = document.getElementById('bookPanel'); if (p && p.classList.contains('se-panel')) { p.innerHTML = ''; p.classList.remove('se-panel'); } };
   }
 
   // ---------------------------------------------------------------- mounting and events
   function mountIndex(container, opts) {
     if (!C()) { container.innerHTML = '<p class="cl-note">The Creature Log data did not load.</p>'; return () => {}; }
     if (!author()) return mountReader(container, opts);
-    ui = { tab: 'tree', q: '', biome: '', drafts: false, noCurse: false, open: null, shown: PAGE, scrollTo: null, sel: null, tree: null, colourBy: 'biome', host: container };
+    ui = { tab: 'tree', q: '', biome: '', drafts: false, noCurse: false, open: null, shown: PAGE, scrollTo: null, sel: null, tree: null, colourBy: 'biome', host: container, page: null, pageH: null };
     const focus = opts && opts.focus && C().byId(opts.focus);
-    if (focus) ui.sel = focus.id;          // a creature link lands on the tree with it picked
+    if (focus) { ui.sel = focus.id; if (focus.kind !== 'chaos') ui.page = { id: focus.id, sec: 0 }; }          // a creature link opens its page
     render(container); drawMap();
     const on = (ev, fn) => { container.addEventListener(ev, fn); return () => container.removeEventListener(ev, fn); };
     const offs = [];
@@ -299,7 +318,7 @@
     }));
     offs.push(on('input', e => { const t = e.target; if (t.id === 'clQ') { ui.q = t.value; ui.shown = PAGE; const pos = t.selectionStart; render(container); const n = container.querySelector('#clQ'); n.focus(); n.setSelectionRange(pos, pos); } }));
     offs.push(on('change', e => { const t = e.target; if (t.id === 'clDrafts') ui.drafts = t.checked; else if (t.id === 'clNoCurse') ui.noCurse = t.checked; else if (t.id === 'clBiome') { ui.biome = t.value; ui.shown = PAGE; drawMap(); } else return; render(container); }));
-    return () => { offs.forEach(o => o()); if (ui && ui.tree) ui.tree.destroy(); ui = null; const p = document.getElementById('bookPanel'); if (p && p.classList.contains('se-panel')) { p.innerHTML = ''; p.classList.remove('se-panel'); } };
+    return () => { offs.forEach(o => o()); if (ui && ui.tree) ui.tree.destroy(); if (ui && ui.pageH) ui.pageH.destroy(); ui = null; const p = document.getElementById('bookPanel'); if (p && p.classList.contains('se-panel')) { p.innerHTML = ''; p.classList.remove('se-panel'); } };
   }
 
   // a `creature:<id>` link opens the log on that creature (step 1.7)

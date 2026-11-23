@@ -2,6 +2,24 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Creature Log: the creature page, "the field journal" (assets/epitaph-creature-page.js) — steps 3.1, 3.2, 3.4, 3.5 (part), 3.6
+
+Layout **AA** (picked from the Round 9 mockups): one scroll with the plan's seven sections, and the map on the right page follows the section being read (a "You are at 4 · Abilities" box with 1–7 buttons that jump to a section).
+
+Open it with **Open page ▸** on the tree's card, by clicking a form on another page's line, or from a `creature:<id>` link. **◂ Tree** goes back with that form still picked; **Edit ▸** (author) opens its editor.
+
+1. **Lineage (3.1):** every form from the root to this one, side by side (time, what changed, ⛓ for a curse, ✕ for extinct). Click any ancestor to open its page. Branches that split off a form (such as an extinct side line) are listed beneath.
+2. **Mutations (3.2):** each change in order: what changed, its **cause** (an epoch, an age or a timeline event, in words), and what it gained.
+3. **Anatomy:** the parts you've written; the labelled drawing is step 3.3 (Opus), and the page says so while it's empty.
+4. **Abilities (3.4):** traits and what counters each. **No power dots yet:** I proposed a 7-step power per trait in Round 9 and am waiting for your answer (Faint · Minor · Notable · Strong · Fierce · Overwhelming · Unstoppable, or none).
+5. **Range & movements (3.5, part):** biomes, places, nests, and sightings by chapter, each with its place linked to the Site Encyclopedia. The map shows the range. Not yet: migration routes drawn on the map, and sightings pinned on it.
+6. **Behaviour & lore (3.6):** diet, hunting, breeding, and what each settlement calls it and believes, linked to the place's entry.
+7. **Field notes:** the notes you've written; writing them in character voices is step 3.7 (Opus).
+
+**Readers** get the same page built from the gated copy (step 2.4): only forms they've found; an unknown ancestor is a "? ? ?" card; no curse names, settlement names, field notes, or unreached sightings; no Edit. A form that has no page (a silhouette) can't be opened. Phone: a compact header, the terminal hides, and the map sits under the page.
+
+Tests: `tools/site-tests/test-creature-page.js` (9 checks for the model: the line, branches, mutation order, silhouettes, loops), and the real page as author and as a reader at chapters 3 and 9 (no leaks, no console errors).
+
 ## Creature Log: the Tree of Descent (assets/epitaph-creature-tree.js) — step 2.1
 
 The Creature Log now opens on a **Tree** tab, drawn in layout V (picked from the Round 8 mockups): time runs down the page.

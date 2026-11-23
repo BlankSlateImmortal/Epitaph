@@ -74,13 +74,13 @@ made to show how deeply the world has been thought through.
 
 ## Phase 3 — Creature page (the specimen)
 
-- [ ] **3.1 Lineage.** Its branch of the tree, with every ancestor form side by side, so the mutation steps can be seen.
-- [ ] **3.2 Mutations.** Each change in order: what changed, what caused it, what it gained.
+- [x] **3.1 Lineage.** Its branch of the tree, with every ancestor form side by side, so the mutation steps can be seen.
+- [x] **3.2 Mutations.** Each change in order: what changed, what caused it, what it gained.
 - [ ] **3.3 Anatomy.** A labelled specimen: an illustration first; a turnable 3D model later (the hard-surface, block or traced
   approaches from the sword pins; no faces, the user prefers objects).
-- [ ] **3.4 Abilities.** What it can do and what counters it, with 7-step power; links to the Power systems page where it fits.
+- [x] **3.4 Abilities.** What it can do and what counters it, with 7-step power; links to the Power systems page where it fits.
 - [ ] **3.5 Range & movements.** A small map of its range and migration routes, and sightings by chapter (spoiler-gated).
-- [ ] **3.6 Behaviour & lore.** Diet, hunting, breeding, and what each settlement calls it and believes about it (links to the
+- [x] **3.6 Behaviour & lore.** Diet, hunting, breeding, and what each settlement calls it and believes about it (links to the
   Site Encyclopedia).
 - [ ] **3.7 Field notes.** Short in-world journal notes from characters or scholars, dated, spoiler-gated.
 
@@ -149,6 +149,8 @@ When the user says "get back to it" / "back to the plan":
 
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-23 — **3.1, 3.2, 3.4, 3.6 done, 3.5 partly (Sonnet).** The user picked layout **AA** (the field journal) from Round 9. New `assets/epitaph-creature-page.js`: one scroll with the seven sections, the map following the section read, a pure `model()` (line of forms, branches, mutations; 9 Node checks), reader version through the 2.4 gate (checked in the real page at chapters 3 and 9: no leaks). **Left on purpose:** 3.3 (the drawing; Opus), 3.7 (field notes in character voices; Opus), 3.5's migration routes and sightings on the map, and the 7-step power on traits (waiting on the user's answer to the Round 9 question). **Next: Phase 4 (world over time, food web, cause and effect; 4.3 is Opus), or the Opus steps 3.3 / 3.7: user's choice of order.**
 
 - 2026-11-23 — **2.4 done (Sonnet). Phase 2 (the tree) is finished.** `EpitaphCreatures.forReader` (pure) gates the log: known = `revealedIn` reached (nothing known by default; `hidden` = never shown), the step after a known one is a "? ? ?" silhouette with an opaque id and nothing else, known forms lose author-only data (curse ids, settlement names, field notes, unreached sightings). Readers now get the Tree tab only (no editor), a "3 known · 1 still to find" count, a scrubber that lists only reached events, and a map of only revealed places. 13 Node checks + the real page as a reader at chapters 0, 2, 9 (no leaks, no console errors). **Heads-up for the user:** nothing is revealed until you set *Reveal in Ch* on a form, so a reader sees only "? ? ?" for now. **Next: Phase 3, the creature page (3.1 first).** Checking the plan for which steps are Opus (3.3 anatomy/3D, 3.7 field notes) before starting.
 
