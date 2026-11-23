@@ -58,7 +58,7 @@ made to show how deeply the world has been thought through.
   *Done when:* the user agrees the fields and the 7-step scales.
 - [x] **1.4 Food web.** Links `{ eater, eaten, epoch }` so the ecosystem view can draw who eats whom at any time; flag keystones and
   apex predators.
-- [~] **1.5 Defaults from the lore.** Draft one full lineage first, root to living creature, every mutation caused, to prove the shape.
+- [x] **1.5 Defaults from the lore.** Draft one full lineage first, root to living creature, every mutation caused, to prove the shape.
   Then the creatures the story already shows. *Done when:* one complete lineage is approved by the user.
 - [ ] **1.7 Hooks the Site Encyclopedia already waits for** (added 2026-11-22). Register `EpitaphLinks.register('creature', …)` and expose `EpitaphCreatures.byId(id)` (returns `{ id, name }` at least): the Beasts tab's creature names then become links. The Range tab lists a creature's places with `EpitaphSites.creaturePlaces(id)` and links each to `index.html?place=<id>`. Check that every creature id a Beasts tab names exists in the log (the `site-beast` Check is already in place).
 - [ ] **1.6 Storage, backup, checks.** Merge and export like the encyclopedia. Checks: a node with a missing parent, a mutation with no
@@ -149,6 +149,8 @@ When the user says "get back to it" / "back to the plan":
 
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-22 — **1.5 done (Opus): one example lineage, the rest is the user's.** The user keeps the Plains Herd as an **example** (too mundane for the story; marked `example: true`) and will write their own creatures once the log is up; the lore has no animals yet (only items and curses for people and items). The shape is accepted. **Plan change, to match:** the editor comes earlier. After 1.6 (storage) and 1.7 (hooks), **5.1 Editor and 5.2 Approve move up**, with a plain list in `opcl` to open creatures from, so the user can add and edit creatures before the tree views (Phase 2) exist. Phase 2 then draws whatever the user has made.
 
 - 2026-11-22 — **1.5 first lineage drafted (Opus), waiting on the user.** The lore names no ordinary creatures, so it is a draft on the user's rules: a prairie herd from the masterpiece world to a conscious cursed creature at Aurelia's edge, seven steps and a branch that dies out, every step caused (epoch, age or timeline event), with a suggested curse the user can replace. Vault: `Exploratory Ideas/Lore/Creature Log Lineage Draft - the Plains Herd.md`, data in the agreed schema beside the infected-places file. Asked which creatures the story already shows.
 
