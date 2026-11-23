@@ -172,7 +172,9 @@
       <select id="wfPlace" aria-label="Which places"><option value="">All places</option>${m.places.map(p => `<option value="${esc(p)}"${p === wf.place ? ' selected' : ''}>${esc(placeName(p))}</option>`).join('')}</select>
       <button type="button" class="se-link" data-wf-new${newFor ? '' : ' disabled title="Pick a place first"'}>+ New what-if${newFor ? ' in ' + esc(placeName(newFor)) : ''}</button>`}</div>`;
   }
-  function render() {
+  const keep = fn => (Ent() && Ent().keepFocus ? Ent().keepFocus(fn) : fn());
+  function render() { return keep(renderNow); }
+  function renderNow() {
     if (!wf || !inEncyclopedia() || !S()) return false;
     if (!author()) { close(); return false; }               // what-ifs are author only: a Reader view never shows them
     const m = model(); if (wf.sel && !m.sel) wf.sel = null;
@@ -199,7 +201,8 @@
     const E = Ent(), curE = E && E.current ? E.current() : null;
     if (global.EpitaphSiteWeb && global.EpitaphSiteWeb.isOpen()) { const l = document.getElementById('seWeb'); if (l) l.remove(); }
     wf = { view: view === 'piles' ? 'piles' : 'board', place: from || '', sel: null, from: from || null, fromTab: curE && curE.placeId === from ? curE.tab : 'intrigue' };
-    return render();
+    const ok = renderNow(); const b = document.querySelector('#seWhatIf .se-back'); if (ok && b) try { b.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
+    return ok;
   }
   function close(target, tab, after) {
     const w = wf; wf = null; if (ro) { ro.disconnect(); ro = null; }

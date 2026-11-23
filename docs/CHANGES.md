@@ -2,6 +2,12 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Phone layout and keyboard use for the encyclopedia views — step 7.1
+
+- **Phone (up to 760px wide):** while an entry, the relations ring or the what-if board is open, the book gives its left page 58% of the height, hides the terminal (no use on a phone there), and shrinks its own header to one line. Every view's header wraps so the title gets a full row (it was squeezed to "A…", "RELA…", "WHAT…"), and touch targets (back and view buttons, selects, chapter step buttons, kind chips, stage buttons, the what-if score dots) are 36–44px.
+- **Keyboard:** opening a view puts focus on its Back button; a redraw (pressing a tab, picking a seat with Enter, a chip, a score dot) keeps focus on the same control instead of dropping it to the page; a card that opens a page hands focus to that page's Back. Nothing uses a positive `tabindex`. Every button, link, select and input draws a visible focus ring. The what-if board's drag-and-drop has a keyboard route: open the card and use its Status menu.
+- **Themes:** the Dossier is dark only; the Atlas's Politics arcs and the 3D sites' stage picker were checked on the Paper theme.
+
 ## Beasts tab and the Creature Log (the entry's half) — step 6.3, part done
 
 The Creature Log isn't built yet, so only the encyclopedia's side exists:

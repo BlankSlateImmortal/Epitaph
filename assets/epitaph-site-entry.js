@@ -451,7 +451,23 @@ ${r.state === 'ongoing' ? 'still going' : r.state === 'unknown' ? 'ends later (n
 
   // ---------------------------------------------------------------- mounting in the book
   function inEncyclopedia() { const b = document.getElementById('theBook'); return !!(b && b.dataset.view === 'sites' && document.getElementById('bkSandbox')); }
-  function render() {
+  /** Keyboard focus survives a redraw (step 7.1): every view replaces its DOM, so remember what had focus (by its data-* name or id, inside
+   *  its own root) and put focus back on the same control; if it is gone (a card that opened a page), focus the view's Back button. */
+  function focusSelector(el) {
+    const root = el && el.closest ? el.closest('#seEntry,#seWeb,#seWhatIf,#bookPanel') : null; if (!root) return null;
+    const q = v => String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    if (el.id) return '#' + root.id + ' #' + CSS.escape(el.id);
+    for (const a of el.attributes) if (/^data-(se|sw|wf)-/.test(a.name)) { let s = '#' + root.id + ' [' + a.name + (a.value !== '' ? '="' + q(a.value) + '"' : '') + ']'; const v = el.getAttribute('data-v'); if (v != null) s += '[data-v="' + q(v) + '"]'; return s; }
+    return null;
+  }
+  function keepFocus(fn) {
+    const sel = focusSelector(document.activeElement), out = fn();
+    if (sel) { let el = null; try { el = document.querySelector(sel); } catch (e) {} if (!el) el = document.querySelector('#seWhatIf .se-back, #seWeb .se-back, #seEntry .se-back');
+      if (el && el !== document.activeElement) try { el.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }
+    return out;
+  }
+  function render() { return keepFocus(renderNow); }
+  function renderNow() {
     if (!cur || !inEncyclopedia()) return false;
     const Si = S(), c = context(cur.placeId), tab = cur.tab, out = RENDER[tab](c);
     const sb = document.getElementById('bkSandbox');
@@ -503,7 +519,8 @@ ${r.state === 'ongoing' ? 'still going' : r.state === 'unknown' ? 'ends later (n
     if (!S() || !inEncyclopedia()) return false;
     { const T = TL(), rec = S().get(placeId); if (T && !T.authorMode() && rec && !S().placeReached(rec)) return false; }   // a reader can't open a place they haven't reached
     cur = { placeId, tab: S().TABS.includes(tab) ? tab : 'overview', angle: 0.6, stage: 6, focus: null, spreadCh: null };
-    return render();
+    const ok = renderNow(); const b = document.querySelector('#seEntry .se-back'); if (ok && b) try { b.focus({ preventScroll: true }); } catch (e) { /* ignore */ }   // a keyboard user lands inside the entry
+    return ok;
   }
 
   // ---------------------------------------------------------------- events (delegated, so they survive redraws)
@@ -571,5 +588,5 @@ ${r.state === 'ongoing' ? 'still going' : r.state === 'unknown' ? 'ends later (n
     ta.value = lines.join('\n'); sel.value = ''; ta.dispatchEvent(new Event('input', { bubbles: true })); ta.focus();
   });
 
-  global.EpitaphSiteEntry = { open, close, render, context, current: () => cur, setTab: t => { if (cur) { cur.tab = t; render(); } }, ZOOM, secretOptions, secretLabel, secretPickerHtml, _render: RENDER };
+  global.EpitaphSiteEntry = { open, close, render, keepFocus, context, current: () => cur, setTab: t => { if (cur) { cur.tab = t; render(); } }, ZOOM, secretOptions, secretLabel, secretPickerHtml, _render: RENDER };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -188,7 +188,9 @@
   }
 
   // ---------------------------------------------------------------- open, draw, close
-  function render() {
+  const keep = fn => (global.EpitaphSiteEntry && global.EpitaphSiteEntry.keepFocus ? global.EpitaphSiteEntry.keepFocus(fn) : fn());
+  function render() { return keep(renderNow); }
+  function renderNow() {
     if (!web || !inEncyclopedia() || !S()) return false;
     const m = model(), sb = document.getElementById('bkSandbox');
     let layer = document.getElementById('seWeb');
@@ -206,8 +208,10 @@
   function open(from, by) {
     if (!S() || !inEncyclopedia()) return false;
     const Ent = global.EpitaphSiteEntry, curE = Ent && Ent.current ? Ent.current() : null;
+    const wasOpen = isOpen();
     web = { ch: null, group: by === 'bloc' ? 'bloc' : (web && web.group) || 'type', sel: from && by !== 'bloc' ? { place: from } : null, off: new Set(), from: from || null, fromTab: curE && curE.placeId === from ? curE.tab : 'foreign' };
-    return render();
+    const ok = renderNow(); const b = document.querySelector('#seWeb .se-back'); if (ok && b && !wasOpen) try { b.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
+    return ok;
   }
   function close(toEntry) {
     const w = web; web = null;
