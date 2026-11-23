@@ -60,7 +60,7 @@ made to show how deeply the world has been thought through.
   apex predators.
 - [x] **1.5 Defaults from the lore.** Draft one full lineage first, root to living creature, every mutation caused, to prove the shape.
   Then the creatures the story already shows. *Done when:* one complete lineage is approved by the user.
-- [ ] **1.7 Hooks the Site Encyclopedia already waits for** (added 2026-11-22). Register `EpitaphLinks.register('creature', …)` and expose `EpitaphCreatures.byId(id)` (returns `{ id, name }` at least): the Beasts tab's creature names then become links. The Range tab lists a creature's places with `EpitaphSites.creaturePlaces(id)` and links each to `index.html?place=<id>`. Check that every creature id a Beasts tab names exists in the log (the `site-beast` Check is already in place).
+- [x] **1.7 Hooks the Site Encyclopedia already waits for** (added 2026-11-22). Register `EpitaphLinks.register('creature', …)` and expose `EpitaphCreatures.byId(id)` (returns `{ id, name }` at least): the Beasts tab's creature names then become links. The Range tab lists a creature's places with `EpitaphSites.creaturePlaces(id)` and links each to `index.html?place=<id>`. Check that every creature id a Beasts tab names exists in the log (the `site-beast` Check is already in place).
 - [x] **1.6 Storage, backup, checks.** Merge and export like the encyclopedia. Checks: a node with a missing parent, a mutation with no
   cause, a creature dated before its ancestor, a food-web link to a missing creature, an extinct creature sighted later.
 
@@ -94,9 +94,9 @@ made to show how deeply the world has been thought through.
 
 ## Phase 5 — Editing
 
-- [ ] **5.1 Editor.** Add and edit nodes and creatures in the book: parent picker, cause picker (timeline events), biome and place
+- [x] **5.1 Editor.** Add and edit nodes and creatures in the book: parent picker, cause picker (timeline events), biome and place
   pickers, and drawing migration routes on a map.
-- [ ] **5.2 Approve drafts.** One click per field; a filter for what's still draft.
+- [x] **5.2 Approve drafts.** One click per field; a filter for what's still draft.
 
 ## Phase 6 — Links into the rest of the site
 
@@ -149,6 +149,8 @@ When the user says "get back to it" / "back to the plan":
 
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-22 — **1.7, 5.1 and 5.2 done (Sonnet).** `assets/epitaph-creature-ui.js` + `.css`: the Creature Log view behind `opcl`, with the editor and approve built together (so the user can add creatures before the tree exists): three tabs (Creatures nested under their ancestors, Biomes, Places), edit in place with pickers, add and delete, scales as dots, Library curses on creatures and a per-place optional curse, a drafts filter and an Approved toggle, the world map of places on the right page. `creature:<id>` links now open it (1.7). Tested in the real page (merge the vault file; edit and approve The Murmur; add a creature under it; give New York a curse; delete; follow a link; no console errors) and 8 new Node checks. One bug found and fixed on the way (the search text carried over between tabs). The book's `openCreatures` got a small patch (the other session's uncommitted book edits are left alone). **Not yet:** a reader's view (waits for discovery, 2.4), a place's encyclopedia link in the form is a plain picker. Next: Phase 2 (the tree). **2.1 is an Opus step (a new kind of view): switch models; the tree layout also wants mockups first.**
 
 - 2026-11-22 — **1.6 done (Sonnet).** Storage, backup and checks as above: the module ships empty (private lore stays in the vault) and is filled by Merge. **The merge file is in the vault:** `Site work/files/creature-log-merge-2026-11-22.json` (the example Plains Herd, its curse as a Library mark, 22 biomes, 305 infected places with empty curse slots). Real page: merging it adds 335 records once and 0 the second time, the Library keeps the curse's fields, Checks is clean, no console errors. 25 new Node checks. The user also asked me to **keep going between steps** (stop only for lore or a model switch). Next: 1.7, the creature link handler and `byId` (done here), then the editor.
 

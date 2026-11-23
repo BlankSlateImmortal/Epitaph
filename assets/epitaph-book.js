@@ -924,7 +924,22 @@
       `The plan is in <code>docs/plans/site-encyclopedia.md</code>. Next up: the data for each place.`]);
     return 'The Site Encyclopedia is not built yet. Opening its placeholder page.';
   }
-  function openCreatures() {
+  let stopCreatures = null;
+  function openCreatures(focusId) {
+    if (window.EpitaphCreatureUI) {
+      flushItem();
+      mode = 'creatures';
+      const n = window.EpitaphCreatures ? (() => { const s = EpitaphCreatures.load(); return s.creatures.length + s.nodes.length + s.chaos.length; })() : 0;
+      shell('creatures', 'Creature Log', '生物誌', n);
+      if (viewport) { viewport.stop(); viewport = null; }
+      lastBox = null;
+      const sb = $('#bkSandbox');
+      sb.innerHTML = '<div class="bk-jp" aria-hidden="true">生物誌</div><div id="bkCreatures" style="position:absolute;inset:0"></div>';
+      const sub = $('.bk-title small'); if (sub) sub.innerHTML = 'creatures · biomes · infected places';
+      if (stopCreatures) stopCreatures();
+      stopCreatures = EpitaphCreatureUI.mountIndex($('#bkCreatures'), { focus: typeof focusId === 'string' ? focusId : null });
+      return `Opening the Creature Log… ${n} creature${n === 1 ? '' : 's'} and forms.`;
+    }
     placeholder('creatures', 'Creature Log', '生物誌', 0, [
       `<b>The Creature Log isn't built yet.</b> It will trace how life developed on Epitaph and how its creatures mutated before the story, with their abilities, movements and lore.`,
       `The plan is in <code>docs/plans/creature-log.md</code>. It starts after the Site Encyclopedia's data is in place.`]);

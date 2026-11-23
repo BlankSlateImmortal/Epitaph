@@ -2,6 +2,17 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Creature Log: the view and editor (assets/epitaph-creature-ui.js) — steps 1.7, 5.1, 5.2
+
+Type **`opcl`** (or follow a `creature:<id>` link) to open the Creature Log in the book. It is the author's workspace for now (readers get a note until the tree's discovery rules arrive).
+
+- **Three tabs.** **Creatures** (creatures, lineage steps and creatures of chaos, nested under their ancestors, each with chips: conscious, the curses it carries, extinct, example, draft), **Biomes** (with place counts) and **Places** (the infected places: search, filter by biome, *curse not written* only; 120 at a time).
+- **Edit in place.** Click any row to open its form; **Save**, **Cancel**, or **Delete** (asks twice). **+ Creature / + Lineage step / + Chaos form / + Biome / + Place** add your own. Pickers: descends from, when (epoch, age or a timeline event), cause, biomes, curses (the Library's, written in **opmk**), places, and **Eats** (the food links). The seven-step scales are clickable dots with their step names. **Approved** turns a draft into yours (a *drafts only* filter shows what is left).
+- **A place's curse is optional**: pick one from the Library, with its stage, when the story reaches it; until then it reads *curse not written yet* and Checks never flag it.
+- **The right page** is the world map with every located place plotted (filled = a curse is written).
+- **Links:** `creature:<id>` opens the log on that creature (the encyclopedia's Beasts tab uses it, and shows the creature's name as a link once it is in the log).
+- To start from the vault's file (example herd, 22 biomes, 305 infected places): Dossier → Data → Merge.
+
 ## Creature Log: storage, backup and checks (assets/epitaph-creatures.js) — step 1.6
 
 `window.EpitaphCreatures` now stores the log: key `epitaph-creatures`, records by id in five collections (lineage **nodes**, **creatures**, **chaos** forms, **biomes**, infected **places**) plus the **food** links. It ships **empty**: no lore is in the site's code. The user's creatures, the example lineage and the infected places arrive through **Dossier → Data → Merge** from a file kept in the vault.

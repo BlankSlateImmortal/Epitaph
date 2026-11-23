@@ -1,0 +1,43 @@
+/* Epitaph — the Creature Log view (assets/epitaph-creature-ui.js). Uses the site's own tokens. */
+.cl{ display:flex; flex-direction:column; height:100%; min-height:0; font-family:var(--f-mono); font-size:12.5px; line-height:1.5; color:var(--bone); }
+.cl-bar{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 10px; padding:8px 14px; border-bottom:1px solid var(--line); }
+.cl-tabs{ display:flex; } .cl-tabs button{ font-family:var(--f-crt); font-size:19px; padding:2px 12px; background:transparent; color:var(--dust); border:1px solid var(--amber-dim); cursor:pointer; }
+.cl-tabs button + button{ border-left:0; } .cl-tabs button.on{ background:var(--amber); color:var(--ink-deep); border-color:var(--amber); } .cl-tabs b{ font-weight:400; margin-left:6px; opacity:.7; }
+.cl-bar input[type=search], .cl-bar select{ font-family:var(--f-crt); font-size:17px; background:var(--ink); color:var(--amber); border:1px solid var(--amber-dim); padding:2px 8px; min-width:0; max-width:100%; }
+.cl-sp{ flex:1; }
+.cl-new{ font-family:var(--f-crt); font-size:17px; padding:1px 10px; background:transparent; color:var(--amber-hi); border:1px solid var(--amber); cursor:pointer; } .cl-new:hover{ background:var(--amber); color:var(--ink-deep); }
+.cl-note{ margin:0; padding:6px 14px; color:var(--dust); font-size:11.5px; }
+.cl-list{ list-style:none; margin:0; padding:0 0 30px; overflow-y:auto; flex:1; min-height:0; }
+.cl-item{ border-bottom:1px solid rgba(255,178,56,.08); } .cl-item.open{ background:rgba(255,178,56,.04); border-left:3px solid var(--amber); }
+.cl-item.new{ margin:0 14px 8px; border:2px solid var(--amber); padding-bottom:6px; }
+.cl-head{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; padding-right:12px; }
+.cl-title{ display:flex; align-items:baseline; gap:8px; flex:1 1 260px; min-width:0; text-align:left; padding:5px 0; background:transparent; border:0; color:var(--bone); font:inherit; cursor:pointer; }
+.cl-title b{ font-weight:400; font-family:var(--f-crt); font-size:20px; color:var(--amber-hi); } .cl-title:hover b, .cl-title:focus-visible b{ text-decoration:underline; } .cl-title:focus-visible{ outline:2px solid var(--amber-hi); outline-offset:1px; }
+.cl-sub{ color:var(--dim); font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cl-k{ font-style:normal; color:var(--amber); width:14px; } .cl-k.nodes{ color:var(--dust); } .cl-k.chaos{ color:var(--sw-violet, #b98ad8); }
+.cl-chips{ display:flex; flex-wrap:wrap; gap:4px; } .cl-chip{ font-family:var(--f-crt); font-size:15px; line-height:1.2; padding:0 6px; border:1px solid var(--amber-dim); color:var(--dust); white-space:nowrap; }
+.cl-chip.dim{ border-style:dashed; color:var(--dim); } .cl-chip.hot{ border-color:var(--ember); color:var(--ember); }
+.cl-form{ padding:8px 14px 12px; display:flex; flex-direction:column; gap:10px; }
+.cl-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:8px 14px; }
+.cl-f{ display:flex; flex-direction:column; gap:3px; min-width:0; } .cl-f.wide{ grid-column:1 / -1; }
+.cl-fl{ font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--dust); }
+.cl-f input[type=text], .cl-f input[type=number], .cl-f select, .cl-f textarea, .cl-rf input, .cl-rf select{ font-family:var(--f-mono); font-size:12px; background:var(--ink); color:var(--bone); border:1px solid var(--amber-dim); padding:4px 6px; min-width:0; width:100%; box-sizing:border-box; }
+.cl-f input:focus-visible, .cl-f select:focus-visible, .cl-f textarea:focus-visible, .cl-rf input:focus-visible, .cl-rf select:focus-visible{ outline:2px solid var(--amber-hi); outline-offset:1px; }
+.cl-chk{ display:inline-flex; align-items:center; gap:5px; font-size:12px; color:var(--dust); } .cl-chk input{ accent-color:var(--amber); }
+.cl-checks{ display:flex; flex-wrap:wrap; gap:4px 14px; } .cl-dim{ color:var(--dim); }
+.cl-dots{ display:flex; align-items:center; gap:5px; } .cl-dot{ width:17px; height:17px; border-radius:50%; border:1px solid var(--amber-dim); background:transparent; padding:0; cursor:pointer; } .cl-dot.on{ background:var(--amber); border-color:var(--amber); }
+.cl-dot:focus-visible, .cl-clr:focus-visible{ outline:2px solid var(--amber-hi); outline-offset:1px; } .cl-dn{ font-family:var(--f-crt); font-size:17px; color:var(--amber-hi); min-width:90px; margin-left:4px; }
+.cl-clr, .cl-x{ background:transparent; border:1px solid var(--amber-dim); color:var(--dust); cursor:pointer; padding:0 7px; font-family:var(--f-crt); font-size:17px; }
+.cl-rows{ display:flex; flex-direction:column; gap:6px; } .cl-row{ display:flex; flex-wrap:wrap; gap:6px 10px; align-items:flex-end; padding:5px; border:1px dashed var(--line); }
+.cl-rf{ display:flex; flex-direction:column; gap:2px; flex:1 1 150px; min-width:0; } .cl-rf span{ font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--dim); }
+.cl-add{ align-self:flex-start; font-family:var(--f-crt); font-size:16px; background:transparent; color:var(--amber); border:1px solid var(--amber-dim); padding:0 10px; cursor:pointer; }
+.cl-curse{ display:flex; flex-wrap:wrap; gap:6px; }
+.cl-actions{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 10px; padding-top:8px; border-top:1px solid var(--line); }
+.cl-save, .cl-cancel, .cl-del{ font-family:var(--f-crt); font-size:18px; padding:2px 16px; cursor:pointer; border:1px solid var(--amber); } .cl-save{ background:var(--amber); color:var(--ink-deep); } .cl-cancel{ background:transparent; color:var(--dust); border-color:var(--amber-dim); }
+.cl-del{ background:transparent; color:var(--ember); border-color:var(--ember); } .cl-err{ color:var(--ember); font-family:var(--f-crt); font-size:17px; }
+.cl-more{ padding:8px 14px; } .cl-more button{ font-family:var(--f-crt); font-size:18px; background:transparent; color:var(--amber); border:1px solid var(--amber-dim); padding:2px 14px; cursor:pointer; }
+.cl-empty{ padding:14px; color:var(--dim); }
+.cl button:focus-visible, .cl-actions button:focus-visible, .cl-tabs button:focus-visible{ outline:2px solid var(--amber-hi); outline-offset:2px; }
+.cl-map{ position:relative; flex:1; min-height:260px; background:var(--ink-deep); overflow:hidden; } .cl-map .se-cv, .cl-map .se-svg{ position:absolute; inset:0; width:100%; height:100%; }
+.book-panel.se-panel:has(.cl-map){ flex-direction:column; }
+@media (max-width:760px){ .cl-bar{ padding:6px 10px; } .cl-form{ padding:8px 10px 12px; } .cl-sub{ white-space:normal; } .cl-dot{ width:24px; height:24px; } .cl-tabs button, .cl-new{ min-height:36px; } }
