@@ -4,15 +4,13 @@ Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesig
 
 ## The mark library is a deck of cards (opmk) — item-system 6.5, restyled
 
-Type `opmk` in the Storybook terminal. Inside the book your library marks are a **deck**:
+Type `opmk` in the Storybook terminal. Inside the book your library marks are a **deck on a card table**:
 
-- **Blessings** are upright gold cards. **Curses** are reversed red cards. **Bindings** are green cards sealed with rings, one ring per rank.
-- A **curse's stages** are cards stacked beneath it (the initial state, then each stage you have written). Click a curse to **Cycle stages**: the next stage card comes to the top and its text shows on the right page. Or click **Inspect** to edit it.
-- Click a blessing or binding to edit it. The **right page** is the editor you had before, with every copy and *Update all copies*.
-- A card says how many times it has been dealt (copied onto people and items).
+- Each kind is a fanned **spread**: **blessings** upright in gold, **curses** reversed in red, **bindings** in green, sealed with rings (one per rank). Cards float like the relics in the vault, each with its own light and shadow, a tarot numeral, a turning sigil ring, a name plate and small seals for how often it has been dealt.
+- A **curse's stages** are cards stacked beneath it (the initial state, then each stage you have written). **Click a curse to select it, then use ← → to cycle its stages.** The top card shows the stage and its name (the initial state's too); the right page shows the stage strip and that stage's text.
+- Click any card to edit it. The **right page** is the editor you had before, with every copy and *Update all copies*.
 
 Private like before. Test: `node tools/visitor-test/author-book.js`.
-
 ## Skill prospects are a grimoire (opsp) — item-system 6.2, restyled
 
 Type `opsp` in the Storybook terminal. Inside the book the prospects are an open **grimoire**:

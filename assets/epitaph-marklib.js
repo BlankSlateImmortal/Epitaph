@@ -8,7 +8,7 @@
  *
  *   EpitaphMarkLib.open()   opens the board; returns a short message for the terminal. Inside the book (the usual way: opmk) it is a
  *                           DECK OF CARDS on the left page: blessings upright, curses reversed, bindings sealed with rings (one per rank).
- *                           A curse's written stages are cards stacked beneath it: click it to cycle through them or inspect the top card.
+ *                           A curse's written stages are cards stacked beneath it: select it and use ← → to cycle them.
  *                           The right page is the editor. Outside the book it falls back to the wide modal.
  */
 (function (global) {
@@ -159,7 +159,6 @@
   const ROW = { blessing: ['BLESSINGS', 'upright'], curse: ['CURSES', 'reversed · the stages are the cards beneath'], binding: ['BINDINGS', 'sealed with rings · one ring per rank'] };
   const SYMBOL = { blessing: '☼', curse: '☾', binding: '◎' };
   const stageView = {};          // curse id -> which stage card is on top (0 = initial)
-  let menuFor = '';              // the curse whose Cycle / Inspect choice is open
   // a curse's cards: the initial state, then every stage that has a name or text
   function stageCards(d) {
     if (d.kind !== 'curse') return [];
@@ -167,29 +166,44 @@
     (d.stages || []).forEach((x, i) => { if (x && (String(x.name || '').trim() || String(x.text || '').trim())) out.push({ n: i + 1, name: x.name || STAGE_LABEL[i + 1], text: x.text || '' }); });
     return out;
   }
+  const ROMAN = n => { let r = '', x = n; [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']].forEach(([v, s]) => { while (x >= v) { r += s; x -= v; } }); return r || '0'; };
   function art(d) {
-    return d.image ? `<img src="${esc(d.image)}" alt="">` : `<span>${esc((String(d.name || '').trim().charAt(0) || SYMBOL[d.kind] || '?').toUpperCase())}</span>`;
+    return d.image ? `<img src="${esc(d.image)}" alt="" draggable="false">` : `<span>${esc((String(d.name || '').trim().charAt(0) || SYMBOL[d.kind] || '?').toUpperCase())}</span>`;
   }
-  function cardHtml(d) {
+  const ringSvg = `<svg class="mk-ring" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="47" fill="none" stroke="currentColor" stroke-opacity=".55" stroke-width="1"/>
+    <circle cx="50" cy="50" r="41" fill="none" stroke="currentColor" stroke-opacity=".3" stroke-dasharray="2 4"/>
+    <g fill="currentColor" fill-opacity=".6" font-size="7" text-anchor="middle"><text x="50" y="7">ᚠ</text><text x="96" y="52">ᚱ</text><text x="50" y="99">ᛟ</text><text x="4" y="52">ᛉ</text></g></svg>`;
+  const corner = `<svg class="mk-corner" viewBox="0 0 20 20" aria-hidden="true"><path d="M1 12 V1 H12 M4 8 V4 H8" fill="none" stroke="currentColor" stroke-width="1"/></svg>`;
+  function cardHtml(d, i, spread) {
     const cards = stageCards(d), top = Math.min(stageView[d.id] || 0, Math.max(cards.length - 1, 0)), stg = cards[top];
-    const n = holders(d.id).length, rank = d.kind === 'binding' ? (d.rank || 0) : 0;
-    const label = d.kind === 'curse' ? (stg && stg.n ? 'STAGE ' + stg.n : 'INITIAL') : d.kind === 'binding' ? (rank ? '◎'.repeat(Math.min(rank, 7)) + ' · RANK ' + rank : 'NO RANK') : 'BLESSING';
+    const n = holders(d.id).length, rank = d.kind === 'binding' ? (d.rank || 0) : 0, num = defs().indexOf(d) + 1;
+    const line = d.kind === 'curse' ? `${stg && stg.n ? 'STAGE ' + stg.n + ' OF ' + (cards.length - 1) : 'INITIAL'}</span><span class="mk-sub">${esc(stg ? stg.name : '')}`
+      : d.kind === 'binding' ? (rank ? `${'◎'.repeat(Math.min(rank, 7))} RANK ${rank}` : 'NO RANK') : 'BLESSING';
     const under = d.kind === 'curse' ? Math.min(cards.length - 1, 3) : 0;
-    return `<div class="mk-slot${under ? ' has-under' : ''}" style="--under:${under}">
-      ${Array.from({ length: under }, (_, i) => `<span class="mk-under" style="--i:${i + 1}" aria-hidden="true"></span>`).join('')}
-      <button type="button" class="mk-card k-${esc(d.kind)}${d.id === sel ? ' on' : ''}" data-ml-card="${esc(d.id)}" aria-label="${esc(M().LABEL[d.kind] || d.kind)}: ${esc(d.name || 'Unnamed mark')}${under ? ', ' + cards.length + ' stage cards' : ''}">
-        <span class="mk-k">${esc(label)}</span>
-        <span class="mk-art">${art(d)}</span>
-        <b class="mk-name">${esc(d.name || 'Unnamed mark')}</b>
-        ${d.kind === 'curse' && stg && stg.n ? `<span class="mk-stage">${esc(stg.name)}</span>` : ''}
-        <span class="mk-n">${n ? '×' + n + ' dealt' : 'not dealt'}</span>
-      </button>
-      ${menuFor === d.id ? `<div class="mk-menu" role="menu"><button type="button" role="menuitem" data-mk-cycle="${esc(d.id)}">⟳ Cycle stages <small>${top + 1}/${cards.length}</small></button><button type="button" role="menuitem" data-mk-inspect="${esc(d.id)}">Inspect</button></div>` : ''}
+    // a fan: each card turns a little away from the middle of its spread and sits a little lower
+    const off = i - (spread - 1) / 2, rot = Math.max(-9, Math.min(9, off * 3.2)), drop = Math.min(26, off * off * 1.6);
+    return `<div class="mk-slot k-${esc(d.kind)}${d.id === sel ? ' on' : ''}" style="--rot:${rot.toFixed(1)}deg;--drop:${drop.toFixed(1)}px;--d:${(-(num * 0.73) % 4.2).toFixed(2)}s;--under:${under}">
+      <div class="mk-float">
+        ${Array.from({ length: under }, (_, k) => `<span class="mk-under" style="--i:${k + 1}" aria-hidden="true"></span>`).join('')}
+        <button type="button" class="mk-card k-${esc(d.kind)}${d.id === sel ? ' on' : ''}" data-ml-card="${esc(d.id)}" aria-pressed="${d.id === sel}" aria-label="${esc(M().LABEL[d.kind] || d.kind)}: ${esc(d.name || 'Unnamed mark')}${d.kind === 'curse' ? ', ' + (stg && stg.n ? 'stage ' + stg.n : 'initial state') + ' of ' + cards.length + ' cards' : ''}">
+          <span class="mk-light" aria-hidden="true"></span>
+          <span class="mk-c tl">${corner}</span><span class="mk-c tr">${corner}</span><span class="mk-c bl">${corner}</span><span class="mk-c br">${corner}</span>
+          <span class="mk-top"><span class="mk-num">${ROMAN(num)}</span><span class="mk-sym" aria-hidden="true">${SYMBOL[d.kind] || ''}</span></span>
+          <span class="mk-art">${ringSvg}<span class="mk-face">${art(d)}</span></span>
+          <span class="mk-plate"><b class="mk-name">${esc(d.name || 'Unnamed mark')}</b><span class="mk-line">${line}</span></span>
+          <span class="mk-foot"><span class="mk-seals" aria-hidden="true">${Array.from({ length: Math.min(n, 5) }, () => '<i></i>').join('')}</span><span class="mk-n">${n ? '×' + n + ' dealt' : 'not dealt'}</span></span>
+          ${d.kind === 'curse' && d.id === sel && cards.length > 1 ? '<span class="mk-keys" aria-hidden="true">◂ ▸ stages</span>' : ''}
+        </button>
+      </div>
+      <span class="mk-shadow" aria-hidden="true"></span>
     </div>`;
   }
   function deckHtml() {
     const all = defs(), shown = all.filter(matches);
-    const rows = KIND_ORDER.map(k => { const l = shown.filter(d => d.kind === k); return l.length ? `<section class="mk-row"><h4>${ROW[k][0]} <em>· ${l.length} · ${ROW[k][1]}</em></h4><div class="mk-cards">${l.map(cardHtml).join('')}</div></section>` : ''; }).join('');
+    // each kind is a spread of at most 7 cards per line
+    const spreads = k => { const l = shown.filter(d => d.kind === k), out = []; for (let i = 0; i < l.length; i += 7) out.push(l.slice(i, i + 7)); return out; };
+    const rows = KIND_ORDER.map(k => { const sp = spreads(k), count = sp.reduce((a, x) => a + x.length, 0);
+      return count ? `<section class="mk-row k-${k}"><h4><span>${ROW[k][0]}</span><em>${count} · ${ROW[k][1]}</em></h4>${sp.map(line => `<div class="mk-cards">${line.map((d, i) => cardHtml(d, i, line.length)).join('')}</div>`).join('')}</section>` : ''; }).join('');
     return `<div class="ml-deck">
       <div class="mk-tools"><input type="search" id="mlQ" value="${esc(filter.q)}" placeholder="search the deck…" aria-label="Search marks">
         <select id="mlKind" aria-label="Kind"><option value="">every kind</option>${KIND_ORDER.map(k => `<option value="${k}"${filter.kind === k ? ' selected' : ''}>${esc(M().LABEL[k])}s</option>`).join('')}</select>
@@ -197,9 +211,9 @@
       ${!all.length ? '<p class="mk-empty">An empty deck. A library mark is a blessing, curse or binding you define once and deal to many people and items. Add a card, or use “Save to the library” under any mark.</p>' : !shown.length ? '<p class="mk-empty">Nothing matches.</p>' : rows}</div>`;
   }
   function panelHtml(d) {
-    if (!d) return `<div class="bk-panel-head"><span class="bk-big">${pad2(defs().length)}</span><div><small>MARK LIBRARY · PRIVATE</small><h2>The deck</h2></div></div><div class="bk-form"><p class="bk-dim">Pick a card to inspect it. A curse's stages are the cards beneath it: click a curse to cycle through them. The deck is the author's and is not part of the published site.</p></div>`;
+    if (!d) return `<div class="bk-panel-head"><span class="bk-big">${pad2(defs().length)}</span><div><small>MARK LIBRARY · PRIVATE</small><h2>The deck</h2></div></div><div class="bk-form"><p class="bk-dim">Pick a card to inspect it. A curse's stages are the cards beneath it: pick a curse and use ← → to cycle through them. The deck is the author's and is not part of the published site.</p></div>`;
     const cards = stageCards(d), top = Math.min(stageView[d.id] || 0, Math.max(cards.length - 1, 0)), stg = cards[top], n = holders(d.id).length;
-    const strip = d.kind === 'curse' && cards.length > 1 ? `<div class="mk-strip">${cards.map((c, i) => `<button type="button" class="${i === top ? 'on' : ''}" data-mk-stage="${i}">${c.n ? 'Stage ' + c.n : 'Initial'}<small>${esc(c.name)}</small></button>`).join('')}</div>
+    const strip = d.kind === 'curse' && cards.length > 1 ? `<div class="mk-strip">${cards.map((c, i) => `<span class="${i === top ? 'on' : ''}">${c.n ? 'Stage ' + c.n : 'Initial'}<small>${esc(c.name)}</small></span>`).join('')}<em>← → to cycle</em></div>
       ${stg && (stg.text || stg.n) ? `<p class="mk-stage-text"><b>${esc(stg.n ? 'Stage ' + stg.n + ' · ' + stg.name : stg.name)}</b>${stg.text ? ' — ' + esc(stg.text) : ''}</p>` : ''}` : '';
     return `<div class="bk-panel-head"><span class="bk-big">${pad2(defs().indexOf(d) + 1)}</span><div><small>${esc((M().LABEL[d.kind] || d.kind).toUpperCase())} · ${n ? n + ' DEALT' : 'NOT DEALT'} · PRIVATE</small><h2 class="mk-panel-name">${esc(d.name || 'Unnamed mark')}</h2></div></div>
       ${strip}<div class="sp-main mk-editor" id="mlMain">${editorHtml(d)}</div>`;
@@ -210,30 +224,30 @@
     page.innerHTML = deckHtml();
     panel.className = 'book-panel'; panel.innerHTML = panelHtml(find(sel));
     const idx = document.querySelector('.bk-title .bk-idx'); if (idx) idx.textContent = pad2(defs().length);
-    root().querySelectorAll('[data-ml-card]').forEach(b => b.addEventListener('click', e => {
-      e.stopPropagation(); const d = find(b.dataset.mlCard); if (!d) return;
-      if (d.kind === 'curse' && stageCards(d).length > 1) { menuFor = menuFor === d.id ? '' : d.id; drawDeck(); const m = page.querySelector('.mk-menu button'); if (m) m.focus(); return; }
-      menuFor = ''; inspect(d.id);
-    }));
-    root().querySelectorAll('[data-mk-cycle]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); cycle(b.dataset.mkCycle); }));
-    root().querySelectorAll('[data-mk-inspect]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); const id = b.dataset.mkInspect; menuFor = ''; stageView[id] = 0; inspect(id, true); }));
-    root().querySelectorAll('[data-mk-stage]').forEach(b => b.addEventListener('click', () => { stageView[sel] = +b.dataset.mkStage; drawDeck(); }));
+    root().querySelectorAll('[data-ml-card]').forEach(b => b.addEventListener('click', () => { inspect(b.dataset.mlCard); const c = root().querySelector(`.mk-card[data-ml-card="${CSS.escape(b.dataset.mlCard)}"]`); if (c) c.focus({ preventScroll: true }); }));
     const bind = (id, key, ev) => { const el = document.getElementById(id); if (el) el.addEventListener(ev, () => { filter[key] = el.value; const v = el.value; drawDeck(); const back = document.getElementById(id); if (back) { back.focus(); if (back.setSelectionRange && typeof v === 'string') back.setSelectionRange(v.length, v.length); } }); };
     bind('mlQ', 'q', 'input'); bind('mlKind', 'kind', 'change');
     const nw = page.querySelector('[data-ml-new]'); if (nw) nw.addEventListener('click', () => {
       if (!save(false)) return; const d = Lib().toDefinition(M().newMark('any')); d.name = 'New mark';
-      Lib().update(l => { l.marks.push(d); }); select(d.id); menuFor = ''; drawDeck(); const n = q('#mlMain [data-mlf="name"]'); if (n) { n.focus(); n.select(); } });
+      Lib().update(l => { l.marks.push(d); }); select(d.id); drawDeck(); const n = q('#mlMain [data-mlf="name"]'); if (n) { n.focus(); n.select(); } });
     if (find(sel)) wireMain();
   }
   function inspect(id, force) { if (id !== sel || force) { if (id !== sel && !save(false)) return; if (id !== sel) select(id); } drawDeck(); }
-  function cycle(id) {
-    const d = find(id); if (!d) return; const n = stageCards(d).length; stageView[id] = ((stageView[id] || 0) + 1) % Math.max(n, 1);
-    if (id !== sel) { if (!save(false)) return; select(id); }
+  // ← and → cycle the selected curse's stage cards (when focus isn't in a text box)
+  function cycle(dir) {
+    const d = find(sel); if (!d || d.kind !== 'curse') return false;
+    const n = stageCards(d).length; if (n < 2) return false;
+    stageView[d.id] = (((stageView[d.id] || 0) + dir) % n + n) % n;
     drawDeck();
-    const c = root().querySelector(`.mk-card[data-ml-card="${CSS.escape(id)}"]`); if (c) { c.classList.add('dealt'); }
+    const c = root().querySelector(`.mk-card[data-ml-card="${CSS.escape(d.id)}"]`); if (c) { c.classList.add('dealt'); c.focus({ preventScroll: true }); }
+    return true;
   }
-  // a click anywhere else closes the Cycle / Inspect choice
-  if (typeof document !== 'undefined') document.addEventListener('click', e => { if (menuFor && inBook() && !(e.target.closest && e.target.closest('.mk-menu'))) { menuFor = ''; drawDeck(); } });
+  if (typeof document !== 'undefined') document.addEventListener('keydown', e => {
+    if (!inBook() || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+    const t = e.target, tag = t && t.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
+    if (cycle(e.key === 'ArrowLeft' ? -1 : 1)) e.preventDefault();
+  });
 
   function open() {
     if (!Lib() || !M()) return 'The Library is not available on this page.';
@@ -243,7 +257,7 @@
       const count = Lib().get().marks.length;
       EpitaphBook.mountBoard({ kind: 'marks', title: 'Mark Library', jp: '印', count, sub: 'a deck of marks · define once, deal to many',
         note: "Blessings, curses and bindings you define once and copy to many items. This library is the author's and is not part of the published site. Changes save when you press Back.",
-        build: el => { host = document.getElementById('theBook'); menuFor = ''; drawDeck(); return () => { try { save(false); } catch (e) { /* closing */ } host = null; menuFor = ''; }; } });
+        build: el => { host = document.getElementById('theBook'); drawDeck(); return () => { try { save(false); } catch (e) { /* closing */ } host = null; }; } });
       return 'Opening the mark library…';
     }
     if (!root() || typeof openModal !== 'function') return 'The board needs the Dossier page.';

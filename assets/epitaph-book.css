@@ -376,58 +376,85 @@
 .book .gr-editor .sp-form .ed-field input[data-spf="glyph"]{ font-family:'Noto Serif JP', serif !important; font-size:20px; text-align:center; }
 .gr-sig span:not(:lang(ja)){ font-family:'Pirata One', serif; }
 
-/* ---- opmk: the deck of marks (assets/epitaph-marklib.js, drawDeck). Blessings upright, curses reversed with their stages as the cards
-   beneath, bindings sealed with rings. Left page: the deck; right page: the editor. ---- */
+/* ---- opmk: the deck of marks (assets/epitaph-marklib.js, drawDeck): a card table. Each kind is a fanned spread; cards float like the
+   vault's relics, each with its own light and a breathing shadow. Blessings gold, curses red and reversed with their stages as the
+   cards beneath (← → cycle them), bindings green and sealed with rings. ---- */
 .book[data-view=marks] .bk-board{ padding:0; }
-.ml-deck{ position:absolute; inset:0; overflow:auto; padding:12px 20px 24px; background:radial-gradient(ellipse at 50% 30%, #140d06, #070503 70%); }
-.mk-tools{ display:flex; gap:8px; align-items:center; margin-bottom:10px; flex-wrap:wrap; }
-.mk-tools input, .mk-tools select{ background:#0b0805; border:1px solid var(--line); color:var(--bone); font:12px var(--f-mono); padding:6px 8px; min-height:32px; }
+.ml-deck{ position:absolute; inset:0; overflow:auto; padding:12px 20px 34px; background:radial-gradient(ellipse at 50% 35%, #1b1208 0%, #0b0704 55%, #050302 100%); }
+.ml-deck::before{ content:'印'; position:sticky; float:right; top:30%; margin-right:6%; font:900 260px/1 'Noto Serif JP', serif; color:rgba(255,178,56,.035); pointer-events:none; height:0; }
+.ml-deck::after{ content:''; position:fixed; inset:0; pointer-events:none; }
+.mk-tools{ position:relative; z-index:5; display:flex; gap:8px; align-items:center; margin-bottom:6px; flex-wrap:wrap; }
+.mk-tools input, .mk-tools select{ background:rgba(11,8,5,.85); border:1px solid var(--line); color:var(--bone); font:12px var(--f-mono); padding:6px 8px; min-height:32px; }
 .mk-tools input{ flex:1; min-width:140px; }
 .mk-tools .sp-new{ margin:0; }
 .mk-empty{ font:14px/1.5 'Source Serif 4', serif; color:var(--dust); max-width:52ch; }
-.mk-row h4{ margin:8px 0 10px; font:400 15px var(--f-crt); letter-spacing:.3em; color:var(--amber); }
-.mk-row h4 em{ font-style:normal; letter-spacing:.08em; color:var(--dust); }
-.mk-cards{ display:flex; flex-wrap:wrap; gap:18px 22px; margin-bottom:10px; }
-.mk-slot{ position:relative; width:118px; height:176px; margin-right:calc(var(--under, 0) * 6px); margin-bottom:calc(var(--under, 0) * 6px); }
-.mk-under{ position:absolute; inset:0; border-radius:8px; border:1px solid rgba(217,120,100,.45); background:linear-gradient(160deg, #250a10, #0a0305);
-  transform:translate(calc(var(--i) * 6px), calc(var(--i) * 6px)); z-index:calc(10 - var(--i)); box-shadow:0 6px 10px #000; }
-.mk-card{ position:absolute; inset:0; z-index:20; border-radius:8px; padding:9px 8px; display:flex; flex-direction:column; align-items:center; justify-content:space-between; gap:4px;
-  background:linear-gradient(160deg, #20170c, #0c0905); border:1px solid rgba(255,178,56,.55); color:inherit; font:inherit; cursor:pointer; text-align:center;
-  box-shadow:0 8px 14px #000, inset 0 0 0 4px #0c0905, inset 0 0 0 5px rgba(255,178,56,.3); transition:transform .18s, box-shadow .18s; }
-.mk-card:hover, .mk-card:focus-visible{ transform:translateY(-4px); outline:none; box-shadow:0 0 14px rgba(255,213,138,.25), 0 12px 16px #000, inset 0 0 0 4px #0c0905, inset 0 0 0 5px rgba(255,213,138,.5); }
-.mk-card.on{ transform:translateY(-10px) rotate(-1deg); box-shadow:0 0 20px rgba(255,213,138,.35), 0 14px 18px #000, inset 0 0 0 4px #0c0905, inset 0 0 0 5px rgba(255,213,138,.65); }
-.mk-k{ font:9px var(--f-mono); letter-spacing:.16em; color:var(--amber-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
-.mk-art{ width:70px; height:70px; flex:none; display:grid; place-items:center; border-radius:50%; border:1px solid rgba(255,178,56,.4); overflow:hidden; }
-.mk-art span{ font:400 34px/1 'Pirata One', serif; color:var(--amber); text-shadow:0 0 10px rgba(255,178,56,.5); }
-.mk-art img{ width:100%; height:100%; object-fit:cover; }
+.mk-row{ position:relative; margin:14px 0 6px; padding:2px 0 10px; }
+.mk-row::before{ content:''; position:absolute; left:8%; right:8%; top:58%; height:140px; transform:translateY(-50%); border-radius:50%; pointer-events:none;
+  background:radial-gradient(ellipse, rgba(var(--lt), .07), transparent 70%); }
+.mk-row.k-blessing{ --lt:255,213,120; } .mk-row.k-curse{ --lt:230,110,90; } .mk-row.k-binding{ --lt:120,210,185; }
+.mk-row h4{ display:flex; align-items:center; gap:12px; justify-content:center; margin:0 0 6px; font:400 15px var(--f-crt); letter-spacing:.3em; color:rgb(var(--lt)); }
+.mk-row h4::before, .mk-row h4::after{ content:''; flex:0 1 90px; height:1px; background:linear-gradient(90deg, transparent, rgba(var(--lt), .5)); }
+.mk-row h4::after{ background:linear-gradient(90deg, rgba(var(--lt), .5), transparent); }
+.mk-row h4 em{ font-style:normal; letter-spacing:.08em; color:var(--dust); font-size:13px; }
+.mk-cards{ display:flex; justify-content:center; align-items:flex-start; gap:6px; padding:16px 0 8px; }
+.mk-slot{ position:relative; width:128px; height:196px; flex:none; margin:0 4px calc(var(--under, 0) * 6px + 16px) 0; margin-right:calc(var(--under, 0) * 6px + 4px);
+  transform:translateY(var(--drop)) rotate(var(--rot)); transform-origin:50% 120%; transition:transform .25s; --lt:255,200,120; }
+.mk-slot.k-blessing{ --lt:255,213,120; } .mk-slot.k-curse{ --lt:230,110,90; } .mk-slot.k-binding{ --lt:120,210,185; }
+.mk-slot.on{ transform:translateY(calc(var(--drop) - 14px)) rotate(0deg); z-index:30; }
+.mk-float{ position:absolute; inset:0; animation:bkFloat 4.2s ease-in-out infinite; animation-delay:var(--d, 0s); }
+.mk-shadow{ position:absolute; left:50%; bottom:-20px; width:104px; height:14px; margin-left:-52px; border-radius:50%; background:radial-gradient(ellipse, rgba(0,0,0,.8), transparent 70%);
+  animation:bkShadow 4.2s ease-in-out infinite; animation-delay:var(--d, 0s); }
+.mk-under{ position:absolute; inset:0; border-radius:9px; border:1px solid rgba(230,110,90,.5); background:linear-gradient(160deg, #2a0c12, #0a0305);
+  transform:translate(calc(var(--i) * 6px), calc(var(--i) * 6px)) rotate(calc(var(--i) * 1.5deg)); z-index:calc(10 - var(--i)); box-shadow:0 6px 10px #000; }
+.mk-card{ position:absolute; inset:0; z-index:20; border-radius:9px; padding:8px 8px 7px; display:flex; flex-direction:column; align-items:center; gap:4px; overflow:hidden;
+  background:linear-gradient(165deg, #241a0c, #0d0905 60%, #080503); border:1px solid rgba(var(--lt), .55); color:rgb(var(--lt)); font:inherit; cursor:pointer; text-align:center;
+  box-shadow:0 10px 18px rgba(0,0,0,.85), inset 0 0 0 4px #0b0704, inset 0 0 0 5px rgba(var(--lt), .28); transition:box-shadow .2s, border-color .2s; }
+.mk-card:hover, .mk-card:focus-visible{ outline:none; border-color:rgba(var(--lt), .9); box-shadow:0 0 18px rgba(var(--lt), .25), 0 12px 20px #000, inset 0 0 0 4px #0b0704, inset 0 0 0 5px rgba(var(--lt), .5); }
+.mk-card.on{ border-color:rgb(var(--lt)); box-shadow:0 0 26px rgba(var(--lt), .4), 0 16px 22px #000, inset 0 0 0 4px #0b0704, inset 0 0 0 5px rgba(var(--lt), .7); }
+.mk-light{ position:absolute; left:-10%; top:-8%; width:120%; height:70%; background:radial-gradient(ellipse at 50% 0%, rgba(var(--lt), .22), transparent 65%); pointer-events:none; }
+.mk-c{ position:absolute; width:14px; height:14px; color:rgba(var(--lt), .55); }
+.mk-c svg{ width:100%; height:100%; display:block; }
+.mk-c.tl{ top:9px; left:9px; } .mk-c.tr{ top:9px; right:9px; transform:scaleX(-1); } .mk-c.bl{ bottom:9px; left:9px; transform:scaleY(-1); } .mk-c.br{ bottom:9px; right:9px; transform:scale(-1); }
+.mk-top{ position:relative; width:100%; display:flex; justify-content:center; padding:0 14px; }
+.mk-num{ font:400 13px var(--f-crt); letter-spacing:.2em; color:rgba(var(--lt), .8); }
+.mk-sym{ position:absolute; right:22px; top:-1px; font-size:11px; opacity:.6; }
+.mk-art{ position:relative; width:78px; height:78px; flex:none; display:grid; place-items:center; margin-top:2px; color:rgb(var(--lt)); }
+.mk-ring{ position:absolute; inset:0; width:100%; height:100%; animation:mkTurn 40s linear infinite; }
+@keyframes mkTurn{ to{ transform:rotate(360deg); } }
+.mk-face{ position:relative; width:58px; height:58px; border-radius:50%; display:grid; place-items:center; overflow:hidden; background:radial-gradient(circle, rgba(var(--lt), .16), transparent 70%); }
+.mk-face span{ font:400 34px/1 'Pirata One', serif; color:rgb(var(--lt)); text-shadow:0 0 12px rgba(var(--lt), .7); }
+.mk-face img{ width:100%; height:100%; object-fit:cover; }
+.mk-card.k-curse .mk-face{ transform:rotate(180deg); }
+.mk-card.k-binding .mk-face{ border:3px solid rgba(var(--lt), .6); box-shadow:0 0 0 3px #0b0704, 0 0 0 4px rgba(var(--lt), .45); }
+.mk-plate{ position:relative; width:calc(100% + 16px); margin:2px -8px 0; padding:5px 8px 4px; display:grid; gap:2px; background:linear-gradient(to bottom, rgba(var(--lt), .1), rgba(0,0,0,.25));
+  border-top:1px solid rgba(var(--lt), .35); border-bottom:1px solid rgba(var(--lt), .2); }
 .book .mk-card b.mk-name{ font:400 16px/1.05 'Pirata One', serif; color:var(--bone); text-transform:none; letter-spacing:.01em; overflow-wrap:anywhere; }
-.mk-stage{ font:10px var(--f-mono); color:#e0907c; letter-spacing:.06em; }
+.mk-line{ font:9px var(--f-mono); letter-spacing:.08em; color:rgb(var(--lt)); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.mk-foot{ position:relative; margin-top:auto; display:flex; flex-direction:column; align-items:center; gap:2px; }
+.mk-seals{ display:flex; gap:3px; min-height:7px; }
+.mk-seals i{ width:7px; height:7px; border-radius:50%; background:rgb(var(--lt)); box-shadow:0 0 5px rgba(var(--lt), .8), inset 0 -1px 0 rgba(0,0,0,.35); }
 .mk-n{ font:9px var(--f-mono); color:var(--dust); letter-spacing:.06em; }
-/* blessings are gold (the user's pick, 2026-11-23); curses red, bindings green */
-.mk-card.k-blessing{ background:linear-gradient(160deg, #2a1f08, #0e0a03); border-color:rgba(227,185,92,.85); }
-.mk-card.k-blessing .mk-art{ border-color:rgba(227,185,92,.7); background:radial-gradient(circle, rgba(255,213,138,.14), transparent 70%); }
-.mk-card.k-blessing .mk-art span{ color:#ffd58a; text-shadow:0 0 12px rgba(255,200,90,.75); }
-.mk-card.k-blessing .mk-k{ color:#e3b95c; }
-.mk-card.k-curse{ background:linear-gradient(160deg, #250a10, #0a0305); border-color:rgba(217,120,100,.6); }
-.mk-card.k-curse .mk-art{ border-color:rgba(217,120,100,.5); transform:rotate(180deg); }
-.mk-card.k-curse .mk-art span{ color:#e0907c; text-shadow:0 0 10px rgba(217,120,100,.5); }
-.mk-card.k-binding{ border-color:rgba(111,179,163,.7); }
-.mk-card.k-binding .mk-art{ border:3px solid rgba(111,179,163,.6); box-shadow:0 0 0 4px #0c0905, 0 0 0 5px rgba(111,179,163,.5); }
-.mk-card.k-binding .mk-art span{ color:#9fd8c8; }
-.mk-card.k-binding .mk-k{ color:#6fb3a3; letter-spacing:.05em; }
+.mk-keys{ position:absolute; left:50%; bottom:-1px; transform:translate(-50%, 100%); font:9px var(--f-mono); color:rgb(var(--lt)); letter-spacing:.1em; white-space:nowrap; }
+.mk-card.k-blessing{ background:linear-gradient(165deg, #2c210a, #100b04 60%, #080503); }
+.mk-card.k-curse{ background:linear-gradient(165deg, #2a0c12, #0d0406 60%, #070203); }
+.mk-card.k-binding{ background:linear-gradient(165deg, #0d221c, #060e0b 60%, #030605); }
 .mk-card.dealt{ animation:mk-deal .32s ease-out; }
-@keyframes mk-deal{ from{ transform:translate(14px, 10px) rotate(3deg); opacity:.4; } to{ transform:translateY(-10px) rotate(-1deg); opacity:1; } }
-.mk-menu{ position:absolute; z-index:40; left:50%; top:calc(100% + 10px); transform:translateX(-50%); display:flex; flex-direction:column; min-width:190px; white-space:nowrap;
-  background:#0e0a05; border:1px solid var(--amber); box-shadow:0 10px 24px #000; }
-.mk-menu button{ background:none; border:0; border-bottom:1px solid var(--line); color:var(--bone); font:12px var(--f-mono); letter-spacing:.06em; padding:9px 12px; text-align:left; cursor:pointer; display:flex; justify-content:space-between; gap:10px; }
-.mk-menu button:last-child{ border-bottom:0; }
-.mk-menu button:hover, .mk-menu button:focus-visible{ background:var(--amber-ghost); color:var(--amber-hi); outline:none; }
-.mk-menu small{ color:var(--dust); }
-.mk-strip{ display:flex; gap:6px; padding:10px 18px 0; flex-wrap:wrap; }
-.mk-strip button{ background:#0b0805; border:1px solid rgba(217,120,100,.4); color:var(--dust); font:11px var(--f-mono); padding:6px 9px; cursor:pointer; display:grid; text-align:left; }
-.mk-strip button small{ color:#e0907c; font-size:10px; }
-.mk-strip button.on{ border-color:#e0907c; color:var(--bone); background:rgba(217,120,100,.12); }
+@keyframes mk-deal{ from{ transform:translate(16px, 12px) rotate(4deg); opacity:.35; } to{ transform:none; opacity:1; } }
+.mk-strip{ display:flex; gap:6px; padding:10px 18px 0; flex-wrap:wrap; align-items:center; }
+.mk-strip span{ background:#0b0805; border:1px solid rgba(217,120,100,.35); color:var(--dust); font:11px var(--f-mono); padding:6px 9px; display:grid; text-align:left; }
+.mk-strip span small{ color:#e0907c; font-size:10px; }
+.mk-strip span.on{ border-color:#e0907c; color:var(--bone); background:rgba(217,120,100,.12); }
+.mk-strip em{ font:10px var(--f-mono); font-style:normal; color:var(--dust); letter-spacing:.1em; margin-left:4px; }
 .mk-stage-text{ margin:8px 18px 0; font:14px/1.5 'Source Serif 4', serif; color:var(--dust); }
 .mk-stage-text b{ color:#e0907c; font-weight:400; }
 .mk-editor{ padding:4px 18px 18px; }
-@media (prefers-reduced-motion: reduce){ .mk-card, .mk-card.dealt{ transition:none; animation:none; } }
+@media (prefers-reduced-motion: reduce){ .mk-float, .mk-shadow, .mk-ring, .mk-card.dealt{ animation:none; } .mk-slot{ transition:none; } }
+
+.mk-sub{ font:italic 12px/1.1 'Source Serif 4', serif; color:var(--bone); opacity:.85; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.mk-row{ margin:6px 0 0; padding:0 0 4px; }
+.mk-cards{ padding:12px 0 4px; }
+.mk-slot{ margin-bottom:calc(var(--under, 0) * 6px + 10px); }
+.mk-card{ padding:7px 8px 6px; gap:3px; }
+.mk-art{ width:68px; height:68px; }
+.mk-face{ width:50px; height:50px; }
+.mk-face span{ font-size:30px; }
