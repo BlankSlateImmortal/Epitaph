@@ -44,7 +44,7 @@ made to show how deeply the world has been thought through.
 - [x] **1.2 Biomes.** The biomes over time, matched to the map's regions (plains, hills, mountains, ice, impact mountains, the crater,
   coast, open sea, sunken land), grouped into 7 if they become a scale. Each biome has a start and end, and what changed it.
   *(Done 2026-11-22: **22 biomes, not 7** (the user: the world is vast; biomes are an open list, not a scale), each tied to a map region or to places, with when it became cursed and how its curses spread. 266 infected places checked against the Atlas heightmap. The list lives in the vault as a living set of notes: the index `Exploratory Ideas/Lore/Creature Log Biomes.md` (with the user's rules on who survives curses) and one note per biome in `Exploratory Ideas/Lore/Infected Places/`, each place with a **Curse** line the user fills in as the story reaches it; the seed data is `Site work/files/creature-log-infected-places-2026-11-22.json`.)*
-- [ ] **1.3 Schema.** `assets/epitaph-creatures.js`. Two record types:
+- [~] **1.3 Schema.** `assets/epitaph-creatures.js`. Two record types:
   ```
   lineage node (a form on the tree):
   { id, name, parentId|null, epoch, appears, extinct?, cause: timelineEventId, mutation: { change, advantage },
@@ -149,6 +149,8 @@ When the user says "get back to it" / "back to the plan":
 
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-22 — **1.3 proposed (Opus), waiting on the user:** [creature-schema.md](creature-schema.md). The big call: **a curse is a Library mark** (the shape item curses already use, with its three stages), so one curse can sit on an item, a creature or an infected place, each holder at its own stage; new optional curse fields carry the user's states and spread. Everything dates by an epoch or an age; three 7-step scales (Awareness, with 5+ meaning conscious and fast-cycling; Threat; Size); creatures get traits, not skills; places hold an optional curse that import reads from the vault notes.
 
 - 2026-11-22 — **The infected places became living notes** (the user writes the curses as the story needs them, not up front). One vault note per biome, a Curse line per place that reads 'not written yet'. **Rule for 1.3 and 1.6:** a place's curse is optional; the site shows an unwritten curse as 'not known yet' and Checks never flag it. When the log is built, import reads these notes (the vault is the source), not the dated JSON.
 
