@@ -144,7 +144,16 @@
   // ------------------------------------------------------------------
   // Spread shell: widens the book and swaps both pages' content.
   // ------------------------------------------------------------------
+  // Leave the view we are in: unmount the encyclopedia / creature log / board it drew, and clear what it left on the right panel
+  // (an open encyclopedia entry adds a class there). Switching by command (opse -> ops) used to skip this; only Back did it.
+  function leaveView() {
+    if (typeof stopSites === 'function' && stopSites) { stopSites(); stopSites = null; }
+    if (typeof stopCreatures === 'function' && stopCreatures) { stopCreatures(); stopCreatures = null; }
+    if (typeof stopBoard === 'function' && stopBoard) { stopBoard(); stopBoard = null; }
+    const pn = $('#bookPanel'); if (pn) pn.className = 'book-panel';
+  }
   function shell(kind, title, jp, count) {
+    leaveView();
     const book = $('#theBook');
     book.classList.add('wide');
     book.dataset.view = kind;
@@ -180,7 +189,7 @@
 
   function closeView(restore) {
     flushItem();
-    if (typeof stopSites === 'function' && stopSites) { stopSites(); stopSites = null; }
+    leaveView();
     if (viewport) viewport.stop();
     mode = ''; viewport = null; itemEditor = null;
     const book = $('#theBook');
@@ -963,6 +972,23 @@
     return 'The Creature Log is not built yet. Opening its placeholder page.';
   }
 
+  // A board that lives on the book's page like opl and ops: the mark library (opmk) and the skill prospects (opsp) draw themselves into
+  // the host they are given. o = { kind, title, jp, count, sub, build(hostEl) -> optional stop function (called when the view closes) }
+  let stopBoard = null;
+  function mountBoard(o) {
+    flushItem();
+    mode = o.kind;
+    shell(o.kind, o.title, o.jp, o.count || 0);
+    if (viewport) { viewport.stop(); viewport = null; }
+    lastBox = null;
+    $('#bkSandbox').innerHTML = `<div class="bk-jp" aria-hidden="true">${esc(o.jp)}</div><div id="bkBoard" class="bk-board"></div>`;
+    const sub = $('.bk-title small'); if (sub) sub.innerHTML = esc(o.sub || '');
+    const pn = $('#bookPanel');   // the right page: say what this is instead of leaving the previous view's panel
+    pn.innerHTML = `<div class="bk-panel-head"><span class="bk-big">${pad2(o.count || 0)}</span><div><small>${esc(String(o.kind).toUpperCase())} · PRIVATE</small><h2>${esc(o.title)}</h2></div></div><div class="bk-form"><p class="bk-dim">${esc(o.note || '')}</p></div>`;
+    stopBoard = o.build($('#bkBoard')) || null;
+  }
+  const bookOpen = () => { const st = document.getElementById('bookStage'); return !!(st && st.classList.contains('active')); };
+
   let tree = null;
   function openSkills() {
     flushItem();
@@ -1239,7 +1265,7 @@
     if (out && typeof window.logTerminal === 'function') window.logTerminal(out);
   });
   window.EpitaphBook = {
-    openLibrary, openSkills, openSites, openCreatures,
+    openLibrary, openSkills, openSites, openCreatures, mountBoard, isOpen: bookOpen,
     close: () => { if (mode) closeView(false); },
     back: () => { if (!mode) return 'Already on the storybook page.'; closeView(true); return 'Back to the storybook.'; },
     get mode() { return mode; }

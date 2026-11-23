@@ -22,7 +22,8 @@
 
   const drafts = () => Lib().get().skillDrafts;
   const find = id => drafts().find(x => x.id === id) || null;
-  const root = () => (typeof modalContent !== 'undefined' ? modalContent : null);
+  let host = null;   // the book's page when the board is opened inside the book; otherwise the page's modal
+  const root = () => host || (typeof modalContent !== 'undefined' ? modalContent : null);
   const q = s => root().querySelector(s);
 
   function matches(x) {
@@ -252,7 +253,7 @@
     });
   }
   function wire() {
-    root().querySelectorAll('[data-sp-close]').forEach(b => b.addEventListener('click', () => { save(false); closeModal(); }));
+    root().querySelectorAll('[data-sp-close]').forEach(b => b.addEventListener('click', () => { if (host && window.EpitaphBook) { EpitaphBook.back(); return; } save(false); closeModal(); }));
     const nw = q('[data-sp-new]'); if (nw) nw.addEventListener('click', () => {
       if (!save(false)) return; const x = Lib().normalizeSkillDraft({ name: 'New prospect' });
       Lib().update(l => l.skillDrafts.push(x)); sel = x.id; armed = null; redraw(true);
@@ -265,8 +266,14 @@
   function open() {
     if (!Lib()) return 'The Library is not available on this page.';
     if (!canEdit()) return 'Skill prospects are the author\'s drafts: they are not part of the published site.';
-    if (!root() || typeof openModal !== 'function') return 'The board needs the Dossier page.';
     if (!find(sel)) sel = '';
+    if (window.EpitaphBook && EpitaphBook.mountBoard && EpitaphBook.isOpen()) {      // inside the book, like opl and ops
+      EpitaphBook.mountBoard({ kind: 'prospects', title: 'Skill Prospects', jp: '候補', count: drafts().length, sub: 'private drafts · assigned to a character later',
+        note: "Free-draft skills with no character yet. They are the author's drafts and are not part of the published site. Assign one to a character when the story needs it. Changes save when you press Back.",
+        build: el => { host = el; root().innerHTML = shell(); wire(); return () => { try { save(false); } catch (e) { /* closing */ } host = null; }; } });
+      return 'Opening the skill prospects…';
+    }
+    if (!root() || typeof openModal !== 'function') return 'The board needs the Dossier page.';
     root().innerHTML = shell(); wire();
     openModal({ wide: true });
     return 'Opening the skill prospects…';
