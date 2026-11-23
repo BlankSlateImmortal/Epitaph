@@ -79,7 +79,7 @@ made to show how deeply the world has been thought through.
 - [ ] **3.3 Anatomy.** A labelled specimen: an illustration first; a turnable 3D model later (the hard-surface, block or traced
   approaches from the sword pins; no faces, the user prefers objects).
 - [x] **3.4 Abilities.** What it can do and what counters it, with 7-step power; links to the Power systems page where it fits.
-- [ ] **3.5 Range & movements.** A small map of its range and migration routes, and sightings by chapter (spoiler-gated).
+- [x] **3.5 Range & movements.** A small map of its range and migration routes, and sightings by chapter (spoiler-gated).
 - [x] **3.6 Behaviour & lore.** Diet, hunting, breeding, and what each settlement calls it and believes about it (links to the
   Site Encyclopedia).
 - [ ] **3.7 Field notes.** Short in-world journal notes from characters or scholars, dated, spoiler-gated.
@@ -149,6 +149,8 @@ When the user says "get back to it" / "back to the plan":
 
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-23 — **3.5 done (Sonnet).** Migration routes (dashed lines on the page's map, edited as `lat,lng; …` rows) and sightings (red rings with the chapter) join the range map. Sightings are already gated by chapter (2.4); routes are shown with the creature. 2 new Node checks. **Phase 3 now waits only on the two Opus steps (3.3 the drawing, 3.7 field notes) and the trait-power answer.** Next: Phase 4 starts with 4.1 (world over time, a Sonnet step), 4.2 (food web view, a new kind of view: Opus + mockups).
 
 - 2026-11-23 — **3.1, 3.2, 3.4, 3.6 done, 3.5 partly (Sonnet).** The user picked layout **AA** (the field journal) from Round 9. New `assets/epitaph-creature-page.js`: one scroll with the seven sections, the map following the section read, a pure `model()` (line of forms, branches, mutations; 9 Node checks), reader version through the 2.4 gate (checked in the real page at chapters 3 and 9: no leaks). **Left on purpose:** 3.3 (the drawing; Opus), 3.7 (field notes in character voices; Opus), 3.5's migration routes and sightings on the map, and the 7-step power on traits (waiting on the user's answer to the Round 9 question). **Next: Phase 4 (world over time, food web, cause and effect; 4.3 is Opus), or the Opus steps 3.3 / 3.7: user's choice of order.**
 

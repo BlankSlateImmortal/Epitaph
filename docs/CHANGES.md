@@ -2,7 +2,7 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
-## Creature Log: the creature page, "the field journal" (assets/epitaph-creature-page.js) — steps 3.1, 3.2, 3.4, 3.5 (part), 3.6
+## Creature Log: the creature page, "the field journal" (assets/epitaph-creature-page.js) — steps 3.1, 3.2, 3.4, 3.5, 3.6
 
 Layout **AA** (picked from the Round 9 mockups): one scroll with the plan's seven sections, and the map on the right page follows the section being read (a "You are at 4 · Abilities" box with 1–7 buttons that jump to a section).
 
@@ -12,7 +12,7 @@ Open it with **Open page ▸** on the tree's card, by clicking a form on another
 2. **Mutations (3.2):** each change in order: what changed, its **cause** (an epoch, an age or a timeline event, in words), and what it gained.
 3. **Anatomy:** the parts you've written; the labelled drawing is step 3.3 (Opus), and the page says so while it's empty.
 4. **Abilities (3.4):** traits and what counters each. **No power dots yet:** I proposed a 7-step power per trait in Round 9 and am waiting for your answer (Faint · Minor · Notable · Strong · Fierce · Overwhelming · Unstoppable, or none).
-5. **Range & movements (3.5, part):** biomes, places, nests, and sightings by chapter, each with its place linked to the Site Encyclopedia. The map shows the range. Not yet: migration routes drawn on the map, and sightings pinned on it.
+5. **Range & movements (3.5):** biomes, places, nests, and sightings by chapter, each with its place linked to the Site Encyclopedia. The map shows the range, **migration routes** (dashed amber lines ending in a dot, with the time on hover) and **sightings** (red rings labelled "Ch 3" at the place). Routes are written in the editor under *Migration routes*: one row per route, a time and a path of `lat,lng; lat,lng; …` points.
 6. **Behaviour & lore (3.6):** diet, hunting, breeding, and what each settlement calls it and believes, linked to the place's entry.
 7. **Field notes:** the notes you've written; writing them in character voices is step 3.7 (Opus).
 

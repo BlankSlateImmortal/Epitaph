@@ -63,7 +63,7 @@
       f.text('diet', 'Diet'), f.text('hunting', 'Hunting'), f.text('breeding', 'Breeding'),
       f.rows('names', 'What settlements call it', [f.sel('placeId', 'Place', placeOptions()), f.text('localName', 'Local name'), f.text('belief', 'What they believe')]),
       f.rows('sightings', 'Sightings', [f.num('chapter', 'Chapter', { min: 1 }), f.sel('placeId', 'Place', placeOptions()), f.text('note', 'Note')]),
-      f.rows('fieldNotes', 'Field notes', [f.text('author', 'Author'), f.text('text', 'Note')]), f.lines('range.places', 'Range: places'), { t: 'eats', k: '__eats', l: 'Eats (creatures in the log)' }]).concat(hold);
+      f.rows('fieldNotes', 'Field notes', [f.text('author', 'Author'), f.text('text', 'Note')]), f.lines('range.places', 'Range: places'), f.rows('range.migrations', 'Migration routes (a path of lat,lng points)', [f.sel('when', 'When', whenOptions()), f.text('pathText', 'Path: lat,lng; lat,lng; …')]), { t: 'eats', k: '__eats', l: 'Eats (creatures in the log)' }]).concat(hold);
     if (kind === 'chaos') return [f.text('name', 'Name'), f.rows('forms', 'Forms it takes', [f.sel('biome', 'Biome', biomeOptions()), f.text('looks', 'Looks like')]),
       f.rows('sightings', 'Sightings', [f.num('chapter', 'Chapter', { min: 1 }), f.sel('placeId', 'Place', placeOptions()), f.text('note', 'Note')]), f.text('curseLink', 'Tied to curses (how?)')].concat(hold);
     if (kind === 'biomes') return [f.text('name', 'Name'), f.area('desc', 'What it is'), f.checks('regions', 'Map regions it covers', REGIONS), f.bool('placeBound', 'Tied to particular places'), f.text('spread', 'How its curses spread'), f.sel('since', 'Cursed since', sinceOptions())];
@@ -107,7 +107,10 @@
     if (kind === 'places' && rec.sitePlaceId && S.get(rec.sitePlaceId)) return `<div class="cl-enc"><span class="cl-fl">In the Site Encyclopedia</span>${link(rec.sitePlaceId)}</div>`;
     return '';
   }
+  const pathText = p => (p || []).map(q => q.join(',')).join('; ');
+  const parsePath = t => String(t || '').split(/[;\n]/).map(x => x.trim().split(/\s*,\s*/).map(Number)).filter(q => q.length === 2 && q.every(Number.isFinite) && Math.abs(q[0]) <= 90 && Math.abs(q[1]) <= 180);
   function formHtml(kind, rec, isNew) {
+    if (rec.range && Array.isArray(rec.range.migrations)) { rec = Object.assign({}, rec, { range: Object.assign({}, rec.range, { migrations: rec.range.migrations.map(m => ({ when: whenValue(m.when), pathText: pathText(m.path) })) }) }); }
     const spec = specFor(kind, rec), approved = rec.draft === false;
     return `<form class="cl-form" data-kind="${kind}" data-id="${esc(rec.id || '')}" data-new="${isNew ? 1 : ''}" novalidate>
       <div class="cl-grid">${spec.map(s => fieldHtml(s, s.k === '__eats' ? null : (s.t === 'sel' && s.when ? gp(rec, s.k) : gp(rec, s.k)), rec)).join('')}</div>
@@ -129,6 +132,7 @@
       else if (t === 'rows') v = readRows(el); else if (t === 'curse') { const id = el.querySelector('[data-cf="libId"]').value; v = id ? { libId: id, stage: parseInt(el.querySelector('[data-cf="stage"]').value, 10) || 0 } : null; }
       if (k === '__eats') { eats = v; return; }
       if (t === 'rows' && k === 'curses') v = v.filter(r => r.libId).map(r => ({ libId: r.libId, stage: r.stage || 0 }));
+      if (t === 'rows' && k === 'range.migrations') v = v.map(r => ({ when: whenFrom(r.when), path: parsePath(r.pathText) })).filter(r => r.path.length);
       setp(rec, k, v);
     });
     const ap = form.querySelector('[data-approved]'); rec.draft = !(ap && ap.checked);
@@ -249,6 +253,12 @@
     const carried = ui.reader ? [] : (rec.curses || []).map(k => ((cursesInLibrary().find(m => m.id === k.libId) || {}).name || k.libId) + (k.stage ? ' · ' + k.stage : ''));
     const bnames = [...bio].map(b => (st.biomes.find(x => x.id === b) || {}).name || b).filter(Boolean);
     leg.innerHTML = '';
+    if (ui.page && rec) {
+      const pins = ((rec.sightings || []).filter(q => q.chapter != null && wp(q.placeId))).map(q => { const p = wp(q.placeId), [px, py] = pr(p.lng, p.lat); return `<g><circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="4.5" fill="none" stroke="var(--ember)" stroke-width="2"/><text x="${(px + 8).toFixed(1)}" y="${(py - 4).toFixed(1)}" fill="var(--ember)" font-family="VT323,monospace" font-size="14">Ch ${q.chapter}</text></g>`; }).join('');
+      const routes = ((rec.range && rec.range.migrations) || []).map(m => { const pts = (m.path || []).map(([la, lo]) => pr(lo, la)); if (pts.length < 2) return ''; const d = 'M' + pts.map(q => q[0].toFixed(1) + ',' + q[1].toFixed(1)).join(' L'); const [ex, ey] = pts[pts.length - 1];
+        return `<path d="${d}" fill="none" stroke="var(--amber-hi)" stroke-width="2" stroke-dasharray="6 4"/><circle cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="3.5" fill="var(--amber-hi)"><title>${esc(whenText(m.when))}</title></circle>`; }).join('');
+      svg.innerHTML += routes + pins;
+    }
     if (ui.page) { const hb = document.createElement('div'); hb.className = 'cp-here'; host.appendChild(hb); drawSec(); leg.innerHTML = `${on.length} infected place${on.length === 1 ? '' : 's'} in range${towns.length ? ' · <span style="color:var(--verdigris)">●</span> settlements that name it' : ''}`; return; }
     const card = document.createElement('div'); card.className = 'cl-card';
     card.innerHTML = `<b>${esc(rec.name || rec.id)}</b><span class="cl-dim">${esc(KIND_LABEL[r.kind] || '')}${rec.when ? ' · ' + esc(whenText(rec.when)) : ''}${rec.extinct ? ' · extinct from ' + esc(whenText(rec.extinct)) : ''}</span>
@@ -327,5 +337,5 @@
     global.EpitaphBook.openCreatures(r.id); return true;
   });
 
-  global.EpitaphCreatureUI = { mountIndex, _t: { specFor, readForm, whenValue, whenFrom, whenText } };
+  global.EpitaphCreatureUI = { mountIndex, _t: { specFor, readForm, whenValue, whenFrom, whenText, parsePath, pathText } };
 })(typeof window !== 'undefined' ? window : globalThis);
