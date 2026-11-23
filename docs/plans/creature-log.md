@@ -33,11 +33,11 @@ made to show how deeply the world has been thought through.
 
 ## Phase 0 — Shared foundations
 
-- [~] **0.0** Done in the Site Encyclopedia plan (timeline, reader chapter, links, `opcl` command). Check it's finished first.
+- [x] **0.0** Done in the Site Encyclopedia plan (timeline, reader chapter, links, `opcl` command). Check it's finished first. *(Checked 2026-11-22: all there; `opcl` opens a placeholder page; the `creature:` link handler is this plan's 1.7.)*
 
 ## Phase 1 — Data: the world's history of life
 
-- [ ] **1.1 Epochs.** 7 epochs from before the impact to chapter 1 (for example: the old world · the impact · the burning · the
+- [~] **1.1 Epochs.** 7 epochs from before the impact to chapter 1 (for example: the old world · the impact · the burning · the
   flood · the ice · the settling · the story's eve). Each epoch is a span on the shared timeline, with the world events that drive
   change in it. *Done when:* the user agrees the 7 epochs and their names.
 - [ ] **1.2 Biomes.** The biomes over time, matched to the map's regions (plains, hills, mountains, ice, impact mountains, the crater,
@@ -145,7 +145,10 @@ When the user says "get back to it" / "back to the plan":
 
 ## Tweak log
 
+
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-22 — **1.1 proposed (Opus), waiting on the user's picks.** Read the vault first: the lore says almost nothing about ordinary animals, but it fixes the causes and the clock. Earth was planted on the Unicron face at Y −4,219; the siege is Y 0; Chapter 1 is about Y 55, so **Era 1 is only ~55 years long** and post-siege change must be fast; the mutagen is **the energy in the air** (the caught gods' bodies and authorities, dissolved by The Binding); **creatures of chaos** exist outside the Narrative, barely conscious and deathless. Proposed seven epochs on real timeline ids: The Transplant (`face-earth`) · The Long Quiet (→ `vale-arrives`) · Vale's Century (→ `the-descent`) · The Siege (`the-siege`, one day) · The Binding (`the-barriers`, `voice-born`) · The First Generations (`grove-sealed`, `first-storyborn`, `aurelia-founded`) · The Story's Eve (`orin-arrives` → `ch-1`). The plan's draft 'flood' and 'ice' epochs fold into The Siege (the flood is the siege's melted ice). Six decisions put to the user on a picks page (private artifact): how mutation works in 55 years, whether creatures get skills, where creatures of chaos go, life on the other five faces, the scrubber's time scale, and the Hollow Reach as a refuge from the energy.
 
 - 2026-11-22 — **From the user:** the Creature Log should be tied into the map too, the same way as the place entries (see the Site Encyclopedia 2.2 round-2 layouts: a creature's range drawn on the Atlas, where it roams near a place, its habitat in the region close-up). Apply when designing the creature entry view.
 - 2026-11-18 — Phase 0 is mostly in place (encyclopedia 0.1–0.4): timeline, reader chapter, links, and `opcl` opening a placeholder page. Left: creature links (`creature:<id>`) open nothing until `EpitaphCreatures` exists (`EpitaphLinks.resolve` already asks it for `byId`). Replace `placeholder()` for `opcl` in `assets/epitaph-book.js` when Phase 2 starts.
