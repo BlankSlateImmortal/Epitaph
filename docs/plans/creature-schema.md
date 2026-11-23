@@ -1,6 +1,6 @@
 # Creature Log — schema (step 1.3, proposal)
 
-*Status: proposed 2026-11-22, waiting on the user's agreement. Built from the decisions in steps 1.1 and 1.2 (the vault notes
+*Status: **agreed 2026-11-22** (the user said yes to all four open points). Built from the decisions in steps 1.1 and 1.2 (the vault notes
 `Creature Log Decisions 2026-11-22.md` and `Creature Log Biomes.md`). Lore examples stay in the vault; this file is the shape.*
 
 `assets/epitaph-creatures.js` → `window.EpitaphCreatures`, key `epitaph-creatures` (defaults plus the user's edits, merged like the
@@ -87,7 +87,7 @@ food:      { eater, eaten, when }                               // who eats whom
 - **Checks** (step 1.6): a node with a missing parent, a mutation with no cause, a creature dated before its ancestor, a food link to a
   missing creature, an extinct creature sighted later, a curse copy whose `libId` is gone. An unwritten place curse is not a problem.
 
-## Open for the user
+## Agreed (2026-11-22)
 
 1. Curses as Library marks (one definition used by items, creatures and places)?
 2. The three scales and their step names?
