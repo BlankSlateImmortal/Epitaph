@@ -96,7 +96,7 @@ Then make the site a complete public web page, and make publishing new chapters 
   Keep reading, switching characters and chapters.
 - [x] **3.2 Map.** Library drawer editing, place adding, character moves: hidden. Swords can still be dragged, but nothing is saved.
 - [x] **3.3 Book (`opl`, `ops`, `opse`, `opcl`).** Editors hidden; the views stay.
-- [ ] **3.4 Muses, Powers, Read.** Same rule.
+- [x] **3.4 Muses, Powers, Read.** Same rule.
 - [ ] **3.5 A test as a visitor.** Headless Chromium with empty storage: every page loads from the snapshot, no write controls exist, and
   nothing is written to localStorage except the reader chapter.
 
@@ -141,6 +141,8 @@ When the user says "get back to it" and this is the active plan:
 
 ## Tweak log
 Newest first.
+
+- 2026-11-23 — 3.4 done (Sonnet). Muses: a reader sees a short "private reference notes, not published" note instead of the page (the editors and generator settings are hidden). Powers and Read have no write controls; Read only keeps the reader's own last chapter. Checked headless with `?author=0` on all three: `mode-reader`, no errors.
 
 - 2026-11-23 — 3.3 done (Sonnet). In reader mode the book hides the Library item editor (a read-only card instead), the skill editors and "+ Root skill", the Site Encyclopedia edit bar, pens, approve and undo, and the Creature Log add/edit/delete buttons; the help text and commands drop the author-only ones (changes, export, history rollback); the automatic save helpers do not run. Checked headless with `?author=0`: the page loads as `mode-reader` with no errors. Full visitor test is 3.5.
 
