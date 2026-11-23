@@ -101,7 +101,7 @@ made to show how deeply the world has been thought through.
 ## Phase 6 — Links into the rest of the site
 
 - [x] **6.1 Site Encyclopedia.** The Range and lore sections link to places; places' Beasts tabs link back.
-- [ ] **6.2 Map layer.** A "Creatures" toggle on `atlas-3d.html`: ranges, migrations and sightings at the reader's chapter.
+- [x] **6.2 Map layer.** A "Creatures" toggle on `atlas-3d.html`: ranges, migrations and sightings at the reader's chapter.
 - [ ] **6.3 Resources.** Creature-sourced resources (hides, venom, bone) shown on both sides.
 - [ ] **6.4 Dossier.** Characters' encounters, and creatures tied to a character's powers, link both ways.
 
@@ -149,6 +149,8 @@ When the user says "get back to it" / "back to the plan":
 
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-23 — **6.2 done (Opus).** A Creatures toggle on `atlas-3d.html` (Era 1, beside Politics): each story-time creature's range (infected places in its biomes), migration routes and sightings up to the chapter, labelled, with a legend; readers through the 2.4 gate. Tested in the real Atlas (swiftshader): toggle, legend, label, marks visible, no errors. **Left: 3.3, 3.7 (need the user's lore), 6.3, 6.4 (schema, design with the user), 7.3 (docs, last).**
 
 - 2026-11-23 — **4.3 done (Opus). Phase 4 is finished.** New `assets/epitaph-creature-chains.js` and a **Chains** tab (authors and readers): by lineage (the trunk follows the biggest branch, side branches start at their fork, no form repeated) or by cause (every form a cause changed, and the line after it); gaps show "?". Built only from each form's cause and change. 12 Node checks; real page checked. **Left: 3.3 and 3.7 (Opus, need the user's lore), 6.2 (3D Atlas layer, Opus), 6.3 and 6.4 (schema, design with the user), 7.3 (docs, last).**
 

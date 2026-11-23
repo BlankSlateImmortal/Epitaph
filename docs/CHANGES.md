@@ -2,6 +2,17 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Creature Log on the Atlas: the Creatures layer (atlas-3d.html) — step 6.2
+
+A **Creatures** button beside Politics on the Atlas (Era 1 only, like Politics; `?creatures=1` turns it on; it's remembered). For each creature alive in the story (Age G) it draws, in its own bright colour:
+
+- its **range**: the infected places in its biomes, as dots;
+- its **migration routes** (from the Creature Log's *Migration routes*), as tubes over the land;
+- its **sightings** up to the chapter on the slider, as rings at the place;
+- its name as a label, and a legend line per creature ("Creature · The Murmur"; "No creatures found yet" when none).
+
+A **reader** sees only what their chapter has revealed (the Creature Log's gate, step 2.4); the author sees every creature. Changing the chapter or the author/reader view redraws it. Colours are chosen to read against the amber land. At most 24 creatures and 160 range places each are drawn, to keep the globe smooth.
+
 ## Creature Log: cause and effect (assets/epitaph-creature-chains.js) — step 4.3
 
 A **Chains** tab (layout AF from Round 10): readable chains, left to right, each change after the cause that made it. They are drawn **only** from what each form says (its cause and its change), so nothing is invented.
