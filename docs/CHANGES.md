@@ -2,6 +2,19 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Creature Log: the World over time (assets/epitaph-creature-world.js) — step 4.1
+
+A **World** tab (layout AC from Round 10): the same 14 time chips drive one big dither map of the Earth, with the left page saying what is true of the world at that time.
+
+- **The crater and the sea** appear from **Age D (The Siege)** on, as you decided: before it the map shows the old dry coasts and no crater; from Age D the land the sea took (+60 m) is drawn in the map's second colour and a glowing crater sits in Antarctica (where the Atlas has it). The age is one constant (`SHIFT`) in the module.
+- **Infected places awake:** each place wakes at its own "cursed since" date, else its biome's; a place with neither is simply not drawn yet. Ember dots on the map, with a count ("6 of 298").
+- **Living forms:** the tips of the lines alive at that time, as buttons. Pick one and the infected places in its biomes light up on the map, with **Open page ▸**.
+- **What changed since the band before:** the crater forming, places waking, forms appearing and dying out.
+- Four layer toggles (crater, sea, infected places, forms). **No ice layer:** the map holds no ice data, so none is drawn (the page says so).
+- **Readers** get a World tab too, built from the gated copy (step 2.4): only the places, biomes and forms they've reached.
+
+Tests: `tools/site-tests/test-creature-world.js` (9 checks: the shift age, places waking, living tips, picking, changes, empty log), and the real page before and after Age D.
+
 ## Creature Log: the Food Web (assets/epitaph-creature-web.js) — step 4.2
 
 A **Web** tab in the Creature Log (layout AE from Round 10): who eats whom at a chosen time, **in levels**. What eats nothing in the log sits on the bottom row; each creature sits one level above the highest thing it eats; apex hunters are at the top. Lines run from the eater to what it eats (arrowhead on the eaten). **APEX** (eats, and nothing eats it) and **KEYSTONE** (the only food of two or more, or eaten by four or more) are marked, using the food-web rules from step 1.4.

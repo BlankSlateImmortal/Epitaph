@@ -15,7 +15,7 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const REGIONS = [['plains', 'Plains'], ['hills', 'Hills'], ['mountains', 'Mountains'], ['ice', 'Ice'], ['pit', 'The crater'], ['rim', 'Impact mountains'], ['coast', 'Coast'], ['drowned', 'Sunken land'], ['underwater', 'Open sea']];
   const KIND_LABEL = { creatures: 'Creature', nodes: 'Lineage step', chaos: 'Chaos' };
-  const TABS = [['tree', 'Tree'], ['web', 'Web'], ['creatures', 'Creatures'], ['biomes', 'Biomes'], ['places', 'Places']];
+  const TABS = [['tree', 'Tree'], ['web', 'Web'], ['world', 'World'], ['creatures', 'Creatures'], ['biomes', 'Biomes'], ['places', 'Places']];
   const PAGE = 120;
   let ui = null;          // { page ({ id, sec } while a creature's page is open), pageH, tab, q, biome, drafts, noCurse, open: { kind, id } | null, shown, sel (the tree's picked form), tree (its handle) }
 
@@ -177,7 +177,7 @@
     if (!T) { box.innerHTML = '<p class="cl-note">The tree did not load.</p>'; return; }
     ui.tree = T.mount(box, { colourBy: ui.colourBy, sel: ui.sel, onSelect: id => { ui.sel = id; drawMap(); } });
   }
-  const tabsHtml = st => `<div class="cl-tabs" role="tablist">${TABS.map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${ui.tab === k}" class="${ui.tab === k ? 'on' : ''}">${l}<b>${k === 'tree' ? st.nodes.length + st.creatures.length : k === 'web' ? st.food.length : st[k].length + (k === 'creatures' ? st.nodes.length + st.chaos.length : 0)}</b></button>`).join('')}</div>`;
+  const tabsHtml = st => `<div class="cl-tabs" role="tablist">${TABS.map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${ui.tab === k}" class="${ui.tab === k ? 'on' : ''}">${l}<b>${k === 'tree' ? st.nodes.length + st.creatures.length : k === 'web' ? st.food.length : k === 'world' ? st.places.length : st[k].length + (k === 'creatures' ? st.nodes.length + st.chaos.length : 0)}</b></button>`).join('')}</div>`;
   // ---- the creature page (Phase 3): the field journal, with the map following the section being read
   function renderPage(host) {
     if (ui.pageH) { ui.pageH.destroy(); ui.pageH = null; } if (ui.tree) { ui.tree.destroy(); ui.tree = null; }
@@ -198,6 +198,15 @@
     const Wb = global.EpitaphCreatureWeb; if (!Wb) { box.innerHTML = '<p class="cl-note">The food web did not load.</p>'; return; }
     ui.webH = Wb.mount(box, { st, side: sidePanel(), reader, sel: ui.webSel, onPick: id => { ui.webSel = id; }, onOpen: openPage });
   }
+  function mountWorld(box, st, reader) {
+    const Wo = global.EpitaphCreatureWorld; if (!Wo) { box.innerHTML = '<p class="cl-note">The world view did not load.</p>'; return; }
+    const panel = document.getElementById('bookPanel'); if (panel) { panel.hidden = false; panel.classList.add('se-panel'); panel.innerHTML = ''; }
+    ui.webH = Wo.mount(box, { st, panel, reader, sel: ui.webSel, onOpen: openPage });
+  }
+  function renderWorld(host, st) {
+    host.innerHTML = `<div class="cl"><div class="cl-bar">${tabsHtml(st)}</div><p class="cl-note">The world at the chosen time: the old coasts or the drowned ones, the crater, the infected places that have awakened, and where a picked form lives.</p><div class="cl-tree"></div></div>`;
+    mountWorld(host.querySelector('.cl-tree'), st, false);
+  }
   function renderWeb(host, st) {
     host.innerHTML = `<div class="cl"><div class="cl-bar">${tabsHtml(st)}</div><p class="cl-note">Who eats whom at the chosen time, from the bottom of the web up. Links come from each creature's “Eats” list (Creatures tab).</p><div class="cl-tree"></div></div>`;
     mountWeb(host.querySelector('.cl-tree'), st, false);
@@ -207,6 +216,7 @@
     if (ui.page) return renderPage(host);
     if (ui.webH) { ui.webH.destroy(); ui.webH = null; }
     if (ui.tab === 'web') return renderWeb(host, C().load());
+    if (ui.tab === 'world') return renderWorld(host, C().load());
     if (ui.tree) { ui.tree.destroy(); ui.tree = null; }
     const st = C().load(), q = ui.q;
     if (ui.tab === 'tree') return renderTree(host, st);
@@ -230,7 +240,7 @@
 
   // ---------------------------------------------------------------- the world map on the right page
   async function drawMap() {
-    if (ui && ui.tab === 'web' && !ui.page) return;          // the web draws its own side page
+    if (ui && (ui.tab === 'web' || ui.tab === 'world') && !ui.page) return;          // the web draws its own side page
     const panel = document.getElementById('bookPanel'), D = global.EpitaphDither; if (!panel || !D || !ui) return;
     panel.hidden = false; panel.classList.add('se-panel');
     panel.innerHTML = '<div class="cl-map"><canvas class="se-cv" aria-label="Dither map of the infected places"></canvas><svg class="se-svg" aria-hidden="true"></svg><div class="se-legend"></div></div>';
@@ -293,7 +303,8 @@
     const focus = opts && opts.focus; const draw = () => { if (ui.pageH) { ui.pageH.destroy(); ui.pageH = null; } if (ui.tree) { ui.tree.destroy(); ui.tree = null; }
       if (ui.page) return renderPage(container);
       if (ui.webH) { ui.webH.destroy(); ui.webH = null; }
-      const rt = `<div class="cl-bar"><div class="cl-tabs" role="tablist">${[['tree', 'Tree'], ['web', 'Web']].map(([k, l]) => `<button type="button" role="tab" data-rtab="${k}" aria-selected="${ui.tab === k}" class="${ui.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>`;
+      const rt = `<div class="cl-bar"><div class="cl-tabs" role="tablist">${[['tree', 'Tree'], ['web', 'Web'], ['world', 'World']].map(([k, l]) => `<button type="button" role="tab" data-rtab="${k}" aria-selected="${ui.tab === k}" class="${ui.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>`;
+      if (ui.tab === 'world') { container.innerHTML = `<div class="cl">${rt}<p class="cl-note">The world over time, as far as you have read.</p><div class="cl-tree"></div></div>`; mountWorld(container.querySelector('.cl-tree'), gated(), true); return; }
       if (ui.tab === 'web') { container.innerHTML = `<div class="cl">${rt}<p class="cl-note">Who eats whom, as far as you have read.</p><div class="cl-tree"></div></div>`; mountWeb(container.querySelector('.cl-tree'), gated(), true); return; }
       container.innerHTML = `<div class="cl">${rt}<p class="cl-note">What has been found of the creatures of Epitaph, as far as you have read. Pick a form to see where it lives.</p><div class="cl-tree"></div></div>`;
       const T = global.EpitaphCreatureTree, box = container.querySelector('.cl-tree'); if (!T) { box.innerHTML = '<p class="cl-note">The tree did not load.</p>'; return; }

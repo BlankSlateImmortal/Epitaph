@@ -86,7 +86,7 @@ made to show how deeply the world has been thought through.
 
 ## Phase 4 — The Ecosystem view
 
-- [ ] **4.1 World over time.** The same scrubber on a small globe or the map: the crater cooling, coasts drowning, ice spreading
+- [x] **4.1 World over time.** The same scrubber on a small globe or the map: the crater cooling, coasts drowning, ice spreading
   (reuse the map's era data where it fits).
 - [x] **4.2 Food web.** Who eats whom at the scrubbed epoch; keystones and apex predators marked.
 - [ ] **4.3 Cause-and-effect chains.** Readable chains ("the flood drowned the plains → grazers moved to the impact mountains →
@@ -149,6 +149,8 @@ When the user says "get back to it" / "back to the plan":
 
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-23 — **4.1 done (Sonnet).** Layout **AC** (one big map with the age scrubber). New `assets/epitaph-creature-world.js` and a **World** tab (authors and readers). **Lore decision from the user:** the crater and the +60 m sea appear from **Age D** (before it, the old dry coasts); it is one constant in the module. Layers: crater, drowned coasts, infected places awake by their own or their biome's date, living forms with the picked one's places lit; no ice (the map has no ice data). 9 Node checks; real page checked at Age C and Age G. **Next: 4.3 (cause and effect chains, layout AF; an Opus step).**
 
 - 2026-11-23 — **4.2 done (Sonnet).** The user picked **AE** (food web in levels) from Round 10, **AC** (one big map with the age scrubber) for 4.1, and said AF (cause and effect chains) is fine for 4.3. New `assets/epitaph-creature-web.js` and a **Web** tab (authors and readers): levels from what eats nothing up to apex hunters, apex and keystone marked, 14 time chips, a side card with what a creature eats, what eats it and what would starve without it, and what changed since the band before. 10 Node checks; real page checked as author and reader. **Next: 4.1 (world over time, layout AC; Sonnet), then 4.3 (Opus).**
 
