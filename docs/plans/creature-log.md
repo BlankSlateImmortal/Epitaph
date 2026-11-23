@@ -41,8 +41,9 @@ made to show how deeply the world has been thought through.
   flood · the ice · the settling · the story's eve). Each epoch is a span on the shared timeline, with the world events that drive
   change in it. *Done when:* the user agrees the 7 epochs and their names.
   *(Agreed 2026-11-22, a two-level shape: **seven epochs** from the start of everything to Epitaph, and **seven ages, A to G**, inside the Epitaph epoch, the last three following a curse's cycle. Names, timeline events and the tree's root are in the vault note `Exploratory Ideas/Lore/Creature Log Decisions 2026-11-22.md`. The scrubber (2.2) shows the epochs at equal widths and zooms into the ages.)*
-- [ ] **1.2 Biomes.** The biomes over time, matched to the map's regions (plains, hills, mountains, ice, impact mountains, the crater,
+- [x] **1.2 Biomes.** The biomes over time, matched to the map's regions (plains, hills, mountains, ice, impact mountains, the crater,
   coast, open sea, sunken land), grouped into 7 if they become a scale. Each biome has a start and end, and what changed it.
+  *(Done 2026-11-22: **22 biomes, not 7** (the user: the world is vast; biomes are an open list, not a scale), each tied to a map region or to places, with when it became cursed and how its curses spread. 266 infected places checked against the Atlas heightmap. The list and the user's rules on who survives curses are in the vault: `Exploratory Ideas/Lore/Creature Log Biomes 2026-11-22.md`, data in `Site work/files/creature-log-infected-places-2026-11-22.json`. The user makes the curses.)*
 - [ ] **1.3 Schema.** `assets/epitaph-creatures.js`. Two record types:
   ```
   lineage node (a form on the tree):
@@ -148,6 +149,8 @@ When the user says "get back to it" / "back to the plan":
 
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-22 — **1.2 done (Opus).** Biomes became an open list of 22 (memory rule updated: 'always 7' is for scales and sets, not catalogues of places). Each is tied to a map region the Atlas already knows (plains, hills, mountains, ice, pit, rim, coast, drowned, open sea) or to places (ruins, citadels, vaults, warded domains, null pockets); the sky over the crater needs a layer later (6.2). Every Era 0 city's fate is read from the Atlas heightmap, so the log and the map agree; six disagreements with the real world are flagged for the user. The user set who survives cursed ground and how curses spread; they'll write the curses themselves. **What it does to the plan:** 1.3's schema gains biomes and places with a curse slot each, and curses with a state (physical, infectious, stationary-metaphysical) and stages.
 
 - 2026-11-22 — **1.1 done (Opus).** The user widened the epochs to the whole history (the myth through to Epitaph) and set the shape: seven **epochs**, then seven **ages A–G** inside Epitaph, and named the world the tree's trunk grows from. Details stay in the vault note (new lore). What it does to the plan: **2.2** scrubs epochs and zooms into the ages; **1.3** needs a node to carry an epoch *or* an age, and curses with stages; **1.5** starts its one full lineage from that root world; a timeline moment for that world is suggested (not added) so mutations can name it as a cause.
 
