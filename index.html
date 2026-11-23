@@ -1192,11 +1192,11 @@
 <script src="assets/epitaph-world.js?v=9"></script>
 <script src="assets/epitaph-timeline.js?v=8"></script>
 <script src="assets/epitaph-links.js?v=1"></script>
-<script src="assets/epitaph-sites.js?v=21"></script>
+<script src="assets/epitaph-sites.js?v=22"></script>
 <script src="assets/epitaph-sites-ui.js?v=9"></script>
 <link rel="stylesheet" href="assets/epitaph-site-entry.css?v=15">
 <script src="assets/epitaph-dither.js?v=3"></script>
-<script src="assets/epitaph-site-entry.js?v=15"></script>
+<script src="assets/epitaph-site-entry.js?v=16"></script>
 <script src="assets/epitaph-site-web.js?v=2"></script>
 <script src="assets/epitaph-site-whatif.js?v=1"></script>
 <script src="assets/epitaph-site-edit.js?v=3"></script>
@@ -6255,6 +6255,15 @@ modalBackdrop.addEventListener('click', (e) => {
     state.activeId = state.characters[0].id;
   }
   renderAll();
+  // index.html?place=<id>[&tab=history]: open the Site Encyclopedia on that place's entry (links from the Atlas close-up and record panel)
+  const placeId = params.get('place');
+  if(placeId){
+    const S = window.EpitaphSites, rec = S && S.get(placeId), T = window.EpitaphTimeline;
+    if(rec && (!T || T.authorMode() || S.placeReached(rec))){
+      openTheBook();
+      setTimeout(() => { if(window.EpitaphBook && window.EpitaphSiteEntry){ EpitaphBook.openSites(); EpitaphSiteEntry.open(placeId, params.get('tab')); } }, 1700);
+    }
+  }
 })();
 
 // ============================================================

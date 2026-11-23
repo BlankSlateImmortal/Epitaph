@@ -2,6 +2,13 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Links from the Atlas to the entries — step 6.1
+
+- **Read the entry →** in a place's close-up footer (next to *Open the site*), and in a character's close-up when they stand at a place that has an entry.
+- **Read the entry for <place> →** in the character record panel; the place tooltip says "Has an encyclopedia entry".
+- The links go to `index.html?place=<id>[&tab=history]`, which opens the Storybook on that entry (a new deep link in the Dossier, like `?char=`).
+- **Who may follow it:** `EpitaphSites.entryFor(place)` returns the place to link to only if it has an entry and the viewer may read it: an author always, a reader only for a place they've reached. A temple inside a city links to the city's entry when it has none of its own. The entry itself and the deep link also refuse an unreached place for a reader.
+
 ## Illustrated founding stages (epitaph-dither.js, epitaph-sites.js `foundingLayers`) — step 5.3
 
 The dither **founding model** on the right page now illustrates each stage from what the place's founding stages say, for every place with a model (and the ones with a 3D site too, which also link to it). The stage buttons pick the stage; a caption names it and what changed.

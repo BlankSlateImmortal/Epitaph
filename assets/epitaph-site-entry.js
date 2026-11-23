@@ -487,6 +487,7 @@ ${r.state === 'ongoing' ? 'still going' : r.state === 'unknown' ? 'ends later (n
   }
   function open(placeId, tab) {
     if (!S() || !inEncyclopedia()) return false;
+    { const T = TL(), rec = S().get(placeId); if (T && !T.authorMode() && rec && !S().placeReached(rec)) return false; }   // a reader can't open a place they haven't reached
     cur = { placeId, tab: S().TABS.includes(tab) ? tab : 'overview', angle: 0.6, stage: 6, focus: null, spreadCh: null };
     return render();
   }

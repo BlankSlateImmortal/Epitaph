@@ -222,6 +222,13 @@
     o.likelihood = Number.isInteger(o.likelihood) && o.likelihood >= 1 && o.likelihood <= 7 ? o.likelihood : 3;
     return o;
   }
+  /** May this viewer open this place's entry (step 6.1)? A place needs an entry, and a reader needs to have reached the place;
+   *  the author may open any. Returns the place id to link to, or null. Looks through a city to the place that has an entry (a temple in a city). */
+  function entryFor(place, list) {
+    const recs = list || load(), ids = [place && place.id, place && place.cityId].filter(Boolean);
+    for (const id of ids) { const r = recs.find(x => x.placeId === id); if (r && (authoring() || placeReached(r))) return id; }
+    return null;
+  }
   /** What the illustrated founding model draws at a stage (step 5.3), from the stages that are written (and, for a reader, reached).
    *  founding: the place's history.founding (already gated); at: 0..6, the stage being looked at.
    *  -> { here, cleared, first, walls, town, scar, rebuilt, ruins, stage, label, text }
@@ -766,6 +773,6 @@
     KEY, VERSION, BACKUP_KEY, STATUS, SCALES, SCALE_SETS, FORMS, ALLIANCE_KINDS, BEAST_RELATIONS, RESOURCE_CATEGORIES, RESOURCE_ROLES, FOUNDING_STAGES,
     MOTIVES, FACTION_KINDS, TIE_ENDINGS, TEMPERAMENTS, SOCIAL_SHAPES, WARD_KINDS, RUMOUR_INTENTS, TRIGGER_GROUPS,
     TABS, TAB_LABEL, DATA_TABS, DEFAULTS,
-    alliancesAt, tieBars, webAt, blocsAt, ringSeats, WHATIF_STATUS, normWhatIf, foundingProblems, foundingLayers, whatIfRef, whatIfList, whatIfPile, whatIfLinks, whatIfLoops, storyOf, forReader, secretHolders, couldFind, plantPayoff, SECRET_REF, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, draftUpdatesIn, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
+    alliancesAt, tieBars, webAt, blocsAt, ringSeats, WHATIF_STATUS, normWhatIf, foundingProblems, foundingLayers, entryFor, whatIfRef, whatIfList, whatIfPile, whatIfLinks, whatIfLoops, storyOf, forReader, secretHolders, couldFind, plantPayoff, SECRET_REF, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, draftUpdatesIn, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
   };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -19,7 +19,7 @@ import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometr
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { loadPins, buildPin, designFor } from './pins/pins.js?v=10';
 import { buildStone, slotLocal } from './stones.js?v=3';
-import { openCloseup, isOpen as closeupOpen } from './closeup.js?v=13';
+import { openCloseup, isOpen as closeupOpen } from './closeup.js?v=14';
 
 const World = window.EpitaphWorld;
 const $ = id => document.getElementById(id);
@@ -995,6 +995,7 @@ function openRecord(id) {
          (s.objective ? `<dt>Objective</dt><dd>${esc(s.objective)}</dd>` : '') + (s.ch != null ? `<dt>Since</dt><dd>Chapter ${s.ch}</dd>` : '') + `</dl>`
        : `<p>Not in the story yet at this chapter.</p>`) +
     `<dt style="font-family:'Bebas Neue',sans-serif;letter-spacing:.1em;font-size:13px;color:var(--amber)">Trail</dt><ol>${trail}</ol>` +
+    (s && s.r.kind !== 'point' && entryUrlOf(s.r.place) ? `<a href="${esc(entryUrlOf(s.r.place))}">Read the entry for ${esc(s.r.place.name.split(/\s+[—–-]\s+/).pop())} →</a><br>` : '') +
     `<a href="index.html?char=${encodeURIComponent(c.id)}${Number.isInteger(ch) ? '&ch=' + ch : ''}">Open in the Dossier →</a>`;
   box.hidden = false; $('lore').hidden = true;
   $('recordClose').addEventListener('click', closeRecord);
@@ -1190,6 +1191,8 @@ function pick() {
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 // a place opens a site if it has one, or if it belongs to a city that has one (e.g. a temple in Aurelia)
 const siteOf = p => p ? ((World.SITES || {})[p.id] || (World.SITES || {})[p.cityId] || null) : null;
+// the Site Encyclopedia entry for a place, if there is one this viewer may read (an author: any; a reader: places they've reached)
+const entryUrlOf = p => { const S = window.EpitaphSites, id = p && S && S.entryFor ? S.entryFor(p) : null; return id ? 'index.html?place=' + encodeURIComponent(id) : null; };
 function describe(obj) {
   if (obj.userData.earth) return '<b>Earth</b><span>An island on Epitaph. Click to open the board.</span>';
   if (obj.userData.char) {
@@ -1204,6 +1207,7 @@ function describe(obj) {
     (obj.userData.sunk ? '<span>Sunk: the sea rose ~60 m in Era 1.</span>' : '') +
     (p.fictional ? '<span>Era 1 settlement</span>' : '') +
     (siteOf(p) ? '<span class="here">Click to open the site</span>' : '') +
+    (entryUrlOf(p) ? '<span>Has an encyclopedia entry</span>' : '') +
     (p.group ? `<span>${esc((World.SITE_GROUPS.find(g => g.id === p.group) || {}).label || p.group)} site${p.group === 'VOIDED' ? ' · hidden' : ''}</span>` : '') +
     (here.length ? `<span class="here">Here: ${here.map(c => esc(c.name)).join(', ')}</span>` : '');
 }
@@ -1762,7 +1766,7 @@ function openPinCloseup(ud) {
     .filter(x => x.d < near).sort((a, b) => a.d - b.d).map(x => x.c);
   tip.hidden = true;
   openCloseup({
-    mount: canvas.parentElement, char: ud.char, chars: [ud.char, ...company], region: reg.region, siteUrl: reg.site || null, theme: state.theme,
+    mount: canvas.parentElement, char: ud.char, chars: [ud.char, ...company], region: reg.region, siteUrl: reg.site || null, entryUrl: entryUrlOf(r.place), theme: state.theme,
     where: (r.kind === 'point' ? r.name : r.label || r.name) + (ud.charState.stop.ch != null ? ' · chapter ' + ud.charState.stop.ch : '')
   });
 }
@@ -1775,7 +1779,7 @@ function openSettlementCloseup(p) {
   const statue = (p.group === 'STORYBORN' || (p.fictional && !p.group)) ? 'storyborn' : p.group === 'VOIDED' ? 'voided' : p.group === 'FALLEN' ? 'fallen' : null;
   tip.hidden = true;
   openCloseup({
-    mount: canvas.parentElement, chars, title: p.name, region: reg.region === 'site' ? 'plains' : reg.region, siteUrl: reg.site || null, theme: state.theme,
+    mount: canvas.parentElement, chars, title: p.name, region: reg.region === 'site' ? 'plains' : reg.region, siteUrl: reg.site || null, entryUrl: entryUrlOf(p), theme: state.theme,
     statue: reg.site ? null : statue, statueColor: THEMES[state.theme].groups[(statue || 'other').toUpperCase()] || THEMES[state.theme].groups.OTHER,
     where: (state.chapter != null ? 'Chapter ' + state.chapter : 'Latest') + ' · ' + (chars.length ? chars.length + (chars.length === 1 ? ' sword' : ' swords') : 'no swords')
   });
