@@ -16,7 +16,11 @@ The Creature Log now opens on a **Tree** tab, drawn in layout V (picked from the
 - **Bad data never breaks the tree:** a missing parent or a loop makes a root; a form dated before its ancestor is drawn just below it anyway (Checks already flags it); an undated form sits one band below its ancestor, marked "?".
 - **Phone:** the tree takes most of the height, the map the rest; the terminal hides while it's open.
 
-Still to come: the time scrubber (2.2), fork details on hover (2.3), and the reader's view with "?" silhouettes (2.4). Tests: `tools/site-tests/test-creature-tree.js` (14 checks).
+Still to come: fork details on hover (2.3), and the reader's view with "?" silhouettes (2.4). Tests: `tools/site-tests/test-creature-tree.js` (18 checks).
+
+### The time scrubber (step 2.2)
+
+A **Time** slider above the tree runs across the same 14 bands (the seven epochs, then ages A–G). The tree stays where it is and **grows in place**: a form shows only once its band is reached, a living line stops at the scrubbed time and glows at its front, and an extinct line gets its fossil mark only once it has died out (before that it still runs). Bands after the scrubbed time darken and the current one is outlined. Beside the slider: the band's name, how many forms have appeared (e.g. "9 of 13"), and the **timeline events that fall in that epoch or age**. ◂ ▸ step one band, **Play** walks forward one band at a time, **Now** returns to the present. If the form you picked hasn't appeared at the scrubbed time, the pick clears. On a phone the step buttons hide (the slider is enough) and the tree scrolls.
 
 ## Creature Log: the view and editor (assets/epitaph-creature-ui.js) — steps 1.7, 5.1, 5.2
 

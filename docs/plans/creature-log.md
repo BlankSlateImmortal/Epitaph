@@ -68,7 +68,7 @@ made to show how deeply the world has been thought through.
 
 - [x] **2.1 Tree layout.** A pannable, zoomable branching tree (SVG or canvas): roots at the old world, branch points at mutations,
   living tips glowing, extinct lines ending in a fossil mark. Branch colour by biome or by cause (toggle).
-- [ ] **2.2 Time scrubber.** A slider across the 7 epochs; the tree grows as it moves, and the epoch's events show beside it.
+- [x] **2.2 Time scrubber.** A slider across the 7 epochs; the tree grows as it moves, and the epoch's events show beside it.
 - [ ] **2.3 Branch points.** Hovering a fork shows the mutation, its cause and the advantage; clicking opens the cause on the timeline.
 - [ ] **2.4 Discovery.** Unrevealed nodes show as "?" silhouettes; revealed ones fill in. A count shows how much of the tree is known.
 
@@ -149,6 +149,8 @@ When the user says "get back to it" / "back to the plan":
 
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-23 — **2.2 done (Sonnet).** A Time slider over the tree's 14 bands (7 epochs, then ages A–G; the plan said 7 epochs, the tree zooms into the ages as agreed in 1.1): the tree grows in place, living lines stop at the scrubbed time and glow at their front, extinct lines get their fossil only once they've died out, and the band's timeline events show beside it. Step buttons, Play, Now. 4 new Node checks (18 in the tree suite); tested in the real page on desktop and phone width, no console errors. **Next: 2.3 (branch points, hover details), a Sonnet step.**
 
 - 2026-11-23 — **2.1 done (Opus).** The user picked layout **V** (time runs down, a band per epoch then per age) from the Round 8 mockups. New `assets/epitaph-creature-tree.js` (a pure `layout()` plus the SVG view) is the Creature Log's new front tab: forks, glowing living tips, extinct lines ending in a fossil mark, colour by biome or cause, a chaos shelf, drag / wheel / pinch / keys, and the picked form's range on the map with a card and Edit (X's behaviour on the right page). Tested in the real page on desktop and at phone width, no console errors, plus 14 Node checks. **Next: 2.2 (time scrubber), a Sonnet step**: the scrubber should slide down the same bands (the layout already gives each band's top and height).
 

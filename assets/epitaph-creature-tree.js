@@ -66,7 +66,7 @@
       const living = !n.rec.extinct, tip = !n.kids.length;
       const endY = n.extinctBand != null ? mid(n.extinctBand) + (n.extinctBand === n.band ? 30 : 0) : !living ? n.y + 30 : (tip ? bands[13].top + bands[13].h - 6 : n.y);
       nodes.push({ id: n.rec.id, kind: n.kind, name: n.rec.name || n.rec.id, x: n.x, y: n.y, band: n.band, depth, parentId: parent ? parent.rec.id : null,
-        extinct: !!n.rec.extinct, tip, living: living && tip, endY,
+        extinct: !!n.rec.extinct, extBand: n.extinctBand, tip, living: living && tip, endY,
         undated: bandOf(n.rec.when) == null, late: !!n.late, draft: !!n.rec.draft, biomes: n.rec.biomes || [], cause: n.rec.cause || null,
         cursed: !!((n.rec.mutation && n.rec.mutation.curse) || (n.rec.curses || []).length) });
       if (parent) edges.push({ from: parent.rec.id, to: n.rec.id, x1: parent.x, y1: parent.y, x2: n.x, y2: n.y, extinct: !!n.rec.extinct });
@@ -75,6 +75,19 @@
     roots.forEach(r => walk(r, null, 0));
     const width = LEFT + Math.max(1, col) * COL + 40;
     return { bands, nodes, edges, width, height, chaos: (st.chaos || []).map(x => ({ id: x.id, name: x.name || x.id, draft: !!x.draft })) };
+  }
+
+  // ---------------------------------------------------------------- the time scrubber (step 2.2)
+  /** The timeline moments that belong to a band: an epoch's own events, or the events an age opens and closes on. */
+  function bandEvents(i) {
+    const K = C(), ids = i < 7 ? (K.EPOCHS[i].events || []) : [K.AGES[i - 7].from, K.AGES[i - 7].to].filter((x, j, a) => x && a.indexOf(x) === j);
+    return ids.map(id => { const ev = TL() && TL().byId && TL().byId(id); return ev ? { id, title: String(ev.title).split(/[:;]/)[0].slice(0, 90) } : null; }).filter(Boolean);
+  }
+  /** What is on the page when the scrubber sits at band `at` (null or 13 = everything): forms that have appeared, extinct lines only once they've died out. */
+  function visibleAt(lay, at) {
+    if (at == null || at >= 13) return { nodes: lay.nodes, edges: lay.edges, at: 13 };
+    const nodes = lay.nodes.filter(n => n.band <= at), ids = new Set(nodes.map(n => n.id));
+    return { nodes, edges: lay.edges.filter(e => ids.has(e.from) && ids.has(e.to)), at };
   }
 
   // ---------------------------------------------------------------- colour by biome or by cause
@@ -97,31 +110,36 @@
   }
 
   // ---------------------------------------------------------------- drawing
-  function svgTree(lay, pal, sel) {
+  function svgTree(lay, pal, sel, at) {
+    const vis = visibleAt(lay, at), cap = lay.bands[vis.at].top + lay.bands[vis.at].h - 6, shown = vis.at < 13;
     const elbow = e => { const my = Math.max(e.y1 + 14, e.y2 - BAND * 0.42); return `M${e.x1},${e.y1} V${my} H${e.x2} V${e.y2}`; };
     const byId = new Map(lay.nodes.map(n => [n.id, n]));
-    const lines = lay.edges.map(e => `<path d="${elbow(e)}" class="ct-edge${e.extinct ? ' ext' : ''}" stroke="${pal.of(byId.get(e.to))}"/>`).join('');
-    const tails = lay.nodes.filter(n => n.endY > n.y + 1).map(n => `<path d="M${n.x},${n.y} V${n.endY}" class="ct-tail${n.extinct ? ' ext' : ''}" stroke="${pal.of(n)}"/>` +
-      (n.extinct ? `<g class="ct-fossil" transform="translate(${n.x},${n.endY})"><title>Extinct</title><path d="M-6,-6 L6,6 M6,-6 L-6,6"/><circle r="9"/></g>`
-        : n.living ? `<circle class="ct-glow" cx="${n.x}" cy="${n.endY}" r="5" fill="${pal.of(n)}"><title>Still living</title></circle>` : '')).join('');
-    const dots = lay.nodes.map(n => {
+    const parents = new Set(vis.edges.map(e => e.from)), front = n => !gone(n) && !parents.has(n.id);      // a living line's visible end
+    const gone = n => n.extinct && (!shown || (n.extBand != null && n.extBand <= vis.at));      // extinct by the scrubbed time
+    const endOf = n => (gone(n) || !shown ? n.endY : Math.min(n.endY, cap));      // a line still running stops at the scrubbed time
+    const lines = vis.edges.map(e => `<path d="${elbow(e)}" class="ct-edge${e.extinct ? ' ext' : ''}" stroke="${pal.of(byId.get(e.to))}"/>`).join('');
+    const glows = vis.nodes.filter(n => front(n) && !(endOf(n) > n.y + 1)).map(n => `<circle class="ct-glow" cx="${n.x}" cy="${n.y}" r="4" fill="${pal.of(n)}"/>`).join('');
+    const tails = vis.nodes.filter(n => endOf(n) > n.y + 1).map(n => `<path d="M${n.x},${n.y} V${endOf(n)}" class="ct-tail${gone(n) ? ' ext' : ''}" stroke="${pal.of(n)}"/>` +
+      (gone(n) ? `<g class="ct-fossil" transform="translate(${n.x},${n.endY})"><title>Extinct</title><path d="M-6,-6 L6,6 M6,-6 L-6,6"/><circle r="9"/></g>`
+        : front(n) ? `<circle class="ct-glow" cx="${n.x}" cy="${endOf(n)}" r="5" fill="${pal.of(n)}"><title>Still living</title></circle>` : '')).join('');
+    const dots = vis.nodes.map(n => {
       const r = n.kind === 'creatures' ? 10 : 7, c = pal.of(n), on = n.id === sel;
-      const tag = [n.kind === 'creatures' ? 'creature' : 'lineage step', n.extinct ? 'extinct' : n.living ? 'living' : '', n.draft ? 'draft' : '', n.undated ? 'no date yet' : '', n.late ? 'dated before its ancestor' : ''].filter(Boolean).join(', ');
-      return `<g class="ct-node${n.kind === 'creatures' ? ' cr' : ''}${on ? ' sel' : ''}${n.extinct ? ' ext' : ''}${n.draft ? ' draft' : ''}" data-node="${esc(n.id)}" transform="translate(${n.x},${n.y})" tabindex="0" role="button" aria-pressed="${on}" aria-label="${esc(n.name)}, ${esc(tag)}">
-        ${on ? `<circle r="${r + 7}" class="ct-ring"/>` : ''}<circle r="${r}" fill="${n.extinct ? 'var(--ink-deep)' : c}" stroke="${c}" class="ct-dot"/>${n.cursed ? `<text class="ct-curse" x="${r + 3}" y="-${r - 2}">⛓</text>` : ''}
+      const tag = [n.kind === 'creatures' ? 'creature' : 'lineage step', gone(n) ? 'extinct' : n.tip ? 'living' : '', n.draft ? 'draft' : '', n.undated ? 'no date yet' : '', n.late ? 'dated before its ancestor' : ''].filter(Boolean).join(', ');
+      return `<g class="ct-node${n.kind === 'creatures' ? ' cr' : ''}${on ? ' sel' : ''}${gone(n) ? ' ext' : ''}${n.draft ? ' draft' : ''}" data-node="${esc(n.id)}" transform="translate(${n.x},${n.y})" tabindex="0" role="button" aria-pressed="${on}" aria-label="${esc(n.name)}, ${esc(tag)}">
+        ${on ? `<circle r="${r + 7}" class="ct-ring"/>` : ''}<circle r="${r}" fill="${gone(n) ? 'var(--ink-deep)' : c}" stroke="${c}" class="ct-dot"/>${n.cursed ? `<text class="ct-curse" x="${r + 3}" y="-${r - 2}">⛓</text>` : ''}
         <text class="ct-name" x="${r + 7}" y="5">${esc(n.name)}${n.undated ? ' ?' : ''}</text></g>`;
     }).join('');
-    return lines + tails + dots;
+    return lines + tails + (shown ? glows : '') + dots;
   }
-  function bandsSvg(lay, w, k, ty) {
-    return lay.bands.map(b => { const y = ty + b.top * k, h = b.h * k;
-      return `<rect x="0" y="${y}" width="${w}" height="${h}" class="ct-band${b.curse ? ' curse' : ''}${b.h === THIN ? ' thin' : ''}"/>` +
+  function bandsSvg(lay, w, k, ty, at) {
+    return lay.bands.map(b => { const y = ty + b.top * k, h = b.h * k, future = at != null && b.i > at;
+      return `<rect x="0" y="${y}" width="${w}" height="${h}" class="ct-band${b.curse ? ' curse' : ''}${b.h === THIN ? ' thin' : ''}${future ? ' future' : ''}${at != null && b.i === at ? ' now' : ''}"/>` +
         (h >= 14 ? `<text x="8" y="${y + Math.min(18, h - 4)}" class="ct-blabel${b.curse ? ' curse' : ''}">${esc(b.kind === 'epoch' ? (b.i + 1) + ' · ' + b.label : b.label)}${b.curse && h > 30 ? ' · curses ' + b.curse : ''}</text>` : ''); }).join('');
   }
 
   function mount(host, opts) {
     opts = opts || {};
-    let st = C().load(), lay = layout(st), by = opts.colourBy === 'cause' ? 'cause' : 'biome', sel = opts.sel || null, pal = colours(lay, by, st);
+    let at = 13, st = C().load(), lay = layout(st), by = opts.colourBy === 'cause' ? 'cause' : 'biome', sel = opts.sel || null, pal = colours(lay, by, st);
     const view = { k: 1, tx: 0, ty: 0 };
     const nN = lay.nodes.length;
     host.innerHTML = `<div class="ct">
@@ -129,17 +147,31 @@
         <button type="button" data-by="biome" aria-pressed="${by === 'biome'}" class="${by === 'biome' ? 'on' : ''}">Biome</button><button type="button" data-by="cause" aria-pressed="${by === 'cause'}" class="${by === 'cause' ? 'on' : ''}">Cause</button></div>
         <span class="ct-sp"></span><span class="ct-count">${nN} form${nN === 1 ? '' : 's'} · ${lay.chaos.length} of chaos</span>
         <div class="ct-zoom" role="group" aria-label="Zoom"><button type="button" data-z="in" aria-label="Zoom in">+</button><button type="button" data-z="out" aria-label="Zoom out">−</button><button type="button" data-z="fit" aria-label="Fit the tree">Fit</button></div></div>
-      <div class="ct-stage" tabindex="0" aria-label="The Tree of Descent. Drag or use the arrow keys to move, + and − to zoom, 0 to fit.">
+      <div class="ct-scrub"><label class="ct-lbl" for="ctAt">Time</label><button type="button" data-step="-1" aria-label="Earlier">◂</button>
+        <input type="range" id="ctAt" min="0" max="13" step="1" value="13" aria-valuetext="Now">
+        <button type="button" data-step="1" aria-label="Later">▸</button><button type="button" data-play aria-pressed="false">Play</button><button type="button" data-now>Now</button>
+        <div class="ct-when" aria-live="polite"></div></div>
+      <div class="ct-main"><div class="ct-stage" tabindex="0" aria-label="The Tree of Descent. Drag or use the arrow keys to move, + and − to zoom, 0 to fit.">
         <svg class="ct-svg" role="group" aria-label="Lineages, oldest at the top"><g class="ct-bands"></g><g class="ct-world"></g></svg>
         ${nN ? '' : '<p class="ct-empty">No lineages yet. Add a lineage step or a creature (the Creatures tab), or merge the Creature Log file from your vault.</p>'}
         </div>
-        ${lay.chaos.length ? `<aside class="ct-chaos" aria-label="Creatures of chaos"><b>∞ Creatures of chaos</b><small>beside the tree: deathless, descended from nothing</small>${lay.chaos.map(c => `<button type="button" data-node="${esc(c.id)}" class="${c.id === sel ? 'on' : ''}">${esc(c.name)}</button>`).join('')}</aside>` : ''}
+        ${lay.chaos.length ? `<aside class="ct-chaos" aria-label="Creatures of chaos"><b>∞ Creatures of chaos</b><small>beside the tree: deathless, descended from nothing</small>${lay.chaos.map(c => `<button type="button" data-node="${esc(c.id)}" class="${c.id === sel ? 'on' : ''}">${esc(c.name)}</button>`).join('')}</aside>` : ''}</div>
 <div class="ct-legend" aria-label="Legend"></div></div>`;
     const stage = host.querySelector('.ct-stage'), svg = host.querySelector('.ct-svg'), world = host.querySelector('.ct-world'), bandG = host.querySelector('.ct-bands');
-    const paint = () => { world.innerHTML = svgTree(lay, pal, sel);
+    const paint = () => { world.innerHTML = svgTree(lay, pal, sel, at); paintWhen();
       host.querySelector('.ct-legend').innerHTML = pal.legend.map(([l, c]) => `<span><i style="border-color:${c}"></i>${esc(l)}</span>`).join('') +
         '<span class="ct-key"><i class="g"></i>living · <i class="x">✕</i>extinct · ⛓ cursed</span>'; };
-    const apply = () => { const w = stage.clientWidth || 600; world.setAttribute('transform', `translate(${view.tx} ${view.ty}) scale(${view.k})`); bandG.innerHTML = bandsSvg(lay, w, view.k, view.ty); };
+    const rng = host.querySelector('#ctAt'), whenEl = host.querySelector('.ct-when');
+    const paintWhen = () => { const b = lay.bands[at], ev = bandEvents(at), shownN = visibleAt(lay, at).nodes.length;
+      rng.value = at; rng.setAttribute('aria-valuetext', b.label);
+      whenEl.innerHTML = `<b>${esc(b.kind === 'epoch' ? 'Epoch ' + (b.i + 1) + ' · ' + b.label : b.label)}${at === 13 ? ' · now' : ''}</b> <span class="ct-dim">${shownN} of ${nN} form${nN === 1 ? '' : 's'}</span>` +
+        (ev.length ? `<ul>${ev.map(e => `<li>${esc(e.title)}</li>`).join('')}</ul>` : '<span class="ct-dim"> · nothing on the timeline here yet</span>'); };
+    const apply = () => { const w = stage.clientWidth || 600; world.setAttribute('transform', `translate(${view.tx} ${view.ty}) scale(${view.k})`); bandG.innerHTML = bandsSvg(lay, w, view.k, view.ty, at === 13 ? null : at); };
+    let timer = null; const stopPlay = () => { if (timer) { clearInterval(timer); timer = null; } const pb = host.querySelector('[data-play]'); if (pb) { pb.setAttribute('aria-pressed', 'false'); pb.textContent = 'Play'; } };
+    const setAt = v => { at = Math.max(0, Math.min(13, v)); paint(); apply(); if (sel && !visibleAt(lay, at).nodes.some(n => n.id === sel) && lay.nodes.some(n => n.id === sel)) select(null); };
+    const play = () => { if (timer) return stopPlay(); const pb = host.querySelector('[data-play]'); pb.setAttribute('aria-pressed', 'true'); pb.textContent = 'Stop'; if (at >= 13) setAt(0);
+      timer = setInterval(() => { if (at >= 13) return stopPlay(); setAt(at + 1); }, 900); };
+    rng.addEventListener('input', () => { stopPlay(); setAt(parseInt(rng.value, 10)); });
     const clampK = k => Math.max(0.35, Math.min(2.5, k));
     const zoomAt = (f, cx, cy) => { const k = clampK(view.k * f), r = k / view.k; view.tx = cx - (cx - view.tx) * r; view.ty = cy - (cy - view.ty) * r; view.k = k; apply(); };
     const fit = () => { const shelf = lay.chaos.length && stage.clientWidth > 520 ? 170 : 0, w = (stage.clientWidth || 600) - shelf, h = stage.clientHeight || 500; const k = clampK(Math.min(1.2, Math.max(w / lay.width, 0.6), Math.max(h / lay.height, 0.55)));      // never so small the names blur: a wide tree pans instead
@@ -163,6 +195,8 @@
     const onWheel = e => { e.preventDefault(); const [x, y] = local(e); zoomAt(Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0015)), x, y); };
     const onClick = e => { const t = e.target.closest ? e.target : null; if (!t) return;
       const b = t.closest('[data-by]'); if (b) { by = b.dataset.by; pal = colours(lay, by, st); host.querySelectorAll('[data-by]').forEach(x => { const on = x.dataset.by === by; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); }); paint(); return; }
+      const sp = t.closest('[data-step]'); if (sp) { stopPlay(); setAt(at + parseInt(sp.dataset.step, 10)); return; }
+      if (t.closest('[data-play]')) { play(); return; } if (t.closest('[data-now]')) { stopPlay(); setAt(13); return; }
       const z = t.closest('[data-z]'); if (z) { const w = stage.clientWidth / 2, h = stage.clientHeight / 2; if (z.dataset.z === 'fit') fit(); else zoomAt(z.dataset.z === 'in' ? 1.25 : 0.8, w, h); return; }
       if (moved) { moved = false; return; }
       const n = t.closest('[data-node]'); if (n) select(n.dataset.node === sel && !n.closest('.ct-chaos') ? null : n.dataset.node); };
@@ -177,11 +211,11 @@
     let touched = false; stage.addEventListener('pointerdown', () => { touched = true; }); stage.addEventListener('keydown', () => { touched = true; }); stage.addEventListener('wheel', () => { touched = true; }, { passive: true });
     const ro = global.ResizeObserver ? new ResizeObserver(() => (touched ? apply() : fit())) : null;      // refit as the page settles, until the reader moves the tree if (ro) ro.observe(stage);
     return {
-      select, fit, setColour: v => { by = v === 'cause' ? 'cause' : 'biome'; pal = colours(lay, by, st); paint(); },
+      select, fit, setAt, setColour: v => { by = v === 'cause' ? 'cause' : 'biome'; pal = colours(lay, by, st); paint(); },
       reload: () => { st = C().load(); lay = layout(st); pal = colours(lay, by, st); paint(); apply(); },
-      destroy: () => { if (ro) ro.disconnect(); host.removeEventListener('click', onClick); }
+      destroy: () => { stopPlay(); if (ro) ro.disconnect(); host.removeEventListener('click', onClick); }
     };
   }
 
-  global.EpitaphCreatureTree = { layout, colours, mount, bandOf, bandList, _t: { causeLabel, BAND, THIN } };
+  global.EpitaphCreatureTree = { layout, colours, mount, bandOf, bandList, bandEvents, visibleAt, _t: { causeLabel, BAND, THIN } };
 })(typeof window !== 'undefined' ? window : globalThis);

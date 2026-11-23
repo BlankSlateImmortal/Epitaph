@@ -45,12 +45,13 @@
 .cl-link{ background:transparent; cursor:pointer; font:inherit; font-family:var(--f-crt); font-size:15px; } .cl-link:hover, .cl-link:focus-visible{ border-color:var(--amber); color:var(--amber-hi); outline:none; }
 /* the Tree of Descent (step 2.1, assets/epitaph-creature-tree.js) */
 .cl-tree{ flex:1; min-height:0; display:flex; }
-.ct{ position:relative; flex:1; min-width:0; display:flex; flex-direction:column; }
+.ct{ flex:1; min-width:0; display:flex; flex-direction:column; }
 .ct-bar{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; padding:6px 14px; border-bottom:1px solid var(--line); }
 .ct-lbl, .ct-count{ font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--dust); } .ct-sp{ flex:1; }
 .ct-tg, .ct-zoom{ display:flex; } .ct-tg button, .ct-zoom button{ font-family:var(--f-crt); font-size:17px; padding:1px 10px; min-width:32px; background:transparent; color:var(--dust); border:1px solid var(--amber-dim); cursor:pointer; }
 .ct-tg button + button, .ct-zoom button + button{ border-left:0; } .ct-tg button.on{ background:var(--amber); color:var(--ink-deep); border-color:var(--amber); }
 .ct-tg button:focus-visible, .ct-zoom button:focus-visible, .ct-stage:focus-visible, .ct-chaos button:focus-visible{ outline:2px solid var(--amber-hi); outline-offset:2px; }
+.ct-main{ position:relative; flex:1; min-height:0; display:flex; flex-direction:column; }
 .ct-stage{ position:relative; flex:1; min-height:240px; overflow:hidden; cursor:grab; touch-action:none; user-select:none; }
 .ct-stage.dragging{ cursor:grabbing; } .ct-svg{ position:absolute; inset:0; width:100%; height:100%; display:block; }
 .ct-band{ fill:transparent; stroke:rgba(255,178,56,.10); stroke-width:1; } .ct-band.curse{ fill:rgba(224,101,74,.06); } .ct-band.thin{ fill:rgba(255,178,56,.02); }
@@ -63,7 +64,7 @@
 .ct-node .ct-ring{ fill:none; stroke:var(--amber-hi); stroke-width:2; } .ct-node:focus-visible .ct-dot{ stroke:var(--amber-hi); stroke-width:4; }
 .ct-name{ font-family:var(--f-crt); font-size:16px; fill:var(--amber-hi); text-anchor:start; paint-order:stroke; stroke:var(--ink-deep); stroke-width:4px; stroke-linejoin:round; }
 .ct-node.ext .ct-name{ fill:#8a6a34; } .ct-node.sel .ct-name{ fill:#fff3d6; } .ct-curse{ font-size:12px; fill:var(--ember); }
-.ct-chaos{ position:absolute; right:10px; top:52px; width:150px; display:flex; flex-direction:column; gap:3px; padding:7px; border:1px dashed #b98ad8; background:rgba(5,4,3,.92); font-family:var(--f-crt); color:#b98ad8; cursor:default; }
+.ct-chaos{ position:absolute; right:10px; top:10px; width:150px; display:flex; flex-direction:column; gap:3px; padding:7px; border:1px dashed #b98ad8; background:rgba(5,4,3,.92); font-family:var(--f-crt); color:#b98ad8; cursor:default; }
 .ct-chaos b{ font-weight:400; font-size:16px; letter-spacing:.1em; } .ct-chaos small{ font-size:13px; color:#8a6a34; line-height:1.1; }
 .ct-chaos button{ text-align:left; font:inherit; font-size:16px; background:transparent; color:#d6b8ea; border:1px solid rgba(185,138,216,.4); padding:0 6px; cursor:pointer; } .ct-chaos button.on{ background:#b98ad8; color:var(--ink-deep); }
 .ct-legend{ display:flex; padding:4px 12px 6px; border-top:1px solid var(--line); flex-wrap:wrap; gap:2px 14px; font-family:var(--f-crt); font-size:15px; color:var(--dust); pointer-events:none; }
@@ -85,4 +86,19 @@
   .ct-chaos{ flex-direction:row; flex-wrap:wrap; align-items:center; position:static; width:auto; margin:0; border-width:1px 0 0; }
   .ct-chaos small{ display:none; }
   .cl-card{ left:6px; right:6px; bottom:6px; max-width:none; max-height:calc(100% - 12px); overflow:auto; padding:6px 9px; } .cl-card p{ display:none; } .cl-card b{ font-size:19px; }
+}
+/* the time scrubber (step 2.2) */
+.ct-scrub{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; padding:5px 14px; border-bottom:1px solid var(--line); }
+.ct-scrub button{ font-family:var(--f-crt); font-size:17px; padding:0 9px; min-width:30px; background:transparent; color:var(--dust); border:1px solid var(--amber-dim); cursor:pointer; } .ct-scrub button[aria-pressed=true]{ background:var(--amber); color:var(--ink-deep); }
+.ct-scrub button:focus-visible, .ct-scrub input:focus-visible{ outline:2px solid var(--amber-hi); outline-offset:2px; }
+.ct-scrub input[type=range]{ flex:1 1 180px; min-width:120px; accent-color:var(--amber); }
+.ct-when{ flex:1 0 100%; font-size:11.5px; color:var(--bone); } .ct-when b{ font-family:var(--f-crt); font-weight:400; font-size:18px; color:var(--amber-hi); } .ct-dim{ color:var(--dim); }
+.ct-when ul{ margin:2px 0 0; padding-left:16px; color:var(--dust); } .ct-when li{ margin:0; }
+.ct-band.future{ fill:rgba(0,0,0,.55); } .ct-band.now{ stroke:var(--amber); stroke-width:1.5; }
+@media (max-width:760px){ .ct-scrub{ padding:4px 8px; } .ct-scrub button{ min-height:36px; min-width:40px; } .ct-when ul{ display:none; } }
+@media (max-width:760px){
+  .cl:has(.cl-tree) .cl-bar .cl-new, .cl:has(.cl-tree) .cl-bar .cl-sp, .ct-count, .ct-scrub [data-step], .ct-scrub .ct-lbl{ display:none; }
+  .cl-tree{ overflow-y:auto; } .ct-main{ min-height:220px; } .ct-bar{ padding:4px 8px; gap:4px 8px; }
+  .ct-scrub input[type=range]{ flex:1 1 90px; } .ct-scrub button{ min-width:0; padding:0 8px; } .ct-when{ font-size:11px; }
+  .ct-legend{ font-size:12px; padding:3px 8px; } .ct-legend .ct-key{ display:none; }
 }
