@@ -37,9 +37,10 @@ made to show how deeply the world has been thought through.
 
 ## Phase 1 — Data: the world's history of life
 
-- [~] **1.1 Epochs.** 7 epochs from before the impact to chapter 1 (for example: the old world · the impact · the burning · the
+- [x] **1.1 Epochs.** 7 epochs from before the impact to chapter 1 (for example: the old world · the impact · the burning · the
   flood · the ice · the settling · the story's eve). Each epoch is a span on the shared timeline, with the world events that drive
   change in it. *Done when:* the user agrees the 7 epochs and their names.
+  *(Agreed 2026-11-22, a two-level shape: **seven epochs** from the start of everything to Epitaph, and **seven ages, A to G**, inside the Epitaph epoch, the last three following a curse's cycle. Names, timeline events and the tree's root are in the vault note `Exploratory Ideas/Lore/Creature Log Decisions 2026-11-22.md`. The scrubber (2.2) shows the epochs at equal widths and zooms into the ages.)*
 - [ ] **1.2 Biomes.** The biomes over time, matched to the map's regions (plains, hills, mountains, ice, impact mountains, the crater,
   coast, open sea, sunken land), grouped into 7 if they become a scale. Each biome has a start and end, and what changed it.
 - [ ] **1.3 Schema.** `assets/epitaph-creatures.js`. Two record types:
@@ -147,6 +148,8 @@ When the user says "get back to it" / "back to the plan":
 
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-22 — **1.1 done (Opus).** The user widened the epochs to the whole history (the myth through to Epitaph) and set the shape: seven **epochs**, then seven **ages A–G** inside Epitaph, and named the world the tree's trunk grows from. Details stay in the vault note (new lore). What it does to the plan: **2.2** scrubs epochs and zooms into the ages; **1.3** needs a node to carry an epoch *or* an age, and curses with stages; **1.5** starts its one full lineage from that root world; a timeline moment for that world is suggested (not added) so mutations can name it as a cause.
 
 - 2026-11-22 — **1.1 decisions from the user** (recorded in the vault: `Exploratory Ideas/Lore/Creature Log Decisions 2026-11-22.md`, kept out of the repo as new lore). Change comes from the energy and its mix of authorities as **curses**, which cycle Awakening → Fluctuation → Stabilization (the stages the item-curses note already uses), with conscious cursed creatures cycling fast; only people get skills; creatures of chaos sit apart and may tie to curses; the other faces are their own stories (the log covers the Earth island); the Hollow Reach question waits. Still to confirm: the epoch names and the scrubber's time scale (equal widths kept for now). **Consequence for 1.3:** the creature schema needs curses with stages, not abilities alone.
 
