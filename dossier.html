@@ -1216,6 +1216,7 @@
 <script src="assets/epitaph-checks.js?v=18"></script>
 <script src="assets/epitaph-codex-views.js?v=2"></script>
 <script src="assets/epitaph-mode.js?v=5"></script>
+<script src="assets/epitaph-nav.js?v=1"></script>
 <script src="published/epitaph-data.js"></script>
 <script src="assets/epitaph-reader-data.js?v=3"></script>
 </head>
@@ -1234,8 +1235,6 @@
     <div class="brand">EPITAPH // DOSSIER</div>
     <div class="actions">
       <button class="btn primary" id="newChapterTopBtn" type="button">New chapter</button>
-      <a class="btn ghost" id="readLink" href="read.html">Read</a>
-      <a class="btn ghost" id="atlasLink" href="atlas-3d.html">Map</a>
       <details class="nav-menu" id="dataMenu">
         <summary class="btn ghost">Data <span class="checks-badge" id="checksBadge" hidden></span> ▾</summary>
         <div class="nav-menu-panel">
@@ -3655,7 +3654,8 @@ function playHeroIntro(char){
 
 function renderPoster(){
   const char = getActiveCharacter();
-  const atlasLink = document.getElementById('atlasLink');
+  // the shared nav's Map link carries the open character (the nav may not be drawn yet: it applies EpitaphNavMapHref when it is)
+  const atlasLink = { set href(h){ window.EpitaphNavMapHref = h; const a = document.querySelector('#siteNav a[data-nav-key="map"], #siteFoot a[data-nav-key="map"]'); if(a) a.href = h; } };
   if(heroSphere){ heroSphere.stop(); heroSphere = null; }
   if(!char){
     if(atlasLink) atlasLink.href = 'atlas-3d.html';

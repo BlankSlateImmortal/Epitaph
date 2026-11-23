@@ -77,7 +77,8 @@ function inspect(WRITE_SEL, WRITE_WORD_SRC) {
     if (/search|filter|terminal|find|query|chapter|jump|ruler/i.test((el.id || '') + ' ' + (el.name || '') + ' ' + (el.placeholder || '') + ' ' + (el.getAttribute('aria-label') || ''))) return;
     writers.add(label(el));
   });
-  return { cls: document.documentElement.className, reader: !!window.EpitaphReaderData, through: window.EpitaphReaderData ? window.EpitaphReaderData.publishedThrough : 'none', writers: [...writers], text: document.body ? document.body.innerText : '' };
+  const navLinks = [...document.querySelectorAll('#siteNav a, [data-site-links] a, .fd-nav a, .back')].filter(vis).map(a => (a.textContent || '').trim().toLowerCase());
+  return { cls: document.documentElement.className, reader: !!window.EpitaphReaderData, through: window.EpitaphReaderData ? window.EpitaphReaderData.publishedThrough : 'none', writers: [...writers], navLinks, text: document.body ? document.body.innerText : '' };
 }
 
 async function visit(c, port, page, scenario) {
@@ -138,6 +139,11 @@ async function visit(c, port, page, scenario) {
           if (v.writers.length) fail(w, 'write controls visible: ' + v.writers.join(' | '));
           if (scenario === 'fixture' && /MUST-NOT-LEAK|Hiddenghost/.test(v.text)) fail(w, 'private or later text is on the page');
         }
+        // step 5.2: every page carries the site links; a reader never sees Muses
+        const nl = r.views[0].navLinks || [];
+        const need = STATIC(page) ? ['home', '← map'] : ['read', 'dossier', 'map', 'book', 'powers'];
+        need.filter(l => !nl.includes(l)).forEach(l => fail(where, 'nav link missing: ' + l));
+        if (nl.includes('muses')) fail(where, 'a reader sees the Muses link');
         const bad = r.keys.filter(k => !ALLOWED.test(k));
         if (bad.length) fail(where, 'stored in the real localStorage: ' + bad.join(', '));
         if (r.errors.length) fail(where, 'errors: ' + [...new Set(r.errors)].join(' || ').slice(0, 600));

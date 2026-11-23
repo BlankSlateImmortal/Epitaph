@@ -113,7 +113,7 @@ Then make the site a complete public web page, and make publishing new chapters 
 
 - [x] **5.1 Front door.** A landing page (`index.html` is the Dossier today): the title, a short "what is Epitaph", and the doors: Read,
   Dossier, Map, Book, Muses, Powers. Move the Dossier to its own path or keep it and add `home.html`: decide in this step.
-- [ ] **5.2 One navigation bar** on every page, and a consistent footer.
+- [x] **5.2 One navigation bar** on every page, and a consistent footer.
 - [ ] **5.3 Mobile and keyboard pass** (also site-encyclopedia 7.1): phone widths, focus order, both themes.
 - [ ] **5.4 Page basics.** Titles, descriptions, social preview image, favicon, `404.html`, `robots.txt`, `sitemap.xml`.
 - [ ] **5.5 Custom domain (optional).** The user buys it and sets DNS; add `CNAME`; turn on HTTPS in the repo settings.
@@ -141,6 +141,8 @@ When the user says "get back to it" and this is the active plan:
 
 ## Tweak log
 Newest first.
+
+- 2026-11-23 — 5.2 done (Sonnet). `assets/epitaph-nav.js`: one list of places (Home · Read · Dossier · Map · Book · Powers · Muses for the author only) drawn as a bar at the top and a footer on the Dossier, Read, Powers and Muses; on the Map it fills the header's `[data-site-links]` (no extra bar over the full-screen canvas); the 3D site scenes got a static Home link next to ← Map. Current page marked `aria-current`; a Skip-to-content link. The Dossier's own Read/Map buttons are gone (its Map link, now in the shared bar, still carries the open character via `EpitaphNavMapHref`). The front door keeps its own bar and footer (it is the hero page). Also fixed: the empty Read page told readers about the vault and Claude; readers now see "Chapter one is coming soon", the author the real steps (`publish.py`). Visitor test now checks every page's links and that readers never see Muses. All pass.
 
 - 2026-11-23 — 5.1 done (Opus). The user chose **C, chapter first** (of three mockups: terminal boot, door grid, chapter first) and **the front door at the root**: `index.html` is the front door, the Dossier moved to `dossier.html` (git mv; every link updated, including the Atlas's `epitaph-map.js` and `epitaph-links.js`). Old `index.html?char= / ?place= / ?creature= / ?book=` links forward to the Dossier. New `dossier.html?book=1` opens the book (the Book door). The hero picks the chapter from `chapters/index.json` and the reader's `epitaph-reader-last`: Start here (ch 1) · Continue (next unread) · Latest; before any chapter, "Coming soon" with Open the map. **Muses** is in the nav for the author only (0.2: not published). **Left out on purpose:** the Dossier hero's coordinates (they would name a story place readers haven't reached). **Waiting on the user:** the pitch, one paragraph in their own words, the `PITCH` line in `index.html`; empty = readers see nothing, the author sees a red reminder. The Japanese `第N章` ("chapter N") is generated from the number. Visitor test: front door added (reader mode, shows the published chapter, never the pitch reminder), the Dossier checks moved to `dossier.html`, the root-link forwarding checked; all pass.
 

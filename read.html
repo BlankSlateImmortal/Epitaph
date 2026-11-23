@@ -69,6 +69,7 @@
   @media (max-width:760px){ .toc{ position:static; max-width:none; max-height:none; } .prose{ font-size:18px; } }
 </style>
 <script src="assets/epitaph-mode.js?v=4"></script>
+<script src="assets/epitaph-nav.js?v=1"></script>
 <script src="published/epitaph-data.js"></script>
 <script src="assets/epitaph-reader-data.js?v=3"></script>
 </head>
@@ -77,12 +78,6 @@
 <div class="app">
   <div class="top-nav">
     <div class="brand">EPITAPH // CHAPTERS</div>
-    <div class="actions">
-      <a class="btn ghost" href="dossier.html">Dossier</a>
-      <a class="btn ghost" href="atlas-3d.html">Map</a>
-      <a class="btn ghost" href="muses.html">Muses</a>
-      <a class="btn ghost" href="powers.html">Powers</a>
-    </div>
   </div>
   <div class="layout">
     <nav class="toc" id="toc" aria-label="Chapters"></nav>
@@ -180,9 +175,11 @@
   }
   function empty(){
     toc.innerHTML = `<div><div class="kicker">Epitaph</div><h2>Chapters</h2></div>`;
-    main.innerHTML = `<div class="empty"><div class="kicker">Nothing published yet</div><h2>The first page is blank</h2>
-      <p>Chapters are written in the Obsidian vault, in <code>Chapters/</code> (copy the Chapter Template).</p>
-      <p>When one is ready, set <code>status: canon</code> in its properties and ask Claude to publish it. It runs <code>tools/sync-chapters.py</code>, which copies it here, and the chapter goes live when the pull request is merged.</p></div>`;
+    const author = !!(window.EpitaphMode && EpitaphMode.isAuthor());
+    main.innerHTML = `<div class="empty"><div class="kicker">Nothing published yet</div><h2>${author ? 'The first page is blank' : 'Chapter one is coming soon'}</h2>` + (author
+      ? `<p>Chapters are written in the Obsidian vault, in <code>Chapters/</code> (copy the Chapter Template).</p>
+      <p>When one is ready, set <code>status: canon</code> in its properties, make a snapshot in the Dossier, and run <code>python3 tools/publish.py</code>. See <code>docs/PUBLISHING.md</code>.</p>`
+      : `<p>The first chapter has not been published yet. In the meantime you can look around the <a href="atlas-3d.html">map</a>.</p>`) + `</div>`;
   }
   function route(){
     const m = location.hash.match(/^#ch-(\d+)/);
