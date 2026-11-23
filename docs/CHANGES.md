@@ -10,6 +10,7 @@ Type **`opcl`** (or follow a `creature:<id>` link) to open the Creature Log in t
 - **Edit in place.** Click any row to open its form; **Save**, **Cancel**, or **Delete** (asks twice). **+ Creature / + Lineage step / + Chaos form / + Biome / + Place** add your own. Pickers: descends from, when (epoch, age or a timeline event), cause, biomes, curses (the Library's, written in **opmk**), places, and **Eats** (the food links). The seven-step scales are clickable dots with their step names. **Approved** turns a draft into yours (a *drafts only* filter shows what is left).
 - **A place's curse is optional**: pick one from the Library, with its stage, when the story reaches it; until then it reads *curse not written yet* and Checks never flag it.
 - **The right page** is the world map with every located place plotted (filled = a curse is written).
+- **Both ways with the encyclopedia (step 6.1):** a creature's form lists the places whose Beasts tab names it (with the relation, e.g. "warded off"), each a link that opens that place's entry in the book; a place's form links to its own entry once you pick its *Encyclopedia place*.
 - **Links:** `creature:<id>` opens the log on that creature (the encyclopedia's Beasts tab uses it, and shows the creature's name as a link once it is in the log).
 - To start from the vault's file (example herd, 22 biomes, 305 infected places): Dossier → Data → Merge.
 

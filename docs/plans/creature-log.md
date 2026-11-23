@@ -100,7 +100,7 @@ made to show how deeply the world has been thought through.
 
 ## Phase 6 — Links into the rest of the site
 
-- [ ] **6.1 Site Encyclopedia.** The Range and lore sections link to places; places' Beasts tabs link back.
+- [x] **6.1 Site Encyclopedia.** The Range and lore sections link to places; places' Beasts tabs link back.
 - [ ] **6.2 Map layer.** A "Creatures" toggle on `atlas-3d.html`: ranges, migrations and sightings at the reader's chapter.
 - [ ] **6.3 Resources.** Creature-sourced resources (hides, venom, bone) shown on both sides.
 - [ ] **6.4 Dossier.** Characters' encounters, and creatures tied to a character's powers, link both ways.
@@ -149,6 +149,8 @@ When the user says "get back to it" / "back to the plan":
 
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-22 — **6.1 done (Sonnet), early (it was independent of the tree).** A creature's form lists the places whose Beasts tab names it (the encyclopedia's `creaturePlaces`, through the reader gate) and each opens that place's entry; a place's form links to its entry. The other direction (Beasts tab → log) was already done in 1.7. Checked in the real page both ways. Next: Phase 2, the tree.
 
 - 2026-11-22 — **1.7, 5.1 and 5.2 done (Sonnet).** `assets/epitaph-creature-ui.js` + `.css`: the Creature Log view behind `opcl`, with the editor and approve built together (so the user can add creatures before the tree exists): three tabs (Creatures nested under their ancestors, Biomes, Places), edit in place with pickers, add and delete, scales as dots, Library curses on creatures and a per-place optional curse, a drafts filter and an Approved toggle, the world map of places on the right page. `creature:<id>` links now open it (1.7). Tested in the real page (merge the vault file; edit and approve The Murmur; add a creature under it; give New York a curse; delete; follow a link; no console errors) and 8 new Node checks. One bug found and fixed on the way (the search text carried over between tabs). The book's `openCreatures` got a small patch (the other session's uncommitted book edits are left alone). **Not yet:** a reader's view (waits for discovery, 2.4), a place's encyclopedia link in the form is a plain picker. Next: Phase 2 (the tree). **2.1 is an Opus step (a new kind of view): switch models; the tree layout also wants mockups first.**
 

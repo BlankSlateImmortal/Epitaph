@@ -93,10 +93,25 @@
     }
     return `<div class="${cls}">${lab}${inner}</div>`;
   }
+  /** Links into the Site Encyclopedia (step 6.1): a creature lists the places whose Beasts tab names it; a place links to its own entry.
+   *  Read-only; a link opens the entry in the book (index.html's [data-open-entry]). */
+  function encyclopediaBlock(kind, rec) {
+    const S = global.EpitaphSites; if (!S || !rec.id) return '';
+    const name = id => { const p = W() && W().place(id); return p ? String(p.name).split(/\s+[—–-]\s+/).pop() : id; };
+    const link = id => `<button type="button" class="cl-chip cl-link" data-open-entry="${esc(id)}" title="Open ${esc(name(id))} in the Site Encyclopedia">${esc(name(id))} ▸</button>`;
+    if (kind === 'creatures' || kind === 'nodes') {
+      const ps = S.creaturePlaces ? S.creaturePlaces(rec.id) : [];
+      if (!ps.length) return '<div class="cl-enc"><span class="cl-fl">In the Site Encyclopedia</span><span class="cl-dim">No place\'s Beasts tab names this creature yet.</span></div>';
+      return `<div class="cl-enc"><span class="cl-fl">In the Site Encyclopedia: places whose Beasts tab names it</span>${ps.map(x => link(x.placeId) + (x.relation ? `<span class="cl-dim">${esc(label(S.BEAST_RELATIONS, x.relation).toLowerCase())}</span>` : '')).join(' ')}</div>`;
+    }
+    if (kind === 'places' && rec.sitePlaceId && S.get(rec.sitePlaceId)) return `<div class="cl-enc"><span class="cl-fl">In the Site Encyclopedia</span>${link(rec.sitePlaceId)}</div>`;
+    return '';
+  }
   function formHtml(kind, rec, isNew) {
     const spec = specFor(kind, rec), approved = rec.draft === false;
     return `<form class="cl-form" data-kind="${kind}" data-id="${esc(rec.id || '')}" data-new="${isNew ? 1 : ''}" novalidate>
       <div class="cl-grid">${spec.map(s => fieldHtml(s, s.k === '__eats' ? null : (s.t === 'sel' && s.when ? gp(rec, s.k) : gp(rec, s.k)), rec)).join('')}</div>
+      ${encyclopediaBlock(kind, rec)}
       <div class="cl-actions"><label class="cl-chk"><input type="checkbox" data-approved${approved ? ' checked' : ''}> Approved (I wrote or accept it; not a draft)</label>
         <span class="cl-sp"></span><span class="cl-err" role="alert"></span>
         ${isNew ? '' : '<button type="button" class="cl-del" data-del>Delete</button>'}<button type="button" class="cl-cancel" data-cancel>Cancel</button><button type="submit" class="cl-save">Save</button></div></form>`;

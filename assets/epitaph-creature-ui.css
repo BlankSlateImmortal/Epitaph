@@ -41,3 +41,5 @@
 .cl-map{ position:relative; flex:1; min-height:260px; background:var(--ink-deep); overflow:hidden; } .cl-map .se-cv, .cl-map .se-svg{ position:absolute; inset:0; width:100%; height:100%; }
 .book-panel.se-panel:has(.cl-map){ flex-direction:column; }
 @media (max-width:760px){ .cl-bar{ padding:6px 10px; } .cl-form{ padding:8px 10px 12px; } .cl-sub{ white-space:normal; } .cl-dot{ width:24px; height:24px; } .cl-tabs button, .cl-new{ min-height:36px; } }
+.cl-enc{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; padding-top:6px; border-top:1px dashed var(--line); } .cl-enc .cl-fl{ flex:1 0 100%; }
+.cl-link{ background:transparent; cursor:pointer; font:inherit; font-family:var(--f-crt); font-size:15px; } .cl-link:hover, .cl-link:focus-visible{ border-color:var(--amber); color:var(--amber-hi); outline:none; }
