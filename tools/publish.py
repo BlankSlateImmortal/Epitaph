@@ -144,6 +144,10 @@ def main():
         if run(['node', str(ROOT / 'tools' / 'visitor-test' / 'run.js')]).returncode != 0:
             roll_back()
             die('The visitor test failed, so the snapshot was not kept. Chapters in chapters/ were still synced; see the output above.')
+        say('   Author book views (opmk, opsp, switching between views)…')
+        if run(['node', str(ROOT / 'tools' / 'visitor-test' / 'author-book.js')]).returncode != 0:
+            roll_back()
+            die('The author book test failed, so the snapshot was not kept; see the output above.')
 
     # 7. show, ask, commit, ask, push
     say('\n6. What changed:')

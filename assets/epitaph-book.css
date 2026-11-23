@@ -322,3 +322,10 @@
 .mode-reader .se-edbar, .mode-reader .se-pen, .mode-reader .se-add, .mode-reader [data-se-new], .mode-reader [data-se-approve], .mode-reader [data-se-approveall], .mode-reader [data-se-undraft], .mode-reader [data-se-undo], .mode-reader [data-se-sheet-open], .mode-reader .cl-new[data-new], .mode-reader .cl-del, .mode-reader [data-edit]{ display:none !important; }
 /* Reader mode: the Dossier's (visually hidden) import and merge file pickers are not reachable either */
 .mode-reader #importFileInput, .mode-reader #mergeFileInput{ display:none !important; }
+
+/* opmk (Mark Library) and opsp (Skill Prospects) draw their boards on the book's page, like opl and ops */
+.book[data-view=marks] .bk-zoom, .book[data-view=prospects] .bk-zoom, .book[data-view=marks] #bkFit, .book[data-view=prospects] #bkFit{ display:none; }
+.bk-board{ position:absolute; inset:0; overflow:auto; padding:14px 18px 18px; box-sizing:border-box; }
+.bk-board .ed-head{ margin-bottom:10px; }
+.bk-board [data-sp-close], .bk-board [data-ml-close]{ display:none; }   /* the book's own Back button closes it */
+.bk-board .sp-board, .bk-board .ml-board{ grid-template-columns:minmax(190px,250px) 1fr; }

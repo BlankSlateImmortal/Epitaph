@@ -13,7 +13,8 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const Lib = () => global.EpitaphLibrary, M = () => global.EpitaphMarks;
   const canEdit = () => !(global.EpitaphMode && !global.EpitaphMode.canEdit());
-  const root = () => (typeof modalContent !== 'undefined' ? modalContent : null);
+  let host = null;   // the book's page when the board is opened inside the book; otherwise the page's modal
+  const root = () => host || (typeof modalContent !== 'undefined' ? modalContent : null);
   const q = s => root().querySelector(s);
   const st = () => (typeof state !== 'undefined' ? state : null);
   const chars = () => ((st() && st().characters) || []).filter(c => c && c.id);
@@ -134,7 +135,7 @@
     });
   }
   function wire() {
-    root().querySelectorAll('[data-ml-close]').forEach(b => b.addEventListener('click', () => { save(false); closeModal(); }));
+    root().querySelectorAll('[data-ml-close]').forEach(b => b.addEventListener('click', () => { if (host && window.EpitaphBook) { EpitaphBook.back(); return; } save(false); closeModal(); }));
     const nw = q('[data-ml-new]'); if (nw) nw.addEventListener('click', () => {
       if (!save(false)) return; const d = Lib().toDefinition(M().newMark('any')); d.name = 'New mark';
       Lib().update(l => { l.marks.push(d); }); select(d.id); redraw(true); const n = q('#mlMain [data-mlf="name"]'); if (n) { n.focus(); n.select(); } });
@@ -146,8 +147,15 @@
   function open() {
     if (!Lib() || !M()) return 'The Library is not available on this page.';
     if (!canEdit()) return 'The mark library is the author\'s: it is not part of the published site.';
-    if (!root() || typeof openModal !== 'function') return 'The board needs the Dossier page.';
     if (!find(sel)) select('');
+    if (window.EpitaphBook && EpitaphBook.mountBoard && EpitaphBook.isOpen()) {      // inside the book, like opl and ops
+      const count = Lib().get().marks.length;
+      EpitaphBook.mountBoard({ kind: 'marks', title: 'Mark Library', jp: '印', count, sub: 'blessings · curses · bindings you define once and copy',
+        note: "Blessings, curses and bindings you define once and copy to many items. This library is the author's and is not part of the published site. Changes save when you press Back.",
+        build: el => { host = el; root().innerHTML = shell(); wire(); return () => { try { save(false); } catch (e) { /* closing */ } host = null; }; } });
+      return 'Opening the mark library…';
+    }
+    if (!root() || typeof openModal !== 'function') return 'The board needs the Dossier page.';
     root().innerHTML = shell(); wire(); openModal({ wide: true });
     return 'Opening the mark library…';
   }
