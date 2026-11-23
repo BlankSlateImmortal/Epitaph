@@ -44,6 +44,7 @@
 .site-foot a{color:var(--dust,#b5904f);text-decoration:none}.site-foot a:hover,.site-foot a:focus-visible{color:var(--amber-hi,#ffd58a)}
 .site-foot nav{display:flex;gap:16px;flex-wrap:wrap}
 .site-skip{position:absolute;left:-999px;top:0;background:var(--amber,#ffb238);color:#080603;padding:8px 12px;z-index:100;font:12px var(--f-mono,monospace)}.site-skip:focus{left:8px;top:8px}
+@media(max-width:520px){.site-nav{padding:6px 8px;gap:0}.site-nav a{padding:8px 6px;letter-spacing:.04em;font-size:11px}.site-nav a[data-nav-key=home]{margin-right:2px;font-size:14px}.site-foot{padding:18px 8px 26px}}
 @media print{.site-nav,.site-foot,.site-skip{display:none}}`;
     (doc.head || doc.documentElement).appendChild(st);
   }

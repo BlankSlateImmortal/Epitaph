@@ -849,6 +849,8 @@
     transition: opacity 0.2s ease;
   }
   .loading-popup.visible{ opacity:1; pointer-events:auto; }
+  /* closed overlays must not take keyboard focus (Tab used to walk into the closed book and the loading popup) */
+  .loading-popup:not(.visible){ visibility:hidden; transition:opacity .2s ease, visibility 0s linear .2s; }
 
   /* ---- Lightweight toast notifications (upload/save failures, etc.) ---- */
   .toast-stack{
@@ -917,6 +919,7 @@
     perspective: 1600px;
   }
   .book-stage.active{ pointer-events:auto; }
+  .book-stage:not(.active){ visibility:hidden; }
 
   .book{
     position:relative;

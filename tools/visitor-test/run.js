@@ -99,6 +99,18 @@ async function visit(c, port, page, scenario) {
   for (let t = 0; t < 60; t++) { let done = false; try { done = await ev(() => document.readyState === 'complete' && location.href !== 'about:blank'); } catch (e) { /* navigating */ } if (done) break; await sleep(500); }
   await sleep(page.startsWith('atlas') || page.startsWith('sites/') ? 6000 : 2500);
   const views = [{ view: page, ...(await ev(inspect, WRITE_SEL, WRITE_WORD.source)) }];
+  // step 5.3, keyboard: Tab from the top of the page. The first stop is "Skip to content" (pages with the shared bar), and every stop
+  // after is something you can see (not hidden, not off-screen) and a real control.
+  const keys = [];
+  if (!STATIC(page) && !page.startsWith('atlas')) {
+    await ev(() => { document.activeElement && document.activeElement.blur(); window.scrollTo(0, 0); });
+    for (let i = 0; i < 12; i++) {
+      await s('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
+      await s('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
+      keys.push(await ev(() => { const e = document.activeElement; if (!e || e === document.body) return { none: true }; const r = e.getBoundingClientRect(), cs = getComputedStyle(e); return { tag: e.tagName.toLowerCase(), text: (e.textContent || e.value || e.getAttribute('aria-label') || '').trim().slice(0, 30), ok: r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && r.bottom > 0 && r.top < innerHeight + 2 && r.right > 0 && r.left < innerWidth + 2, ring: cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0 || cs.boxShadow !== 'none' || e.matches(':focus-visible') } }));
+    }
+  }
+  views[0].keys = keys;
   if (page === 'dossier.html') {
     // the book and each of its views, the way a reader would open them
     await ev(() => { if (typeof openTheBook === 'function') openTheBook(); });
@@ -118,6 +130,11 @@ async function visit(c, port, page, scenario) {
     const blocked = await ev(() => typeof runStorybookCommand === 'function' ? runStorybookCommand('changes') : '');
     views[0].help = { hasChanges: /<b>changes/i.test(help), hasExport: /<b>export/i.test(help), changesBlocked: /for the author/i.test(blocked) };
   }
+  // step 5.3: at a phone's width the page must not scroll sideways, and tabbing must reach visible controls
+  await s('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+  await sleep(700);
+  const phone = await ev(() => { const de = document.documentElement; const wide = [...document.body.querySelectorAll('*')].filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.right > innerWidth + 2 && getComputedStyle(e).position !== 'fixed' && !e.closest('[hidden],canvas,svg,pre,table,.scroll,[style*="overflow"]'); }).slice(0, 3).map(e => e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (e.className && typeof e.className === 'string' ? '.' + e.className.trim().split(/\s+/)[0] : '')); return { sw: de.scrollWidth, iw: innerWidth, wide }; });
+  views[0].phone = phone;
   const { entries } = await s('DOMStorage.getDOMStorageItems', { storageId: { securityOrigin: origin, isLocalStorage: true } });
   await c.send('Target.disposeBrowserContext', { browserContextId });
   return { page, scenario, views, keys: entries.map(e => e[0]), errors };
@@ -139,6 +156,14 @@ async function visit(c, port, page, scenario) {
           if (v.writers.length) fail(w, 'write controls visible: ' + v.writers.join(' | '));
           if (scenario === 'fixture' && /MUST-NOT-LEAK|Hiddenghost/.test(v.text)) fail(w, 'private or later text is on the page');
         }
+        const ks = r.views[0].keys || [];
+        if (ks.length) {
+          if (!/skip/i.test(ks[0].text || '')) fail(where, 'the first Tab stop is "' + ks[0].text + '", not Skip to content');
+          ks.forEach((k, i) => { if (k.none) { if (i < 4) fail(where, `Tab #${i + 1}: focus went nowhere`); } else if (!k.ok) fail(where, `Tab #${i + 1} landed on something you cannot see: ${k.tag} "${k.text}"`); });
+          if (new Set(ks.map(k => k.tag + k.text)).size < 4) fail(where, 'Tab keeps landing on the same few controls: ' + ks.map(k => k.text).join(' | '));
+        }
+        const ph = r.views[0].phone;
+        if (ph && !STATIC(page) && !page.startsWith('atlas') && ph.sw > ph.iw + 2) fail(where, `scrolls sideways on a phone (${ph.sw}px in ${ph.iw}px): ${ph.wide.join(', ')}`);
         // step 5.2: every page carries the site links; a reader never sees Muses
         const nl = r.views[0].navLinks || [];
         const need = STATIC(page) ? ['home', '← map'] : ['read', 'dossier', 'map', 'book', 'powers'];
@@ -157,7 +182,7 @@ async function visit(c, port, page, scenario) {
           if (scenario === 'fixture' && !r.views.some(v => /A test entry a visitor may read/.test(v.text))) fail(where, 'the open encyclopedia entry was not opened (its editors went unchecked)');
           if (scenario === 'fixture' && r.views[0].through !== 1) fail(where, 'publishedThrough is ' + r.views[0].through);
         }
-        console.log(`    ${where}  views:${r.views.length}  stored:[${r.keys.join(', ')}]`);
+        console.log(`    ${where}  phone:${r.views[0].phone ? r.views[0].phone.sw + "/" + r.views[0].phone.iw : "-"}  views:${r.views.length}  stored:[${r.keys.join(', ')}]`);
       }
     }
     {

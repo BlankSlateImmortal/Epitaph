@@ -26,6 +26,9 @@
   .fd-brand{ font-family:var(--f-display); font-size:30px; color:var(--amber); letter-spacing:.06em; }
   .fd-nav{ display:flex; flex-wrap:wrap; gap:8px; }
   .fd-nav .slant-btn{ font-size:12px; padding:7px 14px; }
+  .fd-skip{ position:absolute; left:-999px; top:0; background:var(--amber); color:#080603; padding:8px 12px; z-index:100; font:12px var(--f-mono); }
+  .fd-skip:focus{ left:8px; top:8px; }
+  .fd-hero h1:focus{ outline:none; }
   html:not(.is-author) .author-only{ display:none !important; }
 
   .fd-hero{ display:grid; grid-template-columns:auto 1fr auto; gap:44px; align-items:center; padding:70px 48px 50px; }
@@ -63,6 +66,7 @@
 <script src="assets/epitaph-mode.js?v=5"></script>
 </head>
 <body>
+<a class="fd-skip" href="#fdTitle">Skip to content</a>
 <header class="fd-top">
   <a class="fd-brand" href="index.html" aria-label="Epitaph, home">EPITAPH</a>
   <nav class="fd-nav" aria-label="Site">
@@ -80,7 +84,7 @@
     <div class="fd-num" id="fdNum" aria-hidden="true">01</div>
     <div>
       <div class="fd-kicker" id="fdKicker">CHAPTER 1 · <b>COMING SOON</b></div>
-      <h1 id="fdTitle">Coming soon</h1>
+      <h1 id="fdTitle" tabindex="-1">Coming soon</h1>
       <div class="fd-arc" id="fdArc" hidden></div>
       <p class="fd-pitch" id="fdPitch" hidden></p>
       <div class="fd-cta" id="fdCta">

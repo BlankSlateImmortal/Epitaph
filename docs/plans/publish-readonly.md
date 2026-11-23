@@ -114,7 +114,7 @@ Then make the site a complete public web page, and make publishing new chapters 
 - [x] **5.1 Front door.** A landing page (`index.html` is the Dossier today): the title, a short "what is Epitaph", and the doors: Read,
   Dossier, Map, Book, Muses, Powers. Move the Dossier to its own path or keep it and add `home.html`: decide in this step.
 - [x] **5.2 One navigation bar** on every page, and a consistent footer.
-- [ ] **5.3 Mobile and keyboard pass** (also site-encyclopedia 7.1): phone widths, focus order, both themes.
+- [x] **5.3 Mobile and keyboard pass** (also site-encyclopedia 7.1): phone widths, focus order, both themes.
 - [ ] **5.4 Page basics.** Titles, descriptions, social preview image, favicon, `404.html`, `robots.txt`, `sitemap.xml`.
 - [ ] **5.5 Custom domain (optional).** The user buys it and sets DNS; add `CNAME`; turn on HTTPS in the repo settings.
 - [ ] **5.6 Speed.** Lazy-load the heavy views (the 3D map, the book); check the first load on a phone.
@@ -141,6 +141,8 @@ When the user says "get back to it" and this is the active plan:
 
 ## Tweak log
 Newest first.
+
+- 2026-11-23 — 5.3 done (Sonnet). The book's own phone and keyboard pass was site-encyclopedia 7.1 (done 2026-11-22); this step covers the rest of the site. The visitor test now has a **phone check** (emulated 390px: no page scrolls sideways) and a **keyboard check** (Tab from the top: the first stop is Skip to content, every stop after is visible; 12 presses). It found one real bug: **Tab walked into the closed book and the loading popup** (invisible links: "Character Dossier", "World Map", "Muses"); both are now `visibility:hidden` when closed. Also: the front door got a skip link; the shared nav tightens to one row at 520px. Both themes: the Map's Paper theme was not re-audited here; the site-encyclopedia pass covered the book's. All pass. Not covered: screen-reader testing and the Map's canvas controls by keyboard.
 
 - 2026-11-23 — 5.2 done (Sonnet). `assets/epitaph-nav.js`: one list of places (Home · Read · Dossier · Map · Book · Powers · Muses for the author only) drawn as a bar at the top and a footer on the Dossier, Read, Powers and Muses; on the Map it fills the header's `[data-site-links]` (no extra bar over the full-screen canvas); the 3D site scenes got a static Home link next to ← Map. Current page marked `aria-current`; a Skip-to-content link. The Dossier's own Read/Map buttons are gone (its Map link, now in the shared bar, still carries the open character via `EpitaphNavMapHref`). The front door keeps its own bar and footer (it is the hero page). Also fixed: the empty Read page told readers about the vault and Claude; readers now see "Chapter one is coming soon", the author the real steps (`publish.py`). Visitor test now checks every page's links and that readers never see Muses. All pass.
 
