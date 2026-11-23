@@ -2,6 +2,13 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Beasts tab and the Creature Log (the entry's half) — step 6.3, part done
+
+The Creature Log isn't built yet, so only the encyclopedia's side exists:
+- **Creature names on the Beasts tab** are links into the Creature Log as soon as it registers a `creature` handler with `EpitaphLinks` and `EpitaphCreatures.byId(id)` returns the creature. Until then the name is plain text ("Opens in the Creature Log once it is built"); an id the log doesn't have says so.
+- **Also found in** lists the other places whose Beasts tab names the same creature (derived, nothing typed in), each a link to that place's entry, with the relation (feared, kept…). A reader gets only places they've reached and beasts the gate lets through; the author also sees hidden ones, dashed.
+- **For the Creature Log's Range tab:** `EpitaphSites.creaturePlaces(creature, recs, author)` returns every place that lists a creature, through the same gate, as `[{ placeId, relation, hidden }]`; the log can call it to link each place to its entry (`index.html?place=<id>`).
+
 ## Links from the Dossier to the entries — step 6.2
 
 A character's location in the Dossier links to the place's entry: **Read the entry →** beside the WHERE line of the Chapter codex page and beside *Where* in the Character brief (screen only: the copied brief text stays plain). Clicking it opens the Storybook on that entry, whether or not the book was already open. It uses the same rule as the Atlas links (`EpitaphSites.entryFor`): the place needs an entry, and a reader only gets it for a place they've reached. The `index.html?place=<id>` deep link now goes through the same function.

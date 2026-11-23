@@ -280,10 +280,24 @@ ${r.state === 'ongoing' ? 'still going' : r.state === 'unknown' ? 'ends later (n
     return { html, map: { resources: list } };
   }
 
+  /** A creature's name: a link into the Creature Log once it exists (and has this creature), plain text with a note until then. */
+  function creatureName(c, ref, log) {
+    const id = String(ref || '').replace(/^creature:/, ''), rec = log && typeof log.byId === 'function' ? log.byId(id) : null, known = !!rec;
+    const nm = esc(rec && rec.name ? rec.name : id.replace(/-/g, ' ').replace(/^./, ch => ch.toUpperCase()));
+    return known ? `<button type="button" class="se-link se-hi" data-ref="creature:${esc(id)}" title="Open in the Creature Log">${nm}</button>`
+      : `<span class="se-hi" title="${log ? 'Not in the Creature Log yet' : 'Opens in the Creature Log once it is built'}">${nm}</span>`;
+  }
+  /** "Also found in": the other places whose Beasts tab lists the same creature (derived, nothing typed in), through the reader gate. */
+  function alsoFound(c, ref) {
+    const others = c.Si.creaturePlaces(ref, c.recs, c.author).filter(x => x.placeId !== c.pid);
+    if (!others.length) return '';
+    return `<div class="se-row"><span class="se-lbl">Also found in</span>${others.map(x => `<button type="button" class="se-chip se-link-chip${x.hidden ? ' dash' : ''}" data-ref="place:${esc(x.placeId)}" title="${esc(c.name('place:' + x.placeId))}${x.relation ? ' · ' + esc(label('BEAST_RELATIONS', x.relation)) : ''}${x.hidden ? ' · hidden from readers' : ''}">${esc(c.name('place:' + x.placeId))}${x.relation ? ` <span class="se-dim">${esc(label('BEAST_RELATIONS', x.relation).toLowerCase())}</span>` : ''}</button>`).join('')}</div>`;
+  }
   function beasts(c) {
     const Si = c.Si, list = c.rec.beasts || [], log = global.EpitaphCreatures;
     const html = `
-      ${!list.length ? `<div class="se-banner">No creatures recorded here yet.${log ? '' : ' Ranges, nests and migrations come from the Creature Log, which isn\'t built yet.'}</div>` : list.map(b => card('', `<div class="se-row"><span class="se-hi">${esc(c.name(b.ref))}</span>${chip(label('BEAST_RELATIONS', b.relation), 'red')}</div>
+      ${!list.length ? `<div class="se-banner">No creatures recorded here yet.${log ? '' : ' Ranges, nests and migrations come from the Creature Log, which isn\'t built yet.'}</div>` : list.map(b => card('', `<div class="se-row">${creatureName(c, b.ref, log)}${chip(label('BEAST_RELATIONS', b.relation), 'red')}</div>
+        ${alsoFound(c, b.ref)}
         ${kv([['Wards here', (b.wards || []).map(w => chip(label('WARD_KINDS', w), 'fill')).join('')], ['Incidents', esc((b.incidents || []).map(i => i.text).join(' · '))], ['Beast trade', esc(b.trade)], ['Keepers', esc(b.keepers)], ['Pact', b.pact ? esc(b.pact.terms) : ''], ['Note', esc(c.txt(b.note))]])}`)).join('')}
       ${card('Kinds of ward · the seven', `<div class="se-row">${Si.WARD_KINDS.map(w => chip(w.label, list.some(b => (b.wards || []).includes(w.id)) ? 'fill' : '')).join('')}</div>`)}
       <div class="se-row"><span class="se-lbl">Relations</span>${Si.BEAST_RELATIONS.map(r => chip(r.label, list.some(b => b.relation === r.id) ? 'am' : '')).join('')}</div>`;

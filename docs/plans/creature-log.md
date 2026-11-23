@@ -58,6 +58,7 @@ made to show how deeply the world has been thought through.
   apex predators.
 - [ ] **1.5 Defaults from the lore.** Draft one full lineage first, root to living creature, every mutation caused, to prove the shape.
   Then the creatures the story already shows. *Done when:* one complete lineage is approved by the user.
+- [ ] **1.7 Hooks the Site Encyclopedia already waits for** (added 2026-11-22). Register `EpitaphLinks.register('creature', …)` and expose `EpitaphCreatures.byId(id)` (returns `{ id, name }` at least): the Beasts tab's creature names then become links. The Range tab lists a creature's places with `EpitaphSites.creaturePlaces(id)` and links each to `index.html?place=<id>`. Check that every creature id a Beasts tab names exists in the log (the `site-beast` Check is already in place).
 - [ ] **1.6 Storage, backup, checks.** Merge and export like the encyclopedia. Checks: a node with a missing parent, a mutation with no
   cause, a creature dated before its ancestor, a food-web link to a missing creature, an extinct creature sighted later.
 

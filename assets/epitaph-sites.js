@@ -222,6 +222,23 @@
     o.likelihood = Number.isInteger(o.likelihood) && o.likelihood >= 1 && o.likelihood <= 7 ? o.likelihood : 3;
     return o;
   }
+  /** Every place whose Beasts tab lists a creature (step 6.3): the "also found in" of the entry, and what the Creature Log's Range tab
+   *  calls to list a creature's places. `creature` is the id ('wyrm') or the ref ('creature:wyrm').
+   *  A reader sees only places they've reached and beasts the gate lets through (held or hidden ones stay out); the author sees every
+   *  place, with `hidden` marking the ones a reader wouldn't.
+   *  -> [{ placeId, relation, hidden }] sorted by place id. */
+  function creaturePlaces(creature, list, author) {
+    const id = String(creature || '').replace(/^creature:/, ''), recs = list || load(), asAuthor = author === undefined ? authoring() : !!author, out = [];
+    if (!id) return out;
+    const isIt = b => String(b.ref || '').replace(/^creature:/, '') === id;
+    recs.forEach(r => {
+      const raw = (r.beasts || []).find(isIt); if (!raw) return;
+      const pub = placeReached(r) && (forReader(r, undefined, { recs }).beasts || []).find(isIt);
+      if (asAuthor) out.push({ placeId: r.placeId, relation: raw.relation || null, hidden: !pub });
+      else if (pub) out.push({ placeId: r.placeId, relation: pub.relation || null, hidden: false });
+    });
+    return out.sort((x, y) => String(x.placeId).localeCompare(String(y.placeId)));
+  }
   /** May this viewer open this place's entry (step 6.1)? A place needs an entry, and a reader needs to have reached the place;
    *  the author may open any. Returns the place id to link to, or null. Looks through a city to the place that has an entry (a temple in a city). */
   function entryFor(place, list) {
@@ -773,6 +790,6 @@
     KEY, VERSION, BACKUP_KEY, STATUS, SCALES, SCALE_SETS, FORMS, ALLIANCE_KINDS, BEAST_RELATIONS, RESOURCE_CATEGORIES, RESOURCE_ROLES, FOUNDING_STAGES,
     MOTIVES, FACTION_KINDS, TIE_ENDINGS, TEMPERAMENTS, SOCIAL_SHAPES, WARD_KINDS, RUMOUR_INTENTS, TRIGGER_GROUPS,
     TABS, TAB_LABEL, DATA_TABS, DEFAULTS,
-    alliancesAt, tieBars, webAt, blocsAt, ringSeats, WHATIF_STATUS, normWhatIf, foundingProblems, foundingLayers, entryFor, whatIfRef, whatIfList, whatIfPile, whatIfLinks, whatIfLoops, storyOf, forReader, secretHolders, couldFind, plantPayoff, SECRET_REF, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, draftUpdatesIn, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
+    alliancesAt, tieBars, webAt, blocsAt, ringSeats, WHATIF_STATUS, normWhatIf, foundingProblems, foundingLayers, entryFor, creaturePlaces, whatIfRef, whatIfList, whatIfPile, whatIfLinks, whatIfLoops, storyOf, forReader, secretHolders, couldFind, plantPayoff, SECRET_REF, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, draftUpdatesIn, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
   };
 })(typeof window !== 'undefined' ? window : globalThis);
