@@ -1180,7 +1180,7 @@
   .mode-reader #mwOpenArc, .mode-reader #mwOpenKnowledge,
   .mode-reader a[href="#generationSection"], .mode-reader #generationSection{ display:none !important; }
 </style>
-<link rel="stylesheet" href="assets/epitaph-theme.css?v=32">
+<link rel="stylesheet" href="assets/epitaph-theme.css?v=33">
 <link rel="stylesheet" href="assets/epitaph-editors.css?v=8">
 <link rel="stylesheet" href="assets/epitaph-book.css?v=6">
 <link rel="stylesheet" href="assets/epitaph-codex-views.css?v=2">
@@ -2047,6 +2047,28 @@ function locationLabelFor(ref){
   const r = World && World.resolve(ref);
   return r ? r.label : '';
 }
+// ---- Site Encyclopedia links from a location (step 6.2): "Read the entry →" when the place has an entry this viewer may read
+function entryIdFor(ref){
+  const r = World && World.resolve(ref);
+  return r && r.place && window.EpitaphSites && EpitaphSites.entryFor ? EpitaphSites.entryFor(r.place) : null;
+}
+function entryLinkHtml(ref){
+  const id = entryIdFor(ref);
+  return id ? ` <a href="#" class="entry-link" data-open-entry="${escapeAttr(id)}">Read the entry →</a>` : '';
+}
+/** Open the Storybook on a place's entry (also used by the index.html?place=<id> link). */
+function openEntryInBook(placeId, tab){
+  const S = window.EpitaphSites, rec = S && S.get(placeId), T = window.EpitaphTimeline;
+  if(!rec || (T && !T.authorMode() && !S.placeReached(rec))) return false;
+  const show = () => { if(window.EpitaphBook && window.EpitaphSiteEntry){ EpitaphBook.openSites(); EpitaphSiteEntry.open(placeId, tab); } };
+  if(document.getElementById('theBook').classList.contains('open')) show();
+  else { openTheBook(); setTimeout(show, 1700); }
+  return true;
+}
+document.addEventListener('click', e => {
+  const a = e.target.closest && e.target.closest('[data-open-entry]');
+  if(a){ e.preventDefault(); openEntryInBook(a.dataset.openEntry); }
+});
 const linesOf = (text) => String(text || '').split('\n').map(x => x.trim()).filter(Boolean);
 
 // ---- One-time state migration to per-chapter state (schema v2) ----
@@ -2929,7 +2951,7 @@ function renderCodexPage(char, snap, animate){
       `<div class="codex-right crt-log">
         <p>&gt; FROM: ${Number.isInteger(snap.startChapter) ? escapeHtml(chapterLabel(snap.startChapter)) : '<span class="flag">⚠ start chapter not set — Edit chapter</span>'}</p>
         <p>&gt; PRESENCE: ${snap.presence === 'alive' ? 'Alive' : `<span class="presence-${snap.presence}">${escapeHtml(PRESENCE_LABEL[snap.presence].toUpperCase())}</span>`}</p>
-        <p>&gt; WHERE: ${where ? escapeHtml(where) : '<span class="dim">not set</span>'}</p>
+        <p>&gt; WHERE: ${where ? escapeHtml(where) + entryLinkHtml(snap.location) : '<span class="dim">not set</span>'}</p>
         <p>&gt; WANTS: ${snap.objective ? escapeHtml(snap.objective) : '<span class="dim">not set</span>'}</p>
         <p class="sep">— CONDITION —</p>
         ${snap.condition.length ? snap.condition.map(x => `<p>&gt; ${escapeHtml(x)}${isNew('condition', x)}</p>`).join('') : `<p class="dim">&gt; nothing noted</p>`}
@@ -3324,7 +3346,7 @@ function buildBrief(char, snap){
     rows: [
       { label: 'Archetype', text: arch + (prev && prevArch !== arch ? ` (was: ${prevArch})` : '') + (prev && prevArch !== arch && snap.archetypeReason ? ` — ${snap.archetypeReason}` : '') },
       { label: 'Presence', text: PRESENCE_LABEL[snap.presence] || 'Alive' },
-      { label: 'Where', text: locationPath(snap.location) || 'not set' },
+      { label: 'Where', text: locationPath(snap.location) || 'not set', loc: snap.location },
       { label: 'Wants', text: snap.objective || 'not set' },
       { label: 'Heading toward', text: snap.headingToward || '—' },
       { label: 'Condition', items: (snap.condition || []).map(t => ({ text: t, tag: chg.isNew('condition', t) ? 'new' : '' })) },
@@ -3371,7 +3393,7 @@ function briefPanelsHtml(char, snap, b, tagHtml){
   const row = l => b.rows.find(r => r.label === l);
   const val = r => r.items
     ? (r.items.length ? `<ul class="bf-list">${r.items.map(x => `<li>${escapeHtml(x.text)}${tagHtml(x.tag)}</li>`).join('')}</ul>` : '<p class="bf-dim">—</p>')
-    : `<p class="${/^(not set|—)/.test(r.text) ? 'bf-dim' : ''}">${escapeHtml(r.text)}</p>`;
+    : `<p class="${/^(not set|—)/.test(r.text) ? 'bf-dim' : ''}">${escapeHtml(r.text)}${r.loc ? entryLinkHtml(r.loc) : ''}</p>`;
   const arch = row('Archetype');
   const type = (RACES.find(r => r.id === char.race) || {}).label || '';
   const p = snap.power || {};
@@ -6258,11 +6280,7 @@ modalBackdrop.addEventListener('click', (e) => {
   // index.html?place=<id>[&tab=history]: open the Site Encyclopedia on that place's entry (links from the Atlas close-up and record panel)
   const placeId = params.get('place');
   if(placeId){
-    const S = window.EpitaphSites, rec = S && S.get(placeId), T = window.EpitaphTimeline;
-    if(rec && (!T || T.authorMode() || S.placeReached(rec))){
-      openTheBook();
-      setTimeout(() => { if(window.EpitaphBook && window.EpitaphSiteEntry){ EpitaphBook.openSites(); EpitaphSiteEntry.open(placeId, params.get('tab')); } }, 1700);
-    }
+    openEntryInBook(placeId, params.get('tab'));
   }
 })();
 

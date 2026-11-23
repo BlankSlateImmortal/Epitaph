@@ -2,6 +2,10 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Links from the Dossier to the entries — step 6.2
+
+A character's location in the Dossier links to the place's entry: **Read the entry →** beside the WHERE line of the Chapter codex page and beside *Where* in the Character brief (screen only: the copied brief text stays plain). Clicking it opens the Storybook on that entry, whether or not the book was already open. It uses the same rule as the Atlas links (`EpitaphSites.entryFor`): the place needs an entry, and a reader only gets it for a place they've reached. The `index.html?place=<id>` deep link now goes through the same function.
+
 ## Links from the Atlas to the entries — step 6.1
 
 - **Read the entry →** in a place's close-up footer (next to *Open the site*), and in a character's close-up when they stand at a place that has an entry.

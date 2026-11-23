@@ -937,3 +937,7 @@ a.from-tag:hover, a.from-tag:focus-visible{ text-decoration:underline; }
 .ml-copies li{ display:flex; justify-content:space-between; gap:8px; border:1px solid var(--line); border-left:3px solid var(--line); padding:5px 8px; font-size:13px; }
 .ml-copies li.sync{ border-left-color:#8fd19a; } .ml-copies li.drift{ border-left-color:var(--ember); }
 .ml-copies li small{ color:var(--dust); white-space:nowrap; } .ml-copies li.drift small{ color:var(--ember); }
+
+/* "Read the entry →": a place link beside a character's location (Site Encyclopedia, step 6.2) */
+.entry-link{ font-family:var(--f-crt); font-size:.85em; color:var(--verdigris, #6fb8a8); text-decoration:none; border-bottom:1px dotted currentColor; margin-left:6px; white-space:nowrap; }
+.entry-link:hover, .entry-link:focus-visible{ color:var(--amber-hi, #ffd58a); outline:none; }
