@@ -140,9 +140,9 @@ When the user says "get back to it" and this is the active plan:
 3. After working: tick the steps, add a tweak-log line.
 
 ## Tweak log
+Newest first.
 
 - 2026-11-23 — 3.3 done (Sonnet). In reader mode the book hides the Library item editor (a read-only card instead), the skill editors and "+ Root skill", the Site Encyclopedia edit bar, pens, approve and undo, and the Creature Log add/edit/delete buttons; the help text and commands drop the author-only ones (changes, export, history rollback); the automatic save helpers do not run. Checked headless with `?author=0`: the page loads as `mode-reader` with no errors. Full visitor test is 3.5.
-Newest first.
 
 - 2026-11-21 — **For 3.3 (the book), the author's rule: item information updates when the author WRITES the reveal, not by the chapter version being viewed.** Pass
   the reader's position (`EpitaphTimeline.readerChapter()`, none = everything published) as `asOf` (not the viewed chapter; corrected the same day) (`EpitaphItemFields.badgesHtml(item, entry, { wip: false, asOf })`, `EpitaphLibrary.rankAt(item, entry, asOf)`), leave out states whose
