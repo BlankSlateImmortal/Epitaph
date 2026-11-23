@@ -329,3 +329,49 @@
 .bk-board .ed-head{ margin-bottom:10px; }
 .bk-board [data-sp-close], .bk-board [data-ml-close]{ display:none; }   /* the book's own Back button closes it */
 .bk-board .sp-board, .bk-board .ml-board{ grid-template-columns:minmax(190px,250px) 1fr; }
+
+/* ---- opsp: the grimoire (assets/epitaph-prospects.js, drawBook). Left page: contents + one spell page per prospect; right page: the editor. ---- */
+.book[data-view=prospects] .bk-board{ padding:0; overflow:hidden; }
+.gr{ position:absolute; inset:0; display:grid; grid-template-columns:minmax(128px,170px) 1fr; background:radial-gradient(ellipse at 60% 40%, #1a1209, #080603 75%); }
+.gr-toc{ border-right:1px solid var(--line); padding:14px 10px 12px; display:flex; flex-direction:column; gap:8px; min-height:0; }
+.gr-toc h4{ margin:0; font:400 15px var(--f-crt); letter-spacing:.3em; color:var(--amber); }
+.gr-toc input{ width:100%; background:#0b0805; border:1px solid var(--line); color:var(--bone); font:12px var(--f-mono); padding:6px 7px; }
+.gr-toc-list{ flex:1; min-height:0; overflow:auto; display:flex; flex-direction:column; gap:1px; }
+.gr-toc-list a{ display:flex; align-items:baseline; gap:7px; padding:5px 6px; color:var(--dust); text-decoration:none; border-left:2px solid transparent; font:11px var(--f-mono); }
+.gr-toc-list a b{ font:400 15px/1.15 'Pirata One', serif; color:var(--bone); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.gr-toc-list a:hover, .gr-toc-list a:focus-visible{ background:var(--amber-ghost); outline:none; }
+.gr-toc-list a.on{ border-left-color:var(--amber); background:var(--amber-ghost); }
+.gr-toc-list a.on b{ color:var(--amber-hi); }
+.gr-toc-list a.cor b, .gr-toc-list a i{ color:#d98b7a; font-style:normal; }
+.gr-empty{ font:12px var(--f-mono); color:var(--dust); margin:4px; }
+.gr-desk{ position:relative; min-width:0; min-height:0; padding:18px 26px; display:grid; }
+.gr-page{ position:relative; border:1px solid rgba(255,178,56,.35); background:linear-gradient(160deg, rgba(255,178,56,.07), rgba(0,0,0,.2)); box-shadow:inset 0 0 60px rgba(0,0,0,.7);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:26px 26px 58px; overflow:auto; text-align:center; }
+.gr-page::before, .gr-page::after{ content:''; position:absolute; inset:8px; border:1px solid rgba(255,178,56,.15); pointer-events:none; }
+.gr-page::after{ inset:14px; border-style:dashed; border-color:rgba(255,178,56,.1); }
+.gr-page.cor{ border-color:rgba(217,120,100,.45); }
+.gr-ribbon{ position:absolute; top:-1px; right:46px; width:20px; height:70px; background:#a3271b; clip-path:polygon(0 0,100% 0,100% 100%,50% 84%,0 100%); }
+.gr-ord{ font:400 15px var(--f-crt); letter-spacing:.4em; color:var(--amber-dim); }
+.gr-ord b{ color:#d98b7a; font-weight:400; }
+.gr-sig{ width:min(230px, 32vh); aspect-ratio:1; display:grid; place-items:center; position:relative; flex:none; }
+.gr-sig svg{ position:absolute; inset:0; width:100%; height:100%; }
+.gr-sig span{ font:900 clamp(56px, 11vh, 96px)/1 'Noto Serif JP', var(--f-display), serif; color:var(--amber); text-shadow:0 0 18px rgba(255,178,56,.55); }
+.gr-page.cor .gr-sig span{ color:#e0907c; text-shadow:0 0 18px rgba(217,120,100,.5); }
+.gr-name{ margin:4px 0 0; font:400 clamp(36px, 6vh, 58px)/1 'Pirata One', serif; color:var(--bone); text-shadow:0 2px 0 #000; overflow-wrap:anywhere; }
+.gr-lv{ display:flex; gap:8px; margin-top:4px; }
+.gr-lv i{ width:13px; height:13px; transform:rotate(45deg); border:1px solid var(--amber); }
+.gr-lv i.on{ background:var(--amber); box-shadow:0 0 8px rgba(255,178,56,.6); }
+.gr-from{ font:11px var(--f-mono); color:var(--dust); letter-spacing:.08em; }
+.gr-from a{ color:var(--amber); text-decoration:none; border-bottom:1px dotted var(--amber-dim); }
+.gr-from a:hover, .gr-from a:focus-visible{ color:var(--amber-hi); outline:none; }
+.gr-desc{ max-width:46ch; margin:6px 0 0; font:italic 14px/1.5 'Source Serif 4', serif; color:var(--dust); }
+.gr-turn{ position:absolute; left:16px; right:16px; bottom:14px; display:flex; justify-content:space-between; gap:12px; }
+.gr-turn button{ background:none; border:0; color:var(--amber); font:400 16px var(--f-crt); letter-spacing:.18em; cursor:pointer; padding:4px 6px; max-width:48%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-transform:uppercase; }
+.gr-turn button:hover, .gr-turn button:focus-visible{ color:var(--amber-hi); outline:1px solid var(--amber-dim); }
+.gr-blank p{ max-width:40ch; font:14px/1.5 'Source Serif 4', serif; color:var(--dust); }
+.gr-editor{ padding:4px 18px 18px; }
+.gr-editor .sp-form{ display:grid; gap:10px; }
+@media (max-width:760px){ .gr{ grid-template-columns:1fr; grid-template-rows:auto 1fr; } .gr-toc{ border-right:0; border-bottom:1px solid var(--line); max-height:150px; } .gr-desk{ padding:10px; } }
+.book .gr-page h3.gr-name{ font:400 clamp(36px, 6vh, 58px)/1 'Pirata One', serif; text-transform:none; letter-spacing:.01em; color:var(--bone); }
+.book .gr-editor .sp-form .ed-field input[data-spf="glyph"]{ font-family:'Noto Serif JP', serif !important; font-size:20px; text-align:center; }
+.gr-sig span:not(:lang(ja)){ font-family:'Pirata One', serif; }

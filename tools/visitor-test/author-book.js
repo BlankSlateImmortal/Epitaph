@@ -24,7 +24,7 @@ let fails = 0; const check = (ok, what) => { if (!ok) { fails++; console.log('FA
   await s('Page.navigate', { url: `http://127.0.0.1:${port}/dossier.html` }); await sleep(4000);
   const ev = async e => { const r = await s('Runtime.evaluate', { expression: e, returnByValue: true, awaitPromise: true }); if (r.exceptionDetails) throw new Error(JSON.stringify(r.exceptionDetails).slice(0, 300)); return r.result.value; };
   const run = async c => { await ev(`runStorybookCommand(${JSON.stringify(c)})`); await sleep(1800); };
-  const st = () => ev(`(() => { const b = document.getElementById('theBook'), pn = document.getElementById('bookPanel'); return { view: b.dataset.view || null, board: !!document.querySelector('#bkBoard .sp-board'), modal: document.getElementById('modalBackdrop').classList.contains('visible'), panel: pn.className, drafts: EpitaphLibrary.get().skillDrafts.map(d => d.name), marks: EpitaphLibrary.get().marks.length }; })()`);
+  const st = () => ev(`(() => { const b = document.getElementById('theBook'), pn = document.getElementById('bookPanel'); return { view: b.dataset.view || null, board: !!document.querySelector('#bkBoard .sp-board, #bkBoard .gr'), modal: document.getElementById('modalBackdrop').classList.contains('visible'), panel: pn.className, drafts: EpitaphLibrary.get().skillDrafts.map(d => d.name), marks: EpitaphLibrary.get().marks.length }; })()`);
   try {
     await ev('openTheBook()'); await sleep(3500);
     await run('opmk'); let x = await st();
@@ -36,6 +36,24 @@ let fails = 0; const check = (ok, what) => { if (!ok) { fails++; console.log('FA
     check(x.view === null && x.drafts.includes('Regression prospect'), 'a prospect written in the book is saved when you press Back');
     await run('opmk'); await ev(`document.querySelector('.sp-new').click()`); await ev(`document.getElementById('bkBack').click()`); await sleep(600); x = await st();
     check(x.marks === 1, 'a mark written in the book is saved when you press Back');
+    // the grimoire (opsp): pages in root-to-branch order, turning by button and by arrow key, the editor on the right page
+    await ev(`EpitaphLibrary.update(l => { l.skillDrafts = []; [['Beta root', ''], ['Alpha root', ''], ['Beta child', 'Beta root']].forEach(([n, p]) => l.skillDrafts.push(EpitaphLibrary.normalizeSkillDraft({ name: n, parent: p, level: 2 }))); })`);
+    await run('opsp');
+    const g = () => ev(`(() => ({ toc: [...document.querySelectorAll('#grToc [data-sp] b')].map(b => b.textContent), page: (document.querySelector('.gr-name') || {}).textContent, panel: (document.querySelector('#bookPanel .gr-panel-name') || {}).textContent, editor: !!document.querySelector('#bookPanel #spMain [data-spf=name]') }))()`);
+    let gx = await g();
+    check(JSON.stringify(gx.toc) === JSON.stringify(['Alpha root', 'Beta root', 'Beta child']), 'grimoire contents run root to branch: ' + gx.toc.join(', '));
+    check(gx.page === 'Alpha root' && gx.panel === 'Alpha root' && gx.editor, 'the first page is open, with its editor on the right page');
+    await ev(`document.querySelector('[data-gr-turn="1"]').click()`); await sleep(300); gx = await g();
+    check(gx.page === 'Beta root', 'the turn button goes to the next page');
+    await ev(`(() => { const b = document.getElementById('bkBoard'); b.focus(); b.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })); })()`); await sleep(300); gx = await g();
+    check(gx.page === 'Beta child', 'the right arrow key turns the page');
+    await ev(`(() => { const n = document.querySelector('#spMain [data-spf=name]'); n.value = 'Beta child renamed'; n.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+    gx = await g(); check(gx.page === 'Beta child renamed', 'the page name follows the name as you type it');
+    await ev(`document.querySelector('[data-gr-turn="-1"]').click()`); await sleep(300);
+    check((await ev(`EpitaphLibrary.get().skillDrafts.map(d => d.name).includes('Beta child renamed')`)), 'turning the page saves what you typed');
+    check(!(await st()).modal, 'the grimoire never opens the pop-up');
+    await ev(`document.getElementById('bkBack').click()`); await sleep(500);
+
     // switching by command leaves nothing behind
     await run('opse'); await ev(`(() => { const S = EpitaphSites, r = S.load()[0]; const id = r ? r.placeId : EpitaphWorld.places().find(p => p.fictional).id; EpitaphSiteEntry.open(id, 'overview'); })()`); await sleep(1200);
     check((await st()).panel.includes('se-panel'), '(setup) an open encyclopedia entry marks the right panel');

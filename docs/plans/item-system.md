@@ -377,6 +377,8 @@ When the user says "get back to it" / "back to the plan":
 
 Newest first. One line each: date, what changed, and what it does to the plan.
 
+- 2026-11-23 — **opsp is a grimoire** (Opus; the user picked it from mockups over a card tree and a card table). Inside the book the skill prospects are an open grimoire: the left page has the contents (root to branch, so each prospect follows what it grows from; corrupted ones in red with ✕; a search box) and one spell page per prospect (sigil ring around its glyph, the name in the skill tree's blackletter, seven level diamonds, what it grows from and its branches as links, a red ribbon), turned with ◂ ▸ or the arrow keys; the right page is the existing editor (Save, Duplicate, Delete, Assign, Who could take it), unchanged. Outside the book it is still the modal board. Next: **opmk as cards** (the user chose cards over a jewel cabinet).
+
 - 2026-11-21 — **6.6 done (Sonnet): the item plan is complete (all 32 steps).** The vault notes and the repo are updated; next is the continuity list for the user.
 
 - 2026-11-21 — **6.5 done (Sonnet).** Next: 6.6 (Sonnet), the last step of the plan.
