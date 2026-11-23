@@ -88,7 +88,7 @@ made to show how deeply the world has been thought through.
 
 - [ ] **4.1 World over time.** The same scrubber on a small globe or the map: the crater cooling, coasts drowning, ice spreading
   (reuse the map's era data where it fits).
-- [ ] **4.2 Food web.** Who eats whom at the scrubbed epoch; keystones and apex predators marked.
+- [x] **4.2 Food web.** Who eats whom at the scrubbed epoch; keystones and apex predators marked.
 - [ ] **4.3 Cause-and-effect chains.** Readable chains ("the flood drowned the plains → grazers moved to the impact mountains →
   their predators grew climbing claws"), each step linking to its node or event.
 
@@ -149,6 +149,8 @@ When the user says "get back to it" / "back to the plan":
 
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-23 — **4.2 done (Sonnet).** The user picked **AE** (food web in levels) from Round 10, **AC** (one big map with the age scrubber) for 4.1, and said AF (cause and effect chains) is fine for 4.3. New `assets/epitaph-creature-web.js` and a **Web** tab (authors and readers): levels from what eats nothing up to apex hunters, apex and keystone marked, 14 time chips, a side card with what a creature eats, what eats it and what would starve without it, and what changed since the band before. 10 Node checks; real page checked as author and reader. **Next: 4.1 (world over time, layout AC; Sonnet), then 4.3 (Opus).**
 
 - 2026-11-23 — **3.5 done (Sonnet).** Migration routes (dashed lines on the page's map, edited as `lat,lng; …` rows) and sightings (red rings with the chapter) join the range map. Sightings are already gated by chapter (2.4); routes are shown with the creature. 2 new Node checks. **Phase 3 now waits only on the two Opus steps (3.3 the drawing, 3.7 field notes) and the trait-power answer.** Next: Phase 4 starts with 4.1 (world over time, a Sonnet step), 4.2 (food web view, a new kind of view: Opus + mockups).
 

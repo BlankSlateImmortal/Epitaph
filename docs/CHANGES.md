@@ -2,6 +2,18 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Creature Log: the Food Web (assets/epitaph-creature-web.js) — step 4.2
+
+A **Web** tab in the Creature Log (layout AE from Round 10): who eats whom at a chosen time, **in levels**. What eats nothing in the log sits on the bottom row; each creature sits one level above the highest thing it eats; apex hunters are at the top. Lines run from the eater to what it eats (arrowhead on the eaten). **APEX** (eats, and nothing eats it) and **KEYSTONE** (the only food of two or more, or eaten by four or more) are marked, using the food-web rules from step 1.4.
+
+- **Time:** a row of 14 chips (the seven epochs, then ages A–G). A creature is in the web from the time it appears until it dies out, and a link is in force only while both ends are alive.
+- **Picking a creature** (click, or Tab and Enter) fills the right page: what it eats, what eats it, and **what would starve if it vanished** (the chain, from the food-web rules), plus **Open page ▸**. Below it, what changed since the band before (who appeared, who died out, links begun or ended) and a key for the roles.
+- **Built from the log's own links** (a creature's *Eats* list): nothing is invented. A creature with no link sits on the bottom row with a dashed box; a lineage step shows only if a link names it. With no links at all, the page says so and where to add them.
+- **Readers** get a Web tab beside the Tree, built from the gated copy (step 2.4): only creatures they've found, and links to anything else are dropped.
+- **Phone:** the chips wrap, the terminal hides, and the picked creature's card sits under the web.
+
+Tests: `tools/site-tests/test-creature-web.js` (10 checks: levels, roles, time, loops, dropped links, changes), and the real page as author (tab, pick, scrub, Open page) and as a reader.
+
 ## Creature Log: the creature page, "the field journal" (assets/epitaph-creature-page.js) — steps 3.1, 3.2, 3.4, 3.5, 3.6
 
 Layout **AA** (picked from the Round 9 mockups): one scroll with the plan's seven sections, and the map on the right page follows the section being read (a "You are at 4 · Abilities" box with 1–7 buttons that jump to a section).
