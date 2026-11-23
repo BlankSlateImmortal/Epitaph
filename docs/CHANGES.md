@@ -16,7 +16,20 @@ The Creature Log now opens on a **Tree** tab, drawn in layout V (picked from the
 - **Bad data never breaks the tree:** a missing parent or a loop makes a root; a form dated before its ancestor is drawn just below it anyway (Checks already flags it); an undated form sits one band below its ancestor, marked "?".
 - **Phone:** the tree takes most of the height, the map the rest; the terminal hides while it's open.
 
-Still to come: the reader's view with "?" silhouettes (2.4). Tests: `tools/site-tests/test-creature-tree.js` (18 checks).
+Tests: `tools/site-tests/test-creature-tree.js` (18 checks).
+
+### Discovery: what a reader sees (step 2.4)
+
+Readers now get the Creature Log too: **the tree only** (no tabs, editor, drafts or Library curses). `EpitaphCreatures.forReader(store, chapter, { eventOk })` is the gate, a pure function the view calls before drawing anything, so private data never reaches the page.
+
+- **Known** means a lineage step or creature has a **Reveal in Ch** set (the field is in its form) and the reader's chapter has reached it. **Nothing is known by default.** `Hidden from readers` removes a record entirely (never shown, never counted).
+- **Not yet known** forms appear as dotted **"? ? ?"** silhouettes: the step after a known one (or a root), and any unknown step that sits above something the reader already knows (so the known one still hangs off the tree). Deeper unknown steps aren't shown. A silhouette keeps only where it sits in time and in the tree, under an opaque id (`?1`…): no name, biome, cause, curse or real id reaches the page.
+- **Known forms** lose their author-only parts: draft marks, *which* curse (readers see only ⛓ "cursed"), settlement names, field notes, traits, nests, and sightings from chapters they haven't reached. A cause or date that names a timeline event they haven't reached is dropped. Biomes show only once revealed.
+- **The count** reads "3 known · 1 still to find" (known, and the silhouettes beside them: it deliberately isn't the true total). The scrubber lists only timeline events the reader has reached. The map shows only places and biomes they've reached.
+- Creatures of chaos follow the same rule (an unknown one is a bare "? ? ?" chip).
+- The reader's view follows their chapter live (`onReaderChange`); a `creature:` link to a form they haven't found just opens the tree.
+
+Nothing in the shipped data is revealed yet (no `revealedIn`), so until you set a Reveal chapter a reader sees only "? ? ?". Tests: `test-creature-gate.js` (13 checks, including that no name or secret appears anywhere in the gated data) and the real page as a reader at chapters 0, 2 and 9.
 
 ### Fork details (step 2.3)
 

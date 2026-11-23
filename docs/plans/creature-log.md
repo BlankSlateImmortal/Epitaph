@@ -70,7 +70,7 @@ made to show how deeply the world has been thought through.
   living tips glowing, extinct lines ending in a fossil mark. Branch colour by biome or by cause (toggle).
 - [x] **2.2 Time scrubber.** A slider across the 7 epochs; the tree grows as it moves, and the epoch's events show beside it.
 - [x] **2.3 Branch points.** Hovering a fork shows the mutation, its cause and the advantage; clicking opens the cause on the timeline.
-- [ ] **2.4 Discovery.** Unrevealed nodes show as "?" silhouettes; revealed ones fill in. A count shows how much of the tree is known.
+- [x] **2.4 Discovery.** Unrevealed nodes show as "?" silhouettes; revealed ones fill in. A count shows how much of the tree is known.
 
 ## Phase 3 — Creature page (the specimen)
 
@@ -149,6 +149,8 @@ When the user says "get back to it" / "back to the plan":
 
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-23 — **2.4 done (Sonnet). Phase 2 (the tree) is finished.** `EpitaphCreatures.forReader` (pure) gates the log: known = `revealedIn` reached (nothing known by default; `hidden` = never shown), the step after a known one is a "? ? ?" silhouette with an opaque id and nothing else, known forms lose author-only data (curse ids, settlement names, field notes, unreached sightings). Readers now get the Tree tab only (no editor), a "3 known · 1 still to find" count, a scrubber that lists only reached events, and a map of only revealed places. 13 Node checks + the real page as a reader at chapters 0, 2, 9 (no leaks, no console errors). **Heads-up for the user:** nothing is revealed until you set *Reveal in Ch* on a form, so a reader sees only "? ? ?" for now. **Next: Phase 3, the creature page (3.1 first).** Checking the plan for which steps are Opus (3.3 anatomy/3D, 3.7 field notes) before starting.
 
 - 2026-11-23 — **2.3 done (Sonnet).** Hover or focus a form for its card (change, gain, cause, dates); click pins it, with **Show on the timeline ▸** moving the scrubber to the cause's band and listing that moment's events. Forks get a dashed ring. **Deviation:** there's no timeline page in the site, so "opens the cause on the timeline" became "jumps the scrubber to it"; revisit if a timeline view is ever built. Tested in the real page, no console errors; 1 new Node check. **Next: 2.4 (discovery, "?" silhouettes), a Sonnet step.**
 

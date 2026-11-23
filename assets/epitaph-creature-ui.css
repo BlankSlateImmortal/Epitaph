@@ -108,3 +108,6 @@
 .ct-tip.pin{ pointer-events:auto; border-color:var(--amber); } .ct-tip b{ font-family:var(--f-crt); font-weight:400; font-size:20px; color:var(--amber-hi); line-height:1; } .ct-tip p{ margin:0; } .ct-tip .ct-gain{ color:var(--dust); } .ct-tip .ct-curse-l{ color:var(--ember); }
 .ct-tip button{ font-family:var(--f-crt); font-size:16px; padding:0 8px; background:transparent; color:var(--amber-hi); border:1px solid var(--amber); cursor:pointer; } .ct-tip button:hover, .ct-tip button:focus-visible{ background:var(--amber); color:var(--ink-deep); outline:none; }
 @media (max-width:760px){ .ct-tip{ max-width:220px; font-size:11px; } }
+/* discovery (step 2.4) */
+.ct-sil{ font-family:var(--f-crt); font-size:16px; color:#8a6a34; border:1px dotted #8a6a34; padding:0 6px; letter-spacing:.2em; }
+.ct-node.sil{ cursor:default; } .ct-node.sil .ct-name{ fill:#8a6a34; letter-spacing:.2em; }

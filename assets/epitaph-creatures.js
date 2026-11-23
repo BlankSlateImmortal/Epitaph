@@ -286,10 +286,49 @@
     return out;
   }
 
+  // ---------------------------------------------------------------- the reader gate (step 2.4)
+  /** What a reader on `chapter` may see of the log. A lineage step or creature is **known** once its `revealedIn` chapter is reached
+   *  (nothing is known by default, and `hidden` records are never shown or counted). An unknown one is shown only as a "?"
+   *  silhouette: the step after a known one (or a root), and any unknown step that sits above something the reader knows. A
+   *  silhouette keeps only its place in time and its place in the tree, under an opaque id: no name, no biome, no cause, no curse.
+   *  Known records lose their author-only parts (draft marks, curse ids, settlement names, field notes, sightings not yet reached).
+   *  opt: { eventOk(eventId) } says a timeline event has been reached (default: always). Pure: never reads the page or storage.
+   *  → { nodes, creatures, chaos, biomes, places, food, count: { known, total } } */
+  function forReader(st, chapter, opt) {
+    const o = opt || {}, eventOk = o.eventOk || (() => true), cl = x => JSON.parse(JSON.stringify(x));
+    const recs = [].concat(lst(st.nodes).map(x => ['nodes', x]), lst(st.creatures).map(x => ['creatures', x])).filter(([, x]) => !x.hidden);
+    const by = new Map(recs.map(([k, x]) => [x.id, { k, x }])), isKnown = x => chapter != null && x.revealedIn != null && x.revealedIn <= chapter;
+    const parentOf = x => (x.parentId && by.has(x.parentId) ? x.parentId : null), kidsOf = new Map();
+    recs.forEach(([, x]) => { const p = parentOf(x); if (!kidsOf.has(p)) kidsOf.set(p, []); kidsOf.get(p).push(x.id); });
+    const knownBelow = new Map(), kb = id => { if (!knownBelow.has(id)) { knownBelow.set(id, false); knownBelow.set(id, (kidsOf.get(id) || []).some(c => isKnown(by.get(c).x) || kb(c))); } return knownBelow.get(id); };
+    const keep = new Map();                          // id → 'known' | 'silhouette'
+    const walk = (id, parentShown) => { const { x } = by.get(id); let how = null;
+      if (isKnown(x)) how = 'known'; else if (parentShown || kb(id)) how = 'silhouette';
+      if (how) keep.set(id, how); (kidsOf.get(id) || []).forEach(c => walk(c, how === 'known')); };
+    (kidsOf.get(null) || []).forEach(id => walk(id, true));
+    const biomeOk = new Set(lst(st.biomes).filter(b => !b.hidden && isKnown(b)).map(b => b.id));
+    const opaque = new Map(); let n = 0; keep.forEach((v, id) => { if (v === 'silhouette') opaque.set(id, '?' + (++n)); });
+    const idOf = id => (opaque.get(id) || id);
+    const evOk = w => (typeof w === 'string' && !AGE_IDS.includes(w) && !EPOCHS.some(e => e.id === w)) ? eventOk(w) : true;
+    const out = { nodes: [], creatures: [], chaos: [], biomes: [], places: [], food: [], count: { known: 0, total: keep.size } };
+    keep.forEach((how, id) => { const { k, x } = by.get(id), pid = parentOf(x) && keep.has(parentOf(x)) ? idOf(parentOf(x)) : null;
+      if (how === 'silhouette') { out.nodes.push({ id: idOf(id), name: '', silhouette: true, parentId: pid, when: x.when, extinct: null, biomes: [], cause: null, mutation: { change: '', advantage: '', curse: null }, draft: false, hidden: false, revealedIn: null }); return; }
+      const r = cl(x); out.count.known++; r.draft = false; r.parentId = pid; r.cause = r.cause && evOk(r.cause) ? r.cause : null; r.silhouette = ''; r.biomes = lst(r.biomes).filter(b => biomeOk.has(b));
+      if (!evOk(r.when)) r.when = null; if (!evOk(r.extinct)) r.extinct = null;
+      if (r.mutation && r.mutation.curse) r.mutation.curse = 'curse';          // that it is cursed, not which curse
+      if (k === 'creatures') { r.curses = lst(r.curses).map(c => ({ libId: 'curse', stage: 0 })); r.names = []; r.fieldNotes = []; r.sightings = lst(r.sightings).filter(q => q.chapter != null && q.chapter <= chapter); r.nests = []; r.traits = []; }
+      out[k].push(r); });
+    lst(st.chaos).filter(x => !x.hidden).forEach(x => { if (isKnown(x)) { const r = cl(x); r.draft = false; r.sightings = lst(r.sightings).filter(q => q.chapter != null && q.chapter <= chapter); r.curseLink = ''; out.chaos.push(r); } else out.chaos.push({ id: '?c' + out.chaos.length, name: '', silhouette: true, forms: [], sightings: [], draft: false, hidden: false, revealedIn: null }); });
+    lst(st.places).filter(x => !x.hidden && isKnown(x)).forEach(x => { const r = cl(x); r.draft = false; r.curse = null; r.notes = ''; out.places.push(r); });
+    const sh = new Set(out.nodes.concat(out.creatures).map(x => x.id)); out.biomes = lst(st.biomes).filter(b => !b.hidden && isKnown(b)).map(b => { const r = cl(b); r.draft = false; return r; });
+    out.food = lst(st.food).filter(l => sh.has(l.eater) && sh.has(l.eaten) && !out.nodes.concat(out.creatures).some(x => x.silhouette && (x.id === l.eater || x.id === l.eaten)));
+    return out;
+  }
+
   global.EpitaphCreatures = {
     EPOCHS, AGES, AGE_IDS, timeIndex, SCALES, CONSCIOUS_FROM, isConscious,
     CURSE_STATES, CURSE_PHASES, CURSE_RULES, curseExtras, restFor,
-    normFood, aliveAt, foodAt, webRoles, wouldStarve,
+    normFood, aliveAt, foodAt, webRoles, wouldStarve, forReader,
     KEY, BACKUP_KEY, VERSION, KINDS, load, byId, put, remove, putFood, uid, exportData, importData, newInData, mergeData, problems
   };
 })(typeof window !== 'undefined' ? window : globalThis);

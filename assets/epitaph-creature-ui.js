@@ -205,7 +205,7 @@
     const host = panel.querySelector('.cl-map'); if (!host || !host.isConnected) return;
     if (!host.clientWidth || !host.clientHeight) { if ((drawMap.tries = (drawMap.tries || 0) + 1) < 12) setTimeout(drawMap, 120); return; }      // the page is still settling (a phone stacks it)
     drawMap.tries = 0;
-    const cv = host.querySelector('.se-cv'), svg = host.querySelector('.se-svg'), w = host.clientWidth, h = host.clientHeight, st = C().load();
+    const cv = host.querySelector('.se-cv'), svg = host.querySelector('.se-svg'), w = host.clientWidth, h = host.clientHeight, st = ui.reader ? gated() : C().load();
     const pr = D.world(cv, {}).project; svg.setAttribute('viewBox', `0 0 ${w} ${h}`); svg.setAttribute('width', w); svg.setAttribute('height', h);
     if (ui.tab === 'tree') return drawRange(host, svg, pr, st);
     const sel = ui.open && ui.open.kind === 'places' ? ui.open.id : null;
@@ -216,8 +216,9 @@
 
   /** The tree's picked form on the map: the infected places in its biomes (or named in its range) lit, the rest faint; the
    *  settlements that have a name for it in teal; a card with its time, change and curse, and Edit. */
+  const gatedById = (st, id) => { for (const k of ['creatures', 'nodes', 'chaos']) { const x = st[k].find(q => q.id === id && !q.silhouette); if (x) return Object.assign({}, x, { kind: k }); } return null; };
   function drawRange(host, svg, pr, st) {
-    const r = ui.sel && C().byId(ui.sel), rec = r || null, leg = host.querySelector('.se-legend');
+    const r = ui.sel && (ui.reader ? gatedById(st, ui.sel) : C().byId(ui.sel)), rec = r || null, leg = host.querySelector('.se-legend');
     const bio = new Set(rec ? [].concat(rec.biomes || [], (rec.range && rec.range.biomes) || [], (rec.forms || []).map(f => f.biome)) : []);
     const named = new Set(rec && rec.range ? rec.range.places || [] : []);
     const lit = p => rec && (bio.has(p.biome) || named.has(p.id) || named.has(p.name));
@@ -228,24 +229,40 @@
     svg.innerHTML = pts.filter(p => !lit(p)).map(p => dot(p, false)).join('') + on.map(p => dot(p, true)).join('') +
       towns.map(x => { const p = wp(x.placeId), [px, py] = pr(p.lng, p.lat); return `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="5" fill="var(--verdigris)"/><text x="${(px + 8).toFixed(1)}" y="${(py + 4).toFixed(1)}" fill="var(--verdigris)" font-family="VT323,monospace" font-size="15">${esc(String(p.name).split(/\s+[—–-]\s+/).pop())}${x.localName ? ' · “' + esc(x.localName) + '”' : ''}</text>`; }).join('');
     if (!rec) { leg.innerHTML = 'Pick a form on the tree to see where it lives.<br><span style="color:var(--amber-dim)">○</span> infected places'; return; }
-    const curse = rec.mutation && rec.mutation.curse ? (cursesInLibrary().find(m => m.id === rec.mutation.curse) || {}).name || rec.mutation.curse : '';
-    const carried = (rec.curses || []).map(k => ((cursesInLibrary().find(m => m.id === k.libId) || {}).name || k.libId) + (k.stage ? ' · ' + k.stage : ''));
+    const curse = ui.reader ? (rec.mutation && rec.mutation.curse ? 'cursed' : '') : rec.mutation && rec.mutation.curse ? (cursesInLibrary().find(m => m.id === rec.mutation.curse) || {}).name || rec.mutation.curse : '';
+    const carried = ui.reader ? [] : (rec.curses || []).map(k => ((cursesInLibrary().find(m => m.id === k.libId) || {}).name || k.libId) + (k.stage ? ' · ' + k.stage : ''));
     const bnames = [...bio].map(b => (st.biomes.find(x => x.id === b) || {}).name || b).filter(Boolean);
     leg.innerHTML = '';
     const card = document.createElement('div'); card.className = 'cl-card';
     card.innerHTML = `<b>${esc(rec.name || rec.id)}</b><span class="cl-dim">${esc(KIND_LABEL[r.kind] || '')}${rec.when ? ' · ' + esc(whenText(rec.when)) : ''}${rec.extinct ? ' · extinct from ' + esc(whenText(rec.extinct)) : ''}</span>
       ${rec.mutation && rec.mutation.change ? `<p>${esc(rec.mutation.change)}</p>` : ''}${rec.mutation && rec.mutation.advantage ? `<p class="cl-dim">Gained: ${esc(rec.mutation.advantage)}</p>` : ''}
       ${curse || carried.length ? `<p class="cl-hot">⛓ ${esc([curse].concat(carried).filter(Boolean).join(' · '))}</p>` : ''}
-      <span class="cl-dim">${bnames.length ? esc(bnames.join(' · ')) + ' · ' : ''}${on.length} infected place${on.length === 1 ? '' : 's'} in range${towns.length ? ' · <span style="color:var(--verdigris)">●</span> settlements that name it' : ''}</span>
-      <button type="button" class="cl-new" data-edit>Edit ▸</button>`;
-    card.querySelector('[data-edit]').addEventListener('click', () => { if (!ui || !ui.host) return; ui.tab = 'creatures'; ui.open = { kind: r.kind, id: rec.id }; ui.scrollTo = ui.open; render(ui.host); drawMap(); });
+      <span class="cl-dim">${bnames.length ? esc(bnames.join(' · ')) + ' · ' : ''}${on.length || !ui.reader ? on.length + ' infected place' + (on.length === 1 ? '' : 's') + ' in range' : ''}${towns.length ? ' · <span style="color:var(--verdigris)">●</span> settlements that name it' : ''}</span>
+      ${ui.reader ? '' : '<button type="button" class="cl-new" data-edit>Edit ▸</button>'}`;
+    const eb = card.querySelector('[data-edit]'); if (eb) eb.addEventListener('click', () => { if (!ui || !ui.host) return; ui.tab = 'creatures'; ui.open = { kind: r.kind, id: rec.id }; ui.scrollTo = ui.open; render(ui.host); drawMap(); });
     host.appendChild(card);
+  }
+
+  // ---------------------------------------------------------------- the reader's view (step 2.4)
+  const readerChapter = () => { const T = TL(); if (!T) return null; const r = T.readerChapter(); return r == null ? T.latestChapter() : r; };
+  const gated = () => C().forReader(C().load(), readerChapter(), { eventOk: id => { const T = TL(), e = T && T.byId && T.byId(id); return !!(e && T.isRevealed(e, readerChapter())); } });
+  /** A reader sees the tree only: forms their chapter has revealed, "? ? ?" for what comes next, and no editor. */
+  function mountReader(container, opts) {
+    ui = { tab: 'tree', reader: true, sel: null, tree: null, colourBy: 'biome', host: container };
+    const focus = opts && opts.focus; const draw = () => { if (ui.tree) { ui.tree.destroy(); ui.tree = null; }
+      container.innerHTML = '<div class="cl"><p class="cl-note">What has been found of the creatures of Epitaph, as far as you have read. Pick a form to see where it lives.</p><div class="cl-tree"></div></div>';
+      const T = global.EpitaphCreatureTree, box = container.querySelector('.cl-tree'); if (!T) { box.innerHTML = '<p class="cl-note">The tree did not load.</p>'; return; }
+      ui.tree = T.mount(box, { colourBy: ui.colourBy, sel: ui.sel, reader: { chapter: readerChapter() }, onSelect: id => { ui.sel = id; drawMap(); } }); drawMap(); };
+    if (focus) { const g = gated(); if (g.nodes.concat(g.creatures).some(x => x.id === focus && !x.silhouette)) ui.sel = focus; }
+    draw();
+    const off = TL() && TL().onReaderChange ? TL().onReaderChange(() => { if (ui) { ui.sel = null; draw(); } }) : null;
+    return () => { if (off) off(); if (ui && ui.tree) ui.tree.destroy(); ui = null; const p = document.getElementById('bookPanel'); if (p && p.classList.contains('se-panel')) { p.innerHTML = ''; p.classList.remove('se-panel'); } };
   }
 
   // ---------------------------------------------------------------- mounting and events
   function mountIndex(container, opts) {
     if (!C()) { container.innerHTML = '<p class="cl-note">The Creature Log data did not load.</p>'; return () => {}; }
-    if (!author()) { container.innerHTML = '<p class="cl-note" style="padding:1.5rem">The Creature Log opens for readers as their chapter reveals it. That arrives with the tree; for now it is the author\'s workspace.</p>'; return () => {}; }
+    if (!author()) return mountReader(container, opts);
     ui = { tab: 'tree', q: '', biome: '', drafts: false, noCurse: false, open: null, shown: PAGE, scrollTo: null, sel: null, tree: null, colourBy: 'biome', host: container };
     const focus = opts && opts.focus && C().byId(opts.focus);
     if (focus) ui.sel = focus.id;          // a creature link lands on the tree with it picked
