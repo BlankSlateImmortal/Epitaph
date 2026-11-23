@@ -271,7 +271,7 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 
 // chars: everyone in the scene (the first is the one clicked; swords standing close together on the map come along).
 // title + statue: a settlement opened from its marker: its Epitaph stone in the middle (no built site), its swords in the stone's slots.
-export async function openCloseup({ mount, char, chars, region, theme = 'crt', where = '', siteUrl = null, onClose = null, title = null, statue = null, statueColor = '#6fb3a3' }) {
+export async function openCloseup({ mount, char, chars, region, theme = 'crt', where = '', siteUrl = null, entryUrl = null, onClose = null, title = null, statue = null, statueColor = '#6fb3a3' }) {
   closeCloseup(true);
   if (!document.getElementById('cu-css')) { const st = document.createElement('style'); st.id = 'cu-css'; st.textContent = CSS; document.head.appendChild(st); }
   chars = (chars && chars.length ? chars : char ? [char] : []);
@@ -283,7 +283,7 @@ export async function openCloseup({ mount, char, chars, region, theme = 'crt', w
       ${chars.length === 1 ? `<span class="cu-tag">${esc(DESIGN_LABEL[design] || design)}</span>` : ''}<span class="cu-tag">${esc(REGION_LABEL[kind])}</span><span>${esc(where)}</span></div>
       <button type="button" class="cu-x">Close ✕</button></header>
     <div class="cu-stage"><div class="cu-load">RAISING THE SCENE…</div></div>
-    <footer class="cu-foot"><span>drag to turn · scroll to zoom · esc to close</span>${siteUrl ? `<a href="${esc(siteUrl)}">Open the site →</a>` : ''}</footer>`;
+    <footer class="cu-foot"><span>drag to turn · scroll to zoom · esc to close</span>${siteUrl ? `<a href="${esc(siteUrl)}">Open the site →</a>` : ''}${entryUrl ? `<a href="${esc(entryUrl)}">Read the entry →</a>` : ''}</footer>`;
   mount.appendChild(el); requestAnimationFrame(() => el.classList.add('on'));
   const stage = el.querySelector('.cu-stage'), load = el.querySelector('.cu-load');
   const state = { el, onClose, raf: 0, renderer: null, ro: null };

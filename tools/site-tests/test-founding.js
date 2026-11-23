@@ -1,0 +1,17 @@
+const fs=require('fs'), vm=require('vm'), assert=require('assert');
+const ctx={localStorage:{getItem:()=>null,setItem(){}},console,JSON,Math}; ctx.window=ctx; ctx.globalThis=ctx; vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(require('path').resolve(__dirname,'../..')+'/assets/epitaph-sites.js','utf8'),ctx);
+const S=ctx.EpitaphSites, j=o=>JSON.parse(JSON.stringify(o));
+let n=0; const t=(name,f)=>{try{f();n++;console.log('ok  '+name)}catch(e){console.log('FAIL '+name+': '+e.message);process.exitCode=1}};
+const ORD={e1:1,e2:2,e3:3}, cmp=(a,b)=>(a in ORD&&b in ORD)?ORD[a]-ORD[b]:0;
+const P=f=>j(S.foundingProblems({history:{founding:f}},cmp)).map(x=>x.rule+':'+x.stage);
+t('seven stages',()=>assert.strictEqual(S.FOUNDING_STAGES.length,7));
+t('stages in time order: nothing',()=>assert.deepStrictEqual(P([{stage:'reason',when:'e1'},{stage:'ground',when:'e1'},{stage:'growth',when:'e2'},{stage:'disaster',when:'e3'}]),[]));
+t('a later stage dated earlier: founding-order',()=>assert.deepStrictEqual(P([{stage:'reason',when:'e2'},{stage:'growth',when:'e1'}]),['founding-order:growth']));
+t('the list order does not matter, the seven do',()=>assert.deepStrictEqual(P([{stage:'growth',when:'e3'},{stage:'reason',when:'e1'}]),[]));
+t('undated stages are not compared',()=>assert.deepStrictEqual(P([{stage:'reason',when:null},{stage:'growth',when:'e1'},{stage:'present',when:null}]),[]));
+t('an event the timeline cannot place is skipped',()=>assert.deepStrictEqual(P([{stage:'reason',when:'zz'},{stage:'growth',when:'e1'}]),[]));
+t('a stage written twice: founding-dup',()=>assert.deepStrictEqual(P([{stage:'reason',when:null},{stage:'reason',when:null}]),['founding-dup:reason']));
+t('a stage that is not one of the seven',()=>assert.deepStrictEqual(P([{stage:'party',when:null}]),['founding-stage:party']));
+t('no history, no crash',()=>assert.deepStrictEqual(j(S.foundingProblems({},cmp)),[]));
+console.log(n+' passed');

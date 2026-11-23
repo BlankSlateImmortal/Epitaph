@@ -1,0 +1,16 @@
+const fs=require('fs'), vm=require('vm'), assert=require('assert');
+let author=false, reader=null; const EV={e1:1};
+const ctx={localStorage:{getItem:()=>null,setItem(){}},console,JSON,Math}; ctx.window=ctx; ctx.globalThis=ctx; vm.createContext(ctx);
+ctx.EpitaphTimeline={latestChapter:()=>3,authorMode:()=>author,readerChapter:()=>reader,byId:id=>id in EV?{id,revealedAt:EV[id]}:null,isRevealed:(e,ch)=>{const at=ch==null?3:ch;return at>=e.revealedAt},revealChapter:e=>e.revealedAt,firstChapter:()=>null,load:()=>[]};
+vm.runInContext(fs.readFileSync(require('path').resolve(__dirname,'../..')+'/assets/epitaph-sites.js','utf8'),ctx);
+const S=ctx.EpitaphSites;
+let n=0; const t=(name,f)=>{try{f();n++;console.log('ok  '+name)}catch(e){console.log('FAIL '+name+': '+e.message);process.exitCode=1}};
+const recs=[S.normalise({placeId:'city',open:true}),S.normalise({placeId:'hidden',open:false}),S.normalise({placeId:'late',open:false,intrigue:{}})];
+t('author: any place with an entry',()=>{author=true;assert.strictEqual(S.entryFor({id:'hidden'},recs),'hidden')});
+t('author: a place with no entry gets none',()=>{author=true;assert.strictEqual(S.entryFor({id:'nowhere'},recs),null)});
+t('reader: an open place',()=>{author=false;assert.strictEqual(S.entryFor({id:'city'},recs),'city')});
+t('reader: a place no chapter has brought up gets none',()=>{author=false;assert.strictEqual(S.entryFor({id:'hidden'},recs),null)});
+t('a temple in a city looks through to the city',()=>{author=false;assert.strictEqual(S.entryFor({id:'temple',cityId:'city'},recs),'city')});
+t('its own entry wins over its city',()=>{author=true;assert.strictEqual(S.entryFor({id:'hidden',cityId:'city'},recs),'hidden')});
+t('no place, no crash',()=>{assert.strictEqual(S.entryFor(null,recs),null);assert.strictEqual(S.entryFor({},recs),null)});
+console.log(n+' passed');

@@ -7,7 +7,7 @@
 
 Reads every .md note in the vault's Chapters/ folder except the template, takes the
 properties at the top (chapter, title, arc, pov, location, characters, moments, world,
-status) and writes:
+reveals, skills, status) and writes:
     chapters/<NNN>-<slug>.md   the chapter text (properties removed, markers kept: the
                                reader turns %% at: X %% into scene breaks and hides the rest)
     chapters/index.json        one entry per chapter, in chapter order
@@ -19,7 +19,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / 'chapters'
-LIST_KEYS = {'characters', 'moments', 'world'}
+LIST_KEYS = {'characters', 'moments', 'world', 'reveals', 'skills'}   # skills: the skills a chapter shows (the Dossier's checks flag one that is still only a prospect)
 
 
 def parse_front(text):
@@ -120,7 +120,7 @@ def main():
             'chapter': n, 'title': title, 'arc': as_int(meta.get('arc')),
             'pov': meta.get('pov') or '', 'location': meta.get('location') or '',
             'characters': meta.get('characters') or [], 'moments': meta.get('moments') or [],
-            'world': meta.get('world') or [], 'status': status, 'words': words,
+            'world': meta.get('world') or [], 'reveals': meta.get('reveals') or [], 'skills': meta.get('skills') or [], 'status': status, 'words': words,
             'file': f'{n:03d}-{slug(title)}.md', 'source': f.name, '_body': body
         })
 

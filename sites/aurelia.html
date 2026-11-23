@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Epitaph — Aurelia</title>
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#080603">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -32,6 +34,9 @@
   .hint{ position:fixed; right:16px; bottom:16px; font-size:10px; letter-spacing:.12em; color:var(--dim); text-transform:uppercase; z-index:3; }
   #boot{ position:fixed; inset:0; display:grid; place-items:center; color:var(--accent); letter-spacing:.2em; font-size:12px; background:var(--bg); z-index:9; }
   .seg button.walk{ color:var(--ink); }
+  .stageSel{ display:flex; align-items:center; gap:6px; font-family:'Bebas Neue',sans-serif; letter-spacing:.1em; font-size:14px; color:var(--dim); }
+  .stageSel select{ font-family:'Bebas Neue',sans-serif; letter-spacing:.06em; font-size:14px; background:var(--bg); color:var(--accent); border:1px solid var(--line); padding:3px 4px; }
+  #note .stg{ margin:0 0 8px; padding-bottom:6px; border-bottom:1px solid var(--line); }
   .cityLink{ font-family:'Bebas Neue',sans-serif; letter-spacing:.1em; font-size:14px; padding:6px 12px 5px; color:var(--accent); text-decoration:none; display:inline-block; }
   .cityLink:hover{ background:var(--accent); color:var(--bg); }
   #fade{ position:fixed; inset:0; background:#000; opacity:0; pointer-events:none; transition:opacity .35s; z-index:8; display:grid; place-items:center; }
@@ -51,8 +56,9 @@
 <canvas id="stage"></canvas>
 <div id="labels"></div>
 <header>
-  <h1><a href="../atlas-3d.html?view=earth&amp;era=1" class="back" title="Back to the map">← Map</a> Epitaph <span>//</span> Aurelia</h1>
+  <h1><a href="../atlas-3d.html?view=earth&amp;era=1" class="back" title="Back to the map">← Map</a> <a href="../index.html" class="back" title="Home">Home</a> Epitaph <span>//</span> Aurelia</h1>
   <div class="ctrls">
+    <label class="stageSel" title="Founding stages: show only what stood by then">Built <select id="stageSel"><option value="">as built</option><option value="1">1 · The reason</option><option value="2">2 · Ground broken</option><option value="3">3 · First walls</option><option value="4">4 · Growth</option><option value="5">5 · Disaster</option><option value="6">6 · Rebuilt</option><option value="7">7 · As it stands</option></select></label>
     <div class="seg" id="stateSeg"><button data-v="0" class="on">Before</button><button data-v="1" class="after">After the Calamity</button></div>
     <div class="seg" id="themeSeg"><button data-v="crt" class="on">Signal</button><button data-v="paper">Paper</button></div>
     <div class="seg" id="styleSeg"><button data-v="model" class="on">Model</button><button data-v="blocks">Narrative</button></div>
@@ -64,6 +70,6 @@
 
 <span class="hint">drag to turn · scroll to zoom</span>
 <div id="boot">RAISING AURELIA…</div>
-<script type="module" src="../assets/sites/aurelia.js?v=15"></script>
+<script type="module" src="../assets/sites/aurelia.js?v=16"></script>
 </body>
 </html>

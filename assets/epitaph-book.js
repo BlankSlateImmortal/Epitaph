@@ -208,8 +208,8 @@
       const it = Lib.item(itemId);
       const chs = [];
       (c.snapshots || []).forEach(s => (s.inventory || []).filter(e => e.itemId === itemId).forEach(e => {
-        const st = Lib.stateOf(it, e.stateId);
-        chs.push((s.chapterRange || ('CH ' + (s.startChapter || '?'))) + (st ? ' (' + st.name + ')' : ''));
+        const cur = Lib.currentStates(it, e);
+        chs.push((s.chapterRange || ('CH ' + (s.startChapter || '?'))) + (cur.length ? ' (' + cur.map(x => x.state.name).join(', ') + ')' : ''));
       }));
       if (chs.length) out.push({ name: c.name || 'Unnamed', chapters: chs });
     });
@@ -237,13 +237,16 @@
     try { localStorage.setItem(LIB_LOOK_KEY, v); } catch (e) { /* not remembered, still applied */ }
     if (mode === 'library') { $('#theBook').dataset.look = libLook; webPos.clear(); drawLibrary(true); }
   }
+  // the item's states in a chapter (every track, "Sealed · Connected") and its rank there ("7 · Planet")
+  const stateNames = (it, entry) => (entry ? Lib.currentStates(it, entry).map(x => x.state.name).join(' · ') : '');
+  const rankTag = (it, entry) => { const r = Lib.rankAt(it, entry || null); return r ? { n: r, text: `R${r} ${Lib.rankName(r)}`, title: `Rank ${r} · ${Lib.rankName(r)} (its reach in this chapter)` } : null; };
   const MARK_ORDER = ['curse', 'binding', 'blessing'];
-  function itemMarkKinds(it, stateId) {
-    const st = Lib.stateOf(it, stateId);
-    return [...new Set([...(it.marks || []), ...((st && st.marks) || [])].map(m => m.kind))];
+  function itemMarkKinds(it, stateIds) {
+    const extra = Lib.currentStates(it, { stateIds }).flatMap(x => x.state.marks || []);
+    return [...new Set([...(it.marks || []), ...extra].map(m => m.kind))];
   }
   const markClass = kinds => MARK_ORDER.find(k => kinds.includes(k)) || '';
-  const itemPic = (it, stateId) => { const st = Lib.stateOf(it, stateId); return [st && st.image, it.image, it.icon].find(isImg) || ''; };
+  const itemPic = (it, stateIds) => [...Lib.currentStates(it, { stateIds }).map(x => x.state.image), it.image, it.icon].find(isImg) || '';
   const itemInitial = it => esc((it.name || '?').trim().charAt(0).toUpperCase() || '◈');
   function clearLibExtras() { ['#bkScrub', '#bkItemLog'].forEach(s => { const el = $(s); if (el) el.remove(); }); cancelAnimationFrame(webAnim); }
 
@@ -264,6 +267,7 @@
     return map;
   }
   const chNumLabel = n => n == null ? 'NOW' : (typeof chapterLabel === 'function' ? chapterLabel(n) : 'CH ' + n);
+  const canEdit = () => !(window.EpitaphMode && !EpitaphMode.canEdit());   // false for readers and the author's preview
   const TL = () => window.EpitaphTimeline || null;
   let libCh = TL() ? TL().readerChapter() : null; // chapter number shown by the web (null = latest); shared with the map via EpitaphTimeline
   if (TL()) TL().onReaderChange(r => { if (r !== libCh) { libCh = r; redrawWeb(); } });
@@ -277,19 +281,19 @@
     content.innerHTML = list.map((it, i) => {
       const x = (i % gridCols) * (CASE_W + CASE_GAP), y = Math.floor(i / gridCols) * (CASE_H + CASE_GAP);
       const hs = now.get(it.id) || [];
-      const stId = hs[0] && hs[0].entry.stateId;
-      const st = Lib.stateOf(it, stId);
+      const stId = hs[0] && hs[0].entry.stateIds;
+      const names = stateNames(it, hs[0] && hs[0].entry), rk = rankTag(it, hs[0] && hs[0].entry);
       const kinds = itemMarkKinds(it, stId);
       const pic = itemPic(it, stId);
       return `<button type="button" class="bk-case ${markClass(kinds)}${it.id === selItem ? ' on' : ''}${hs.length ? '' : ' unheld'}" data-id="${attr(it.id)}" data-cx="${x + CASE_W / 2}" data-cy="${y + CASE_H / 2}" style="left:${x}px;top:${y}px;--d:${(i % 7) * -0.6}s" title="${attr(it.name)}">
         <span class="bk-case-glass"><span class="bk-case-light"></span>
-          <span class="bk-case-obj">${pic ? `<img src="${attr(pic)}" alt="" draggable="false">` : `<b>${itemInitial(it)}</b>`}</span>
+          <span class="bk-case-obj">${pic ? `<img loading="lazy" decoding="async" src="${attr(pic)}" alt="" draggable="false">` : `<b>${itemInitial(it)}</b>`}</span>
           <span class="bk-case-shadow"></span>
           ${kinds.length ? `<span class="bk-case-seals">${kinds.map(k => `<i class="${attr(k)}" title="${attr(k)}"></i>`).join('')}</span>` : ''}
         </span>
         <span class="bk-case-plinth"><span class="bk-case-no">${pad2(i + 1)}</span>
-          <span class="bk-case-name">${esc(it.name || 'Untitled')}</span>
-          <span class="bk-case-sub">${st ? esc(st.name) + ' · ' : ''}${hs.length ? esc(hs.map(h => h.c.name || 'Unnamed').join(' · ')) : 'in the vault'}</span></span>
+          <span class="bk-case-name">${esc(it.name || 'Untitled')}</span>${rk ? `<span class="bk-case-rank" title="${attr(rk.title)}">${esc(rk.text)}</span>` : ''}
+          <span class="bk-case-sub">${names ? esc(names) + ' · ' : ''}${hs.length ? esc(hs.map(h => h.c.name || 'Unnamed').join(' · ')) : 'in the vault'}</span></span>
       </button>`;
     }).join('');
     content.querySelectorAll('.bk-case').forEach(b => b.addEventListener('click', () => selectItem(b.dataset.id)));
@@ -352,7 +356,7 @@
     if (!before.length) return 'new';
     const ids = a => a.map(h => h.c.id).sort().join(',');
     if (ids(now) !== ids(before)) return 'moved';
-    const sts = a => a.map(h => h.c.id + ':' + (h.entry.stateId || '')).sort().join(',');
+    const sts = a => a.map(h => h.c.id + ':' + Lib.stateKeyOf(h.entry)).sort().join(',');
     return sts(now) !== sts(before) ? 'state' : '';
   }
   function drawWeb(list, animate) {
@@ -386,20 +390,20 @@
     L.hubs.forEach(h => {
       const s = h.snap, pic = [s.portrait, s.systemPortrait].find(isImg);
       const gone = s.presence && s.presence !== 'alive';
-      ensure('c:' + h.c.id, 'bk-hub' + (gone ? ' gone' : ''), `<span class="bk-hub-medal">${medalSvg(46)}<span class="bk-hub-face">${pic ? `<img src="${attr(pic)}" alt="" draggable="false">` : `<b>${esc(initial(h.c.name))}</b>`}</span></span>
+      ensure('c:' + h.c.id, 'bk-hub' + (gone ? ' gone' : ''), `<span class="bk-hub-medal">${medalSvg(46)}<span class="bk-hub-face">${pic ? `<img loading="lazy" decoding="async" src="${attr(pic)}" alt="" draggable="false">` : `<b>${esc(initial(h.c.name))}</b>`}</span></span>
         ${crestSvg()}<span class="bk-hub-name">${esc(h.c.name || 'Unnamed')}</span>
         <span class="bk-hub-sub">${gone ? (s.presence === 'dead' ? '† dead · ' : '? missing · ') : ''}${h.count} item${h.count === 1 ? '' : 's'}</span>`);
       targets.set('c:' + h.c.id, { x: h.x, y: h.y });
     });
     L.nodes.forEach(nd => {
-      const it = nd.it, stId = nd.hs[0] && nd.hs[0].entry.stateId, st = Lib.stateOf(it, stId);
+      const it = nd.it, stId = nd.hs[0] && nd.hs[0].entry.stateIds, names = stateNames(it, nd.hs[0] && nd.hs[0].entry), rk = rankTag(it, nd.hs[0] && nd.hs[0].entry);
       const kinds = itemMarkKinds(it, stId), pic = itemPic(it, stId), mc = markClass(kinds);
       const on = it.id === selItem, ch = changeOf(it.id, n, prevN);
       const el = ensure('i:' + it.id, `bk-wn bk-node${mc ? ' ' + mc : ''}${mc === 'curse' ? ' corrupt' : ''}${on ? ' on' : ''}${nd.loose ? ' loose' : ''}${ch ? ' changed' : ''}`,
         `${ch ? `<span class="bk-wn-tag ${ch}">${{ new: '+ NEW', moved: 'MOVED', state: 'STATE' }[ch]}</span>` : ''}
-        <span class="bk-wn-medal">${medalSvg(on ? 34 : 26, on ? `<circle class="bk-pulse" r="${34 + 16}"/>` : '')}<span class="bk-wn-face">${pic ? `<img src="${attr(pic)}" alt="" draggable="false">` : `<b>${itemInitial(it)}</b>`}</span></span>
-        <span class="bk-wn-name">${esc(it.name || 'Untitled')}</span>${st ? `<span class="bk-wn-state">${esc(st.name)}</span>` : ''}`);
-      el.dataset.id = it.id; el.title = it.name || '';
+        <span class="bk-wn-medal">${medalSvg(on ? 34 : 26, on ? `<circle class="bk-pulse" r="${34 + 16}"/>` : '')}<span class="bk-wn-face">${pic ? `<img loading="lazy" decoding="async" src="${attr(pic)}" alt="" draggable="false">` : `<b>${itemInitial(it)}</b>`}</span></span>
+        <span class="bk-wn-name">${esc(it.name || 'Untitled')}</span>${names ? `<span class="bk-wn-state">${esc(names)}</span>` : ''}${rk ? `<span class="bk-wn-rank">${esc(rk.text)}</span>` : ''}`);
+      el.dataset.id = it.id; el.title = [it.name || '', names, rk ? rk.title : ''].filter(Boolean).join(' · ');
       if (!el._wired) { el._wired = true; el.addEventListener('click', () => selectItem(el.dataset.id)); }
       targets.set('i:' + it.id, { x: nd.x, y: nd.y });
     });
@@ -503,17 +507,28 @@
       const cur = new Map((holdersAt(ch).get(itemId) || []).map(h => [h.c.id, h]));
       const it = Lib.item(itemId);
       cur.forEach((h, id) => {
-        const p = prev.get(id), st = Lib.stateOf(it, h.entry.stateId);
-        if (!p) out.push({ ch, tag: 'Acquired', text: (h.c.name || 'Unnamed') + (st ? ' · ' + st.name : '') });
+        const p = prev.get(id), names = Lib.currentStates(it, h.entry).map(x => x.state.name).join(' · ');
+        if (!p) out.push({ ch, tag: 'Acquired', text: (h.c.name || 'Unnamed') + (names ? ' · ' + names : '') });
         else {
-          if ((p.entry.stateId || '') !== (h.entry.stateId || '')) out.push({ ch, tag: 'State', text: (st ? st.name : 'no state') + ' · ' + (h.c.name || 'Unnamed') });
+          if (Lib.stateKeyOf(p.entry) !== Lib.stateKeyOf(h.entry)) out.push({ ch, tag: 'State', text: (names || 'no state') + ' · ' + (h.c.name || 'Unnamed') });
           if (!(p.entry.boundTo || '').trim() && (h.entry.boundTo || '').trim()) out.push({ ch, tag: 'Bound', text: 'to ' + h.entry.boundTo.trim() });
+          // a curse on this holder's copy moving to another stage
+          (h.entry.marks || []).filter(m => m.kind === 'curse').forEach(m => {
+            const was = (p.entry.marks || []).find(x => x.kind === 'curse' && (x.name || '').trim().toLowerCase() === (m.name || '').trim().toLowerCase());
+            const a = was ? (was.stage || 0) : null, b = m.stage || 0;
+            if (was && a !== b) out.push({ ch, tag: 'Curse', bad: b > a, text: `${m.name || 'curse'}: ${a ? 'stage ' + a : 'initial'} → ${b ? 'stage ' + b + ' · ' + (m.stages && m.stages[b - 1] && m.stages[b - 1].name || Lib.STAGE_NAMES[b - 1]) : 'initial'} · ${h.c.name || 'Unnamed'}` });
+          });
         }
       });
       prev.forEach((h, id) => { if (!cur.has(id)) out.push({ ch, tag: 'Lost', text: h.c.name || 'Unnamed', bad: true }); });
       prev = cur;
     }
-    return out;
+    // the item's own history (before the story, or off the page) joins the chapters in timeline order; an entry tied to a chapter
+    // the ruler hasn't reached yet is left out
+    const it = Lib.item(itemId);
+    const hist = ((it && it.history) || []).filter(h => upTo == null || h.when.chapter == null || h.when.chapter <= upTo)
+      .map(h => ({ when: h.when, tag: 'History', text: [Lib.whenText(h.when), h.holder, h.text].filter(Boolean).join(' · ') }));
+    return hist.concat(out.map(e => ({ ...e, when: { era: 'ERA_1', chapter: e.ch } }))).sort((a, b) => Lib.compareWhen(a.when, b.when));
   }
   function drawItemLog(chs, n) {
     const box = $('#bkSandbox'); if (!box) return;
@@ -594,7 +609,7 @@
   function newItem() {
     flushItem();
     const id = Lib.newId('item');
-    const saved = Lib.update(l => l.items.push({ id, name: 'New item', desc: '', originPlaceId: '', marks: [], note: '', icon: '', image: '' }));
+    const saved = Lib.update(l => l.items.push({ id, name: 'New item', desc: '', origin: '', marks: [], note: '', icon: '', image: '' }));
     if (!saved) { showToast('Could not save — browser storage may be full.', { duration: 5500 }); return; }
     filter = ''; const f = $('#bkFilter'); if (f) f.value = '';
     selItem = id;
@@ -624,24 +639,41 @@
     if (!isImg(draft.image)) draft.image = '';
     const held = heldBy(it.id);
     const uses = Lib.uses(it.id, state.characters);
+    if (!canEdit()) {            // a reader gets the item as a card, not the editor
+      panel.innerHTML = `
+        <div class="bk-panel-head">
+          <span class="bk-big">${pad2(no || 0)}</span>
+          <div><small>LIBRARY ITEM · ${no || '—'} OF ${list.length}</small><h2>${esc(it.name || 'Untitled')}</h2>${Lib.placeIdOf(it) ? `<span class="from-tag">FROM ${esc(placeName(Lib.placeIdOf(it)).toUpperCase())}</span>` : ''}${EpitaphItemFields.badgesHtml(it)}</div>
+        </div>
+        <div class="bk-form bk-readonly">
+          ${isImg(it.icon) || isImg(it.image) ? `<div class="bk-pics">${isImg(it.icon) ? `<span class="bk-pic"><img loading="lazy" decoding="async" src="${attr(it.icon)}" alt=""></span>` : ''}${isImg(it.image) ? `<span class="bk-pic large"><img loading="lazy" decoding="async" src="${attr(it.image)}" alt=""></span>` : ''}</div>` : ''}
+          ${it.desc ? `<p class="bk-desc">${esc(it.desc)}</p>` : ''}
+          ${(it.marks || []).length ? `<div class="bk-field"><span>Marks</span><ul class="bk-held">${it.marks.map(m => `<li><b>${esc(m.name)}</b> <small>${esc(m.kind || '')}</small></li>`).join('')}</ul></div>` : ''}
+          ${(it.stateTracks || []).map(tr => `<div class="bk-field"><span>${esc(tr.name)}${tr.oneWay ? ' <em>— one-way</em>' : ''}</span><ul class="bk-held">${tr.states.map(st => `<li><b>${esc(st.name)}</b>${st.desc ? ` <small>${esc(st.desc)}</small>` : ''}</li>`).join('')}</ul></div>`).join('')}
+          <div class="bk-field"><span>Held by</span>${held.length ? `<ul class="bk-held">${held.map(h => `<li><b>${esc(h.name)}</b> <small>${esc(h.chapters.join(' · '))}</small></li>`).join('')}</ul>` : '<p class="bk-dim">Nobody carries it yet.</p>'}</div>
+        </div>`;
+      return;
+    }
     panel.innerHTML = `
       <div class="bk-panel-head">
         <span class="bk-big">${pad2(no || 0)}</span>
-        <div><small>LIBRARY ITEM · ${no || '—'} OF ${list.length}</small><h2>${esc(it.name || 'Untitled')}</h2>${it.originPlaceId ? `<span class="from-tag">FROM ${esc(placeName(it.originPlaceId).toUpperCase())}</span>` : ''}</div>
+        <div><small>LIBRARY ITEM · ${no || '—'} OF ${list.length}</small><h2>${esc(it.name || 'Untitled')}</h2>${Lib.placeIdOf(it) ? `<a class="from-tag" href="#" data-ref="place:${attr(Lib.placeIdOf(it))}" title="Open this place">FROM ${esc(placeName(Lib.placeIdOf(it)).toUpperCase())}</a>` : ''}${EpitaphItemFields.badgesHtml(it)}</div>
       </div>
       <div class="bk-form">
         <div class="bk-pics">
-          <label class="bk-pic" title="Icon (small, used on tiles)">${draft.icon ? `<img src="${attr(draft.icon)}" alt="">` : '<span>+ ICON</span>'}<input type="file" accept="image/*" data-pic="icon"></label>
-          <label class="bk-pic large" title="Photo (larger)">${draft.image ? `<img src="${attr(draft.image)}" alt="">` : '<span>+ PHOTO</span>'}<input type="file" accept="image/*" data-pic="image"></label>
+          <label class="bk-pic" title="Icon (small, used on tiles)">${draft.icon ? `<img loading="lazy" decoding="async" src="${attr(draft.icon)}" alt="">` : '<span>+ ICON</span>'}<input type="file" accept="image/*" data-pic="icon"></label>
+          <label class="bk-pic large" title="Photo (larger)">${draft.image ? `<img loading="lazy" decoding="async" src="${attr(draft.image)}" alt="">` : '<span>+ PHOTO</span>'}<input type="file" accept="image/*" data-pic="image"></label>
           ${draft.icon || draft.image ? '<button type="button" class="bk-link" id="biClearPics">Remove pictures</button>' : ''}
         </div>
         <label class="bk-field"><span>Name</span><input type="text" id="biName" value="${attr(draft.name)}"></label>
         <label class="bk-field"><span>Description</span><textarea id="biDesc" rows="3">${esc(draft.desc)}</textarea></label>
-        <label class="bk-field"><span>Where it came from</span><select id="biOrigin"><option value="">— unknown —</option>${placeOptionsHtml(draft.originPlaceId)}</select></label>
+        <div class="bk-field"><span>Details</span><div id="biDetails"></div></div>
         <div class="bk-field"><span>Marks <em>— in every state; new holders get a copy, existing holders keep theirs</em></span><div id="biMarks"></div></div>
-        <div class="bk-field"><span>States <em>— e.g. Locked, then Weakened; each chapter picks one in its Inventory</em></span>${(draft.states || []).length ? EpitaphStates.trackHtml(draft, uses) : ''}<div id="biStates"></div></div>
+        <div class="bk-field"><span>States <em>— up to three tracks; each chapter picks one state per track in its Inventory</em></span>${(draft.stateTracks || []).length ? EpitaphStates.trackHtml(draft, uses) : ''}<div id="biStates"></div></div>
+        <div class="bk-field"><span>History <em>— what happened to it before the story or off the page</em></span><div id="biHistory"></div></div>
         <label class="bk-field"><span>Note</span><textarea id="biNote" rows="2">${esc(draft.note)}</textarea></label>
         <div class="bk-field"><span>Held by</span>${held.length ? `<ul class="bk-held">${held.map(h => `<li><b>${esc(h.name)}</b> <small>${esc(h.chapters.join(' · '))}</small></li>`).join('')}</ul>` : '<p class="bk-dim">Nobody carries it yet. Add it from a character’s Inventory tab.</p>'}</div>
+        ${(() => { const src = window.EpitaphCreatures && EpitaphCreatures.sourcesOf ? EpitaphCreatures.sourcesOf(it.id) : []; return src.length ? `<div class="bk-field"><span>From the body of <em>— from the Creature Log</em></span><ul class="bk-held">${src.map(c => `<li><a href="#" data-ref="creature:${attr(c.id)}" title="Open ${attr(c.name)} in the Creature Log"><b>${esc(c.name)}</b></a> <small>${esc(c.resource)}</small></li>`).join('')}</ul></div>` : ''; })()}
         <div class="bk-actions">
           <button type="button" class="slant-btn primary" id="biSave">Save</button>
           ${Lib.get().items.length > 1 ? '<button type="button" class="slant-btn" id="biFold" title="Make this item a state of another item">Fold into…</button>' : ''}
@@ -650,8 +682,12 @@
           ${held.length ? `<span class="bk-dim">Held items can be deleted from the Atlas Library, which can reassign them.</span>` : `<button type="button" class="slant-btn danger" id="biDelete">Delete</button>`}
         </div>
       </div>`;
-    itemEditor = { id: it.id, draft, base: JSON.stringify(normItem(it)), marks: EpitaphMarks.editor($('#biMarks'), draft.marks || []),
-      states: EpitaphStates.editor($('#biStates'), draft.states || [], uses) };
+    const marksEd = EpitaphMarks.editor($('#biMarks'), draft.marks || []);
+    const tracksEd = EpitaphStates.tracksEditor($('#biStates'), draft.stateTracks || [], uses);
+    const getMarks = () => marksEd.read(), getTracks = () => tracksEd.read();
+    itemEditor = { id: it.id, draft, base: JSON.stringify(normItem(it)), marks: marksEd, tracks: tracksEd,
+      details: EpitaphItemFields.mountDetails($('#biDetails'), draft, { getMarks, getTracks, placeOptionsHtml }),
+      history: EpitaphItemFields.mountHistory($('#biHistory'), draft, { getTracks, holders: () => state.characters.map(c => c.name).filter(Boolean) }) };
     panel.querySelectorAll('input[type=file][data-pic]').forEach(inp => inp.addEventListener('change', async () => {
       const f = inp.files && inp.files[0]; if (!f) return;
       try { readForm(); itemEditor.draft[inp.dataset.pic] = await EpitaphMarks.readImage(f, inp.dataset.pic === 'icon' ? 200 : 700); flushItem(true); renderItemPanel(); drawLibrary(false); }
@@ -715,7 +751,7 @@
     const into = $('#bfInto'), stateIn = $('#bfState'), tgtIn = $('#bfTgtState'), nameIn = $('#bfName');
     function syncTarget() {
       const t = Lib.item(into.value);
-      $('#bfTgtWrap').hidden = !!(t && t.states.length);
+      $('#bfTgtWrap').hidden = !!(t && Lib.itemStates(t).length);
       tgtIn.value = t ? (paren(t.name) || 'Original') : '';
       nameIn.value = t ? (baseName(t.name) || t.name) : '';
       plan();
@@ -724,16 +760,16 @@
       const t = Lib.item(into.value);
       const picked = free.filter((f, i) => { const cb = panel.querySelector(`[data-free="${i}"]`); return cb && cb.checked; });
       const srcRows = [], tgtRows = [];
-      eachEntry((e, c, s) => { if (e.itemId === src.id) srcRows.push({ e, c, s }); if (t && e.itemId === t.id && !e.stateId) tgtRows.push({ e, c, s }); });
+      eachEntry((e, c, s) => { if (e.itemId === src.id) srcRows.push({ e, c, s }); if (t && e.itemId === t.id && !Lib.stateIdOf(e)) tgtRows.push({ e, c, s }); });
       return { t, picked, srcRows, tgtRows, stateName: stateIn.value.trim() || 'New state', tgtState: tgtIn.value.trim() || 'Original', name: nameIn.value.trim() || (t && t.name) || 'Untitled' };
     }
     function plan() {
       const P = readPlan(); if (!P.t) return;
       const rows = [];
       if (P.name !== P.t.name) rows.push(`Rename “${P.t.name}” to “${P.name}”.`);
-      if (!P.t.states.length) rows.push(`Add state <b>${esc(P.tgtState)}</b> (01) to it${P.tgtRows.length ? ` and set it on ${P.tgtRows.map(r => esc((r.c.name || 'Unnamed') + ' ' + chLabel(r.s))).join(', ')}` : ''}.`);
+      if (!Lib.itemStates(P.t).length) rows.push(`Add state <b>${esc(P.tgtState)}</b> (01) to it${P.tgtRows.length ? ` and set it on ${P.tgtRows.map(r => esc((r.c.name || 'Unnamed') + ' ' + chLabel(r.s))).join(', ')}` : ''}.`);
       else if (P.tgtRows.length) rows.push(`${P.tgtRows.length} chapter${P.tgtRows.length === 1 ? '' : 's'} holding it with no state set stay unset.`);
-      rows.push(`Add state <b>${esc(P.stateName)}</b> (${pad2((P.t.states.length || 1) + 1)}) with this item’s description${(src.marks || []).length ? ', marks' : ''}${isImg(src.image) || isImg(src.icon) ? ' and picture' : ''}.`);
+      rows.push(`Add state <b>${esc(P.stateName)}</b> (${pad2((Lib.itemStates(P.t).length || 1) + 1)}) with this item’s description${(src.marks || []).length ? ', marks' : ''}${isImg(src.image) || isImg(src.icon) ? ' and picture' : ''}.`);
       P.srcRows.concat(P.picked).forEach(r => rows.push(`${esc(r.c.name || 'Unnamed')} ${esc(chLabel(r.s))}: ${r.e.itemId ? '' : 'typed-in entry '}→ ${esc(P.name)} · ${esc(P.stateName)}.`));
       rows.push(`Remove “${esc(src.name)}” from the Library.`);
       $('#bfPlan').innerHTML = rows.map(r => `<li>${r}</li>`).join('');
@@ -753,20 +789,20 @@
 
   function doFold(src, P) {
     const t = P.t; if (!t) return 'Pick an item to fold into.';
-    const tgtStateId = t.states.length ? '' : Lib.newId('state');
+    const tgtStateId = Lib.itemStates(t).length ? '' : Lib.newId('state');
     const newState = { id: Lib.newId('state'), name: P.stateName, desc: [src.desc, src.note].map(x => (x || '').trim()).filter(Boolean).join('\n\n'),
       marks: src.marks || [], image: isImg(src.image) ? src.image : (isImg(src.icon) ? src.icon : '') };
     // 1) relink the chapters (Dossier store), keeping a copy to roll back
     const before = JSON.stringify(state);
-    P.srcRows.forEach(({ e }) => { e.itemId = t.id; e.stateId = newState.id; e.name = P.name; });
-    if (tgtStateId) P.tgtRows.forEach(({ e }) => { e.stateId = tgtStateId; e.name = P.name; });
+    P.srcRows.forEach(({ e }) => { e.itemId = t.id; e.stateIds = { ...(e.stateIds || {}), item: newState.id }; e.name = P.name; });
+    if (tgtStateId) P.tgtRows.forEach(({ e }) => { e.stateIds = { ...(e.stateIds || {}), item: tgtStateId }; e.name = P.name; });
     P.picked.forEach(({ e }) => {
       // its own description goes to the chapter note, unless the state already says the same
       const own = (e.desc || '').trim();
       const note = [own && !newState.desc.includes(own) ? own : '', (e.note || '').trim()].filter(Boolean).join(' — ');
       if (!newState.image && isImg(e.image)) newState.image = e.image;
       Object.keys(e).forEach(k => { if (!['id', 'marks', 'boundTo'].includes(k)) delete e[k]; });
-      Object.assign(e, { itemId: t.id, stateId: newState.id, note, name: P.name });
+      Object.assign(e, { itemId: t.id, stateIds: { item: newState.id }, note, name: P.name });
     });
     const rollback = () => { const old = JSON.parse(before); Object.keys(state).forEach(k => delete state[k]); Object.assign(state, old); };
     persistState();
@@ -776,7 +812,11 @@
     const saved = Lib.update(l => {
       const x = l.items.find(i => i.id === t.id); if (!x) return;
       x.name = P.name;
-      x.states = (tgtStateId ? [{ id: tgtStateId, name: P.tgtState, desc: '', marks: [], image: '' }] : x.states || []).concat([newState]);
+      // the folded item's state goes on the Item track (created if the item has none yet)
+      x.stateTracks = x.stateTracks || [];
+      let track = x.stateTracks.find(tr => tr.kind === 'item');
+      if (!track) { track = { kind: 'item', name: 'Item', oneWay: false, primaryStateId: '', states: [] }; x.stateTracks.unshift(track); }
+      track.states = (tgtStateId ? [{ id: tgtStateId, name: P.tgtState, desc: '', marks: [], image: '' }] : track.states || []).concat([newState]);
       l.items = l.items.filter(i => i.id !== src.id);
     });
     if (!saved) { rollback(); persistState(); return 'Could not save the Library — nothing was changed.'; }
@@ -787,17 +827,15 @@
     return '';
   }
 
-  function normItem(d) {
-    return { name: (d.name || '').trim(), desc: (d.desc || '').trim(), originPlaceId: d.originPlaceId || '', note: (d.note || '').trim(),
-      icon: d.icon || '', image: d.image || '', marks: EpitaphMarks.clean(d.marks || []),
-      states: (d.states || []).map(st => ({ id: st.id, name: (st.name || '').trim(), desc: (st.desc || '').trim(), image: st.image || '', marks: EpitaphMarks.clean(st.marks || []) })) };
-  }
+  const normItem = d => EpitaphItemFields.cleanItem(d);
   function readForm() {
     if (!itemEditor || !$('#biName')) return;
     const d = itemEditor.draft;
-    d.name = $('#biName').value; d.desc = $('#biDesc').value; d.originPlaceId = $('#biOrigin').value; d.note = $('#biNote').value;
+    d.name = $('#biName').value; d.desc = $('#biDesc').value; d.note = $('#biNote').value;
     d.marks = itemEditor.marks.read();
-    d.states = itemEditor.states.read();
+    d.stateTracks = itemEditor.tracks.read();
+    Object.assign(d, itemEditor.details.read());
+    d.history = itemEditor.history.read();
   }
   // Saves the open item if anything changed. Called on Save, on switching
   // item, on leaving the view and when the book closes.
@@ -903,7 +941,22 @@
       `The plan is in <code>docs/plans/site-encyclopedia.md</code>. Next up: the data for each place.`]);
     return 'The Site Encyclopedia is not built yet. Opening its placeholder page.';
   }
-  function openCreatures() {
+  let stopCreatures = null;
+  function openCreatures(focusId) {
+    if (window.EpitaphCreatureUI) {
+      flushItem();
+      mode = 'creatures';
+      const n = window.EpitaphCreatures ? (() => { const s = EpitaphCreatures.load(); return s.creatures.length + s.nodes.length + s.chaos.length; })() : 0;
+      shell('creatures', 'Creature Log', '生物誌', n);
+      if (viewport) { viewport.stop(); viewport = null; }
+      lastBox = null;
+      const sb = $('#bkSandbox');
+      sb.innerHTML = '<div class="bk-jp" aria-hidden="true">生物誌</div><div id="bkCreatures" style="position:absolute;inset:0"></div>';
+      const sub = $('.bk-title small'); if (sub) sub.innerHTML = 'creatures · biomes · infected places';
+      if (stopCreatures) stopCreatures();
+      stopCreatures = EpitaphCreatureUI.mountIndex($('#bkCreatures'), { focus: typeof focusId === 'string' ? focusId : null });
+      return `Opening the Creature Log… ${n} creature${n === 1 ? '' : 's'} and forms.`;
+    }
     placeholder('creatures', 'Creature Log', '生物誌', 0, [
       `<b>The Creature Log isn't built yet.</b> It will trace how life developed on Epitaph and how its creatures mutated before the story, with their abilities, movements and lore.`,
       `The plan is in <code>docs/plans/creature-log.md</code>. It starts after the Site Encyclopedia's data is in place.`]);
@@ -1076,10 +1129,10 @@
         <div class="bk-panel-head"><span class="bk-big">${pad2(tree.nodes.size - 1)}</span><div><small>SKILL TREE · CENTRE</small><h2>All skills</h2><span class="bk-dim">${top} root branch${top === 1 ? '' : 'es'} · each character at their current chapter</span></div></div>
         <div class="bk-form">
           <p class="bk-dim">Root skills branch from the centre. A skill whose <b>parent</b> is another of the same character’s skills grows from it. When characters share a skill name under the same parent, they share one node (the number inside it).</p>
-          ${chars.length ? `<div class="bk-field"><span>Add a root skill to</span><div class="bk-row"><select id="bsNewFor">${chars.map(c => `<option value="${attr(c.id)}"${isLocked(getActiveSnapshot(c)) ? ' disabled' : ''}>${esc(c.name || 'Unnamed')}${isLocked(getActiveSnapshot(c)) ? ' (locked)' : ''}</option>`).join('')}</select>
+          ${!canEdit() ? '' : chars.length ? `<div class="bk-field"><span>Add a root skill to</span><div class="bk-row"><select id="bsNewFor">${chars.map(c => `<option value="${attr(c.id)}"${isLocked(getActiveSnapshot(c)) ? ' disabled' : ''}>${esc(c.name || 'Unnamed')}${isLocked(getActiveSnapshot(c)) ? ' (locked)' : ''}</option>`).join('')}</select>
           <button type="button" class="slant-btn primary" id="bsNewRoot">+ Root skill</button></div></div>` : '<p class="bk-dim">No characters yet.</p>'}
         </div>`;
-      const nb = $('#bsNewRoot');
+      const nb = $('#bsNewRoot'); if (!nb) return;
       if (nb) nb.addEventListener('click', () => {
         const c = state.characters.find(x => x.id === $('#bsNewFor').value); const s = c && getActiveSnapshot(c);
         if (!s || isLocked(s)) return;
@@ -1094,7 +1147,8 @@
     const sk = h.skill;
     const snap = snapOf(h);
     const others = (snap.skills || []).map((s, i) => ({ s, i })).filter(o => o.i !== h.idx && !isDescendant(snap, o.s.name, sk.name));
-    const locked = h.locked;
+    const readOnly = !canEdit();          // readers (and the author's preview) see a skill the way a locked chapter shows it
+    const locked = h.locked || readOnly;
     const dis = locked ? ' disabled' : '';
     panel.innerHTML = `
       <div class="bk-panel-head">
@@ -1103,7 +1157,7 @@
       </div>
       ${n.holders.length > 1 ? `<div class="bk-holders" role="tablist">${n.holders.map((x, i) => `<button type="button" role="tab" class="${i === selHolder ? 'on' : ''}" data-h="${i}">${esc(x.name)}</button>`).join('')}</div>` : ''}
       <div class="bk-form">
-        <div class="bk-whose">${esc(h.name)} · ${esc(h.chapter || 'current chapter')}${locked ? ' · <span class="bk-lock">CANON · LOCKED — reopen it in the Chapter Brief to edit</span>' : ''}</div>
+        <div class="bk-whose">${esc(h.name)} · ${esc(h.chapter || 'current chapter')}${locked && !readOnly ? ' · <span class="bk-lock">CANON · LOCKED — reopen it in the Chapter Brief to edit</span>' : ''}</div>
         <label class="bk-field"><span>Name</span><input type="text" id="bsName" value="${attr(sk.name)}"${dis}></label>
         <label class="bk-field"><span>Description</span><textarea id="bsDesc" rows="3"${dis}>${esc(sk.desc)}</textarea></label>
         <label class="bk-field"><span>Level <em id="bsLvlOut">${Math.round(+sk.level || 0)}</em></span><input type="range" id="bsLevel" min="0" max="100" value="${+sk.level || 0}"${dis}></label>

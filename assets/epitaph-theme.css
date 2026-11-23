@@ -791,3 +791,153 @@ input, select, textarea{ accent-color:var(--amber); }
 .k-gauge svg{ width:54px; height:54px; }
 .k-gauge b{ font-family:var(--f-crt); font-weight:400; font-size:22px; color:var(--amber); text-shadow:var(--phosphor-glow); line-height:1; display:block; }
 .k-gauge small{ display:block; font-family:var(--f-mono); font-size:10px; letter-spacing:.16em; color:var(--dust); }
+
+/* ---- Item fields (assets/epitaph-item-fields.js, epitaph-states.js tracks): rank/tier/origin/history, state tracks ---- */
+.if-details, .if-history, .tracks-editor{ display:flex; flex-direction:column; gap:10px; }
+.if-f{ display:flex; flex-direction:column; gap:4px; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--dust); }
+.if-f em{ text-transform:none; letter-spacing:0; font-style:normal; opacity:.8; }
+.if-f input, .if-f select, .if-f textarea, .if-hist input, .if-hist select, .if-hist textarea, .track-edit input[type=text], .track-edit select, .state-color{
+  background:var(--ink); border:1px solid var(--line); color:var(--bone); padding:8px 10px; font:inherit; font-size:14px; min-height:40px; text-transform:none; letter-spacing:0; }
+.if-f textarea, .if-hist textarea{ resize:vertical; width:100%; min-height:56px; }
+.if-row{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+@media (max-width:560px){ .if-row{ grid-template-columns:1fr; } }
+.if-check{ display:flex; gap:8px; align-items:center; font-size:13px; color:var(--bone); }
+.if-check em{ font-style:normal; color:var(--dust); }
+.if-note{ margin:0; font-size:12px; color:var(--dust); min-height:0; }
+.if-note:empty{ display:none; }
+.if-bad .if-note, .if-f.if-bad select{ border-color:var(--ember); }
+.if-f.if-bad select{ outline:1px solid var(--ember); }
+.if-hist{ display:flex; flex-direction:column; gap:8px; border:1px solid var(--line); border-top:2px solid var(--amber); padding:10px; }
+.if-hist-top{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+.if-hist-top input[type=number]{ width:84px; }
+.if-hist-top input[list]{ flex:1 1 140px; min-width:0; }
+.if-hist-states{ display:flex; flex-wrap:wrap; gap:8px; }
+.if-state-pick{ display:flex; flex-direction:column; gap:2px; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--dust); }
+.if-empty{ color:var(--dust); font-size:12px; }
+.if-badge{ display:inline-block; margin-left:6px; padding:1px 7px; border:1px solid var(--line); font-size:10px; letter-spacing:.1em; color:var(--amber); vertical-align:middle; }
+.if-badge.wip{ color:var(--ember); border-color:var(--ember); }
+.if-badge.divine{ color:#d9b8ff; }
+.track-edit{ border:1px solid var(--line); padding:10px; display:flex; flex-direction:column; gap:10px; }
+.track-edit header{ display:flex; flex-direction:column; gap:2px; }
+.track-edit header small, .track-add small{ color:var(--dust); font-size:12px; }
+.track-opts{ display:flex; flex-wrap:wrap; gap:10px 16px; align-items:flex-end; }
+.track-opts label{ display:flex; flex-direction:column; gap:4px; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--dust); }
+.track-opts .track-check{ flex-direction:row; align-items:center; gap:8px; text-transform:none; letter-spacing:0; font-size:13px; color:var(--bone); }
+.track-add{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+.state-track-name{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--dust); margin-top:8px; }
+.state-dot{ display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px; vertical-align:middle; background:transparent; border:1px solid var(--line); }
+.state-dot.sc-gray{ background:#8b8b8b; border-color:#8b8b8b; } .state-dot.sc-green{ background:#5fbf6a; border-color:#5fbf6a; }
+.state-dot.sc-yellow{ background:#e0c34a; border-color:#e0c34a; } .state-dot.sc-orange{ background:#e08a3c; border-color:#e08a3c; }
+.state-dot.sc-red{ background:#d9534f; border-color:#d9534f; } .state-dot.sc-purple{ background:#a06cd5; border-color:#a06cd5; }
+.state-dot.sc-blue{ background:#4a90d9; border-color:#4a90d9; }
+.state-color{ min-height:40px; max-width:110px; }
+
+/* ---- Mark fields (assets/epitaph-marks.js fieldsHtml): per-kind inputs, curse stages ---- */
+.mark-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+@media (max-width:560px){ .mark-grid{ grid-template-columns:1fr; } }
+.mark-field{ display:flex; flex-direction:column; gap:4px; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--dust); }
+.mark-field em{ text-transform:none; letter-spacing:0; font-style:normal; opacity:.8; }
+.mark-field select, .mark-grid input, .mark-stage-row input, .mark-stage-row textarea{ background:var(--ink); border:1px solid var(--line); color:var(--bone); padding:8px 10px; font:inherit; font-size:14px; min-height:40px; text-transform:none; letter-spacing:0; width:100%; box-sizing:border-box; }
+.mark-stages{ border:1px solid var(--line); padding:8px 10px; display:flex; flex-direction:column; gap:8px; }
+.mark-stages summary{ cursor:pointer; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--amber); }
+.mark-stages summary em{ text-transform:none; letter-spacing:0; font-style:normal; color:var(--dust); }
+.mark-stage-row{ display:flex; flex-direction:column; gap:4px; margin-top:8px; }
+.mark-stage-row b{ font-weight:400; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--dust); }
+.mark-stage-row textarea{ min-height:56px; resize:vertical; }
+.mark-detail b{ font-weight:400; color:var(--amber); }
+.mk-fields{ border:0; padding:0; display:flex; flex-direction:column; gap:10px; }
+.if-approx{ display:inline-flex; align-items:center; gap:4px; font-size:13px; color:var(--dust); }
+.item-badges{ display:flex; flex-wrap:wrap; gap:6px; margin:-2px 0 6px; }
+.item-badges .if-badge{ margin-left:0; }
+.if-badge.dim{ color:var(--dust); border-style:dashed; }
+/* rank and states on the book's Library tiles and web nodes (plan 3.2) */
+.bk-case-rank{ display:block; font-family:var(--f-mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--amber); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.bk-wn-rank{ margin-top:2px; font-family:var(--f-mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--amber); white-space:nowrap; }
+.bk-wn-state{ max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* curse stage ladder (EpitaphMarks.ladderHtml): where a curse stands — Initial · Awakening · Fluctuation · Stabilization */
+.stage-ladder{ list-style:none; margin:6px 0 2px; padding:0; display:flex; flex-wrap:wrap; gap:4px; }
+.stage-ladder li{ flex:1 1 0; min-width:82px; border:1px dashed var(--line); padding:4px 6px; display:flex; flex-direction:column; gap:1px; opacity:.55; }
+.stage-ladder li.done{ opacity:.85; border-style:solid; }
+.stage-ladder li.on{ opacity:1; border:1px solid var(--ember); background:rgba(212,69,43,.12); }
+.stage-ladder .sl-no{ font-family:var(--f-mono); font-size:10px; color:var(--dust); }
+.stage-ladder b{ font-weight:400; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--bone); }
+.stage-ladder li.on b{ color:var(--ember); }
+.stage-ladder small{ font-size:11px; color:var(--dust); }
+.stage-now{ margin:4px 0 0; font-size:13px; color:var(--bone); }
+.stage-now b{ font-weight:400; color:var(--ember); }
+/* an item's origin place is a link (place:<id>, EpitaphLinks): the book panel tag and the monitor's FROM call-out */
+a.from-tag{ text-decoration:none; cursor:pointer; }
+a.from-tag:hover, a.from-tag:focus-visible{ text-decoration:underline; }
+.item-call .v a{ color:inherit; text-decoration:underline dotted; text-underline-offset:3px; cursor:pointer; }
+.item-call .v a:hover, .item-call .v a:focus-visible{ text-decoration:underline; }
+/* phone: the small checkboxes (W.I.P, one-way, ≈) get a comfortable tap row */
+.if-check, .track-check, .if-approx, .merge-upd, .merge-upd-row{ min-height:40px; cursor:pointer; }
+.if-check input[type=checkbox], .track-check input[type=checkbox], .if-approx input[type=checkbox], .merge-upd input[type=checkbox], .merge-upd-row input[type=checkbox]{ width:20px; height:20px; flex:0 0 auto; }
+.merge-upd, .merge-upd-row{ display:flex; align-items:center; gap:8px; }
+.merge-upd-row small{ color:var(--dust); }
+
+/* Skill prospects board (assets/epitaph-prospects.js, command opsp) */
+.sp-board{ display:grid; grid-template-columns:minmax(220px,300px) 1fr; gap:14px; padding:12px 0 0; min-height:360px; }
+@media (max-width:700px){ .sp-board{ grid-template-columns:1fr; } }
+.sp-side{ display:flex; flex-direction:column; gap:10px; min-width:0; }
+.sp-filters{ display:flex; flex-direction:column; gap:6px; }
+.sp-filters input, .sp-filters select, .sp-form input[type=text], .sp-form select, .sp-form textarea{ background:var(--ink); border:1px solid var(--line); color:var(--bone); padding:8px 10px; font:inherit; font-size:14px; min-height:40px; width:100%; box-sizing:border-box; }
+.sp-form textarea{ resize:vertical; min-height:64px; }
+.sp-list{ display:flex; flex-direction:column; gap:6px; max-height:46vh; overflow-y:auto; }
+.sp-card{ text-align:left; background:transparent; border:1px solid var(--line); border-left:3px solid var(--amber-dim, #8a5a14); color:var(--bone); padding:8px 10px; font:inherit; cursor:pointer; display:flex; flex-direction:column; gap:2px; min-height:44px; }
+.sp-card:hover, .sp-card:focus-visible{ border-color:var(--amber); }
+.sp-card.on{ border-color:var(--amber); background:var(--amber-ghost, rgba(255,178,56,.10)); border-left-color:var(--amber); }
+.sp-card.corrupted{ border-left-color:var(--ember); }
+.sp-card b{ font-weight:400; font-size:15px; }
+.sp-card small{ font-size:11px; color:var(--dust); letter-spacing:.04em; }
+.sp-card .sp-note{ font-style:italic; }
+.sp-new{ min-height:46px; border-style:dashed; color:var(--amber); }
+.sp-main{ min-width:0; }
+.sp-form{ display:flex; flex-direction:column; gap:10px; }
+.sp-row{ display:grid; grid-template-columns:90px 1fr 90px; gap:10px; }
+@media (max-width:700px){ .sp-row{ grid-template-columns:1fr 1fr; } .sp-row label:nth-child(2){ grid-column:1 / -1; order:3; } }
+.sp-check{ display:flex; gap:8px; align-items:center; min-height:40px; font-size:13px; color:var(--bone); cursor:pointer; }
+.sp-check input{ width:20px; height:20px; flex:0 0 auto; }
+.sp-acts{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.sp-spacer{ flex:1 1 auto; }
+.sp-saved{ font-size:12px; color:var(--dust); }
+.sp-dim, .sp-empty{ font-size:12px; color:var(--dust); margin:0; }
+.sp-hint{ color:var(--dust); padding:20px 4px; }
+/* skill prospects: assign to a character */
+.sp-assign{ border-top:1px solid var(--line); padding-top:12px; display:flex; flex-direction:column; gap:8px; }
+.sp-assign > b{ font-weight:400; font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--amber); }
+.sp-row2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+@media (max-width:700px){ .sp-row2{ grid-template-columns:1fr; } }
+.sp-assign select{ background:var(--ink); border:1px solid var(--line); color:var(--bone); padding:8px 10px; font:inherit; font-size:14px; min-height:40px; width:100%; box-sizing:border-box; }
+.sp-verdict{ margin:0; font-size:13px; min-height:1.2em; color:var(--dust); }
+.sp-verdict.ok{ color:#8fd19a; } .sp-verdict.no{ color:var(--ember); }
+/* skill prospects: who could take it (fit helper) */
+.sp-fit{ border-top:1px solid var(--line); padding-top:12px; display:flex; flex-direction:column; gap:6px; }
+.sp-fit > b{ font-weight:400; font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--amber); }
+.sp-fit-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+.sp-fit-list li{ border:1px solid var(--line); border-left:3px solid var(--line); padding:6px 8px; display:flex; flex-direction:column; gap:2px; }
+.sp-fit-list li.ok{ border-left-color:#8fd19a; } .sp-fit-list li.no{ opacity:.7; }
+.sp-fit-head{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.sp-fit-head b{ font-weight:400; font-size:14px; } .sp-fit-head small{ color:var(--dust); }
+.sp-fit-use{ margin-left:auto; min-height:36px; }
+.sp-fit-list small{ font-size:12px; color:var(--dust); }
+.sp-fit-why{ color:var(--bone) !important; } .sp-fit-hints{ color:var(--amber) !important; }
+/* shared mark library controls (EpitaphMarks.linkHtml / libraryPickHtml) */
+.mark-link{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:2px; }
+.mark-link small{ color:var(--dust); font-size:12px; } .mark-link small b{ font-weight:400; color:var(--bone); }
+.mark-link.sync small{ color:#8fd19a; } .mark-link.drift small, .mark-link.broken small{ color:var(--ember); }
+.mark-link .btn{ min-height:36px; }
+.mark-lib-pick{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:6px; }
+.mark-lib-pick select{ background:var(--ink); border:1px solid var(--line); color:var(--bone); padding:8px 10px; font:inherit; font-size:14px; min-height:40px; flex:1 1 180px; min-width:0; }
+/* mark library board: the copies of a definition */
+.ml-copies{ border-top:1px solid var(--line); padding-top:12px; display:flex; flex-direction:column; gap:6px; }
+.ml-copies > b{ font-weight:400; font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--amber); }
+.ml-copies ul{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:4px; max-height:30vh; overflow-y:auto; }
+.ml-copies li{ display:flex; justify-content:space-between; gap:8px; border:1px solid var(--line); border-left:3px solid var(--line); padding:5px 8px; font-size:13px; }
+.ml-copies li.sync{ border-left-color:#8fd19a; } .ml-copies li.drift{ border-left-color:var(--ember); }
+.ml-copies li small{ color:var(--dust); white-space:nowrap; } .ml-copies li.drift small{ color:var(--ember); }
+
+/* "Read the entry →": a place link beside a character's location (Site Encyclopedia, step 6.2) */
+.entry-link{ font-family:var(--f-crt); font-size:.85em; color:var(--verdigris, #6fb8a8); text-decoration:none; border-bottom:1px dotted currentColor; margin-left:6px; white-space:nowrap; }
+.entry-link:hover, .entry-link:focus-visible{ color:var(--amber-hi, #ffd58a); outline:none; }

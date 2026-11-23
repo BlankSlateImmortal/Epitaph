@@ -1,0 +1,26 @@
+const fs=require('fs'), vm=require('vm'), assert=require('assert');
+const ctx={localStorage:{getItem:()=>null,setItem(){}},console,JSON}; ctx.window=ctx; ctx.globalThis=ctx; vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(require('path').resolve(__dirname,'../..')+'/assets/epitaph-sites.js','utf8'),ctx);
+const S=ctx.EpitaphSites, j=o=>JSON.parse(JSON.stringify(o));
+let n=0; const t=(name,f)=>{try{f();n++;console.log('ok  '+name)}catch(e){console.log('FAIL '+name+': '+e.message);process.exitCode=1}};
+const ORDER=['e0','e1','e2','e3','e4','e5','e6','e7','e8','e9','e10'];       // N = 10
+const tie=(o)=>Object.assign({id:'t',other:'q',owner:'p',kind:'alliance',from:null,to:null,secret:false,hidden:false,endHidden:false},o||{});
+const bars=(ties,now,author)=>j(S.tieBars(ties,ORDER,now,author));
+t('N is the last index',()=>assert.strictEqual(bars([],5,true).N,10));
+t('no ties, no rows',()=>assert.deepStrictEqual(bars([],5,true).rows,[]));
+t('a tie with no dates runs the whole way and is ongoing',()=>{const r=bars([tie()],5,false).rows[0];assert.deepStrictEqual([r.start,r.end,r.state],[0,10,'ongoing'])});
+t('a start date places the left edge',()=>assert.strictEqual(bars([tie({from:'e3'})],8,false).rows[0].start,3));
+t('a reached end places the right edge',()=>{const r=bars([tie({from:'e2',to:'e6'})],8,false).rows[0];assert.deepStrictEqual([r.start,r.end,r.state,r.to],[2,6,'ended','e6'])});
+t("a reader never sees where an unreached end is: the bar stops at what they know, and `to` is withheld",()=>{const r=bars([tie({from:'e2',to:'e9',endHidden:true})],5,false).rows[0];assert.deepStrictEqual([r.start,r.end,r.state],[2,5,'unknown']);assert.strictEqual(r.to,null)});
+t('the author sees the real end of a hidden end, marked',()=>{const r=bars([tie({from:'e2',to:'e9',endHidden:true})],5,true).rows[0];assert.deepStrictEqual([r.end,r.state,r.to],[9,'hidden-end','e9'])});
+t('an unknown end never goes left of the start',()=>{const r=bars([tie({from:'e6',to:'e9',endHidden:true})],3,false).rows[0];assert.deepStrictEqual([r.start,r.end],[6,6])});
+t('a reader with no events reached: unknown end stays at the start',()=>{const r=bars([tie({from:null,to:'e4',endHidden:true})],-1,false).rows[0];assert.deepStrictEqual([r.start,r.end],[0,0])});
+t('an event that is not on the timeline counts as the start',()=>assert.strictEqual(bars([tie({from:'nope'})],5,true).rows[0].start,0));
+t('an end that is not on the timeline runs on',()=>{const r=bars([tie({to:'nope'})],5,true).rows[0];assert.strictEqual(r.end,10)});
+t('an end before the start is clamped (the Checks list flags it)',()=>{const r=bars([tie({from:'e7',to:'e2'})],9,true).rows[0];assert.deepStrictEqual([r.start,r.end],[7,7])});
+t('secret and hidden ties are flagged for the author',()=>{const r=bars([tie({secret:true,hidden:true})],5,true).rows[0];assert.ok(r.secret&&r.hidden)});
+t('rows are sorted by start, then end, then place',()=>{const r=bars([tie({id:'a',other:'z',from:'e5'}),tie({id:'b',other:'b',from:'e1',to:'e8'}),tie({id:'c',other:'a',from:'e1',to:'e3'})],9,true).rows;assert.deepStrictEqual(r.map(x=>x.id),['c','b','a'])});
+t('the kind, other place and owner ride along',()=>{const r=bars([tie({kind:'covert',other:'hollow',owner:'hollow'})],5,true).rows[0];assert.deepStrictEqual([r.kind,r.other,r.owner],['covert','hollow','hollow'])});
+t('a one-event timeline does not divide by zero',()=>{const o=j(S.tieBars([tie()],['e0'],0,true));assert.strictEqual(o.N,1)});
+t('no timeline at all does not crash',()=>{const o=j(S.tieBars([tie({from:'x',to:'y'})],null,undefined,true));assert.ok(o.rows.length===1)});
+console.log(n+' passed');

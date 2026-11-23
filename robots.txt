@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /Epitaph/muses.html
+
+Sitemap: https://blankslateimmortal.github.io/Epitaph/sitemap.xml

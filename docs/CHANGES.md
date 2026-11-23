@@ -2,10 +2,402 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## The Creature Log, at a glance — step 7.3
+
+*The entries below are step by step (plan: [creature-log.md](plans/creature-log.md)); this is the map.*
+
+**Open it:** type `opcl` in the Storybook terminal, or follow `dossier.html?creature=<id>` (a `creature:<id>` link from any page lands there). Seven tabs: **Tree** (lineage by descent) · **Web** (who eats whom) · **World** (the creatures over time) · **Chains** (cause and effect) · **Creatures** (the records and their editor) · **Biomes** · **Places**. A creature's own page is the "field journal": anatomy with your pins, traits (each with a 7-step power), field notes, what its body yields, encounters, ties to powers.
+
+| Where | What | Who sees it |
+|---|---|---|
+| Tree, Web, World, Chains | the log's four views of the same records | readers: only forms, notes and encounters their chapter has reached |
+| A creature's page | field journal, 3D specimen, pins, notes, resources | readers through the reader gate (no ties, no Library ids) |
+| Atlas, Creatures layer (`atlas-3d.html`, Era 1) | each creature's range, migration routes and sightings up to the chapter | readers through the same gate |
+| Library item, Dossier | a creature-sourced item says which creature yields it; a character lists their encounters | author (Library); readers see encounters from their chapter |
+| The Site Encyclopedia | a place's Beasts tab links to the creature; the log's Range tab lists the places | the entry's own gate |
+
+**Not in the published snapshot yet:** the Creature Log's records live in the author's browser. A reader gets the log's polite note, not the log, until a later step adds creatures to the snapshot (`docs/plans/publish-readonly.md`).
+
+**Tests:** `tools/site-tests/run.sh` (eleven `test-creature-*.js` files: store, tree, web, world, chains, page, fields, food, gate, ui, creatures) and `node tools/visitor-test/run.js` (a stranger's view of every page).
+
+**Still open (Site Encyclopedia 6.4):** a *site's* Economy resource cannot name its creature source; only the creature side links to Library items. Needs a schema decision.
+
+## Creature Log: the specimen, field notes, resources and the Dossier — steps 3.3, 3.7, 6.3, 6.4 (and trait power)
+
+Your answers, built:
+
+- **Anatomy (3.3): your own image and pins.** A creature's form has an *Anatomy image* (choose a file, shrunk to 900 px and kept in the browser, or paste an address). On its page each part is a **numbered pin**: drag it onto the body (or nudge it with the arrow keys once focused) and it stays where you drop it; parts not placed yet wait under the image. The numbered list of parts and notes follows. Nothing about a creature's look is invented. (A turnable 3D model can come later.)
+- **Trait power:** each trait has an optional **power, 7 dots**: Faint · Minor · Notable · Strong · Fierce · Overwhelming · Unstoppable. Shown on the page beside the trait.
+- **Field notes (3.7): you write them.** A note can be signed by a **Dossier character** (linked) or by any name, and has a **From chapter**: readers see it only from that chapter (a note with no chapter is author-only, and the page says so). Notes have a journal look (italic quote, signature below).
+- **Resources (6.3):** a creature lists *what its body yields* (name, one of 7 kinds: hide, bone, venom, blood, scale and shell, sinew and fibre, other; what it's used for; an optional **Library item**). The creature's page lists them under Anatomy; the **Library item** (in the book's editor and the Atlas Library) shows **"From the body of The Murmur"**, linking to the creature. Readers never see which Library item a resource is.
+- **The Dossier (6.4):** a creature lists its **encounters** (character, chapter, what happened) and the characters **tied to its powers**. The character's record shows **"Creatures met"** under *Status* and **"Creatures tied to these powers"** under *Power*, each linking to the creature's page. Readers see encounters only from chapters they've read, and never the power ties.
+- **Links from anywhere:** a `creature:<id>` link on a page without the log (the Atlas) goes to `index.html?creature=<id>`, which opens the book on that creature's page.
+- **Fixed on the way:** dragging a pin used to make the book swallow your next click (the book cancels the click after any drag, `epitaph-book.js`); the pin drag now keeps its pointer events to itself.
+
+Tests: `tools/site-tests/test-creature-fields.js` (9 checks: power, pins, resources, encounters, ties, note chapters, and what the reader gate keeps), and the real page: placing a pin by drag (saved), the editor keeping pins and the new rows on save, the Dossier rows, the Library item's link opening the creature, and the deep link.
+
+## Creature Log on the Atlas: the Creatures layer (atlas-3d.html) — step 6.2
+
+A **Creatures** button beside Politics on the Atlas (Era 1 only, like Politics; `?creatures=1` turns it on; it's remembered). For each creature alive in the story (Age G) it draws, in its own bright colour:
+
+- its **range**: the infected places in its biomes, as dots;
+- its **migration routes** (from the Creature Log's *Migration routes*), as tubes over the land;
+- its **sightings** up to the chapter on the slider, as rings at the place;
+- its name as a label, and a legend line per creature ("Creature · The Murmur"; "No creatures found yet" when none).
+
+A **reader** sees only what their chapter has revealed (the Creature Log's gate, step 2.4); the author sees every creature. Changing the chapter or the author/reader view redraws it. Colours are chosen to read against the amber land. At most 24 creatures and 160 range places each are drawn, to keep the globe smooth.
+
+## Creature Log: cause and effect (assets/epitaph-creature-chains.js) — step 4.3
+
+A **Chains** tab (layout AF from Round 10): readable chains, left to right, each change after the cause that made it. They are drawn **only** from what each form says (its cause and its change), so nothing is invented.
+
+- **By lineage:** every line split into branches. The first chain runs from the root along the line's biggest branch; every other branch starts at its fork with a small "from …" card, so no form appears twice. A cause named twice in a row is shown once. A line that died out ends on an "ended" card.
+- **By cause:** pick a cause (on the right page, or click any cause card) to see every form it changed: the form it came from, the cause, the change, then the line after it until it forks ("2 branches from here") or ends.
+- **Gaps:** a form with no cause written shows a red "?" card where the cause would be; the right page lists them (Checks lists them too).
+- Cause cards say what kind they are (EPOCH, AGE or EVENT, with the timeline event's title); form cards open the creature's page; ⛓ marks a change that brought a curse.
+- **Readers** get a Chains tab, built from the gated copy (step 2.4): forms they haven't found are "? ? ?" cards with no cause, and causes naming events they haven't reached are dropped.
+
+Tests: `tools/site-tests/test-creature-chains.js` (12 checks: branches, no repeats, the trunk, endings, gaps, by cause, silhouettes, loops), and the real page (both readings, a cause filter, opening a page from a card).
+
+## Creature Log: touch, keyboard and speed — steps 7.1, 7.2
+
+- **Touch (7.1):** the tree pans by drag and zooms by pinch (and by +/− and the wheel); the Web, World and page views work with taps on large (36–40 px) buttons on a phone, and the terminal hides while a log view is open so the pages get its height.
+- **Keyboard (7.1):** in the tree, Tab reaches every form (Enter or Space picks it; the arrow keys pan, +/− zoom, 0 fits); in the Web every creature is a button (Enter picks it, focus stays); the time chips, tabs, section numbers and layer toggles are real buttons or checkboxes with labels; every control has a visible focus ring; the scrub and scroll animations respect "reduce motion". The site has a single (amber) theme, and the new views use its colour tokens.
+- **Speed (7.2):** measured in the real page with **600 and 1500 forms**: picking a form is now 6 ms at either size (it used to redraw the whole tree: 59 ms and 136 ms), because only the two forms that change are touched; wheel, drag and pinch redraws are merged to one per frame; scrubbing a 1500-form tree takes about 30 ms forward and about 110 ms back; opening the tree takes about 140 ms at 1500. The layout, food web, world, page and reader-gate models take under 16 ms at 1000 forms. (The 3D specimens, step 3.3, aren't built yet; they will load only when opened.)
+
+## Creature Log: the World over time (assets/epitaph-creature-world.js) — step 4.1
+
+A **World** tab (layout AC from Round 10): the same 14 time chips drive one big dither map of the Earth, with the left page saying what is true of the world at that time.
+
+- **The crater and the sea** appear from **Age D (The Siege)** on, as you decided: before it the map shows the old dry coasts and no crater; from Age D the land the sea took (+60 m) is drawn in the map's second colour and a glowing crater sits in Antarctica (where the Atlas has it). The age is one constant (`SHIFT`) in the module.
+- **Infected places awake:** each place wakes at its own "cursed since" date, else its biome's; a place with neither is simply not drawn yet. Ember dots on the map, with a count ("6 of 298").
+- **Living forms:** the tips of the lines alive at that time, as buttons. Pick one and the infected places in its biomes light up on the map, with **Open page ▸**.
+- **What changed since the band before:** the crater forming, places waking, forms appearing and dying out.
+- Four layer toggles (crater, sea, infected places, forms). **No ice layer:** the map holds no ice data, so none is drawn (the page says so).
+- **Readers** get a World tab too, built from the gated copy (step 2.4): only the places, biomes and forms they've reached.
+
+Tests: `tools/site-tests/test-creature-world.js` (9 checks: the shift age, places waking, living tips, picking, changes, empty log), and the real page before and after Age D.
+
+## Creature Log: the Food Web (assets/epitaph-creature-web.js) — step 4.2
+
+A **Web** tab in the Creature Log (layout AE from Round 10): who eats whom at a chosen time, **in levels**. What eats nothing in the log sits on the bottom row; each creature sits one level above the highest thing it eats; apex hunters are at the top. Lines run from the eater to what it eats (arrowhead on the eaten). **APEX** (eats, and nothing eats it) and **KEYSTONE** (the only food of two or more, or eaten by four or more) are marked, using the food-web rules from step 1.4.
+
+- **Time:** a row of 14 chips (the seven epochs, then ages A–G). A creature is in the web from the time it appears until it dies out, and a link is in force only while both ends are alive.
+- **Picking a creature** (click, or Tab and Enter) fills the right page: what it eats, what eats it, and **what would starve if it vanished** (the chain, from the food-web rules), plus **Open page ▸**. Below it, what changed since the band before (who appeared, who died out, links begun or ended) and a key for the roles.
+- **Built from the log's own links** (a creature's *Eats* list): nothing is invented. A creature with no link sits on the bottom row with a dashed box; a lineage step shows only if a link names it. With no links at all, the page says so and where to add them.
+- **Readers** get a Web tab beside the Tree, built from the gated copy (step 2.4): only creatures they've found, and links to anything else are dropped.
+- **Phone:** the chips wrap, the terminal hides, and the picked creature's card sits under the web.
+
+Tests: `tools/site-tests/test-creature-web.js` (10 checks: levels, roles, time, loops, dropped links, changes), and the real page as author (tab, pick, scrub, Open page) and as a reader.
+
+## Creature Log: the creature page, "the field journal" (assets/epitaph-creature-page.js) — steps 3.1, 3.2, 3.4, 3.5, 3.6
+
+Layout **AA** (picked from the Round 9 mockups): one scroll with the plan's seven sections, and the map on the right page follows the section being read (a "You are at 4 · Abilities" box with 1–7 buttons that jump to a section).
+
+Open it with **Open page ▸** on the tree's card, by clicking a form on another page's line, or from a `creature:<id>` link. **◂ Tree** goes back with that form still picked; **Edit ▸** (author) opens its editor.
+
+1. **Lineage (3.1):** every form from the root to this one, side by side (time, what changed, ⛓ for a curse, ✕ for extinct). Click any ancestor to open its page. Branches that split off a form (such as an extinct side line) are listed beneath.
+2. **Mutations (3.2):** each change in order: what changed, its **cause** (an epoch, an age or a timeline event, in words), and what it gained.
+3. **Anatomy:** the parts you've written; the labelled drawing is step 3.3 (Opus), and the page says so while it's empty.
+4. **Abilities (3.4):** traits and what counters each. **No power dots yet:** I proposed a 7-step power per trait in Round 9 and am waiting for your answer (Faint · Minor · Notable · Strong · Fierce · Overwhelming · Unstoppable, or none).
+5. **Range & movements (3.5):** biomes, places, nests, and sightings by chapter, each with its place linked to the Site Encyclopedia. The map shows the range, **migration routes** (dashed amber lines ending in a dot, with the time on hover) and **sightings** (red rings labelled "Ch 3" at the place). Routes are written in the editor under *Migration routes*: one row per route, a time and a path of `lat,lng; lat,lng; …` points.
+6. **Behaviour & lore (3.6):** diet, hunting, breeding, and what each settlement calls it and believes, linked to the place's entry.
+7. **Field notes:** the notes you've written; writing them in character voices is step 3.7 (Opus).
+
+**Readers** get the same page built from the gated copy (step 2.4): only forms they've found; an unknown ancestor is a "? ? ?" card; no curse names, settlement names, field notes, or unreached sightings; no Edit. A form that has no page (a silhouette) can't be opened. Phone: a compact header, the terminal hides, and the map sits under the page.
+
+Tests: `tools/site-tests/test-creature-page.js` (9 checks for the model: the line, branches, mutation order, silhouettes, loops), and the real page as author and as a reader at chapters 3 and 9 (no leaks, no console errors).
+
+## Creature Log: the Tree of Descent (assets/epitaph-creature-tree.js) — step 2.1
+
+The Creature Log now opens on a **Tree** tab, drawn in layout V (picked from the Round 8 mockups): time runs down the page.
+
+- **Bands.** One band per epoch (Chaos → The Twisted Worlds, then Epitaph), then Epitaph's seven ages A–G. The last three (the curse cycle: awakening, fluctuation, stabilization) are tinted red. An epoch with nothing in it folds thin; the ages always stay open.
+- **Lineages.** Roots at the top; each form sits in the band where it appeared, under its ancestor; a fork is centred over its branches. A creature is a larger dot, a lineage step a smaller one; ⛓ marks a form that carries or came with a curse; a dashed dot is a draft.
+- **Living and extinct.** A living tip's line runs on to the present and glows; an extinct line is dashed and stops at the age it died out, with a fossil mark.
+- **Colour.** Branches are coloured by biome or by cause (a toggle); the legend names them.
+- **Creatures of chaos** sit on a shelf beside the tree (they descend from nothing).
+- **Moving around.** Drag to pan (or the arrow keys), wheel or pinch to zoom (or + / −), **Fit** or 0 to see it all again. Every form is a button (Tab to it, Enter to pick).
+- **Picking a form** lights its range on the world map on the right page (the infected places in its biomes or named in its range, the settlements that have a name for it in teal) with a card: when it appeared, what changed, its curse, and **Edit ▸** (opens it in the Creatures tab). A `creature:<id>` link lands on the tree with that form picked.
+- **Bad data never breaks the tree:** a missing parent or a loop makes a root; a form dated before its ancestor is drawn just below it anyway (Checks already flags it); an undated form sits one band below its ancestor, marked "?".
+- **Phone:** the tree takes most of the height, the map the rest; the terminal hides while it's open.
+
+Tests: `tools/site-tests/test-creature-tree.js` (18 checks).
+
+### Discovery: what a reader sees (step 2.4)
+
+Readers now get the Creature Log too: **the tree only** (no tabs, editor, drafts or Library curses). `EpitaphCreatures.forReader(store, chapter, { eventOk })` is the gate, a pure function the view calls before drawing anything, so private data never reaches the page.
+
+- **Known** means a lineage step or creature has a **Reveal in Ch** set (the field is in its form) and the reader's chapter has reached it. **Nothing is known by default.** `Hidden from readers` removes a record entirely (never shown, never counted).
+- **Not yet known** forms appear as dotted **"? ? ?"** silhouettes: the step after a known one (or a root), and any unknown step that sits above something the reader already knows (so the known one still hangs off the tree). Deeper unknown steps aren't shown. A silhouette keeps only where it sits in time and in the tree, under an opaque id (`?1`…): no name, biome, cause, curse or real id reaches the page.
+- **Known forms** lose their author-only parts: draft marks, *which* curse (readers see only ⛓ "cursed"), settlement names, field notes, traits, nests, and sightings from chapters they haven't reached. A cause or date that names a timeline event they haven't reached is dropped. Biomes show only once revealed.
+- **The count** reads "3 known · 1 still to find" (known, and the silhouettes beside them: it deliberately isn't the true total). The scrubber lists only timeline events the reader has reached. The map shows only places and biomes they've reached.
+- Creatures of chaos follow the same rule (an unknown one is a bare "? ? ?" chip).
+- The reader's view follows their chapter live (`onReaderChange`); a `creature:` link to a form they haven't found just opens the tree.
+
+Nothing in the shipped data is revealed yet (no `revealedIn`), so until you set a Reveal chapter a reader sees only "? ? ?". Tests: `test-creature-gate.js` (13 checks, including that no name or secret appears anywhere in the gated data) and the real page as a reader at chapters 0, 2 and 9.
+
+### Fork details (step 2.3)
+
+Hover a form (or Tab to it) and a card shows what changed, what it gained, its cause and when it appeared (and when it died out). **Click a form** to pin its card; a pinned card has **Show on the timeline ▸**, which moves the time scrubber to the band of the cause and lists that moment's timeline events beside it. (The site has no separate timeline page yet, so the scrubber is where a cause is "opened"; if one is built later, this button should open it there.) A **fork** (a form with two or more branches) gets a dashed ring. Tests: 19 checks in the tree suite.
+
+### The time scrubber (step 2.2)
+
+A **Time** slider above the tree runs across the same 14 bands (the seven epochs, then ages A–G). The tree stays where it is and **grows in place**: a form shows only once its band is reached, a living line stops at the scrubbed time and glows at its front, and an extinct line gets its fossil mark only once it has died out (before that it still runs). Bands after the scrubbed time darken and the current one is outlined. Beside the slider: the band's name, how many forms have appeared (e.g. "9 of 13"), and the **timeline events that fall in that epoch or age**. ◂ ▸ step one band, **Play** walks forward one band at a time, **Now** returns to the present. If the form you picked hasn't appeared at the scrubbed time, the pick clears. On a phone the step buttons hide (the slider is enough) and the tree scrolls.
+
+## Creature Log: the view and editor (assets/epitaph-creature-ui.js) — steps 1.7, 5.1, 5.2
+
+Type **`opcl`** (or follow a `creature:<id>` link) to open the Creature Log in the book. It is the author's workspace for now (readers get a note until the tree's discovery rules arrive).
+
+- **Three tabs.** **Creatures** (creatures, lineage steps and creatures of chaos, nested under their ancestors, each with chips: conscious, the curses it carries, extinct, example, draft), **Biomes** (with place counts) and **Places** (the infected places: search, filter by biome, *curse not written* only; 120 at a time).
+- **Edit in place.** Click any row to open its form; **Save**, **Cancel**, or **Delete** (asks twice). **+ Creature / + Lineage step / + Chaos form / + Biome / + Place** add your own. Pickers: descends from, when (epoch, age or a timeline event), cause, biomes, curses (the Library's, written in **opmk**), places, and **Eats** (the food links). The seven-step scales are clickable dots with their step names. **Approved** turns a draft into yours (a *drafts only* filter shows what is left).
+- **A place's curse is optional**: pick one from the Library, with its stage, when the story reaches it; until then it reads *curse not written yet* and Checks never flag it.
+- **The right page** is the world map with every located place plotted (filled = a curse is written).
+- **Both ways with the encyclopedia (step 6.1):** a creature's form lists the places whose Beasts tab names it (with the relation, e.g. "warded off"), each a link that opens that place's entry in the book; a place's form links to its own entry once you pick its *Encyclopedia place*.
+- **Links:** `creature:<id>` opens the log on that creature (the encyclopedia's Beasts tab uses it, and shows the creature's name as a link once it is in the log).
+- To start from the vault's file (example herd, 22 biomes, 305 infected places): Dossier → Data → Merge.
+
+## Creature Log: storage, backup and checks (assets/epitaph-creatures.js) — step 1.6
+
+`window.EpitaphCreatures` now stores the log: key `epitaph-creatures`, records by id in five collections (lineage **nodes**, **creatures**, **chaos** forms, **biomes**, infected **places**) plus the **food** links. It ships **empty**: no lore is in the site's code. The user's creatures, the example lineage and the infected places arrive through **Dossier → Data → Merge** from a file kept in the vault.
+
+- **API:** `load`, `byId(id)` (creatures, nodes or chaos; a `creature:<id>` link points here), `put`, `remove`, `putFood`, `uid`, `exportData`, `importData`, `newInData`, `mergeData`, `problems`.
+- **Backup:** Export carries the log under `creatures`; Import replaces it (the log as it was is kept once under `epitaph-creatures-backup-v1`); Merge adds records whose ids you don't have and **never replaces yours**, and the Merge dialog lists what it adds.
+- **Curses are Library marks.** The Library now keeps a curse's new optional fields (`state`, `spreadsBy`, `moves`, `concepts`, `rest`) instead of dropping them; item curses are unaffected. A creature or place holds `{ libId, stage }`. A place's curse is optional: unwritten means "not known yet", never a problem.
+- **Checks:** `creature-parent`, `creature-cause`, `creature-order`, `creature-extinct`, `creature-food`, `creature-curse` (a curse whose Library definition is gone).
+- Records are cleaned on the way in (scales outside 1–7 and unknown times are dropped; new records are drafts). The Beasts tab's "isn't built yet" note goes away once the module is loaded.
+
+## The Site Encyclopedia, at a glance — step 7.3
+
+*The newest entries below are step by step (plan: [site-encyclopedia.md](plans/site-encyclopedia.md)); this is the map.*
+
+**Open it:** type `opse` in the Storybook terminal (or the Site Encyclopedia link), or follow `index.html?place=<id>[&tab=history]`. Every place with an entry has **seven tabs**: Overview · History · Domestic · Foreign · Economy · Beasts · Intrigue.
+
+| Where | What | Who sees it |
+|---|---|---|
+| Places index | every place by faction, filters and a search that finds places by what they hold ("who trades salt") | readers: places they've reached |
+| A place's entry | the seven tabs, with the founding model or the dither map on the right page | readers: only what their chapter has reached |
+| History → *How it was built* | the seven founding stages, dated; click one to turn the model; link to the 3D site at that stage | stages reached |
+| Foreign → *Ties over time*, blocs | bars from start to end per tie; blocs with who joined and left when | the reader gate |
+| **Relations** (index button, Foreign link) | every place on a ring, ties as chords, scrubbed by chapter, seats by type / country / bloc | the reader gate |
+| **What-ifs** (index button, Intrigue link) | the board by status, the four piles of what to work on, one what-if as a chain | **author only, never published** |
+| Intrigue | secrets, rumours, setup → payoff, with markers on every tab; a Dossier secret can point at one | secrets by `revealedIn` |
+| Atlas → **Politics** | the same ties as arcs on the map | the reader gate |
+| `sites/aurelia.html`, `sites/hollow-reach.html` → **Built** | the 3D sites as they stood at a founding stage (`?stage=N`) | — |
+| Atlas close-up, record panel, Dossier location → **Read the entry →** | links in | places the reader has reached |
+
+**Author vs reader.** One gate (`EpitaphSites.forReader`, `webAt`, `blocsAt`, `entryFor`) serves the entry, the ring, the Atlas and the published snapshot, so the Reader preview (the toggle in the index) is exactly what is published. Author-only data (what-ifs, drafts, agents, secret goals…) is never published; `tools/check-snapshot.py` refuses a snapshot that carries it.
+
+**Editing.** ✎ on any card (or the *Edit* bar, or the *Sheet* for a whole tab) edits in place; every save is an undo step; *Approve tab* marks a Claude draft as yours. Drafts of the six statue sites come from outside the repo and are merged with Dossier → Data → Merge.
+
+**Data.** Records live in the browser (`epitaph-sites`, backup `epitaph-sites-backup-v1`, undo `epitaph-sites-undo`), alongside the timeline (`epitaph-timeline`) and the reader's chapter (`epitaph-reader-chapter`). Export and import travel with the Dossier backup.
+
+**Checks.** The Dossier's Checks list covers the encyclopedia: places and events that don't exist, ties and founding stages out of order, blocs under three places, what-if links and loops, setup → payoff (Chekhov) problems.
+
+**Tests.** `tools/site-tests/run.sh` runs 245 Node checks on synthetic data (the reader gate, the web, blocs, what-ifs, founding stages, links). The real-page checks (headless browser) were run by hand and are described in the plan's tweak log.
+
+**Not built yet.** The Creature Log (steps 6.3 and 6.4 finish when it exists), and the public push (docs and history still name private story elements).
+
+## Performance of the encyclopedia views — step 7.2
+
+**Measured first** (with the real timeline module): the places index took 0.8 s in a reader's view at today's 44 places, 40 s at 300, and a reader's view at 2,000 places took over a minute; the author's view grew quadratically too. Each place asked the same questions of every other place again (is this event reached, is that place reached, which place names must be hidden from text, who are my ties), and each of those re-parsed the timeline.
+
+- **Fix:** `EpitaphSites.bulk(fn)`. Inside one bulk call nothing is edited, so answers that depend only on (event, chapter), (place, chapter), the hidden-name list (now one compiled pattern) or the record list (every place's ties in one pass) are worked out once. The index (`rows`), the relations web, the blocs and the creature lookup run in bulk. Outside a bulk call everything is computed fresh, exactly as before; **90 comparisons of the old and new code on random data (author and reader, five chapters) give identical results.**
+- **After:** the reader's index is 10 ms at 44 places, 34 ms at 300, 84 ms at 1,000 and about 150 ms at 2,000; the ring's web is 8 ms at 300 places and 40 ms at 1,000.
+- `blocsAt` no longer builds a reader copy of places that have no blocs.
+- **Not done on purpose:** lazy-loading the view scripts. They cost 3–5 ms of a 280–320 ms page load, so it would save almost nothing and risk load order. The views already build their pages only when opened, and the map's image data loads on first use.
+
+## Phone layout and keyboard use for the encyclopedia views — step 7.1
+
+- **Phone (up to 760px wide):** while an entry, the relations ring or the what-if board is open, the book gives its left page 58% of the height, hides the terminal (no use on a phone there), and shrinks its own header to one line. Every view's header wraps so the title gets a full row (it was squeezed to "A…", "RELA…", "WHAT…"), and touch targets (back and view buttons, selects, chapter step buttons, kind chips, stage buttons, the what-if score dots) are 36–44px.
+- **Keyboard:** opening a view puts focus on its Back button; a redraw (pressing a tab, picking a seat with Enter, a chip, a score dot) keeps focus on the same control instead of dropping it to the page; a card that opens a page hands focus to that page's Back. Nothing uses a positive `tabindex`. Every button, link, select and input draws a visible focus ring. The what-if board's drag-and-drop has a keyboard route: open the card and use its Status menu.
+- **Themes:** the Dossier is dark only; the Atlas's Politics arcs and the 3D sites' stage picker were checked on the Paper theme.
+
+## Beasts tab and the Creature Log (the entry's half) — step 6.3, part done
+
+The Creature Log isn't built yet, so only the encyclopedia's side exists:
+- **Creature names on the Beasts tab** are links into the Creature Log as soon as it registers a `creature` handler with `EpitaphLinks` and `EpitaphCreatures.byId(id)` returns the creature. Until then the name is plain text ("Opens in the Creature Log once it is built"); an id the log doesn't have says so.
+- **Also found in** lists the other places whose Beasts tab names the same creature (derived, nothing typed in), each a link to that place's entry, with the relation (feared, kept…). A reader gets only places they've reached and beasts the gate lets through; the author also sees hidden ones, dashed.
+- **For the Creature Log's Range tab:** `EpitaphSites.creaturePlaces(creature, recs, author)` returns every place that lists a creature, through the same gate, as `[{ placeId, relation, hidden }]`; the log can call it to link each place to its entry (`index.html?place=<id>`).
+
+## Links from the Dossier to the entries — step 6.2
+
+A character's location in the Dossier links to the place's entry: **Read the entry →** beside the WHERE line of the Chapter codex page and beside *Where* in the Character brief (screen only: the copied brief text stays plain). Clicking it opens the Storybook on that entry, whether or not the book was already open. It uses the same rule as the Atlas links (`EpitaphSites.entryFor`): the place needs an entry, and a reader only gets it for a place they've reached. The `index.html?place=<id>` deep link now goes through the same function.
+
+## Links from the Atlas to the entries — step 6.1
+
+- **Read the entry →** in a place's close-up footer (next to *Open the site*), and in a character's close-up when they stand at a place that has an entry.
+- **Read the entry for <place> →** in the character record panel; the place tooltip says "Has an encyclopedia entry".
+- The links go to `index.html?place=<id>[&tab=history]`, which opens the Storybook on that entry (a new deep link in the Dossier, like `?char=`).
+- **Who may follow it:** `EpitaphSites.entryFor(place)` returns the place to link to only if it has an entry and the viewer may read it: an author always, a reader only for a place they've reached. A temple inside a city links to the city's entry when it has none of its own. The entry itself and the deep link also refuse an unreached place for a reader.
+
+## Illustrated founding stages (epitaph-dither.js, epitaph-sites.js `foundingLayers`) — step 5.3
+
+The dither **founding model** on the right page now illustrates each stage from what the place's founding stages say, for every place with a model (and the ones with a 3D site too, which also link to it). The stage buttons pick the stage; a caption names it and what changed.
+
+- **What it draws:** 1 the spot is ringed · 2 the heart is cleared and paved, with the first buildings · 3 a ring wall with a gate · 4 the town · 5 a disaster's scar (a smooth black wound, its rim glowing, everything inside gone) · 6 rebuilt blocks over the scar in another tone · 7 everything as it now stands. **Grey ruins** of the drowned world appear when a stage up to here reuses something from it. Buildings take the place's colour: Storyborn gold, Voided violet, Fallen ember.
+- **Only what's written:** a stage that isn't written adds nothing, and readers get the stages they've reached, so no scar appears before its chapter ("Not known yet" in the caption).
+- Without the new options the model draws as before.
+
+## 3D sites by founding stage (sites/aurelia.html, sites/hollow-reach.html) — step 5.2
+
+Both 3D sites can show the place **as it stood at a founding stage**: a **Built** picker in the header ("as built", or 1 · The reason … 7 · As it stands), or `?stage=N` in the address (1–7). Every piece of the scene is filed under the stage that built it (the scene kit keeps one mesh per material *and stage*), and the labels follow; the note panel names the stage and what it added. "As built" (the default) is exactly the old scene.
+
+- **Aurelia:** 1 the bluff, river, prairie and waterfalls · 2 the farmland, the ring terraces and golden avenues, the Cathedral, townhouses, street trees, pennants and lanterns · 3 the bluff wall and the Ruler's Tower with its script rings · 4 the Chronicle, the Archive, the Seminary and its bridge, the wharf, lower town and funicular · 5–7 the erasure (the same as *After the Calamity*). Picking Before or After goes back to "as built".
+- **The Hollow Reach:** 1 the forest · 2 the carved pit and its four steps (and the frost where Val stands) · 3 the obelisks and relay masts of the inverse barrier · 4 the hives, Spines, Descent, lake and station, palace, Assembly, arena, yard, air shafts, pods and everything below. It has no disaster yet, so 5–7 show it whole.
+- **From the entry:** the History tab of a place with a 3D site has **Open the 3D site at stage N**, which follows the stage you click.
+
+## Site Encyclopedia: how it was built (History tab, epitaph-sites.js `foundingProblems`) — step 5.1
+
+The History tab now tells a place's founding as the **seven stages** top to bottom (The reason · Ground broken · First walls · Growth · Disaster · Rebuilt · As it stands), each dated on the shared timeline ("Aurelia rises under Gaia · Ch 1"), with why here, who, materials, **what was reused from the drowned world**, and what changed. Click a stage to turn the founding model on the right page to it; the map's stage buttons and the list stay in step.
+
+- Readers see only the stages they've reached; the rest show as "? ? ?" so the seven keep their places. The date line shows the event's title only up to its first colon or semicolon.
+- Checks: `founding-order` (a stage dated before an earlier stage), `founding-dup` (a stage written twice), `founding-stage` (not one of the seven).
+- The stage texts themselves are author drafts from the lore, kept outside the repo (merged through Dossier → Data → Merge).
+
+## Site Encyclopedia: the what-if board (assets/epitaph-site-whatif.js) — step 4.5
+
+Every place's what-ifs in one place, **author only** (never published: the reader gate leaves `scenarios` out and the snapshot checker refuses the key). Open it with **What-ifs** on the places index (author view) or **Open the what-if board** on a place's Intrigue tab (it starts filtered to that place; Back returns there).
+
+- **Board:** a column per status. Drag a card to another column to change its status. Each card shows its kind, home place, how likely and how big, the places it hits, and a warning-sign verdict (⚠ when a Planned, Foreshadowed or Written what-if has no sign planted in time; ⟲ when it's part of a loop).
+- **Piles** ("what to work on"): the two scores sort every what-if into *Plant signs now* (likely and big), *Keep in your pocket* (unlikely but big), *Background colour* (likely but small) and *Let it go*. Likely = Possible or more; big = a Region or more. What-ifs whose impact isn't scored yet are listed below the piles.
+- **One what-if:** causes weighed (★ the one you lean to, with its weight) → trigger → fallout per place → *Then what?* (what it sets off, and what sets it off), plus its warning signs. A quick bar sets status, how likely and how big in place (each an undo step); **Edit everything** opens its full form in the place's entry.
+- **Right page:** the world dither map. With nothing open, every shown what-if's ripples (place circles grow with how many what-ifs reach them); with one open, its ripples and a chapter strip with its warning signs (◆) and the chapter it happens in (✸).
+
+Schema additions (older what-ifs upgrade on load, nothing lost): status has **seven** steps (Idea · Weighing · Planned · Foreshadowed · Written · Shelved · Dropped); **impact**, a 7-step scale (Ripple → Ending); each cause gets a **weight** (7 steps) and a **lean** ★; **then**, links to other what-ifs. Checks: `whatif-link` (a link to a what-if that doesn't exist) and `whatif-loop` (what-ifs that set each other off), and the Chekhov rule now covers Planned and Foreshadowed what-ifs too (a Foreshadowed one needs a planted sign; one with a chapter needs a sign before it).
+
+## Site Encyclopedia: blocs (epitaph-sites.js `blocsAt`, the Foreign tab, the ring, Checks) — step 4.4
+
+A bloc is a named pact of **three or more** places, stored on one place's Foreign tab with members who join and leave on timeline dates. They now show everywhere a tie does.
+
+- **One gate:** `EpitaphSites.blocsAt(chapter, recs, author)` returns the blocs at a chapter. A reader sees a bloc only once it is revealed (not `hidden`, or its `revealedIn` reached), a member only from the chapter their start is reached and only if they've reached that place, and a departure only once reached. The author sees all of it, following the chapter for what has *started*, with hidden bloc / member / departure marked. This also fixed the Foreign tab, which used to read other places' blocs straight from the raw records.
+- **Foreign tab:** each bloc a place belongs to shows its members as chips ("joined Ch 2", "left Ch 3"), charter, purpose, seat, rival and tension (tension is author-only for readers' scrubbed text), plus a link to the ring. The faint polygon on the map uses only members still in.
+- **The ring:** *Seats by* now has **bloc** (a place sits with the larger bloc it is in, else "No bloc"; seats use the widest chapter so they still don't move while scrubbing). **Blocs at this chapter** lists them; pick one to light its members and the chords among them, and read its charter and members on the left.
+- **Checks:** `bloc-small` (fewer than 3 members), `bloc-dup` (a place listed twice), plus the existing unknown-place, unknown-event and leaves-before-it-joins rules, now covering blocs.
+
+## Atlas: Politics toggle (atlas-3d.html, assets/atlas3d/epitaph-map.js) — step 4.3
+
+A **Politics** button in the Atlas header draws the ties between places as arcs on the board and the planet, at the chapter on the slider. It is the same data and the same reader gate as the relations ring (`EpitaphSites.webAt`), so the two always agree.
+
+- Colour = tie kind (alliance, vassal, trade, truce, rivalry, war, covert); the key lists only the kinds drawn now. War is drawn thicker; vassal and covert carry an arrowhead (from the one who serves or spies).
+- Dotted and fainter = ended. Dashed = a tie readers can't see yet (author only).
+- A reader sees only ties that have started by their chapter, between places they have reached; no secret tie before its time, no unreached end. Changing chapter, or switching Author/Reader, redraws.
+- Era 0 has no politics (the button is disabled); the choice is remembered, and `?politics=1` turns it on from a link.
+- Two places in one spot (a temple inside a city) get no line, since it would have no length.
+
+## Site Encyclopedia: the relations ring (assets/epitaph-site-web.js, epitaph-sites.js `webAt` / `ringSeats`) — step 4.2
+
+Every place on one ring, every tie between places as a chord, by chapter. Open it with **Relations** on the places index, or **See … in the relations ring** on a place's Foreign tab (Back returns to that entry).
+
+- **Seats never move.** Places are grouped by type (or by country: *Seats by*), statue sites first, with a gap between groups. Stepping chapters (slider, ◂ ▸, or the arrow keys) only adds and fades chords, so changes stand out.
+- **Chords:** colour = tie kind (seven, toggled in the legend), thicker for war, an arrow on vassal and covert (from the one who serves or spies). Dotted and faint = ended. Dashed = readers can't see it yet (author only).
+- **Left page:** what began or ended in this chapter, the busiest places, all ties at this chapter. Click a place or a chord to pick it: a place lists its ties; a tie shows its kind, motive, terms, start and end, with links into both entries. Esc lets go, then closes.
+- **Reader safety:** the ring comes from `EpitaphSites.webAt`, the same gate as the entry. A reader can only scrub up to their own chapter, never sees a place they haven't reached, a secret tie before its time, or where an unreached end falls; a tie's words come through `forReader`.
+
+## Site Encyclopedia: ties over time (assets/epitaph-site-entry.js, epitaph-sites.js `tieBars`) — step 4.1
+
+The top of a place's **Foreign** tab now draws its ties on a timeline: one row per tie, a bar from where it starts to where it ends (the timeline's own event order), coloured by kind (alliance, trade, war and the rest), with a "latest" or "Ch N" marker for where the reader is. Hover a bar for the tie's start and end events. The author can click a bar to edit that tie.
+
+- **Dashed bar** = a secret tie (author only; a secret tie a reader hasn't reached isn't drawn at all).
+- **A bar that fades into a "?"** = the end isn't reached yet: a reader sees it run as far as they have read and never learns where it stops, and the end event is not named anywhere on the page. The author sees the real end, with a dashed edge, marked as not yet visible to readers.
+- **A bar with an arrow** = no end (still going); a solid end cap = an end the reader has reached.
+- The axis names only events that bars use, so a reader's axis can't name an event they haven't reached.
+
+## Site Encyclopedia: the editor (assets/epitaph-site-edit.js) — step 3.1
+
+In the author's view every card of a place's entry gets a ✎, and each tab has an **Edit bar** at the top. Pick a card's ✎ and it opens into its form right where it was (a list card opens just that item); pick a chip in the bar to edit a whole list or block, or **+** to add one. Nothing is deleted without a second click. Readers never get any of it.
+
+- **Every field of every tab is editable** from one table: states, the seven scales and technology; purpose, founders, settlers, founding stages, myth, name, chronicle, eras, landmarks, lost things, the record and its evidence; government (offices, rulers over time, laws), factions, figures, unrest, society, knowledge, military; ties, blocs, envoys, hostages, agents, borders, routes, migration, reputation; resources, the wider economy, debts; beasts; secrets, rumours, questions, hooks, foreshadowing, sealed places; what-ifs. Plus the **founding model** switch.
+- **Pickers:** seven-option chips for the seven-sets (and multiple for wards), a 7-dot clicker that shows the step name, a **timeline picker** (event title, "since the start", "ongoing"), place, character and secret pickers you can also type into, chip lists, one-per-line lists and repeatable rows.
+- **The reader gate:** every item readers can be held back from has *Hidden from readers* and *Reveal in Ch*; the author-only fields (secret goals, truths, fears, leverage, real reasons…) are marked ◆ author.
+- **Saving:** a saved tab is yours, so Merge no longer replaces it (the form says so while a tab is still a draft). Each save keeps the tab as it was: **Undo** in the bar, or Ctrl+Z (last 30). Esc closes a form without closing the entry.
+- **Approving drafts (3.2):** every tab that is still Claude's draft shows a ● on the tab rail and an **Approve tab** button in its header; an approved tab says **Approved** with *Mark as draft* to put it back. *Approve all (n)* in the Edit bar approves every draft tab of the place. Approving changes no text, and each approval is an undo step. The places index has a **draft filter** (author only: has draft tabs / all tabs approved) and each row says how many draft tabs it has. An approved tab is never replaced by Merge.
+- **The sheet (3.2, layout L):** the **▦ Sheet** chip in the Edit bar shows a list as one row per item (name and up to two more simple fields, then Hidden and Reveal). Pick rows, then **Reveal in Ch __**, **Hide**, **Show now** or **Delete**, edit cells in place, and **Save sheet**: everything you changed is one undo. A list with no Hidden flag (Intrigue lines) is hidden until it has a reveal chapter, so *Un-reveal* clears the chapter. A partial edit keeps the rest of a record (editing `goals.public` keeps `goals.secret`).
+- **Checked:** opening and saving every record in the six drafted places with no change reads back identically (2,039 fields), plus 48 real clicks (edit, add, delete, validation, rows, the timeline picker, undo, Esc, the reader seeing none of it).
+
+## Site Encyclopedia: the reader gate and the published snapshot (assets/epitaph-sites.js `forReader`, epitaph-publish.js) — step 2.4
+
+The published file now carries all seven tabs of every place readers have reached (snapshot schema 3), already gated, and the book's **Reader view** shows exactly that, through the same function.
+
+- **What a reader gets:** dated things follow their dates (a ruler, law, faction, tie, chronicle line, founding stage, era or resource appears once its event is revealed; an end they haven't reached shows as ongoing); anything `hidden` or carrying a `revealedIn` waits for that chapter; an Intrigue line appears only once its own reveal chapter is reached; a character is named only once introduced.
+- **Never published:** scenarios, drafts, agents, corruption, secret goals, fears, leverage, relationships, who wants a tie to fail, a tie's real reason, the truth behind an official story, evidence, setup and payoff notes. These keys are left out of the file, not blanked.
+- **A held-back event holds back what hangs on it:** if the builder withholds an event (its title names something unreached), nothing dated by it is published either, so the event's id can't leak through a state or a founding stage.
+- **Hold a block back** with `hidden: true` or `revealedIn` on purpose, settlers, myth, name, the government's prose, society, knowledge, military, or the economy's prose; the drafts mark the ones that would give a secret away.
+- **Drafting markers** like "(suggested)" and "(a guess)" are stripped from published text.
+- `tools/check-snapshot.py` has its own list for sites (so `secrets` and `knowledge` are fine as site tabs) and checks that no hidden faction, secret goal, secret tie or unrevealed Intrigue line is in the file. It also no longer mistakes a character's `weight` stat for an item field.
+
+## Site Encyclopedia: a place's entry in the book (assets/epitaph-site-entry.js, epitaph-dither.js) — step 2.2
+
+Click a place in the book's Site Encyclopedia (`opse`) and its entry opens over the index: seven tabs down the left page (Overview · History · Domestic · Foreign · Economy · Beasts · Intrigue) and a **dither map** on the right page above the terminal. Built from the round-4 mockups.
+
+- **The map** is drawn flat from the Atlas's own heightmap (the same projection, so places sit where the 3D map puts them): dot size is height, teal is land the sea took. Each tab picks its zoom: the **world** (Foreign: ties as arcs, coloured by kind; Intrigue: where rumours spread), the **region** (Overview, Economy with numbered resource pins, Beasts), or the **founding model** (History, Domestic): a stacked contour block you can turn by dragging or with the arrow keys, with landmark or faction pins and the seven founding stages under it. Only places with a model switched on get one (the statue sites by default); others show their region.
+- **◆ markers** on factions, figures, landmarks, the record and resources point at the secrets and rumours pinned to them; clicking one jumps to that line in Intrigue.
+- **Readers** see only what they have reached: states, ties, rulers, chronicle lines and founding stages follow the timeline; hidden factions, agents, covert ties, truths and what-ifs are author-only; an Intrigue line shows once its reveal chapter is published. The author sees everything, with what readers can't see dashed.
+- "◂ All places" or Esc goes back to the index. Outside the encyclopedia, place links still open the Atlas.
+- **In the story (Overview tab)** is derived, nothing is typed in: the chapters set here, who was here (arrived, left or still there, and why, from their objective that chapter, † if they died here), and the timeline's moments set at the place. It reads each character's per-chapter location, the same data the map's sword trails use. A reader only sees stays that began by their chapter, an end they haven't reached shows as "now", and a moment appears once its chapter is revealed. The author sees all of it, with what readers can't see dashed.
+- **Intrigue links (2.5):** ◆ markers now sit on ties as well as factions, figures, landmarks, the record and resources, and a record's evidence points back at the secrets it supports. A secret shows its evidence, related secrets (click to jump), the place it unlocks and the question it answers; a question shows the secret that answers it. The Intrigue map has a **chapter slider**: slide to a chapter and each rumour appears when it starts and spreads only as far as it had by then, with its origin ringed. These links, evidence, related and answers are author-only; readers get only revealed lines.
+- **Dossier knowledge link (2.6):** a character's secret can point at a Site Encyclopedia secret. In the Knowledge editor a secret line takes an optional fourth column (`Secret | knows? | Known by | secret:aurelia/cell`), and a picker under the box sets it for the line you are on. The Dossier keeps what the character believes in their own words; the link is only a pointer. The secret's entry then shows **Known by** (who carries it in their file and the chapter they first know it: their own first "yes", so nothing is typed twice) and **Could be found by** (characters who stood where it can be found before they knew it: a prompt, not a rule). The character's knowledge tree labels a linked secret with its place. Author only: the Dossier's secrets are never published.
+- **Setup → payoff check (2.7), Chekhov's gun:** the Dossier's Checks list now reports, across every place, what is planted and never paid off (a secret, foreshadowing, or a what-if's warning signs; information), what pays off with nothing planted before it (a secret, or a what-if written into a chapter; warning), and what is paid off before it is planted (warning). A secret's evidence counts as its setup (the chapter the evidence turns up in, earliest first) when it has no setup of its own. Nothing is checked until you set a setup or payoff chapter, so an empty entry stays quiet. A dropped what-if with warning signs already planted is a warning. Each place's Intrigue tab shows its own part of the same list.
+
+## Site Encyclopedia: schema v2 (assets/epitaph-sites.js) — plan: `docs/plans/site-encyclopedia.md`, step 1.5
+
+A place's record now has seven tabs: **Overview · History · Domestic · Foreign · Economy · Beasts · Intrigue** (plus what-if `scenarios`), as laid out in `docs/plans/site-schema-v2.md`. Nothing you could see changes yet: the pages that show the new tabs come next.
+
+- **Your old entries upgrade themselves.** The first time the page loads, each place is mapped over without loss: states → Overview, the rule → Domestic (laws become dated lines), alliances → Foreign ties (each gets an id), resources → Economy (each gets an id), founding stages → History. Draft flags follow. The old store is copied once to `epitaph-sites-backup-v1` the first time anything is saved.
+- **New 7-sets** (exactly seven each): motives, faction kinds, ways a tie ends, beast temperament, social shape, kinds of ward, rumour intent and scenario trigger kinds. Four new 1–7 scales: technology, faction strength, resource importance and scenario likelihood.
+- **Founding model switch** (`EpitaphSites.hasModel`): on for the statue sites by default, off elsewhere, and the author can switch any place.
+- **Merge updates drafts (step 1.6):** for places you already have, Merge now also replaces encyclopedia tabs that are still Claude's drafts, and lists them by place and tab before you confirm. A tab you have saved is never touched. This is how the v2 drafts of the six statue sites come in (a private file in the vault, never in the repo).
+- Export, Import and Merge still work with old backups. The index, the Checks list and the published snapshot read the new shape; the snapshot readers load is unchanged (checked byte for byte against the old one), and the new tabs join it with the spoiler gate (step 2.4).
+
+## Item system (assets/epitaph-library.js, epitaph-item-fields.js, epitaph-marks.js, epitaph-states.js) — plan: `docs/plans/item-system.md`
+
+Items now carry what the author's Items page describes: a rank and tier, up to three tracks of states, a history, and marks with their own fields. Everything below is built; what is left is listed at the end.
+
+**What an item has**
+- **Rank** (Soul, Host, Ward, City, Dominion, Face, Planet; no Realm) and **tier** (Mundane 1–3, Transcendent 4–6, Divine 7). Rank follows the item's *active* bindings, so it drops when a state loses the binding that gave the reach (Observance: Planet while Connected, Soul at No Signal). A rank sets the lowest tier allowed; a tier below it is locked in the editor and flagged by the Checks.
+- **States** in up to three **tracks**: Item (its condition), Usage (what part of a process it is in) and a third you name (Connection, Hunger…). Up to 7 states each, each with a colour; a track can be **one-way**; each has a **normal state**. A chapter's copy of an item picks one state per track.
+- **Origin** (a place, none, or unknown), **how it came to be**, a dated **history** (era, a year that can be far back and approximate like −4219 ≈, a chapter, who held it, the states it was in), and a **W.I.P** flag. Weight, appearance and maker are saved but switched off (`OFFLINE_FIELDS`).
+- **Marks by kind:** a **binding** has a Reach (rank); a **blessing** has Price, Terms, Breach and Lasts until; a **curse** has a Type, a Cause and three **stages** (Awakening, Fluctuation, Stabilization, after an initial state) that you name and describe yourself. A person takes blessings and curses; an item takes bindings and curses. The old Cost and Ends text moved into the new fields without loss.
+
+**Where you see and edit it**
+- One set of fields for editing items (the book's Library view and the Atlas drawer) and one mark editor everywhere. The inventory picks a state per track. Years display like the timeline ("Before Epitaph · ≈ Y −4,219").
+- The inventory monitor shows the rank now (and what it can reach), tier, W.I.P and a curse's stage ladder, with a short animation when you switch items. The book's Relic vault and Holder web show states and rank; the item log includes the item's history and curse stage changes. The Powers page has an **Items** section. An item's origin place is a link (the map today, the encyclopedia entry later).
+- **Checks** warn about a tier too low for the rank, a curse's stage going down, a person's curse disappearing, a one-way track going back (in chapters and in history), and note a blessing on an item or a binding on a person.
+
+**What readers see**
+- The published copy carries an item only once a published chapter has revealed it (`reveals:`), never a W.I.P item. Origin story needs `<Item>: origin`, pre-story history needs `<Item>: history`, a single mark can be revealed as `<Item>: <Mark>`. Never published: notes, weight, appearance, maker, a blessing's terms, a curse's type or stage text.
+- Rank, states and marks follow what the story has revealed **so far, for as far as the reader has read**: until you publish the chapter that reveals God's Eye, a Connected Observance reads Rank 1 · Soul; afterwards Rank 7 · Planet, whichever chapter's version is open. `tools/check-snapshot.py` double-checks it all before you publish.
+
+**Your data**
+- Upgrades on first load, with a raw copy kept once in the browser first: Library v3 (`epitaph-library-backup-v1`, `-v2`) and Dossier schema 9 (`epitaph-character-profiles-backup-v9`).
+- **Merge can update items:** Data → Merge → tick *Also update items that already exist*, untick any you want to keep; your Library is saved first (`epitaph-library-backup-before-merge`). Everything else in Merge still only adds.
+- Your Items page, converted, is a Merge file in `Site work/files/epitaph-items-converted-2026-11-21.json` (not in the code) with a notes file of every choice made.
+
+**Storage for free creation (Phase 6, step 6.1):** the Library can now hold a shared list of marks and a list of prospective skills (author-only, never published, saved with Export, added by Merge). A mark on a person or item can be a copy of a library mark and remembers where it came from. The screens for them come next.
+
+**Skill prospects (steps 6.2, 6.3):** type **opsp** (or use the new "Skill prospects" link) to open a board of skills with no character: add, edit, search and filter them, give each a private note. They are only for you. **Assign to a character** moves a prospect onto one of their chapter versions after checking that version's rules (the type lock, the true-name caps, a locked chapter, name clashes, and the skills it grows from, which can move with it). Below it, **Who could take it** lists every character: whether the rules allow it, how much room their true name leaves, and hints (your note names them, shared words with their concept, a corrupted prospect for a Twisted character); **Use** fills in the assignment.
+
+**Mark library (step 6.5):** blessings, curses and bindings you use again can be saved to a shared library ("Save to the library" under any mark) and copied onto people and items ("Add from the library" in every mark editor). A copy shows whether it still matches its library mark and can be updated from it. Type **opmk** (or use the "Mark library" link) for a board that lists every library mark with all its copies, who holds each one and at which curse stage, and has **Update all copies**.
+
+**Chapters and skills (step 6.6):** a chapter can list the skills it shows in a `skills:` property. The Checks warn when a **canon** chapter names a skill that is still only a prospect (assign it to a character first), and only note it while the chapter is a draft. The sync tool copies the property; the Chapter Template and Chapter Pipeline note have it.
+
+**Not built yet:** the place entry's "items made here" list (needs the Site Encyclopedia entry view), the Creature Log link for items that are organisms, and prospective skills with a shared mark library (item plan Phase 6).
+
+Scripts: Library `?v=19`, marks `?v=8`, state editor `?v=3`, item fields `?v=5`, checks `?v=11`, publish `?v=6`. Tested in Node (Library and marks 32 tests, checks 7, snapshot builder 10) and in the real pages in headless Chromium.
+
 ## Site Encyclopedia data (assets/epitaph-sites.js)
 
 - **Author view and Reader view:** you see everything (places readers haven't reached are marked "Hidden from readers"); the button in `opse`'s tool bar previews what a reader sees at your chapter. In Reader view a place you haven't reached is not listed at all, nor are ties to it, nor text that names it.
 - **`opse` is a real page now:** an index of every place on the map, grouped Storyborn · Voided · Fallen · Cities & others, with search ("who trades salt", a ruler's name) and filters for era, region, form of rule and status. It shows each place as it is at your chapter, so spoilers stay hidden: at Chapter 1 the secret ties aren't listed or searchable. Clicking a place opens it on the map for now; the 7-tab entry view comes next.
+- **A character's race stays hidden from readers until a chapter reveals it:** list it in that chapter's `reveals:` (`Twisted`, or `Orin: Twisted`). Until then the Dossier shows no type, status line or type tags for them. The plain type "person" is never hidden.
+- **The map is read-only for visitors too, and places appear when a chapter reveals them.** A story place (a fictional city or special site) isn't on a reader's map until a published chapter brings it up; real cities always are. Readers don't get the Library button, and can still pick up and throw swords (nothing is saved).
+- **The Dossier is read-only for visitors:** no New, Edit, Delete, Chapters, Checks, Import/Export/Merge/Publish, no Edit buttons in the System sheet tabs, no Brief, and no Arc or Knowledge tabs. You still see and use all of it. New controls that edit should get the class `edit-only` (or be added to the reader-mode block in `index.html`).
+- **Readers load the published copy, not their own browser.** In a visitor's browser every page now gets its data from `published/epitaph-data.js`, and nothing they do is saved. Your browser is unchanged. The file in the repo is the empty "coming soon" snapshot for now; to publish, download a new one with Data → Publish snapshot, run `tools/check-snapshot.py` on it, replace `published/epitaph-data.js`, and push.
+- **Readers only see what a chapter has revealed.** A chapter reveals things by listing them in its properties: `characters:` (who appears), `moments:` (timeline moments), `world:` (places, as `Place = state`) and the new **`reveals:`** (items, marks and the like, by name). Nothing is revealed by default, and anything marked `open` is known from page 1. The encyclopedia's Author view says when readers get each place ("Readers see it from Ch 3", or "Not revealed yet"). Publish snapshot follows the same rule.
+- **`tools/check-snapshot.py`** double-checks a downloaded snapshot against `chapters/index.json` and your private drafts before you publish it: run `python3 tools/check-snapshot.py ~/Downloads/epitaph-data.js`.
+- **Publish snapshot** (Dossier → Data, author only): builds the read-only copy of your data that readers will load, cut at the last published chapter, with only the fields on an allowlist and any text that names a place or character readers haven't reached removed. It checks the finished file for leaks and downloads `epitaph-data.js` for the `published/` folder. Nothing is uploaded. Readers don't load it yet.
+- **A tag on the left edge of every page** says which view you're in: "Reading" for visitors, "Author" for you. Click "Author" to preview what a reader sees (it becomes "Preview · reader"; click again to go back).
+- **Author or reader (`assets/epitaph-mode.js`):** every page now knows whether it is open in your browser or a visitor's. Visitors are readers by default; open the site once with `?author=1` and it remembers you (`?author=0` turns it off). Your own computer (localhost, or a file) counts as the author automatically. The Author/Reader preview button in `opse` is only shown to you, and a reader can't switch to the author's view. This is a convenience, not a lock; nothing secret is published. The edit controls are not hidden from readers yet.
 - **The lore drafts are no longer in the code.** The public files (`epitaph-sites.js`, `epitaph-timeline.js`) ship empty; your drafts live in a private file in your vault and come in with **Data → Merge** (once per browser you write in). Until you merge it, `opse` lists every place as "No entry yet".
 - **Backups carry it:** the Dossier's Export now includes your site-encyclopedia and timeline edits (only what you changed). Import replaces them (a backup from before this leaves yours alone); Merge adds the places and timeline edits you don't have yet and lists them before you confirm.
 - **Checks:** the Checks list also flags alliances or entries pointing at missing places, an alliance that ends before it starts, dates on events that aren't on the timeline, and beasts missing from the Creature Log (once it exists). A note counts the Era 1 places with no entry yet.

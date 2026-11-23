@@ -315,3 +315,10 @@
 .bk-si-status.bk-si-none{ color:var(--dust); border-style:dashed; }
 .bk-si-empty{ font-family:var(--f-mono); font-size:12px; color:var(--dust); padding:18px 0; }
 .bk-si-status.bk-si-hidden{ color:#8aa0c8; border-style:dotted; margin-left:4px; }
+
+/* Reader mode (epitaph-mode.js): the book's editors are the author's */
+.mode-reader #bkNewItem, .mode-reader #bkFold, .mode-reader #bsNewFor, .mode-reader #bsNewRoot{ display:none !important; }
+/* Reader mode: the Site Encyclopedia and Creature Log editors are the author's */
+.mode-reader .se-edbar, .mode-reader .se-pen, .mode-reader .se-add, .mode-reader [data-se-new], .mode-reader [data-se-approve], .mode-reader [data-se-approveall], .mode-reader [data-se-undraft], .mode-reader [data-se-undo], .mode-reader [data-se-sheet-open], .mode-reader .cl-new[data-new], .mode-reader .cl-del, .mode-reader [data-edit]{ display:none !important; }
+/* Reader mode: the Dossier's (visually hidden) import and merge file pickers are not reachable either */
+.mode-reader #importFileInput, .mode-reader #mergeFileInput{ display:none !important; }

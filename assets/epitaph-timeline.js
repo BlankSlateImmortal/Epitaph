@@ -11,8 +11,10 @@
  *   kind:  one of KINDS (7)
  *   order: story order. Sorts events that share an era and have no chapter.
  *   refs:  links in the shared format: 'place:<id>', 'char:<id or name>', 'creature:<id>'
- *   secret: a twist the reader learns later. Hidden until `revealedAt` (a chapter), or until
- *           the reader is on the latest chapter when no chapter reveals it yet.
+ *   open:  true for something readers know from page 1. Everything else is hidden from readers until a
+ *          chapter reveals it (the author's rule, 2026-11-18): a published chapter lists it in its
+ *          `moments:` property (chapters/index.json), or the event has `when.chapter` / `revealedAt`.
+ *   secret: kept for the author's own notes; it no longer changes what readers see (everything is hidden by default).
  *
  * Author view: the author sees everything, readers only what their chapter has reached. authorMode() is true
  * unless the user switched to the Reader view ('epitaph-author-mode' = '0'); it is per browser, because the data is too.
@@ -126,13 +128,47 @@
   }
   function byId(id, list) { return (list || load()).find(e => e.id === id) || null; }
 
-  /** chapters/index.json entries ({ chapter, moments: [ids] }) date the moments they contain. */
+  // ---- what each published chapter reveals (chapters/index.json, written by tools/sync-chapters.py) ----
+  // A chapter's properties list what it shows the reader for the first time: moments (timeline ids), characters, world
+  // (places, written "Place = state") and reveals (items, marks and the like, by name). The first chapter that lists a thing reveals it.
+  let chapterLists = { world: {}, character: {}, reveal: {} }, anyCharacterLists = false, indexPromise = null;
+  let chapterSkillList = [];   // [{ skill, chapter, status }]: the skills each chapter names in its `skills:` property
+  const norm = s => String(s == null ? '' : s).trim().toLowerCase().replace(/^the\s+/, '').replace(/\s+/g, ' ');
+  /** chapters/index.json entries ({ chapter, moments, characters, world, reveals }) date what they contain. */
   function applyChapterIndex(index) {
-    chapterMoments = {};
+    chapterMoments = {}; chapterLists = { world: {}, character: {}, reveal: {} }; anyCharacterLists = false; chapterSkillList = [];
+    const first = (map, key, n) => { const k = norm(key); if (k && (map[k] == null || n < map[k])) map[k] = n; };
     (Array.isArray(index) ? index : []).forEach(c => {
-      const n = Number(c.chapter);
-      if (Number.isInteger(n)) (c.moments || []).forEach(m => { if (chapterMoments[m] == null || n < chapterMoments[m]) chapterMoments[m] = n; });
+      const n = Number(c && c.chapter);
+      if (!Number.isInteger(n)) return;
+      (c.moments || []).forEach(m => { if (chapterMoments[m] == null || n < chapterMoments[m]) chapterMoments[m] = n; });
+      (c.world || []).forEach(w => first(chapterLists.world, String(w).split('=')[0], n));
+      (c.characters || []).forEach(x => { first(chapterLists.character, x, n); anyCharacterLists = true; });
+      (c.reveals || []).forEach(x => first(chapterLists.reveal, x, n));
+      (c.skills || []).forEach(x => { if (String(x || '').trim()) chapterSkillList.push({ skill: String(x).trim(), chapter: n, status: String(c.status || 'canon').toLowerCase() }); });
     });
+  }
+  /** The first published chapter whose `world` / `character` / `reveal` list names any of `keys` (names or ids), or null. */
+  function firstChapter(kind, keys) {
+    const map = chapterLists[kind] || {};
+    let best = null;
+    (Array.isArray(keys) ? keys : [keys]).forEach(k => { const n = map[norm(k)]; if (n != null && (best == null || n < best)) best = n; });
+    return best;
+  }
+  const hasCharacterLists = () => anyCharacterLists;
+  /** The skills named by each chapter's `skills:` property (from chapters/index.json): [{ skill, chapter, status: 'canon'|'draft' }]. */
+  const chapterSkills = () => chapterSkillList.slice();
+  /** Fetch chapters/index.json once, apply it, and tell every view (the reader-change event). Safe to call often. */
+  function loadChapterIndex() {
+    if (indexPromise) return indexPromise;
+    if (typeof global.fetch !== 'function') return Promise.resolve(false);
+    indexPromise = global.fetch('chapters/index.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(idx => {
+      if (!Array.isArray(idx)) return false;
+      applyChapterIndex(idx);
+      if (typeof global.dispatchEvent === 'function' && typeof CustomEvent === 'function') global.dispatchEvent(new CustomEvent(READER_KEY, { detail: { chapter: readerChapter() } }));
+      return true;
+    }).catch(() => false);
+    return indexPromise;
   }
 
   // ---- order ----
@@ -163,7 +199,11 @@
       return [...set].sort((a, b) => a - b);
     } catch (e) { return []; }
   }
-  function latestChapter() { const c = chapters(); return c.length ? c[c.length - 1] : null; }
+  let latestOverride = null;
+  /** For the published snapshot: pretend the story goes on past chapter `n`, so "the latest chapter" never reveals secrets early
+   *  (the rule that shows an author's secrets at the latest chapter must not apply to what is published). Pass null to clear. */
+  function setLatestOverride(n) { latestOverride = Number.isInteger(n) ? n : null; }
+  function latestChapter() { if (latestOverride != null) return latestOverride; const c = chapters(); return c.length ? c[c.length - 1] : null; }
   /** The chapter the reader is on; null = the latest. */
   function readerChapter() {
     try { const v = localStorage.getItem(READER_KEY); const n = v == null ? NaN : parseInt(v, 10); return Number.isInteger(n) ? n : null; }
@@ -175,9 +215,15 @@
     if (typeof global.dispatchEvent === 'function' && typeof CustomEvent === 'function') global.dispatchEvent(new CustomEvent(READER_KEY, { detail: { chapter: v } }));
     return v;
   }
-  /** Author view (everything visible, hidden things marked) or Reader view (a reader's chapter gates it). Default: author. */
-  function authorMode() { try { return localStorage.getItem(AUTHOR_KEY) !== '0'; } catch (e) { return true; } }
+  /** Author view (everything visible, hidden things marked) or Reader view (a reader's chapter gates it).
+   *  Decided by EpitaphMode (assets/epitaph-mode.js): readers by default, the author's browser opts in. Without that module the old
+   *  rule applies: author view unless switched off. */
+  function authorMode() {
+    if (global.EpitaphMode) return global.EpitaphMode.authorView();
+    try { return localStorage.getItem(AUTHOR_KEY) !== '0'; } catch (e) { return true; }
+  }
   function setAuthorMode(on) {
+    if (global.EpitaphMode) return global.EpitaphMode.setAuthorView(!!on);   // it announces the change itself
     try { localStorage.setItem(AUTHOR_KEY, on ? '1' : '0'); } catch (e) {}
     if (typeof global.dispatchEvent === 'function' && typeof CustomEvent === 'function') global.dispatchEvent(new CustomEvent(READER_KEY, { detail: { chapter: readerChapter() } }));
     return !!on;
@@ -186,23 +232,32 @@
   function onReaderChange(fn) {
     if (typeof global.addEventListener !== 'function') return () => {};
     const local = e => fn(e.detail ? e.detail.chapter : readerChapter());
-    const other = e => { if (e.key === READER_KEY || e.key === AUTHOR_KEY) fn(readerChapter()); };
-    global.addEventListener(READER_KEY, local); global.addEventListener('storage', other);
-    return () => { global.removeEventListener(READER_KEY, local); global.removeEventListener('storage', other); };
+    const other = e => { if (e.key === READER_KEY || e.key === AUTHOR_KEY || e.key === 'epitaph-author') fn(readerChapter()); };
+    const mode = () => fn(readerChapter());                                   // EpitaphMode announced a change
+    global.addEventListener(READER_KEY, local); global.addEventListener('storage', other); global.addEventListener('epitaph-mode', mode);
+    return () => { global.removeEventListener(READER_KEY, local); global.removeEventListener('storage', other); global.removeEventListener('epitaph-mode', mode); };
   }
 
-  /** Is this event (or a bare `when`) visible to a reader on `chapter`? Leave `chapter` out to use the
-   *  reader's saved position; pass null for "the latest chapter". */
+  /** The chapter that reveals an event to readers: 0 for `open`, else `revealedAt`, else the chapter it happens in
+   *  (set by hand or by a chapter's `moments:` list). null = no chapter reveals it yet, so readers don't see it. */
+  function revealChapter(e) {
+    // an event (it has a when, an id, open or revealedAt) or a bare `when` like { chapter: 2 }
+    const item = e && (e.when || e.id || e.open != null || e.revealedAt != null) ? e : { when: e || {} };
+    if (item.open) return 0;
+    if (item.revealedAt != null) return item.revealedAt;
+    if (item.when && item.when.chapter != null) return item.when.chapter;
+    return null;
+  }
+  /** Is this event (or a bare `when`) visible to a reader on `chapter`? Leave `chapter` out to use the reader's saved
+   *  position; pass null for "the latest chapter". The author's rule: a reader sees it only once they have read the chapter
+   *  that reveals it. Nothing is revealed by default, and being on the latest chapter reveals nothing extra. */
   function isRevealed(e, chapter) {
-    const item = e && e.when ? e : { when: e || {} };
+    const rc = revealChapter(e);
+    if (rc === 0) return true;
+    if (rc == null) return false;
     const r = chapter === undefined ? readerChapter() : chapter;
-    const last = latestChapter();
-    const atLatest = r == null || (last != null && r >= last);
-    if (item.revealedAt != null) return atLatest || r >= item.revealedAt;
-    if (item.secret) return atLatest;
-    if (item.when.chapter != null) return atLatest || r >= item.when.chapter;
-    if (phase(item) === 2) return atLatest;
-    return true;
+    const at = r == null ? latestChapter() : r;
+    return at != null && at >= rc;
   }
 
   // ---- labels ----
@@ -224,8 +279,8 @@
 
   global.EpitaphTimeline = {
     KEY, READER_KEY, AUTHOR_KEY, VERSION, CH1_YEAR, ERAS, KINDS, DEFAULTS,
-    load, save, remove, reset, exportData, importData, newInData, mergeData, byId, applyChapterIndex,
-    compare, chapters, latestChapter, readerChapter, setReaderChapter, authorMode, setAuthorMode, onReaderChange,
+    load, save, remove, reset, exportData, importData, newInData, mergeData, byId, applyChapterIndex, firstChapter, hasCharacterLists, chapterSkills, loadChapterIndex, revealChapter,
+    compare, chapters, latestChapter, setLatestOverride, readerChapter, setReaderChapter, authorMode, setAuthorMode, onReaderChange,
     isRevealed, label, view
   };
 })(typeof window !== 'undefined' ? window : globalThis);

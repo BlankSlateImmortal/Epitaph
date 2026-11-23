@@ -129,6 +129,7 @@ let libReturn = null;             // where the country form goes back to
 
 const libBody = () => document.getElementById('libBody');
 function openLibrary(tab, view){
+  if (window.EpitaphMode && !EpitaphMode.canEdit()) return;    // the drawer is an editor: readers (and the author's preview) never open it
   if(tab) libTab = tab;
   libView = view || { mode: 'list' };
   const d = document.getElementById('libDrawer');
@@ -166,7 +167,7 @@ function findRefs(kind, id){
   const st = freshDossier(), lib = Lib.get(), refs = [];
   if(kind === 'place'){
     st.characters.forEach(c => (c.snapshots || []).forEach(s => { if(snapRefPlaceId(s.location) === id) refs.push(`${c.name || 'Unnamed'} is here in ${s.chapterRange || 'a chapter'}`); }));
-    lib.items.filter(i => i.originPlaceId === id).forEach(i => refs.push(`Item “${i.name}” came from here`));
+    lib.items.filter(i => i.origin === id).forEach(i => refs.push(`Item “${i.name}” came from here`));
   } else if(kind === 'country'){
     lib.places.filter(p => p.countryId === id).forEach(p => refs.push(`Place “${p.name}” is in this country`));
     st.characters.forEach(c => (c.snapshots || []).forEach(s => { if(s.location && s.location.countryId === id && !snapRefPlaceId(s.location)) refs.push(`${c.name || 'Unnamed'} is here in ${s.chapterRange || 'a chapter'}`); }));
@@ -193,7 +194,7 @@ function reassign(kind, fromId, toId){
     updateDossierStore(st => st.characters.forEach(c => (c.snapshots || []).forEach(s => {
       if(snapRefPlaceId(s.location) === fromId) s.location = { countryId: to.countryId, placeId: to.id };
     })));
-    return Lib.update(lib => lib.items.forEach(i => { if(i.originPlaceId === fromId) i.originPlaceId = toId; }));
+    return Lib.update(lib => lib.items.forEach(i => { if(i.origin === fromId) i.origin = toId; }));
   }
   if(kind === 'country'){
     updateDossierStore(st => st.characters.forEach(c => (c.snapshots || []).forEach(s => {
@@ -212,7 +213,7 @@ function deleteNow(kind, id){
   });
 }
 // History: who held an item in each chapter, in chapter order.
-// Each row also carries the item's state in that chapter (stateId).
+// Each row also carries the item's states in that chapter (stateIds).
 function itemHistory(itemId){ return Lib.uses(itemId, freshDossier().characters); }
 
 // ---- small map: tap to drop a pin ----
@@ -411,7 +412,7 @@ function renderItemList(){
     <div class="lib-sec">ITEMS · ${items.length}</div>
     ${items.length ? items.map(i => `<div class="lib-row">
       ${i.icon ? `<img class="lib-thumb" src="${i.icon}" alt="">` : '<span class="lib-thumb ph">◈</span>'}
-      <div class="lib-row-main"><b>${escapeHud(i.name || 'Unnamed item')}</b><small>${i.originPlaceId ? 'from ' + escapeHud(placeName(i.originPlaceId) || 'a missing place') : 'origin unknown'}${i.marks.length ? ' · ' + i.marks.map(m => m.kind).join(', ') : ''}</small></div>
+      <div class="lib-row-main"><b>${escapeHud(i.name || 'Unnamed item')}</b><small>${escapeHud(EpitaphItemFields.originText(i, placeName))}${EpitaphItemFields.badgesHtml(i)}${i.marks.length ? ' · ' + i.marks.map(m => m.kind).join(', ') : ''}</small></div>
       <div class="lib-row-btns"><button type="button" class="lib-btn" data-open-item="${escapeHud(i.id)}">Open</button><button type="button" class="lib-btn" data-edit-item="${escapeHud(i.id)}">Edit</button><button type="button" class="lib-btn danger" data-del="item:${escapeHud(i.id)}">Delete</button></div>
     </div>`).join('') : '<p class="lib-empty">No items yet. Items added here appear in the Dossier’s inventory editor.</p>'}`;
   document.getElementById('libAddItem').addEventListener('click', () => { libView = { mode: 'item', draft: { marks: [] } }; renderLibrary(); });
@@ -423,20 +424,24 @@ function renderItemForm(v){
     <div class="lib-sec">${v.id ? 'EDIT ITEM' : 'ADD ITEM'}</div>
     <label class="lib-field">Name<input type="text" id="liName" value="${escapeHud(d.name || '')}" placeholder="e.g. Dagger of Ashes"></label>
     <label class="lib-field">Description<textarea id="liDesc">${escapeHud(d.desc || '')}</textarea></label>
-    <label class="lib-field">Where it came from<select id="liOrigin"><option value="">— unknown —</option>${placeOptions(d.originPlaceId)}</select></label>
+    <div class="lib-field">Details<div id="liDetails"></div></div>
     <div class="lib-field">Pictures
       <div class="lib-pics">
-        <label class="lib-pic">${d.icon ? `<img src="${d.icon}" alt="">` : '<span>Icon</span>'}<input type="file" accept="image/*" id="liIcon" class="visually-hidden"></label>
-        <label class="lib-pic large">${d.image ? `<img src="${d.image}" alt="">` : '<span>Photo</span>'}<input type="file" accept="image/*" id="liImage" class="visually-hidden"></label>
+        <label class="lib-pic">${d.icon ? `<img loading="lazy" decoding="async" src="${d.icon}" alt="">` : '<span>Icon</span>'}<input type="file" accept="image/*" id="liIcon" class="visually-hidden"></label>
+        <label class="lib-pic large">${d.image ? `<img loading="lazy" decoding="async" src="${d.image}" alt="">` : '<span>Photo</span>'}<input type="file" accept="image/*" id="liImage" class="visually-hidden"></label>
         ${d.icon || d.image ? '<button type="button" class="lib-btn" id="liClearPics">Remove pictures</button>' : ''}
       </div></div>
     <div class="lib-field">Marks (in every state; each character's copy can differ)<div id="liMarks"></div></div>
-    <div class="lib-field">States (e.g. Locked, then Weakened; each chapter picks one in the Dossier)<div id="liStates"></div></div>
+    <div class="lib-field">States (up to three tracks; each chapter picks one state per track in the Dossier)<div id="liStates"></div></div>
+    <div class="lib-field">History (what happened to it before the story or off the page)<div id="liHistory"></div></div>
     <label class="lib-field">Note<textarea id="liNote">${escapeHud(d.note || '')}</textarea></label>
     ${formButtons(v.id ? 'Save item' : 'Add item')}`;
   const marks = EpitaphMarks.editor(document.getElementById('liMarks'), d.marks || []);
-  const states = EpitaphStates.editor(document.getElementById('liStates'), d.states || [], v.id ? itemHistory(v.id) : []);
-  const keep = () => Object.assign(d, { name: document.getElementById('liName').value, desc: document.getElementById('liDesc').value, originPlaceId: document.getElementById('liOrigin').value, note: document.getElementById('liNote').value, marks: marks.read(), states: states.read() });
+  const tracks = EpitaphStates.tracksEditor(document.getElementById('liStates'), d.stateTracks || [], v.id ? itemHistory(v.id) : []);
+  const fields = { getMarks: () => marks.read(), getTracks: () => tracks.read() };
+  const details = EpitaphItemFields.mountDetails(document.getElementById('liDetails'), d, { ...fields, placeOptionsHtml: placeOptions });
+  const history = EpitaphItemFields.mountHistory(document.getElementById('liHistory'), d, { getTracks: fields.getTracks, holders: () => freshDossier().characters.map(c => c.name).filter(Boolean) });
+  const keep = () => Object.assign(d, { name: document.getElementById('liName').value, desc: document.getElementById('liDesc').value, note: document.getElementById('liNote').value, marks: marks.read(), stateTracks: tracks.read(), ...details.read(), history: history.read() });
   [['liIcon', 'icon', 200], ['liImage', 'image', 700]].forEach(([id, field, max]) => document.getElementById(id).addEventListener('change', async (e) => {
     const f = e.target.files[0]; if(!f) return;
     keep();
@@ -450,12 +455,22 @@ function renderItemForm(v){
     if(!d.name.trim()) return libMessage('Give the item a name.');
     const id = v.id || Lib.newId('li');
     const saved = Lib.update(lib => {
-      const rec = { id, name: d.name.trim(), desc: d.desc.trim(), originPlaceId: d.originPlaceId || '', marks: d.marks, note: d.note.trim(), icon: d.icon || '', image: d.image || '', states: d.states || [] };
+      const rec = { id, ...EpitaphItemFields.cleanItem(d) };
       const i = lib.items.findIndex(x => x.id === id);
       if(i >= 0) lib.items[i] = rec; else lib.items.push(rec);
     });
     if(libSaved(saved)){ libView = { mode: 'itemDetail', id }; renderLibrary(); }
   });
+}
+function historyWhen(w){ return Lib.whenText(w); }
+/** The Creature Log's side of an item (step 6.3): the creatures whose bodies yield it. Author only: a reader's copy of the log never
+ *  says which Library item a resource is. A click opens the creature's page (EpitaphLinks 'creature'). */
+function creatureSourcesHtml(it){
+  const K = window.EpitaphCreatures, T = window.EpitaphTimeline;
+  if(!K || !K.sourcesOf || (T && !T.authorMode())) return '';
+  let src = []; try { src = K.sourcesOf(it.id); } catch(e){ return ''; }
+  if(!src.length) return '';
+  return `<p class="lib-desc">From the body of ${src.map(s => `<button type="button" class="lib-link" data-ref="creature:${escapeHud(s.id)}" title="Open ${escapeHud(s.name).replace(/"/g, '&quot;')} in the Creature Log">${escapeHud(s.name)}</button> <span style="opacity:.7">(${escapeHud(s.resource)})</span>`).join(', ')}</p>`;
 }
 function renderItemDetail(v){
   const it = Lib.item(v.id);
@@ -463,17 +478,20 @@ function renderItemDetail(v){
   const hist = itemHistory(it.id);
   libBody().innerHTML = `
     <button type="button" class="lib-back" id="libBack">← All items</button>
-    <div class="lib-item-head">${it.image ? `<img src="${it.image}" alt="">` : (it.icon ? `<img src="${it.icon}" alt="">` : '')}<div><h3>${escapeHud(it.name)}</h3>
-      <p class="lib-origin">${it.originPlaceId ? `from <button type="button" class="lib-link" id="liGoOrigin">${escapeHud(placeName(it.originPlaceId) || 'a missing place')}</button>` : 'origin unknown'}</p></div></div>
+    <div class="lib-item-head">${it.image ? `<img loading="lazy" decoding="async" src="${it.image}" alt="">` : (it.icon ? `<img loading="lazy" decoding="async" src="${it.icon}" alt="">` : '')}<div><h3>${escapeHud(it.name)}</h3>
+      <p class="lib-origin">${Lib.placeIdOf(it) ? `from <button type="button" class="lib-link" id="liGoOrigin">${escapeHud(placeName(Lib.placeIdOf(it)) || 'a missing place')}</button>` : escapeHud(EpitaphItemFields.originText(it, placeName))} ${EpitaphItemFields.badgesHtml(it)}</p></div></div>
+    ${it.originCircumstance ? `<p class="lib-desc">${escapeHud(it.originCircumstance)}</p>` : ''}
+    ${creatureSourcesHtml(it)}
     ${it.desc ? `<p class="lib-desc">${escapeHud(it.desc)}</p>` : ''}
-    ${it.marks.length ? `<div class="mark-lines">${EpitaphMarks.linesHtml(it.marks)}</div>` : ''}
+    ${it.marks.length ? `<div class="mark-lines">${EpitaphMarks.linesHtml(it.marks, { definition: true })}</div>` : ''}
     ${it.note ? `<p class="lib-desc dim">${escapeHud(it.note)}</p>` : ''}
-    ${it.states.length ? `<div class="lib-sec">STATES</div>${EpitaphStates.trackHtml(it, hist)}` : ''}
+    ${it.stateTracks.length ? `<div class="lib-sec">STATES</div>${EpitaphStates.trackHtml(it, hist)}` : ''}
+    ${it.history.length ? `<div class="lib-sec">BEFORE THE STORY</div><ol class="lib-history">${it.history.map(h => `<li><span>${escapeHud(historyWhen(h.when))}</span>${escapeHud(h.holder)} ${escapeHud(h.text)}</li>`).join('')}</ol>` : ''}
     <div class="lib-sec">HISTORY</div>
-    ${hist.length ? `<ol class="lib-history">${hist.map(h => { const st = Lib.stateOf(it, h.stateId); return `<li><span>${h.ch != null ? 'CH ' + h.ch : escapeHud(h.label || 'CH ?')}</span>${escapeHud(h.who)}${st ? ` <span class="state-tag">${escapeHud(st.name.toUpperCase())}</span>` : ''}</li>`; }).join('')}</ol>` : '<p class="lib-empty">Nobody has carried it yet. Add it to an inventory in the Dossier.</p>'}
+    ${hist.length ? `<ol class="lib-history">${hist.map(h => { const cur = Lib.currentStates(it, h); return `<li><span>${h.ch != null ? 'CH ' + h.ch : escapeHud(h.label || 'CH ?')}</span>${escapeHud(h.who)}${cur.map(x => ` <span class="state-tag">${escapeHud(x.state.name.toUpperCase())}</span>`).join('')}</li>`; }).join('')}</ol>` : '<p class="lib-empty">Nobody has carried it yet. Add it to an inventory in the Dossier.</p>'}
     <div class="lib-actions"><button type="button" class="lib-btn" data-edit-item="${escapeHud(it.id)}">Edit</button><button type="button" class="lib-btn danger" data-del="item:${escapeHud(it.id)}">Delete</button></div>`;
   document.getElementById('libBack').addEventListener('click', () => { libView = { mode: 'list' }; renderLibrary(); });
-  const go = document.getElementById('liGoOrigin'); if(go) go.addEventListener('click', () => selectPlace(it.originPlaceId));
+  const go = document.getElementById('liGoOrigin'); if(go) go.addEventListener('click', () => selectPlace(Lib.placeIdOf(it)));
   wireListButtons();
 }
 function renderDeleteCheck(v){

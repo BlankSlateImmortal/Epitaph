@@ -14,17 +14,19 @@
   const GROUPS = [
     { id: 'storyborn', label: 'Storyborn' }, { id: 'voided', label: 'Voided' }, { id: 'fallen', label: 'Fallen' }, { id: 'other', label: 'Cities & others' }
   ];
-  const filters = { q: '', era: '', continent: '', form: '', status: '' };
+  const filters = { q: '', era: '', continent: '', form: '', status: '', draft: '' };
+  const draftTabs = rec => rec ? Object.keys(rec.draft || {}).filter(k => rec.draft[k]) : [];
 
   const Sites = () => global.EpitaphSites, World = () => global.EpitaphWorld, TL = () => global.EpitaphTimeline;
 
   function factionOf(place, rec) {
-    const k = String((rec && rec.rule && rec.rule.stance) || place.group || '').toLowerCase();
+    const k = String((rec && rec.domestic && rec.domestic.government.stance) || place.group || '').toLowerCase();
     return GROUPS.some(g => g.id === k) ? k : 'other';
   }
 
   /** One row of data per place, with only what a reader on `chapter` may see. */
-  function rows(chapter, author) {
+  function rows(chapter, author) { const S = Sites(); return S.bulk ? S.bulk(() => rowsNow(chapter, author)) : rowsNow(chapter, author); }
+  function rowsNow(chapter, author) {
     const S = Sites(), W = World();
     const recs = S.load(), byId = {};
     recs.forEach(r => { byId[r.placeId] = r; });
@@ -35,21 +37,21 @@
     return list.filter(({ place, rec }) => author || S.placeReached(rec, chapter)).map(({ place, rec }) => {
       const reachedByReader = S.placeReached(rec, chapter);
       // a reader sees the state they've reached; the author also gets the first state of a place readers haven't reached
-      const state = rec ? (S.stateAt(rec, chapter) || (author && rec.states[0]) || null) : null;
+      const state = rec ? (S.stateAt(rec, chapter) || (author && rec.overview.states[0]) || null) : null;
       const allies = rec ? S.alliancesAt(place.id, chapter, recs, author) : [];
       const visible = rec && state;
       const words = [place.name, (W.continent(place.continentId) || {}).name, (W.country(place.countryId) || {}).name];
       if (visible) {
-        words.push(state.note, state.status, S.label(S.STATUS, state.status), S.label(S.FORMS, rec.rule.form), rec.rule.stance, rec.rule.outsiders);
-        rec.rule.holders.forEach(h => { if (S.reached(h.from, chapter)) words.push(String(h.ref).replace(/^char:/, ''), h.title); });
-        (rec.rule.laws || []).forEach(l => words.push(l));
+        words.push(state.note, state.status, S.label(S.STATUS, state.status), S.label(S.FORMS, rec.domestic.government.form), rec.domestic.government.stance, rec.domestic.government.outsiders);
+        rec.domestic.government.holders.forEach(h => { if (S.reached(h.from, chapter)) words.push(String(h.ref).replace(/^char:/, ''), h.title); });
+        (rec.domestic.government.laws || []).forEach(l => words.push(l.text));
         allies.forEach(a => words.push(name(a.other), a.kind, S.label(S.ALLIANCE_KINDS, a.kind), a.note));
-        rec.resources.forEach(x => words.push(x.name, S.label(S.RESOURCE_CATEGORIES, x.category), x.role));
+        rec.economy.resources.forEach(x => words.push(x.name, S.label(S.RESOURCE_CATEGORIES, x.category), x.role));
         rec.beasts.forEach(b => words.push(String(b.ref).replace(/^creature:/, ''), b.relation));
-        rec.founding.forEach(f => { if (S.reached(f.when, chapter)) words.push(f.change, f.why, f.materials, f.reused); });
+        rec.history.founding.forEach(f => { if (S.reached(f.when, chapter)) words.push(f.change, f.why, f.materials, f.reused); });
       }
       const safe = author ? (t => t) : (t => S.clean(t, chapter, recs, false));   // a reader's search never sees text that names a place they haven't reached
-      return { place, rec, state: visible ? state : null, allies, hidden: !!rec && !reachedByReader, faction: factionOf(place, visible ? rec : null), words: ' ' + words.filter(Boolean).map(safe).join(' ').toLowerCase().replace(/[^a-z0-9\u00c0-\u024f]+/g, ' ') };
+      return { place, rec, state: visible ? state : null, allies, hidden: !!rec && !reachedByReader, revealIn: rec ? S.placeRevealChapter(rec) : null, faction: factionOf(place, visible ? rec : null), words: ' ' + words.filter(Boolean).map(safe).join(' ').toLowerCase().replace(/[^a-z0-9\u00c0-\u024f]+/g, ' ') };
     });
   }
 
@@ -60,8 +62,10 @@
   function pass(r) {
     if (filters.era && !(r.place.eras || []).includes(filters.era)) return false;
     if (filters.continent && r.place.continentId !== filters.continent) return false;
-    if (filters.form && !(r.state && r.rec.rule.form === filters.form)) return false;
+    if (filters.form && !(r.state && r.rec.domestic.government.form === filters.form)) return false;
     if (filters.status && !(r.state && r.state.status === filters.status)) return false;
+    if (filters.draft === 'draft' && !(r.rec && draftTabs(r.rec).length)) return false;               // Claude's drafts you haven't approved
+    if (filters.draft === 'approved' && !(r.rec && r.state && !draftTabs(r.rec).length)) return false;  // every tab approved or edited by you
     const toks = tokens(filters.q);
     return toks.every(t => r.words.includes(' ' + t));        // a word that starts with it, so "val" doesn't find "valley"
   }
@@ -78,12 +82,14 @@
     const readerText = chapter == null ? 'the latest chapter' : 'Ch ' + chapter;
     const hiddenCount = all.filter(r => r.hidden).length;
     const place = r => {
-      const st = r.state, rule = st ? S.label(S.FORMS, r.rec.rule.form) : '';
+      const st = r.state, rule = st ? S.label(S.FORMS, r.rec.domestic.government.form) : '';
       const sz = st ? S.step('size', st.scales.size) : '';
       return `<li><button type="button" class="bk-si-row" data-ref="place:${esc(r.place.id)}">
         <b>${esc(r.place.name)}</b>
-        ${st ? `<span class="bk-si-status bk-si-${esc(st.status)}">${esc(S.label(S.STATUS, st.status))}</span>` : '<span class="bk-si-status bk-si-none">No entry yet</span>'}${r.hidden ? '<span class="bk-si-status bk-si-hidden" title="Readers have not reached this place yet">Hidden from readers</span>' : ''}
-        <small>${st ? `${esc(rule)} · ${esc(sz)}${r.allies.length ? ` · ${r.allies.length} tie${r.allies.length === 1 ? '' : 's'}` : ''}${r.rec.draft && Object.values(r.rec.draft).some(Boolean) ? ' · draft' : ''}` : esc((W.country(r.place.countryId) || {}).name || '')}</small>
+        ${st ? `<span class="bk-si-status bk-si-${esc(st.status)}">${esc(S.label(S.STATUS, st.status))}</span>` : '<span class="bk-si-status bk-si-none">No entry yet</span>'}${r.hidden ? (r.revealIn == null
+          ? '<span class="bk-si-status bk-si-hidden" title="No published chapter lists this place in its world: list yet">Not revealed yet</span>'
+          : `<span class="bk-si-status bk-si-hidden" title="The first published chapter that brings it up">Readers see it from Ch ${esc(r.revealIn)}</span>`) : ''}
+        <small>${st ? `${esc(rule)} · ${esc(sz)}${r.allies.length ? ` · ${r.allies.length} tie${r.allies.length === 1 ? '' : 's'}` : ''}${(n => n ? ` · ${n} draft tab${n === 1 ? '' : 's'}` : '')(author ? draftTabs(r.rec).length : 0)}` : esc((W.country(r.place.countryId) || {}).name || '')}</small>
       </button></li>`;
     };
     const sections = GROUPS.map(g => {
@@ -93,12 +99,15 @@
     container.innerHTML = `
       <div class="bk-si">
         <div class="bk-si-tools">
+          <button type="button" class="slant-btn" data-se-web="" title="Every place on one ring, ties as chords, by chapter">Relations</button>
+          ${author ? '<button type="button" class="slant-btn" data-se-whatif="" title="Every what-if from every place: a board by status, piles of what to work on (author only)">What-ifs</button>' : ''}
           <input type="search" id="siQ" class="bk-filter" placeholder="search: a name, a ruler, who trades salt…" value="${esc(filters.q)}" aria-label="Search places">
           <select id="siEra" aria-label="Era">${opt([{ id: 'ERA_0', label: 'Era 0' }, { id: 'ERA_1', label: 'Era 1' }], filters.era, 'Any era')}</select>
           <select id="siContinent" aria-label="Region">${opt(W.continents(), filters.continent, 'Any region')}</select>
           <select id="siForm" aria-label="Form of rule">${opt(S.FORMS, filters.form, 'Any rule')}</select>
           <select id="siStatus" aria-label="Status">${opt(S.STATUS, filters.status, 'Any status')}</select>
-          ${T ? `<button type="button" class="slant-btn${author ? ' primary' : ''}" id="siMode" aria-pressed="${author}" title="${author ? 'You see everything. Click to preview what readers see.' : 'You see what a reader at this chapter sees. Click to see everything.'}">${author ? 'Author view' : 'Reader view'}</button>` : ''}
+          ${author ? `<select id="siDraft" aria-label="Draft state"><option value="">Drafts and approved</option><option value="draft"${filters.draft === 'draft' ? ' selected' : ''}>Has draft tabs</option><option value="approved"${filters.draft === 'approved' ? ' selected' : ''}>All tabs approved</option></select>` : ''}
+          ${T && global.EpitaphMode && global.EpitaphMode.isAuthor() ? `<button type="button" class="slant-btn${author ? ' primary' : ''}" id="siMode" aria-pressed="${author}" title="${author ? 'You see everything. Click to preview what readers see.' : 'You see what a reader at this chapter sees. Click to see everything.'}">${author ? 'Author view' : 'Reader view'}</button>` : ''}
         </div>
         <p class="bk-si-note">${shown.length} of ${all.length} places · ${withEntry} with an entry · ${author ? `Author view${hiddenCount ? `, ${hiddenCount} hidden from readers at ${esc(readerText)}` : ''}` : `reader at ${esc(readerText)}`}</p>
         ${sections || '<p class="bk-si-empty">Nothing matches. Clear a filter or the search.</p>'}
@@ -106,7 +115,7 @@
     const again = () => { const keep = container.querySelector('.bk-si'); const top = keep ? keep.scrollTop : 0; renderIndex(container); const n = container.querySelector('.bk-si'); if (n) n.scrollTop = top; };
     const bind = (id, key) => { const el = container.querySelector('#' + id); el.addEventListener('change', () => { filters[key] = el.value; again(); }); };
     const mode = container.querySelector('#siMode'); if (mode) mode.addEventListener('click', () => T.setAuthorMode(!author));   // the change event redraws every open view
-    bind('siEra', 'era'); bind('siContinent', 'continent'); bind('siForm', 'form'); bind('siStatus', 'status');
+    bind('siEra', 'era'); bind('siContinent', 'continent'); bind('siForm', 'form'); bind('siStatus', 'status'); if (container.querySelector('#siDraft')) bind('siDraft', 'draft');
     const q = container.querySelector('#siQ');
     q.addEventListener('input', () => { filters.q = q.value; const pos = q.selectionStart; again(); const n = container.querySelector('#siQ'); n.focus(); n.setSelectionRange(pos, pos); });
   }
@@ -114,6 +123,7 @@
   /** Draw the index into `container` and keep it in step with the reader's chapter. Returns a stop function. */
   function mountIndex(container) {
     renderIndex(container);
+    if (TL() && TL().loadChapterIndex) TL().loadChapterIndex();   // what each published chapter reveals; redraws through the reader-change event
     const T = TL();
     let off = () => {};
     off = T ? T.onReaderChange(() => { if (container.isConnected) renderIndex(container); else off(); }) : off;

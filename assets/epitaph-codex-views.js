@@ -21,9 +21,9 @@
     .map(x => x.s);
   const chOf = s => Number.isInteger(s.startChapter) ? 'CH ' + s.startChapter : (s.chapterRange || '?');
   const portraitOf = (target) => {
-    if (!target) return `<img src="${SILHOUETTE_SVG}" alt="" class="unknown">`;
+    if (!target) return `<img loading="lazy" decoding="async" src="${SILHOUETTE_SVG}" alt="" class="unknown">`;
     const s = getActiveSnapshot(target);
-    return s && s.portrait ? `<img src="${attr(s.portrait)}" alt="">` : `<img src="${SILHOUETTE_SVG}" data-gen-char="${attr(target.id)}" alt="">`;
+    return s && s.portrait ? `<img loading="lazy" decoding="async" src="${attr(s.portrait)}" alt="">` : `<img loading="lazy" decoding="async" src="${SILHOUETTE_SVG}" data-gen-char="${attr(target.id)}" alt="">`;
   };
   const SPARK = '<svg class="cx-spark" viewBox="-10 -10 20 20" aria-hidden="true"><path d="M0,-10 C1,-2 2,-1 10,0 C2,1 1,2 0,10 C-1,2 -2,1 -10,0 C-2,-1 -1,-2 0,-10Z"/></svg>';
 

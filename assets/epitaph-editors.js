@@ -446,7 +446,7 @@ ${L.crowded ? (() => {
         <div class="iv-monitor-head"><span>ITEM ${String(i + 1).padStart(2, '0')} / ${esc((ctx.char && ctx.char.name || '').toUpperCase())} / ${esc((ctx.snap && ctx.snap.chapterRange || '').toUpperCase())}</span><span>${v.linked ? '&gt;&gt;&gt;&gt; LIBRARY ITEM' : v.missing ? '⚠ NO LONGER IN THE LIBRARY' : 'FREE-TEXT ITEM'}</span></div>
         <div class="iv-monitor-body">
           <div class="iv-lens"><svg width="220" height="220" viewBox="0 0 220 220" aria-hidden="true"><circle cx="110" cy="110" r="104" fill="none" stroke="#8a5a14" stroke-dasharray="2 5"></circle><circle cx="110" cy="110" r="86" fill="none" stroke="rgba(255,178,56,.25)"></circle><g stroke="#ffb238"><line x1="110" y1="0" x2="110" y2="20"></line><line x1="110" y1="200" x2="110" y2="220"></line><line x1="0" y1="110" x2="20" y2="110"></line><line x1="200" y1="110" x2="220" y2="110"></line></g></svg>
-            ${v.linked ? `<div class="orb">${pic ? `<img src="${pic}" alt="">` : esc(v.name.charAt(0).toUpperCase())}</div>` : `<button type="button" class="orb" data-inv-img="${i}" title="Set a photo" style="border:0;cursor:pointer">${pic ? `<img src="${pic}" alt="">` : esc((v.name || '?').charAt(0).toUpperCase())}</button>`}</div>
+            ${v.linked ? `<div class="orb">${pic ? `<img loading="lazy" decoding="async" src="${pic}" alt="">` : esc(v.name.charAt(0).toUpperCase())}</div>` : `<button type="button" class="orb" data-inv-img="${i}" title="Set a photo" style="border:0;cursor:pointer">${pic ? `<img loading="lazy" decoding="async" src="${pic}" alt="">` : esc((v.name || '?').charAt(0).toUpperCase())}</button>`}</div>
           <div class="iv-fields">
             ${v.linked || v.missing ? `<div class="iv-name">${esc(v.name)}</div>` : `<label class="ed-field">Name<input type="text" class="inv-name-input" value="${attr(it.name)}" placeholder="Item name"></label>`}
             ${twice.length ? `<div class="ed-readout" style="color:#f08a74">⚠ Also held by ${esc(twice.join(', '))} in the same chapter</div>` : ''}
@@ -462,7 +462,7 @@ ${L.crowded ? (() => {
     const shelf = libItems.filter(li => !f || li.name.toLowerCase().includes(f)).map(li => {
       const who = ctx.char ? heldTwice(ctx.char, ctx.snap, li.id) : [];
       const pic = li.icon || li.image;
-      return `<button type="button" data-lib-add="${attr(li.id)}"><span class="medal">${pic ? `<img src="${pic}" alt="">` : esc(li.name.charAt(0).toUpperCase())}</span><span class="nm">${esc(li.name)}</span><span class="who">${who.length ? 'HELD BY ' + esc(who.join(', ')) : 'FREE'}</span></button>`;
+      return `<button type="button" data-lib-add="${attr(li.id)}"><span class="medal">${pic ? `<img loading="lazy" decoding="async" src="${pic}" alt="">` : esc(li.name.charAt(0).toUpperCase())}</span><span class="nm">${esc(li.name)}</span><span class="who">${who.length ? 'HELD BY ' + esc(who.join(', ')) : 'FREE'}</span></button>`;
     }).join('') || `<div class="ed-readout" style="grid-column:1/-1;color:var(--dust)">&gt; No Library items${f ? ' match' : ' yet'}.</div>`;
     wrap.innerHTML = `<div class="ed-cols">
       <div class="ed-side"><div><div class="ed-kicker">Carried · ${items.length} item${items.length === 1 ? '' : 's'}</div><div class="ed-big">Bench</div></div><div class="iv-list">${list}</div></div>
@@ -486,14 +486,15 @@ ${L.crowded ? (() => {
     on('select[data-inv-state]', 'change', sel => {
       syncInventoryFromDOM();
       const e = pendingInventoryItems[+sel.dataset.invState]; if (!e) return;
-      const from = e.stateId || ''; e.stateId = sel.value;
+      const kind = sel.dataset.track || 'item', from = (e.stateIds || {})[kind] || '';
+      e.stateIds = { ...(e.stateIds || {}) }; if (sel.value) e.stateIds[kind] = sel.value; else delete e.stateIds[kind];
       if (sel.value !== from) invStateAsk.add(e.id); else invStateAsk.delete(e.id);
       renderBench(wrap);
     });
     on('[data-state-marks]', 'click', b => {
       syncInventoryFromDOM();
       const [idx, how] = b.dataset.stateMarks.split(':'), e = pendingInventoryItems[+idx]; if (!e) return;
-      if (how === 'replace') e.marks = Lib.marksFor(Lib.item(e.itemId), e.stateId);
+      if (how === 'replace') e.marks = Lib.marksFor(Lib.item(e.itemId), e.stateIds);
       invStateAsk.delete(e.id); renderBench(wrap);
     });
   }
@@ -788,7 +789,7 @@ ${L.crowded ? (() => {
     if (list.length > mkLen) mkSel = list.length - 1;
     mkLen = list.length; mkSel = Math.max(0, Math.min(mkSel, list.length - 1));
     const cards = list.map((m, i) => `<button type="button" class="mk-card${i === mkSel ? ' on' : ''}" data-mk="${i}" style="--k:${KIND_COLOR[m.kind] || 'var(--gold)'}" aria-pressed="${i === mkSel}">
-        <span class="mk-sig">${m.image ? `<img src="${m.image}" alt="">` : esc((m.name || '?').charAt(0).toUpperCase())}</span>
+        <span class="mk-sig">${m.image ? `<img loading="lazy" decoding="async" src="${m.image}" alt="">` : esc((m.name || '?').charAt(0).toUpperCase())}</span>
         <span class="mk-txt"><span class="mk-kind">${esc((MARK_KIND_LABEL[m.kind] || m.kind).toUpperCase())}</span><b>${esc(m.name || 'Unnamed mark')}</b><small>${esc(m.source || '')}</small></span></button>`).join('');
     const m = list[mkSel], a = (f) => `data-mark-path="char" data-mark-idx="${mkSel}" data-f="${f}"`;
     const editor = m ? `<div class="mk-editor" style="--k:${KIND_COLOR[m.kind] || 'var(--gold)'}">
@@ -796,19 +797,16 @@ ${L.crowded ? (() => {
         <div class="mk-editor-body">
           <div class="mk-top">${EpitaphMarks.sigilPickerHtml(m, `data-sigil-path="char" data-sigil-idx="${mkSel}"`)}
             <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px">
-              <div class="ed-chips">${MARK_KINDS.map(k => `<button type="button" class="ed-chip${m.kind === k ? ' on' : ''}" data-mk-kind="${k}" style="${m.kind === k ? `background:${KIND_COLOR[k]};border-color:${KIND_COLOR[k]}` : ''}">${esc(MARK_KIND_LABEL[k].toUpperCase())}</button>`).join('')}</div>
+              <div class="ed-chips">${(EpitaphMarks.kindsFor('character').includes(m.kind) ? EpitaphMarks.kindsFor('character') : EpitaphMarks.kindsFor('character').concat(m.kind)).map(k => `<button type="button" class="ed-chip${m.kind === k ? ' on' : ''}" data-mk-kind="${k}" style="${m.kind === k ? `background:${KIND_COLOR[k]};border-color:${KIND_COLOR[k]}` : ''}">${esc(MARK_KIND_LABEL[k].toUpperCase())}${EpitaphMarks.kindsFor('character').includes(k) ? '' : ' ⚠'}</button>`).join('')}</div>
               <label class="ed-field">Name<input type="text" ${a('name')} value="${attr(m.name)}" placeholder="Name of the mark" style="font-family:'Pirata One',serif;font-size:20px"></label></div></div>
-          <label class="ed-field">Source — who or what placed it<input type="text" ${a('source')} value="${attr(m.source)}"></label>
-          <label class="ed-field">Effect — what it does<textarea ${a('effect')}>${esc(m.effect)}</textarea></label>
-          <div class="pf-identity" style="grid-template-columns:repeat(2,minmax(0,1fr))">
-            <label class="ed-field">Cost<input type="text" ${a('cost')} value="${attr(m.cost)}" placeholder="What it takes (text only)"></label>
-            <label class="ed-field">Ends<input type="text" ${a('ends')} value="${attr(m.ends)}" placeholder="How it ends"></label></div>
+          <div class="mark-edit mk-fields kind-${esc(m.kind)}">${EpitaphMarks.fieldsHtml(m, { ctx: 'character', attr: a, top: false })}</div>
+          ${EpitaphMarks.linkHtml(m, markLibAttrs('char', mkSel))}
           <div class="ed-acts"><button type="button" class="ed-slant danger" onclick="removeMark('char', ${mkSel})">Remove mark</button></div>
         </div></div>` : `<div class="mk-editor"><div class="iv-empty">&gt; No marks this chapter.<span class="sig-cursor"></span></div></div>`;
     const n = k => list.filter(x => x.kind === k).length;
     wrap.innerHTML = `<div class="ed-cols">
-      <div class="ed-side"><div><div class="ed-kicker">Page 02 · marks</div><div class="ed-big">Marks</div><p class="ed-copy">Bindings a higher being places on someone. Costs are text only; nothing is calculated.</p></div>
-        <div class="mk-list">${cards}</div><button type="button" class="ed-chip" onclick="addMark('char')" style="min-height:46px;transform:none;border-style:dashed;color:var(--amber)">+ NEW MARK</button></div>
+      <div class="ed-side"><div><div class="ed-kicker">Page 02 · marks</div><div class="ed-big">Marks</div><p class="ed-copy">Blessings and curses on a person. A blessing has a price, terms, a breach and what it lasts until; a curse has a type and three stages. Nothing is calculated.</p></div>
+        <div class="mk-list">${cards}</div><button type="button" class="ed-chip" onclick="addMark('char')" style="min-height:46px;transform:none;border-style:dashed;color:var(--amber)">+ NEW MARK</button>${EpitaphMarks.libraryPickHtml('character', markLibPick('char'))}</div>
       <div class="ed-main">${editor}</div>
       <div class="ed-panel"><div class="ed-counters"><div class="ed-counter"><b style="color:var(--gold)">${n('blessing')}</b><span>BLESSINGS</span></div><div class="ed-counter"><b style="color:#f08a74">${n('curse')}</b><span>CURSES</span></div><div class="ed-counter"><b style="color:var(--verdigris)">${n('binding')}</b><span>BINDINGS</span></div></div>
         <div class="ed-box thin" style="font-size:13px;line-height:1.55;color:#d9cbb0"><div><b style="color:var(--gold);font-weight:400;font-family:var(--f-crt);font-size:18px">BLESSING</b> — an outside gift that works for them, usually with a debt.</div><div><b style="color:#f08a74;font-weight:400;font-family:var(--f-crt);font-size:18px">CURSE</b> — an outside cost, restriction or compulsion.</div><div><b style="color:var(--verdigris);font-weight:400;font-family:var(--f-crt);font-size:18px">BINDING</b> — tied to a person or thing until a condition is met (Val's blessing on the Voided is one).</div></div></div></div>`;
@@ -833,7 +831,7 @@ ${L.crowded ? (() => {
   // =====================================================================
   function tieThumb(target, name) {
     const sn = target && getActiveSnapshot(target), pic = sn && (sn.systemPortrait || sn.portrait);
-    return `<span class="ti-face">${pic ? `<img src="${pic}" alt="">` : esc((name || '?').trim().charAt(0).toUpperCase() || '?')}</span>`;
+    return `<span class="ti-face">${pic ? `<img loading="lazy" decoding="async" src="${pic}" alt="">` : esc((name || '?').trim().charAt(0).toUpperCase() || '?')}</span>`;
   }
   openRelationshipsOnlyForm = function (char, snap) {
     if (blockIfLocked(snap)) return;
