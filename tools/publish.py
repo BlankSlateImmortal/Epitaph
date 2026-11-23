@@ -13,7 +13,7 @@ What it does, in order (it stops at the first problem):
   3. Checks it is for the chapters you are publishing: its `publishedThrough` must equal the highest chapter in chapters/index.json.
   4. tools/check-snapshot.py on the candidate against the new chapters/index.json (the leak audit). Nothing is copied if it fails.
   5. Copies it to published/epitaph-data.js.
-  6. tools/visitor-test/run.js: every page as a stranger (reader mode, no write controls, nothing stored, no private text).
+  6. tools/check-pages.py (titles, favicon, sitemap...) then tools/visitor-test/run.js: every page as a stranger (reader mode, no write controls, nothing stored, no private text).
      If it fails, the copy is rolled back.
   7. Shows what changed, then ASKS before `git commit` and again before `git push`. It stages only chapters/ and published/.
 Nothing is pushed unless you answer yes to the push question. The vault's drafts are never read here.
@@ -130,6 +130,11 @@ def main():
         else:
             TARGET.write_bytes(backup)
         say('   Rolled published/epitaph-data.js back to what it was.')
+
+    # 5b. page basics (title, description, favicon, sitemap...)
+    if run([sys.executable, str(ROOT / 'tools' / 'check-pages.py')]).returncode != 0:
+        roll_back()
+        die('The page basics check failed (see above), so the snapshot was not kept.')
 
     # 6. visitor test
     if args.skip_visitor:

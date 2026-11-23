@@ -115,7 +115,7 @@ Then make the site a complete public web page, and make publishing new chapters 
   Dossier, Map, Book, Muses, Powers. Move the Dossier to its own path or keep it and add `home.html`: decide in this step.
 - [x] **5.2 One navigation bar** on every page, and a consistent footer.
 - [x] **5.3 Mobile and keyboard pass** (also site-encyclopedia 7.1): phone widths, focus order, both themes.
-- [ ] **5.4 Page basics.** Titles, descriptions, social preview image, favicon, `404.html`, `robots.txt`, `sitemap.xml`.
+- [x] **5.4 Page basics.** Titles, descriptions, social preview image, favicon, `404.html`, `robots.txt`, `sitemap.xml`.
 - [ ] **5.5 Custom domain (optional).** The user buys it and sets DNS; add `CNAME`; turn on HTTPS in the repo settings.
 - [ ] **5.6 Speed.** Lazy-load the heavy views (the 3D map, the book); check the first load on a phone.
 
@@ -141,6 +141,8 @@ When the user says "get back to it" and this is the active plan:
 
 ## Tweak log
 Newest first.
+
+- 2026-11-23 — 5.4 done (Sonnet). Every public page has a description, a favicon (`favicon.svg`, an amber E), a share preview (Open Graph + Twitter card with `social.png`, a 1200×630 brand card, deliberately not a screenshot so it never goes stale) and a theme colour; `muses.html` is `noindex`; new `404.html`, `robots.txt` (disallows Muses) and `sitemap.xml` (the five public pages). `tools/check-pages.py` checks all of it and `tools/publish.py` runs it before the visitor test. **Tied to the address:** `robots.txt`, `sitemap.xml`, the `og:image` URLs and `404.html` use `https://blankslateimmortal.github.io/Epitaph/`; if a custom domain is set up (5.5) they all need the new base. **Flag for the user:** the 3D site scenes (`sites/aurelia.html`, `sites/hollow-reach.html`) are not covered by the reader gate: opening one by its address shows that place whatever chapter the reader is on.
 
 - 2026-11-23 — 5.3 done (Sonnet). The book's own phone and keyboard pass was site-encyclopedia 7.1 (done 2026-11-22); this step covers the rest of the site. The visitor test now has a **phone check** (emulated 390px: no page scrolls sideways) and a **keyboard check** (Tab from the top: the first stop is Skip to content, every stop after is visible; 12 presses). It found one real bug: **Tab walked into the closed book and the loading popup** (invisible links: "Character Dossier", "World Map", "Muses"); both are now `visibility:hidden` when closed. Also: the front door got a skip link; the shared nav tightens to one row at 520px. Both themes: the Map's Paper theme was not re-audited here; the site-encyclopedia pass covered the book's. All pass. Not covered: screen-reader testing and the Map's canvas controls by keyboard.
 
