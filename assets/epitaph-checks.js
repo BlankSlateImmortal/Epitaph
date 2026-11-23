@@ -30,6 +30,8 @@
  *   site-beast      a beast points at a creature that isn't in the Creature Log (once the log exists)
  *   site-missing    Era 1 places that have no entry yet (information)
  *   founding-order  a founding stage is dated before an earlier stage;  founding-dup  a stage written twice;  founding-stage  not one of the seven
+ *   creature-parent / creature-cause / creature-order / creature-extinct / creature-food / creature-curse   the Creature Log: a form whose parent is missing,
+ *                   a mutation with no cause, a form dated before its ancestor, an extinct creature sighted, a food link or a curse that points at nothing
  *   bloc-small      a bloc lists fewer than three places;  bloc-dup  a place listed twice in one bloc
  *   whatif-link     a what-if's 'then what?' points at a what-if that doesn't exist;  whatif-loop  what-ifs set each other off in a loop
  * Chekhov's gun, across the encyclopedia (secrets, foreshadowing, evidence, what-if warning signs; nothing is checked until a chapter is set):
@@ -192,6 +194,7 @@
 
     if (Lib) { itemSystemChecks(out, chars, Lib, at); skillProspectChecks(out, chars, Lib); }
     siteChecks(out);
+    creatureChecks(out);
     plantChecks(out);
 
     return out.sort((a, b) => (a.level === b.level ? 0 : a.level === 'warn' ? -1 : 1));
@@ -295,6 +298,12 @@
   }
 
   // ---- Site Encyclopedia: places, alliances and their dates ----
+  /** The Creature Log: parents, causes, order, food links, curses that left the Library (EpitaphCreatures.problems). An unwritten place curse is fine. */
+  function creatureChecks(out) {
+    const Cr = global.EpitaphCreatures, Lib = global.EpitaphLibrary; if (!Cr || typeof Cr.problems !== 'function') return;
+    let marks; try { marks = Lib && Lib.get ? (Lib.get().marks || []).filter(m => m.kind === 'curse').map(m => m.id) : undefined; } catch (e) { marks = undefined; }
+    Cr.problems(Cr.load(), marks).forEach(p => out.push({ level: 'warn', rule: p.rule, text: p.text }));
+  }
   function siteChecks(out) {
     const World = global.EpitaphWorld, Sites = global.EpitaphSites, TL = global.EpitaphTimeline, Cr = global.EpitaphCreatures;
     if (!World || !Sites) return;

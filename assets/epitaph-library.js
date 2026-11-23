@@ -92,6 +92,12 @@
       const st = Array.isArray(m.stages) ? m.stages : [];
       out.stages = [0, 1, 2].map(i => stageText(st[i]));
       out.stage = Number.isInteger(m.stage) && m.stage >= 1 && m.stage <= 3 ? m.stage : 0;   // this holder's stage: 0 = initial, 1–3
+      // optional, for creature and place curses (Creature Log schema): only what is valid is kept; an item curse simply has none
+      if (['physical', 'infectious', 'metaphysical'].includes(m.state)) out.state = m.state;
+      if (Array.isArray(m.spreadsBy)) { const v = m.spreadsBy.filter(x => ['air', 'land', 'sea'].includes(x)); if (v.length) out.spreadsBy = v; }
+      if (m.moves === 'slow') out.moves = 'slow';
+      if (Array.isArray(m.concepts)) { const v = m.concepts.filter(x => ['nothing', 'fate', 'imagination', 'reality', 'chaos'].includes(x)); if (v.length) out.concepts = v; }
+      if (m.rest === 'eons' || m.rest === 'short') out.rest = m.rest;
     }
     return out;
   }

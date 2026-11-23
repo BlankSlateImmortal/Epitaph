@@ -1,0 +1,36 @@
+// Creature Log 1.6: storage, backup, merge and checks (synthetic data only)
+const fs=require('fs'), vm=require('vm'), assert=require('assert'), path=require('path');
+const store={}; const ctx={console,JSON,Math,localStorage:{getItem:k=>k in store?store[k]:null,setItem:(k,v)=>{store[k]=String(v)}}}; ctx.window=ctx; ctx.globalThis=ctx; vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(path.resolve(__dirname,'../..')+'/assets/epitaph-creatures.js','utf8'),ctx);
+const C=ctx.EpitaphCreatures, j=o=>JSON.parse(JSON.stringify(o));
+let n=0; const t=(name,f)=>{try{f();n++;console.log('ok  '+name)}catch(e){console.log('FAIL '+name+': '+e.message);process.exitCode=1}};
+const reset=()=>{ delete store[C.KEY]; delete store[C.BACKUP_KEY]; };
+t('a fresh log is empty, and exports nothing',()=>{reset();assert.strictEqual(C.exportData(),null);assert.deepStrictEqual(j(C.load().nodes),[]);assert.strictEqual(C.byId('x'),null)});
+t('put adds a record and byId finds it with its kind',()=>{reset();assert.ok(C.put('creatures',{id:'wyrm',name:'Wyrm',awareness:5}));const r=C.byId('creature:wyrm');assert.strictEqual(r.kind,'creatures');assert.strictEqual(r.awareness,5)});
+t('put replaces by id, never duplicates',()=>{reset();C.put('nodes',{id:'a',name:'A'});C.put('nodes',{id:'a',name:'A2'});const l=C.load().nodes;assert.strictEqual(l.length,1);assert.strictEqual(l[0].name,'A2')});
+t('a record with no id, or an unknown collection, is refused',()=>{reset();assert.strictEqual(C.put('nodes',{name:'x'}),false);assert.strictEqual(C.put('weird',{id:'a'}),false)});
+t('records are cleaned: scales out of range drop, unknown time drops, new records are drafts',()=>{reset();C.put('creatures',{id:'c',awareness:9,threat:0,size:3,when:{age:'Z'},extinct:{age:'G'}});const r=C.byId('c');assert.deepStrictEqual([r.awareness,r.threat,r.size,r.when,r.draft],[null,null,3,null,true]);assert.deepStrictEqual(j(r.extinct),{age:'G'})});
+t('an example flag survives',()=>{reset();C.put('nodes',{id:'e',example:true});assert.strictEqual(C.byId('e').example,true)});
+t('a place with no curse is fine; a curse reference keeps its stage',()=>{reset();C.put('places',{id:'p',name:'P',curse:null});C.put('places',{id:'q',curse:{libId:'m',stage:2}});assert.strictEqual(C.load().places[0].curse,null);assert.deepStrictEqual(j(C.load().places[1].curse),{libId:'m',stage:2})});
+t('remove takes a record out',()=>{reset();C.put('nodes',{id:'a'});C.put('nodes',{id:'b'});C.remove('nodes','a');assert.deepStrictEqual(C.load().nodes.map(x=>x.id),['b'])});
+t('uid slugs and avoids taken ids across collections',()=>{reset();C.put('creatures',{id:'stone-herd'});assert.strictEqual(C.uid('Stone Herd'),'stone-herd-2');assert.strictEqual(C.uid('!!!'),'creature')});
+t('food links are cleaned and replaced as a list',()=>{reset();C.putFood([{eater:'a',eaten:'b'},{eater:'a',eaten:'a'},{eater:'',eaten:'b'}]);assert.strictEqual(C.load().food.length,1)});
+t('export, then import into a clean browser, round-trips',()=>{reset();C.put('creatures',{id:'c',name:'C',awareness:3});C.put('places',{id:'p',name:'P'});C.putFood([{eater:'c',eaten:'p'}]);const e=C.exportData();reset();assert.ok(C.importData(e));assert.strictEqual(C.byId('c').awareness,3);assert.strictEqual(C.load().places.length,1);assert.strictEqual(C.load().food.length,1)});
+t('import keeps the log it replaces, once, in the backup key',()=>{reset();C.put('nodes',{id:'old'});C.importData({nodes:[{id:'new'}]});assert.ok(JSON.parse(store[C.BACKUP_KEY]).nodes.some(x=>x.id==='old'));assert.deepStrictEqual(C.load().nodes.map(x=>x.id),['new'])});
+t('import refuses data that is not ours',()=>{reset();assert.strictEqual(C.importData(null),false);assert.strictEqual(C.importData({places:{x:1}}),false);assert.strictEqual(C.importData('hi'),false)});
+t('merge adds only what is new and never replaces your edits',()=>{reset();C.put('creatures',{id:'c',name:'Mine'});const f={creatures:[{id:'c',name:'File'},{id:'d',name:'D'}],nodes:[{id:'n'}],food:[{eater:'c',eaten:'d'}]};assert.deepStrictEqual(j(C.newInData(f)),{creatures:['d'],nodes:['n'],food:1});assert.strictEqual(C.mergeData(f),3);assert.strictEqual(C.byId('c').name,'Mine');assert.ok(C.byId('d'));assert.strictEqual(C.mergeData(f),0)});
+t('merge of nothing new, or of foreign data, adds nothing',()=>{reset();assert.strictEqual(C.mergeData({}),0);assert.strictEqual(C.mergeData(null),0)});
+// checks
+const P=(nodes,creatures,food,places)=>j(C.problems(Object.assign(C.load(),{nodes:nodes.map(x=>C.byId&&x),creatures,food:food||[],places:places||[]}),undefined));
+const mk=(nodes,creatures,food,places,marks)=>{reset();(nodes||[]).forEach(x=>C.put('nodes',x));(creatures||[]).forEach(x=>C.put('creatures',x));C.putFood(food||[]);(places||[]).forEach(x=>C.put('places',x));return j(C.problems(C.load(),marks)).map(x=>x.rule+':'+x.id)};
+t('checks: a missing parent',()=>assert.deepStrictEqual(mk([{id:'a',parentId:'ghost'}]),['creature-parent:a']));
+t('checks: a mutation with no cause',()=>assert.deepStrictEqual(mk([{id:'a',mutation:{change:'grew horns'}}]),['creature-cause:a']));
+t('checks: a mutation with a cause is fine, and a root with no mutation too',()=>assert.deepStrictEqual(mk([{id:'a'},{id:'b',parentId:'a',cause:'the-siege',mutation:{change:'x'}}]),[]));
+t('checks: dated before its ancestor',()=>assert.deepStrictEqual(mk([{id:'a',when:{age:'D'}},{id:'b',parentId:'a',when:{age:'B'},cause:'x'}]),['creature-order:b']));
+t('checks: an extinct creature with sightings',()=>assert.deepStrictEqual(mk([],[{id:'c',extinct:{age:'D'},sightings:[{chapter:1}]}]),['creature-extinct:c']));
+t('checks: extinct at G with sightings is allowed (their bodies remain)',()=>assert.deepStrictEqual(mk([],[{id:'c',extinct:{age:'G'},sightings:[{chapter:1}]}]),[]));
+t('checks: a food link to a missing creature',()=>assert.deepStrictEqual(mk([{id:'a'}],[],[{eater:'a',eaten:'ghost'}]),['creature-food:ghost']));
+t('checks: a curse whose Library definition is gone, only when the marks are known',()=>{const cr=[{id:'c',curses:[{libId:'gone',stage:1}]}];assert.deepStrictEqual(mk([],cr,[],[],['other']),['creature-curse:c']);assert.deepStrictEqual(mk([],cr),[])});
+t('checks: a place with no curse written is not a problem',()=>assert.deepStrictEqual(mk([],[],[],[{id:'p',name:'P',curse:null}],['m']),[]));
+t('checks: a place whose curse definition is gone',()=>assert.deepStrictEqual(mk([],[],[],[{id:'p',curse:{libId:'gone'}}],['m']),['creature-curse:p']));
+console.log(n+' passed');

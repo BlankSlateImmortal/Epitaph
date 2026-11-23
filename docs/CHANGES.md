@@ -2,6 +2,16 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Creature Log: storage, backup and checks (assets/epitaph-creatures.js) — step 1.6
+
+`window.EpitaphCreatures` now stores the log: key `epitaph-creatures`, records by id in five collections (lineage **nodes**, **creatures**, **chaos** forms, **biomes**, infected **places**) plus the **food** links. It ships **empty**: no lore is in the site's code. The user's creatures, the example lineage and the infected places arrive through **Dossier → Data → Merge** from a file kept in the vault.
+
+- **API:** `load`, `byId(id)` (creatures, nodes or chaos; a `creature:<id>` link points here), `put`, `remove`, `putFood`, `uid`, `exportData`, `importData`, `newInData`, `mergeData`, `problems`.
+- **Backup:** Export carries the log under `creatures`; Import replaces it (the log as it was is kept once under `epitaph-creatures-backup-v1`); Merge adds records whose ids you don't have and **never replaces yours**, and the Merge dialog lists what it adds.
+- **Curses are Library marks.** The Library now keeps a curse's new optional fields (`state`, `spreadsBy`, `moves`, `concepts`, `rest`) instead of dropping them; item curses are unaffected. A creature or place holds `{ libId, stage }`. A place's curse is optional: unwritten means "not known yet", never a problem.
+- **Checks:** `creature-parent`, `creature-cause`, `creature-order`, `creature-extinct`, `creature-food`, `creature-curse` (a curse whose Library definition is gone).
+- Records are cleaned on the way in (scales outside 1–7 and unknown times are dropped; new records are drafts). The Beasts tab's "isn't built yet" note goes away once the module is loaded.
+
 ## The Site Encyclopedia, at a glance — step 7.3
 
 *The newest entries below are step by step (plan: [site-encyclopedia.md](plans/site-encyclopedia.md)); this is the map.*

@@ -1200,12 +1200,13 @@
 <script src="assets/epitaph-site-web.js?v=3"></script>
 <script src="assets/epitaph-site-whatif.js?v=2"></script>
 <script src="assets/epitaph-site-edit.js?v=3"></script>
+<script src="assets/epitaph-creatures.js?v=1"></script>
 <script src="assets/epitaph-publish.js?v=8"></script>
-<script src="assets/epitaph-library.js?v=19"></script>
+<script src="assets/epitaph-library.js?v=20"></script>
 <script src="assets/epitaph-marks.js?v=8"></script>
 <script src="assets/epitaph-states.js?v=3"></script>
 <script src="assets/epitaph-item-fields.js?v=5"></script>
-<script src="assets/epitaph-checks.js?v=17"></script>
+<script src="assets/epitaph-checks.js?v=18"></script>
 <script src="assets/epitaph-codex-views.js?v=2"></script>
 <script src="assets/epitaph-mode.js?v=5"></script>
 <script src="published/epitaph-data.js"></script>
@@ -6005,7 +6006,8 @@ document.getElementById('exportBtn').addEventListener('click', () => {
     // the Library (places and items) lives under its own key; the backup carries it too
     // so do the site encyclopedia's and the timeline's edits (only what you changed; null when nothing)
     const extra = {}; const sd = window.EpitaphSites && EpitaphSites.exportData(), td = window.EpitaphTimeline && EpitaphTimeline.exportData();
-    if(sd) extra.sites = sd; if(td) extra.timeline = td;
+    const cd = window.EpitaphCreatures && EpitaphCreatures.exportData && EpitaphCreatures.exportData();
+    if(sd) extra.sites = sd; if(td) extra.timeline = td; if(cd) extra.creatures = cd;
     const blob = new Blob([JSON.stringify(Lib ? { ...state, library: Lib.get(), ...extra } : { ...state, ...extra }, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -6110,11 +6112,12 @@ document.getElementById('importFileInput').addEventListener('change', (e) => {
       try{
         const characters = incoming.characters.filter(c => c && typeof c === 'object').map(migrateCharacter);
         const activeId = characters.some(c => c.id === incoming.activeId) ? incoming.activeId : (characters[0] ? characters[0].id : null);
-        const { library, sites, timeline, ...rest } = incoming;
+        const { library, sites, timeline, creatures, ...rest } = incoming;
         state = migrateState({ ...rest, characters, activeId });
         // older backups have no sites/timeline: leave the ones in this browser alone
         if(sites && window.EpitaphSites && !EpitaphSites.importData(sites)) showToast('The site encyclopedia in this backup could not be saved.', { duration: 6500 });
         if(timeline && window.EpitaphTimeline && !EpitaphTimeline.importData(timeline)) showToast('The timeline in this backup could not be saved.', { duration: 6500 });
+        if(creatures && window.EpitaphCreatures && !EpitaphCreatures.importData(creatures)) showToast('The Creature Log in this backup could not be saved.', { duration: 6500 });
         if(library && Lib && !Lib.replace(library)) showToast('The Library in this backup could not be saved — browser storage may be full.', { duration: 6500 });
         await persistState();
         renderAll();
@@ -6151,7 +6154,7 @@ document.getElementById('mergeFileInput').addEventListener('change', (e) => {
     let plan;
     try{
       // bring the file up to the current schema on its own before comparing
-      const { library, sites, timeline, ...rest } = JSON.parse(JSON.stringify(incoming));
+      const { library, sites, timeline, creatures, ...rest } = JSON.parse(JSON.stringify(incoming));
       const src = migrateState({ ...rest, characters: rest.characters.filter(c => c && typeof c === 'object').map(migrateCharacter), chapters: Array.isArray(rest.chapters) ? rest.chapters : [] });
       const haveIds = new Set(state.characters.map(c => c.id));
       const haveNames = new Set(state.characters.map(c => (c.name || '').trim().toLowerCase()));
@@ -6166,15 +6169,16 @@ document.getElementById('mergeFileInput').addEventListener('change', (e) => {
       const siteAdd = window.EpitaphSites ? EpitaphSites.newInData(sites) : [], siteUpd = window.EpitaphSites && EpitaphSites.draftUpdatesIn ? EpitaphSites.draftUpdatesIn(sites) : [], timeAdd = window.EpitaphTimeline ? EpitaphTimeline.newInData(timeline) : [];
       // items the file has that you already have, and that differ: Merge can replace them if you tick them
       const libUpd = lib ? (Array.isArray(inLib.items) ? inLib.items : []).filter(x => x && x.id).map(x => { const cur = lib.items.find(y => y.id === x.id); return cur ? { item: x, cur, changes: Lib.itemChanges(cur, x) } : null; }).filter(u => u && u.changes.length) : [];
-      plan = { add, skipped, sameName, chapters, titled, libAdd: { countries: newOf('countries'), places: newOf('places'), items: newOf('items'), marks: newOf('marks'), skillDrafts: newOf('skillDrafts') }, libUpd, siteAdd, siteUpd, timeAdd, sites, timeline };
+      plan = { add, skipped, sameName, chapters, titled, libAdd: { countries: newOf('countries'), places: newOf('places'), items: newOf('items'), marks: newOf('marks'), skillDrafts: newOf('skillDrafts') }, libUpd, siteAdd, siteUpd, timeAdd, sites, timeline, creatures, creatureAdd: window.EpitaphCreatures && EpitaphCreatures.newInData ? EpitaphCreatures.newInData(creatures) : {} };
     }catch(err){
       console.error('Merge read failed', err);
       showToast('Could not read the characters in that file.', { duration: 5500 });
       return;
     }
-    const { add, skipped, sameName, chapters, titled, libAdd, libUpd, siteAdd, siteUpd, timeAdd, sites, timeline } = plan;
+    const { add, skipped, sameName, chapters, titled, libAdd, libUpd, siteAdd, siteUpd, timeAdd, sites, timeline, creatures, creatureAdd } = plan;
+    const creatureCount = Object.keys(creatureAdd || {}).reduce((t, k) => t + (k === 'food' ? creatureAdd[k] : creatureAdd[k].length), 0);
     const libCount = libAdd.countries.length + libAdd.places.length + libAdd.items.length + libAdd.marks.length + libAdd.skillDrafts.length;
-    if(!add.length && !chapters.length && !titled.length && !libCount && !libUpd.length && !siteAdd.length && !siteUpd.length && !timeAdd.length){
+    if(!add.length && !chapters.length && !titled.length && !libCount && !libUpd.length && !siteAdd.length && !siteUpd.length && !timeAdd.length && !creatureCount){
       showToast('Nothing to merge: everything in that file is already here.', { duration: 5500 });
       return;
     }
@@ -6191,6 +6195,7 @@ document.getElementById('mergeFileInput').addEventListener('change', (e) => {
     if(siteAdd.length) li.push(`<li>Site encyclopedia entries for ${plural(siteAdd.length, 'place')}: ${siteAdd.map(id => escapeHtml((window.EpitaphWorld && EpitaphWorld.place(id) || {}).name || id)).join(', ')}</li>`);
     if(siteUpd.length) li.push(`<li>Updated drafts in the site encyclopedia for ${plural(siteUpd.length, 'place')} (only tabs you haven't edited): ${siteUpd.map(u => escapeHtml((window.EpitaphWorld && EpitaphWorld.place(u.placeId) || {}).name || u.placeId) + ' <small>(' + u.tabs.map(t => (EpitaphSites.TAB_LABEL || {})[t] || t).join(', ') + ')</small>').join(', ')}</li>`);
     if(timeAdd.length) li.push(`<li>${plural(timeAdd.length, 'timeline edit')}</li>`);
+    if(creatureCount){ const ca = creatureAdd, bits = [['creatures', 'creature'], ['nodes', 'lineage step'], ['chaos', 'creature of chaos'], ['biomes', 'biome'], ['places', 'infected place']].filter(([k]) => ca[k] && ca[k].length).map(([k, w]) => plural(ca[k].length, w)); if(ca.food) bits.push(plural(ca.food, 'food link')); li.push(`<li>Creature Log: ${bits.join(', ')}</li>`); }
     modalContent.innerHTML = `
       <div class="confirm-box">
         <div class="display">Merge this file?</div>
@@ -6237,6 +6242,7 @@ document.getElementById('mergeFileInput').addEventListener('change', (e) => {
         }
         if((siteAdd.length || siteUpd.length) && !EpitaphSites.mergeData(sites)) showToast('Characters merged, but the site encyclopedia entries could not be saved.', { duration: 6500 });
         if(timeAdd.length && !EpitaphTimeline.mergeData(timeline)) showToast('Characters merged, but the timeline edits could not be saved.', { duration: 6500 });
+        if(creatureCount && !EpitaphCreatures.mergeData(creatures)) showToast('Characters merged, but the Creature Log records could not be saved.', { duration: 6500 });
         renderAll();
         closeModal();
         const parts = []; if(add.length) parts.push(plural(add.length, 'character')); if(siteAdd.length) parts.push(plural(siteAdd.length, 'site entry').replace('entrys', 'entries')); if(siteUpd.length) parts.push('site drafts for ' + plural(siteUpd.length, 'place')); if(timeAdd.length) parts.push(plural(timeAdd.length, 'timeline edit')); if(upd.length) parts.push(plural(upd.length, 'item') + ' updated');

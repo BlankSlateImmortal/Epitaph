@@ -61,7 +61,7 @@ made to show how deeply the world has been thought through.
 - [x] **1.5 Defaults from the lore.** Draft one full lineage first, root to living creature, every mutation caused, to prove the shape.
   Then the creatures the story already shows. *Done when:* one complete lineage is approved by the user.
 - [ ] **1.7 Hooks the Site Encyclopedia already waits for** (added 2026-11-22). Register `EpitaphLinks.register('creature', …)` and expose `EpitaphCreatures.byId(id)` (returns `{ id, name }` at least): the Beasts tab's creature names then become links. The Range tab lists a creature's places with `EpitaphSites.creaturePlaces(id)` and links each to `index.html?place=<id>`. Check that every creature id a Beasts tab names exists in the log (the `site-beast` Check is already in place).
-- [ ] **1.6 Storage, backup, checks.** Merge and export like the encyclopedia. Checks: a node with a missing parent, a mutation with no
+- [x] **1.6 Storage, backup, checks.** Merge and export like the encyclopedia. Checks: a node with a missing parent, a mutation with no
   cause, a creature dated before its ancestor, a food-web link to a missing creature, an extinct creature sighted later.
 
 ## Phase 2 — The Tree of Descent (the front page)
@@ -149,6 +149,8 @@ When the user says "get back to it" / "back to the plan":
 
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-22 — **1.6 done (Sonnet).** Storage, backup and checks as above: the module ships empty (private lore stays in the vault) and is filled by Merge. **The merge file is in the vault:** `Site work/files/creature-log-merge-2026-11-22.json` (the example Plains Herd, its curse as a Library mark, 22 biomes, 305 infected places with empty curse slots). Real page: merging it adds 335 records once and 0 the second time, the Library keeps the curse's fields, Checks is clean, no console errors. 25 new Node checks. The user also asked me to **keep going between steps** (stop only for lore or a model switch). Next: 1.7, the creature link handler and `byId` (done here), then the editor.
 
 - 2026-11-22 — **1.5 done (Opus): one example lineage, the rest is the user's.** The user keeps the Plains Herd as an **example** (too mundane for the story; marked `example: true`) and will write their own creatures once the log is up; the lore has no animals yet (only items and curses for people and items). The shape is accepted. **Plan change, to match:** the editor comes earlier. After 1.6 (storage) and 1.7 (hooks), **5.1 Editor and 5.2 Approve move up**, with a plain list in `opcl` to open creatures from, so the user can add and edit creatures before the tree views (Phase 2) exist. Phase 2 then draws whatever the user has made.
 
