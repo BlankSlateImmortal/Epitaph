@@ -187,14 +187,18 @@
     const play = () => { if (timer) return stopPlay(); const pb = host.querySelector('[data-play]'); pb.setAttribute('aria-pressed', 'true'); pb.textContent = 'Stop'; if (at >= 13) setAt(0);
       timer = setInterval(() => { if (at >= 13) return stopPlay(); setAt(at + 1); }, 900); };
     rng.addEventListener('input', () => { stopPlay(); setAt(parseInt(rng.value, 10)); });
+    let raf = 0; const later = () => { if (raf) return; raf = (global.requestAnimationFrame || (f => setTimeout(f, 16)))(() => { raf = 0; apply(); }); };
     const clampK = k => Math.max(0.35, Math.min(2.5, k));
-    const zoomAt = (f, cx, cy) => { const k = clampK(view.k * f), r = k / view.k; view.tx = cx - (cx - view.tx) * r; view.ty = cy - (cy - view.ty) * r; view.k = k; apply(); };
+    const zoomAt = (f, cx, cy, soon) => { const k = clampK(view.k * f), r = k / view.k; view.tx = cx - (cx - view.tx) * r; view.ty = cy - (cy - view.ty) * r; view.k = k; soon ? later() : apply(); };
     const fit = () => { const shelf = lay.chaos.length && stage.clientWidth > 520 ? 170 : 0, w = (stage.clientWidth || 600) - shelf, h = stage.clientHeight || 500; const k = clampK(Math.min(1.2, Math.max(w / lay.width, 0.6), Math.max(h / lay.height, 0.55)));      // never so small the names blur: a wide tree pans instead
       view.k = k; view.tx = Math.max(0, (w - lay.width * k) / 2); view.ty = 0;
       if (sel) { const n = lay.nodes.find(x => x.id === sel); if (n) { const sy = n.y * k; if (sy > h - 24) view.ty = Math.max(h - lay.height * k, h / 2 - sy); const sx = n.x * k + view.tx; if (sx > w - 60 || sx < 60) view.tx = w / 2 - n.x * k; } }
       apply(); };
     paint(); fit();
-    const select = id => { sel = id; hover = null; paint(); placeTip(); host.querySelectorAll('.ct-chaos [data-node]').forEach(b => b.classList.toggle('on', b.dataset.node === id)); if (opts.onSelect) opts.onSelect(id); };
+    const markSel = (id, on) => { if (!id) return; const g = world.querySelector(`[data-node="${CSS.escape(id)}"]`); if (!g) return; g.classList.toggle('sel', on); g.setAttribute('aria-pressed', on);
+      const ring = g.querySelector('.ct-ring'); if (on && !ring) { const r = g.querySelector('.ct-dot'), c = document.createElementNS('http://www.w3.org/2000/svg', 'circle'); c.setAttribute('r', +r.getAttribute('r') + 7); c.setAttribute('class', 'ct-ring'); g.insertBefore(c, g.firstChild); } else if (!on && ring) ring.remove(); };
+    // picking changes only two forms: no full redraw
+    const select = id => { const old = sel; sel = id; hover = null; markSel(old, false); markSel(id, true); placeTip(); host.querySelectorAll('.ct-chaos [data-node]').forEach(b => b.classList.toggle('on', b.dataset.node === id)); if (opts.onSelect) opts.onSelect(id); };
     // pointer: drag to pan (a short move is a click), wheel and pinch to zoom
     const pts = new Map(); let drag = null, pinch = null, moved = false;
     const local = e => { const r = stage.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
@@ -202,12 +206,12 @@
       if (pts.size === 1) drag = { p: local(e), tx: view.tx, ty: view.ty };
       else if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), k: view.k }; drag = null; } };
     const onMove = e => { if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, local(e));
-      if (pinch && pts.size === 2) { const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); zoomAt(pinch.k * (d / pinch.d) / view.k, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2); moved = true; return; }
+      if (pinch && pts.size === 2) { const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); zoomAt(pinch.k * (d / pinch.d) / view.k, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, true); moved = true; return; }
       if (!drag) return; const p = local(e), dx = p[0] - drag.p[0], dy = p[1] - drag.p[1];
       if (!moved && Math.hypot(dx, dy) < 4) return; if (!moved) { moved = true; try { stage.setPointerCapture(e.pointerId); } catch (x) { /* fine */ } stage.classList.add('dragging'); }
-      view.tx = drag.tx + dx; view.ty = drag.ty + dy; apply(); };
+      view.tx = drag.tx + dx; view.ty = drag.ty + dy; later(); };
     const onUp = e => { pts.delete(e.pointerId); if (pts.size < 2) pinch = null; if (!pts.size) { drag = null; stage.classList.remove('dragging'); } };
-    const onWheel = e => { e.preventDefault(); const [x, y] = local(e); zoomAt(Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0015)), x, y); };
+    const onWheel = e => { e.preventDefault(); const [x, y] = local(e); zoomAt(Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0015)), x, y, true); };
     const onClick = e => { const t = e.target.closest ? e.target : null; if (!t) return;
       const b = t.closest('[data-by]'); if (b) { by = b.dataset.by; pal = colours(lay, by, st); host.querySelectorAll('[data-by]').forEach(x => { const on = x.dataset.by === by; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); }); paint(); return; }
       const cs = t.closest('[data-cause]'); if (cs) { stopPlay(); setAt(parseInt(cs.dataset.cause, 10)); return; }

@@ -107,8 +107,8 @@ made to show how deeply the world has been thought through.
 
 ## Phase 7 — Finish
 
-- [ ] **7.1 Mobile and keyboard.** The tree works by touch (pinch, drag) and keyboard; both themes.
-- [ ] **7.2 Performance.** The tree stays smooth with hundreds of nodes; lazy-load the 3D specimens.
+- [x] **7.1 Mobile and keyboard.** The tree works by touch (pinch, drag) and keyboard; both themes.
+- [x] **7.2 Performance.** The tree stays smooth with hundreds of nodes; lazy-load the 3D specimens.
 - [ ] **7.3 Docs.** `docs/CHANGES.md`, the help text, this plan's status.
 
 ---
@@ -149,6 +149,8 @@ When the user says "get back to it" / "back to the plan":
 
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-23 — **7.1 and 7.2 done (Sonnet), measured not assumed.** Real-page timings with 600 and 1500 forms (CDP, real clock): picking a form went from 59/136 ms to 6 ms (only the two forms that change are touched), wheel/drag/pinch redraws coalesced per frame; keyboard use of the tree, web, world and page checked; one theme only. 3D specimen lazy-loading waits for 3.3. **Left in this plan: 3.3 and 3.7 (Opus), 4.3 (Opus), 6.2 (3D map layer: Opus), 6.3 and 6.4 (need schema: Opus), and 7.3 (docs and help text, last).**
 
 - 2026-11-23 — **4.1 done (Sonnet).** Layout **AC** (one big map with the age scrubber). New `assets/epitaph-creature-world.js` and a **World** tab (authors and readers). **Lore decision from the user:** the crater and the +60 m sea appear from **Age D** (before it, the old dry coasts); it is one constant in the module. Layers: crater, drowned coasts, infected places awake by their own or their biome's date, living forms with the picked one's places lit; no ice (the map has no ice data). 9 Node checks; real page checked at Age C and Age G. **Next: 4.3 (cause and effect chains, layout AF; an Opus step).**
 

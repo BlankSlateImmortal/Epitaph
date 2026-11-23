@@ -2,6 +2,12 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Creature Log: touch, keyboard and speed — steps 7.1, 7.2
+
+- **Touch (7.1):** the tree pans by drag and zooms by pinch (and by +/− and the wheel); the Web, World and page views work with taps on large (36–40 px) buttons on a phone, and the terminal hides while a log view is open so the pages get its height.
+- **Keyboard (7.1):** in the tree, Tab reaches every form (Enter or Space picks it; the arrow keys pan, +/− zoom, 0 fits); in the Web every creature is a button (Enter picks it, focus stays); the time chips, tabs, section numbers and layer toggles are real buttons or checkboxes with labels; every control has a visible focus ring; the scrub and scroll animations respect "reduce motion". The site has a single (amber) theme, and the new views use its colour tokens.
+- **Speed (7.2):** measured in the real page with **600 and 1500 forms**: picking a form is now 6 ms at either size (it used to redraw the whole tree: 59 ms and 136 ms), because only the two forms that change are touched; wheel, drag and pinch redraws are merged to one per frame; scrubbing a 1500-form tree takes about 30 ms forward and about 110 ms back; opening the tree takes about 140 ms at 1500. The layout, food web, world, page and reader-gate models take under 16 ms at 1000 forms. (The 3D specimens, step 3.3, aren't built yet; they will load only when opened.)
+
 ## Creature Log: the World over time (assets/epitaph-creature-world.js) — step 4.1
 
 A **World** tab (layout AC from Round 10): the same 14 time chips drive one big dither map of the Earth, with the left page saying what is true of the world at that time.
