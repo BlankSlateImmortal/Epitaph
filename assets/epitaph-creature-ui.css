@@ -43,3 +43,46 @@
 @media (max-width:760px){ .cl-bar{ padding:6px 10px; } .cl-form{ padding:8px 10px 12px; } .cl-sub{ white-space:normal; } .cl-dot{ width:24px; height:24px; } .cl-tabs button, .cl-new{ min-height:36px; } }
 .cl-enc{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; padding-top:6px; border-top:1px dashed var(--line); } .cl-enc .cl-fl{ flex:1 0 100%; }
 .cl-link{ background:transparent; cursor:pointer; font:inherit; font-family:var(--f-crt); font-size:15px; } .cl-link:hover, .cl-link:focus-visible{ border-color:var(--amber); color:var(--amber-hi); outline:none; }
+/* the Tree of Descent (step 2.1, assets/epitaph-creature-tree.js) */
+.cl-tree{ flex:1; min-height:0; display:flex; }
+.ct{ position:relative; flex:1; min-width:0; display:flex; flex-direction:column; }
+.ct-bar{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; padding:6px 14px; border-bottom:1px solid var(--line); }
+.ct-lbl, .ct-count{ font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--dust); } .ct-sp{ flex:1; }
+.ct-tg, .ct-zoom{ display:flex; } .ct-tg button, .ct-zoom button{ font-family:var(--f-crt); font-size:17px; padding:1px 10px; min-width:32px; background:transparent; color:var(--dust); border:1px solid var(--amber-dim); cursor:pointer; }
+.ct-tg button + button, .ct-zoom button + button{ border-left:0; } .ct-tg button.on{ background:var(--amber); color:var(--ink-deep); border-color:var(--amber); }
+.ct-tg button:focus-visible, .ct-zoom button:focus-visible, .ct-stage:focus-visible, .ct-chaos button:focus-visible{ outline:2px solid var(--amber-hi); outline-offset:2px; }
+.ct-stage{ position:relative; flex:1; min-height:240px; overflow:hidden; cursor:grab; touch-action:none; user-select:none; }
+.ct-stage.dragging{ cursor:grabbing; } .ct-svg{ position:absolute; inset:0; width:100%; height:100%; display:block; }
+.ct-band{ fill:transparent; stroke:rgba(255,178,56,.10); stroke-width:1; } .ct-band.curse{ fill:rgba(224,101,74,.06); } .ct-band.thin{ fill:rgba(255,178,56,.02); }
+.ct-blabel{ font-family:var(--f-crt); font-size:15px; fill:#8a6a34; pointer-events:none; } .ct-blabel.curse{ fill:#c06a52; }
+.ct-edge, .ct-tail{ fill:none; stroke-width:2.2; } .ct-edge.ext, .ct-tail.ext{ stroke-dasharray:5 4; opacity:.65; }
+.ct-fossil path, .ct-fossil circle{ fill:none; stroke:#8a6a34; stroke-width:1.6; } .ct-fossil circle{ stroke-dasharray:2 2; }
+.ct-glow{ filter:drop-shadow(0 0 5px rgba(255,213,138,.9)); animation:ct-pulse 2.6s ease-in-out infinite; }
+@keyframes ct-pulse{ 50%{ opacity:.45; } } @media (prefers-reduced-motion:reduce){ .ct-glow{ animation:none; } }
+.ct-node{ cursor:pointer; outline:none; } .ct-dot{ stroke-width:2; } .ct-node.cr .ct-dot{ stroke-width:3; } .ct-node.draft .ct-dot{ stroke-dasharray:3 2; }
+.ct-node .ct-ring{ fill:none; stroke:var(--amber-hi); stroke-width:2; } .ct-node:focus-visible .ct-dot{ stroke:var(--amber-hi); stroke-width:4; }
+.ct-name{ font-family:var(--f-crt); font-size:16px; fill:var(--amber-hi); text-anchor:start; paint-order:stroke; stroke:var(--ink-deep); stroke-width:4px; stroke-linejoin:round; }
+.ct-node.ext .ct-name{ fill:#8a6a34; } .ct-node.sel .ct-name{ fill:#fff3d6; } .ct-curse{ font-size:12px; fill:var(--ember); }
+.ct-chaos{ position:absolute; right:10px; top:52px; width:150px; display:flex; flex-direction:column; gap:3px; padding:7px; border:1px dashed #b98ad8; background:rgba(5,4,3,.92); font-family:var(--f-crt); color:#b98ad8; cursor:default; }
+.ct-chaos b{ font-weight:400; font-size:16px; letter-spacing:.1em; } .ct-chaos small{ font-size:13px; color:#8a6a34; line-height:1.1; }
+.ct-chaos button{ text-align:left; font:inherit; font-size:16px; background:transparent; color:#d6b8ea; border:1px solid rgba(185,138,216,.4); padding:0 6px; cursor:pointer; } .ct-chaos button.on{ background:#b98ad8; color:var(--ink-deep); }
+.ct-legend{ display:flex; padding:4px 12px 6px; border-top:1px solid var(--line); flex-wrap:wrap; gap:2px 14px; font-family:var(--f-crt); font-size:15px; color:var(--dust); pointer-events:none; }
+.ct-legend span{ padding:0 2px; } .ct-legend i{ display:inline-block; width:18px; border-top:3px solid; vertical-align:middle; margin-right:5px; }
+.ct-legend .ct-key i{ border:0; width:auto; margin:0 3px 0 0; font-style:normal; } .ct-legend i.g{ width:8px; height:8px; border-radius:50%; background:var(--amber-hi); box-shadow:0 0 5px var(--amber-hi); }
+.ct-legend i.x{ color:#8a6a34; } .ct-empty{ position:absolute; left:20px; right:20px; top:40%; text-align:center; color:var(--dim); }
+.cl-card{ position:absolute; left:12px; bottom:12px; max-width:min(380px, calc(100% - 24px)); display:flex; flex-direction:column; gap:4px; padding:9px 12px; background:rgba(5,4,3,.94); border:1px solid var(--amber-dim); font-family:var(--f-mono); font-size:12px; color:var(--bone); }
+.cl-card b{ font-family:var(--f-crt); font-weight:400; font-size:22px; color:var(--amber-hi); line-height:1; } .cl-card p{ margin:0; } .cl-card .cl-hot{ color:var(--ember); } .cl-card .cl-new{ align-self:flex-start; }
+@media (max-width:760px){ .ct-tg button, .ct-zoom button{ min-height:36px; min-width:40px; } .ct-legend{ font-size:13px; } }
+/* phone: the book stacks its pages; while the tree is open give it most of the height, the map the rest, and drop the terminal */
+@media (max-width:760px){
+  .book.wide:has(#bkCreatures .cl-tree) .terminal{ display:none; }
+  .book.wide:has(#bkCreatures .cl-tree) .book-page.left-page{ flex:0 0 64%; }
+  .book.wide:has(#bkCreatures .cl-tree) .book-page.right-page{ flex:1 1 0; min-height:0; }
+  .book.wide:has(#bkCreatures .cl-tree) .bk-head{ padding:6px 10px; gap:6px; flex-wrap:nowrap; }
+  .book.wide:has(#bkCreatures .cl-tree) .bk-idx, .book.wide:has(#bkCreatures .cl-tree) .bk-title small{ display:none; }
+  .book.wide:has(#bkCreatures .cl-tree) .bk-title b{ font-size:17px; letter-spacing:.1em; white-space:nowrap; }
+  .cl:has(.cl-tree) .cl-note{ display:none; }
+  .ct-chaos{ flex-direction:row; flex-wrap:wrap; align-items:center; position:static; width:auto; margin:0; border-width:1px 0 0; }
+  .ct-chaos small{ display:none; }
+  .cl-card{ left:6px; right:6px; bottom:6px; max-width:none; max-height:calc(100% - 12px); overflow:auto; padding:6px 9px; } .cl-card p{ display:none; } .cl-card b{ font-size:19px; }
+}

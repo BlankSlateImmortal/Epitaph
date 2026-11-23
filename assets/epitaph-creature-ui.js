@@ -15,9 +15,9 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const REGIONS = [['plains', 'Plains'], ['hills', 'Hills'], ['mountains', 'Mountains'], ['ice', 'Ice'], ['pit', 'The crater'], ['rim', 'Impact mountains'], ['coast', 'Coast'], ['drowned', 'Sunken land'], ['underwater', 'Open sea']];
   const KIND_LABEL = { creatures: 'Creature', nodes: 'Lineage step', chaos: 'Chaos' };
-  const TABS = [['creatures', 'Creatures'], ['biomes', 'Biomes'], ['places', 'Places']];
+  const TABS = [['tree', 'Tree'], ['creatures', 'Creatures'], ['biomes', 'Biomes'], ['places', 'Places']];
   const PAGE = 120;
-  let ui = null;          // { tab, q, biome, drafts, noCurse, open: { kind, id } | null, shown }
+  let ui = null;          // { tab, q, biome, drafts, noCurse, open: { kind, id } | null, shown, sel (the tree's picked form), tree (its handle) }
 
   const author = () => { const T = TL(); return T ? T.authorMode() : true; };
   const cursesInLibrary = () => { try { return ((Lib() && Lib().get().marks) || []).filter(m => m.kind === 'curse'); } catch (e) { return []; } };
@@ -161,8 +161,23 @@
     const out = []; const walk = (p, d) => (kids.get(p) || []).sort(order).forEach(([k, x]) => { out.push(row(x, k, d)); walk(x.id, d + 1); });
     walk('', 0); return out;
   }
+  /** The Tree tab (step 2.1): the Tree of Descent on the left page; the picked form's range on the map. */
+  function renderTree(host, st) {
+    const n = st.nodes.length + st.creatures.length + st.chaos.length;
+    host.innerHTML = `<div class="cl">
+      <div class="cl-bar">${tabsHtml(st)}<span class="cl-sp"></span><button type="button" class="cl-new" data-new="nodes">+ Lineage step</button><button type="button" class="cl-new" data-new="creatures">+ Creature</button></div>
+      <p class="cl-note">Oldest at the top; each band is an epoch, then Epitaph's ages A–G (red: the curse cycle). Pick a form to see where it lives.${n ? '' : ' <b>The log is empty.</b> Merge the Creature Log file from your vault (Dossier → Data → Merge) or add your own.'}</p>
+      ${ui.open && ui.open.isNew ? `<div class="cl-item open new"><div class="cl-head"><b>New ${esc((KIND_LABEL[ui.open.kind] || ui.open.kind).toLowerCase())}</b></div>${formHtml(ui.open.kind, blank(ui.open.kind), true)}</div>` : ''}
+      <div class="cl-tree"></div></div>`;
+    const T = global.EpitaphCreatureTree, box = host.querySelector('.cl-tree');
+    if (!T) { box.innerHTML = '<p class="cl-note">The tree did not load.</p>'; return; }
+    ui.tree = T.mount(box, { colourBy: ui.colourBy, sel: ui.sel, onSelect: id => { ui.sel = id; drawMap(); } });
+  }
+  const tabsHtml = st => `<div class="cl-tabs" role="tablist">${TABS.map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${ui.tab === k}" class="${ui.tab === k ? 'on' : ''}">${l}<b>${k === 'tree' ? st.nodes.length + st.creatures.length : st[k].length + (k === 'creatures' ? st.nodes.length + st.chaos.length : 0)}</b></button>`).join('')}</div>`;
   function render(host) {
+    if (ui.tree) { ui.tree.destroy(); ui.tree = null; }
     const st = C().load(), q = ui.q;
+    if (ui.tab === 'tree') return renderTree(host, st);
     let list = '', count = 0;
     if (ui.tab === 'creatures') { const r = creatureRows(); count = r.length; list = r.join(''); }
     else if (ui.tab === 'biomes') { const r = st.biomes.filter(x => matches(x, q) && (!ui.drafts || x.draft)); count = r.length; list = r.map(x => row(x, 'biomes', 0)).join(''); }
@@ -170,7 +185,7 @@
     const adds = { creatures: [['creatures', '+ Creature'], ['nodes', '+ Lineage step'], ['chaos', '+ Chaos form']], biomes: [['biomes', '+ Biome']], places: [['places', '+ Place']] }[ui.tab];
     const empty = !st.creatures.length && !st.nodes.length && !st.chaos.length && !st.biomes.length && !st.places.length;
     host.innerHTML = `<div class="cl">
-      <div class="cl-bar"><div class="cl-tabs" role="tablist">${TABS.map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${ui.tab === k}" class="${ui.tab === k ? 'on' : ''}">${l}<b>${st[k === 'creatures' ? 'creatures' : k].length + (k === 'creatures' ? st.nodes.length + st.chaos.length : 0)}</b></button>`).join('')}</div>
+      <div class="cl-bar">${tabsHtml(st)}
         <input type="search" id="clQ" placeholder="search…" value="${esc(q)}" aria-label="Search">
         ${ui.tab === 'places' ? `<select id="clBiome" aria-label="Biome">${selHtml([['', 'Every biome']].concat(biomeOptions()), ui.biome).replace(/^<select>|<\/select>$/g, '')}</select><label class="cl-chk"><input type="checkbox" id="clNoCurse"${ui.noCurse ? ' checked' : ''}> curse not written</label>` : ''}
         <label class="cl-chk"><input type="checkbox" id="clDrafts"${ui.drafts ? ' checked' : ''}> drafts only</label>
@@ -188,25 +203,58 @@
     panel.innerHTML = '<div class="cl-map"><canvas class="se-cv" aria-label="Dither map of the infected places"></canvas><svg class="se-svg" aria-hidden="true"></svg><div class="se-legend"></div></div>';
     try { await D.load(); } catch (e) { return; }
     const host = panel.querySelector('.cl-map'); if (!host || !host.isConnected) return;
+    if (!host.clientWidth || !host.clientHeight) { if ((drawMap.tries = (drawMap.tries || 0) + 1) < 12) setTimeout(drawMap, 120); return; }      // the page is still settling (a phone stacks it)
+    drawMap.tries = 0;
     const cv = host.querySelector('.se-cv'), svg = host.querySelector('.se-svg'), w = host.clientWidth, h = host.clientHeight, st = C().load();
     const pr = D.world(cv, {}).project; svg.setAttribute('viewBox', `0 0 ${w} ${h}`); svg.setAttribute('width', w); svg.setAttribute('height', h);
+    if (ui.tab === 'tree') return drawRange(host, svg, pr, st);
     const sel = ui.open && ui.open.kind === 'places' ? ui.open.id : null;
     const pts = st.places.filter(p => Number.isFinite(p.lon) && Number.isFinite(p.lat) && (!ui.biome || p.biome === ui.biome));
     svg.innerHTML = pts.map(p => { const [x, y] = pr(p.lon, p.lat); return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${p.id === sel ? 7 : 3.2}" fill="${p.curse ? 'var(--ember)' : 'none'}" stroke="${p.id === sel ? 'var(--amber-hi)' : 'var(--amber)'}" stroke-width="${p.id === sel ? 2.5 : 1}"/>`; }).join('');
     host.querySelector('.se-legend').innerHTML = `${pts.length} places${ui.biome ? ' in ' + esc((st.biomes.find(b => b.id === ui.biome) || {}).name || '') : ''}<br><span style="color:var(--ember)">●</span> curse written · <span style="color:var(--amber)">○</span> not yet`;
   }
 
+  /** The tree's picked form on the map: the infected places in its biomes (or named in its range) lit, the rest faint; the
+   *  settlements that have a name for it in teal; a card with its time, change and curse, and Edit. */
+  function drawRange(host, svg, pr, st) {
+    const r = ui.sel && C().byId(ui.sel), rec = r || null, leg = host.querySelector('.se-legend');
+    const bio = new Set(rec ? [].concat(rec.biomes || [], (rec.range && rec.range.biomes) || [], (rec.forms || []).map(f => f.biome)) : []);
+    const named = new Set(rec && rec.range ? rec.range.places || [] : []);
+    const lit = p => rec && (bio.has(p.biome) || named.has(p.id) || named.has(p.name));
+    const pts = st.places.filter(p => Number.isFinite(p.lon) && Number.isFinite(p.lat)), on = pts.filter(lit);
+    const dot = (p, b) => { const [x, y] = pr(p.lon, p.lat); return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${b ? 5 : 2.4}" fill="${b ? 'var(--amber)' : 'none'}" stroke="${b ? 'var(--amber-hi)' : 'var(--amber-dim)'}" stroke-width="${b ? 1.5 : 1}" opacity="${b ? 1 : 0.55}"/>`; };
+    const wp = id => { const p = W() && W().place(id); return p && Number.isFinite(p.lat) && Number.isFinite(p.lng) ? p : null; };
+    const towns = rec && rec.names ? rec.names.filter(x => x.placeId && wp(x.placeId)) : [];
+    svg.innerHTML = pts.filter(p => !lit(p)).map(p => dot(p, false)).join('') + on.map(p => dot(p, true)).join('') +
+      towns.map(x => { const p = wp(x.placeId), [px, py] = pr(p.lng, p.lat); return `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="5" fill="var(--verdigris)"/><text x="${(px + 8).toFixed(1)}" y="${(py + 4).toFixed(1)}" fill="var(--verdigris)" font-family="VT323,monospace" font-size="15">${esc(String(p.name).split(/\s+[—–-]\s+/).pop())}${x.localName ? ' · “' + esc(x.localName) + '”' : ''}</text>`; }).join('');
+    if (!rec) { leg.innerHTML = 'Pick a form on the tree to see where it lives.<br><span style="color:var(--amber-dim)">○</span> infected places'; return; }
+    const curse = rec.mutation && rec.mutation.curse ? (cursesInLibrary().find(m => m.id === rec.mutation.curse) || {}).name || rec.mutation.curse : '';
+    const carried = (rec.curses || []).map(k => ((cursesInLibrary().find(m => m.id === k.libId) || {}).name || k.libId) + (k.stage ? ' · ' + k.stage : ''));
+    const bnames = [...bio].map(b => (st.biomes.find(x => x.id === b) || {}).name || b).filter(Boolean);
+    leg.innerHTML = '';
+    const card = document.createElement('div'); card.className = 'cl-card';
+    card.innerHTML = `<b>${esc(rec.name || rec.id)}</b><span class="cl-dim">${esc(KIND_LABEL[r.kind] || '')}${rec.when ? ' · ' + esc(whenText(rec.when)) : ''}${rec.extinct ? ' · extinct from ' + esc(whenText(rec.extinct)) : ''}</span>
+      ${rec.mutation && rec.mutation.change ? `<p>${esc(rec.mutation.change)}</p>` : ''}${rec.mutation && rec.mutation.advantage ? `<p class="cl-dim">Gained: ${esc(rec.mutation.advantage)}</p>` : ''}
+      ${curse || carried.length ? `<p class="cl-hot">⛓ ${esc([curse].concat(carried).filter(Boolean).join(' · '))}</p>` : ''}
+      <span class="cl-dim">${bnames.length ? esc(bnames.join(' · ')) + ' · ' : ''}${on.length} infected place${on.length === 1 ? '' : 's'} in range${towns.length ? ' · <span style="color:var(--verdigris)">●</span> settlements that name it' : ''}</span>
+      <button type="button" class="cl-new" data-edit>Edit ▸</button>`;
+    card.querySelector('[data-edit]').addEventListener('click', () => { if (!ui || !ui.host) return; ui.tab = 'creatures'; ui.open = { kind: r.kind, id: rec.id }; ui.scrollTo = ui.open; render(ui.host); drawMap(); });
+    host.appendChild(card);
+  }
+
   // ---------------------------------------------------------------- mounting and events
   function mountIndex(container, opts) {
     if (!C()) { container.innerHTML = '<p class="cl-note">The Creature Log data did not load.</p>'; return () => {}; }
     if (!author()) { container.innerHTML = '<p class="cl-note" style="padding:1.5rem">The Creature Log opens for readers as their chapter reveals it. That arrives with the tree; for now it is the author\'s workspace.</p>'; return () => {}; }
-    ui = { tab: 'creatures', q: '', biome: '', drafts: false, noCurse: false, open: null, shown: PAGE, scrollTo: null };
-    const focus = opts && opts.focus && C().byId(opts.focus); if (focus) { ui.open = { kind: focus.kind, id: focus.id }; ui.scrollTo = ui.open; }
+    ui = { tab: 'tree', q: '', biome: '', drafts: false, noCurse: false, open: null, shown: PAGE, scrollTo: null, sel: null, tree: null, colourBy: 'biome', host: container };
+    const focus = opts && opts.focus && C().byId(opts.focus);
+    if (focus) ui.sel = focus.id;          // a creature link lands on the tree with it picked
     render(container); drawMap();
     const on = (ev, fn) => { container.addEventListener(ev, fn); return () => container.removeEventListener(ev, fn); };
     const offs = [];
     offs.push(on('click', e => {
       const t = e.target; if (!t.closest) return;
+      const by = t.closest('[data-by]'); if (by) { ui.colourBy = by.dataset.by; return; }
       const tab = t.closest('[data-tab]'); if (tab) { ui.tab = tab.dataset.tab; ui.open = null; ui.shown = PAGE; ui.q = ''; ui.noCurse = false; render(container); drawMap(); return; }       // each tab starts clean
       const tg = t.closest('[data-toggle]'); if (tg) { const [kind, id] = tg.closest('[data-open]').dataset.open.split(/:(.*)/s); ui.open = ui.open && ui.open.id === id && ui.open.kind === kind ? null : { kind, id }; render(container); drawMap(); return; }
       const nw = t.closest('[data-new]'); if (nw && nw.classList.contains('cl-new')) { ui.open = { kind: nw.dataset.new, id: '', isNew: true }; render(container); const nm = container.querySelector('.cl-item.new input[data-f="name"]'); if (nm) nm.focus(); return; }
@@ -229,11 +277,12 @@
       if (kind === 'creatures' || kind === 'nodes') { if (rec.parentId === rec.id) rec.parentId = null; }
       if (!C().put(kind, rec)) { err.textContent = 'Could not save: the browser\'s storage may be full. Export a backup first.'; return; }
       if (eats) { const keep = C().load().food.filter(l => l.eater !== rec.id), old = C().load().food.filter(l => l.eater === rec.id); C().putFood(keep.concat(eats.map(id => old.find(l => l.eaten === id) || { eater: rec.id, eaten: id, when: null }))); }
+      if (ui.tab === 'tree') ui.sel = rec.id;
       ui.open = null; render(container); drawMap();
     }));
     offs.push(on('input', e => { const t = e.target; if (t.id === 'clQ') { ui.q = t.value; ui.shown = PAGE; const pos = t.selectionStart; render(container); const n = container.querySelector('#clQ'); n.focus(); n.setSelectionRange(pos, pos); } }));
     offs.push(on('change', e => { const t = e.target; if (t.id === 'clDrafts') ui.drafts = t.checked; else if (t.id === 'clNoCurse') ui.noCurse = t.checked; else if (t.id === 'clBiome') { ui.biome = t.value; ui.shown = PAGE; drawMap(); } else return; render(container); }));
-    return () => { offs.forEach(o => o()); ui = null; const p = document.getElementById('bookPanel'); if (p && p.classList.contains('se-panel')) { p.innerHTML = ''; p.classList.remove('se-panel'); } };
+    return () => { offs.forEach(o => o()); if (ui && ui.tree) ui.tree.destroy(); ui = null; const p = document.getElementById('bookPanel'); if (p && p.classList.contains('se-panel')) { p.innerHTML = ''; p.classList.remove('se-panel'); } };
   }
 
   // a `creature:<id>` link opens the log on that creature (step 1.7)

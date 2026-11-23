@@ -2,6 +2,22 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Creature Log: the Tree of Descent (assets/epitaph-creature-tree.js) — step 2.1
+
+The Creature Log now opens on a **Tree** tab, drawn in layout V (picked from the Round 8 mockups): time runs down the page.
+
+- **Bands.** One band per epoch (Chaos → The Twisted Worlds, then Epitaph), then Epitaph's seven ages A–G. The last three (the curse cycle: awakening, fluctuation, stabilization) are tinted red. An epoch with nothing in it folds thin; the ages always stay open.
+- **Lineages.** Roots at the top; each form sits in the band where it appeared, under its ancestor; a fork is centred over its branches. A creature is a larger dot, a lineage step a smaller one; ⛓ marks a form that carries or came with a curse; a dashed dot is a draft.
+- **Living and extinct.** A living tip's line runs on to the present and glows; an extinct line is dashed and stops at the age it died out, with a fossil mark.
+- **Colour.** Branches are coloured by biome or by cause (a toggle); the legend names them.
+- **Creatures of chaos** sit on a shelf beside the tree (they descend from nothing).
+- **Moving around.** Drag to pan (or the arrow keys), wheel or pinch to zoom (or + / −), **Fit** or 0 to see it all again. Every form is a button (Tab to it, Enter to pick).
+- **Picking a form** lights its range on the world map on the right page (the infected places in its biomes or named in its range, the settlements that have a name for it in teal) with a card: when it appeared, what changed, its curse, and **Edit ▸** (opens it in the Creatures tab). A `creature:<id>` link lands on the tree with that form picked.
+- **Bad data never breaks the tree:** a missing parent or a loop makes a root; a form dated before its ancestor is drawn just below it anyway (Checks already flags it); an undated form sits one band below its ancestor, marked "?".
+- **Phone:** the tree takes most of the height, the map the rest; the terminal hides while it's open.
+
+Still to come: the time scrubber (2.2), fork details on hover (2.3), and the reader's view with "?" silhouettes (2.4). Tests: `tools/site-tests/test-creature-tree.js` (14 checks).
+
 ## Creature Log: the view and editor (assets/epitaph-creature-ui.js) — steps 1.7, 5.1, 5.2
 
 Type **`opcl`** (or follow a `creature:<id>` link) to open the Creature Log in the book. It is the author's workspace for now (readers get a note until the tree's discovery rules arrive).
