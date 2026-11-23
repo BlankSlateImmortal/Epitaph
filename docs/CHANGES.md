@@ -2,6 +2,17 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## The mark library is a deck of cards (opmk) — item-system 6.5, restyled
+
+Type `opmk` in the Storybook terminal. Inside the book your library marks are a **deck**:
+
+- **Blessings** are upright gold cards. **Curses** are reversed red cards. **Bindings** are green cards sealed with rings, one ring per rank.
+- A **curse's stages** are cards stacked beneath it (the initial state, then each stage you have written). Click a curse to **Cycle stages**: the next stage card comes to the top and its text shows on the right page. Or click **Inspect** to edit it.
+- Click a blessing or binding to edit it. The **right page** is the editor you had before, with every copy and *Update all copies*.
+- A card says how many times it has been dealt (copied onto people and items).
+
+Private like before. Test: `node tools/visitor-test/author-book.js`.
+
 ## Skill prospects are a grimoire (opsp) — item-system 6.2, restyled
 
 Type `opsp` in the Storybook terminal. Inside the book the prospects are an open **grimoire**:

@@ -24,7 +24,7 @@ let fails = 0; const check = (ok, what) => { if (!ok) { fails++; console.log('FA
   await s('Page.navigate', { url: `http://127.0.0.1:${port}/dossier.html` }); await sleep(4000);
   const ev = async e => { const r = await s('Runtime.evaluate', { expression: e, returnByValue: true, awaitPromise: true }); if (r.exceptionDetails) throw new Error(JSON.stringify(r.exceptionDetails).slice(0, 300)); return r.result.value; };
   const run = async c => { await ev(`runStorybookCommand(${JSON.stringify(c)})`); await sleep(1800); };
-  const st = () => ev(`(() => { const b = document.getElementById('theBook'), pn = document.getElementById('bookPanel'); return { view: b.dataset.view || null, board: !!document.querySelector('#bkBoard .sp-board, #bkBoard .gr'), modal: document.getElementById('modalBackdrop').classList.contains('visible'), panel: pn.className, drafts: EpitaphLibrary.get().skillDrafts.map(d => d.name), marks: EpitaphLibrary.get().marks.length }; })()`);
+  const st = () => ev(`(() => { const b = document.getElementById('theBook'), pn = document.getElementById('bookPanel'); return { view: b.dataset.view || null, board: !!document.querySelector('#bkBoard .sp-board, #bkBoard .gr, #bkBoard .ml-deck'), modal: document.getElementById('modalBackdrop').classList.contains('visible'), panel: pn.className, drafts: EpitaphLibrary.get().skillDrafts.map(d => d.name), marks: EpitaphLibrary.get().marks.length }; })()`);
   try {
     await ev('openTheBook()'); await sleep(3500);
     await run('opmk'); let x = await st();
@@ -36,6 +36,27 @@ let fails = 0; const check = (ok, what) => { if (!ok) { fails++; console.log('FA
     check(x.view === null && x.drafts.includes('Regression prospect'), 'a prospect written in the book is saved when you press Back');
     await run('opmk'); await ev(`document.querySelector('.sp-new').click()`); await ev(`document.getElementById('bkBack').click()`); await sleep(600); x = await st();
     check(x.marks === 1, 'a mark written in the book is saved when you press Back');
+    // the deck (opmk): blessings gold, curses with their stages as cards beneath, Cycle / Inspect
+    await ev(`EpitaphLibrary.update(l => { const L = EpitaphLibrary, M = EpitaphMarks, mk = o => { const d = L.toDefinition(M.normalize(o)); d.name = o.name; return d; };
+      l.marks = [mk({ kind: 'blessing', name: 'Test blessing' }), mk({ kind: 'curse', name: 'Test curse', initial: { name: 'Calm' }, stages: [{ name: 'One', text: 'first' }, { name: 'Two', text: 'second' }, { name: '', text: '' }] }), mk({ kind: 'binding', name: 'Test binding', rank: 2 })]; })`);
+    await run('opmk');
+    const dk = () => ev(`(() => { const c = document.querySelector('.mk-card.k-curse'); return { cards: document.querySelectorAll('.mk-card').length, under: document.querySelectorAll('.mk-under').length, top: c && c.querySelector('.mk-k').textContent, menu: !!document.querySelector('.mk-menu'), panel: (document.querySelector('.mk-panel-name') || {}).textContent || '', stage: (document.querySelector('.mk-stage-text') || {}).textContent || '', gold: getComputedStyle(document.querySelector('.mk-card.k-blessing')).borderTopColor }; })()`);
+    let dx = await dk();
+    check(dx.cards === 3 && dx.under === 2, 'the deck shows 3 cards; the curse has its 2 written stages as cards beneath (the empty third stage is left out)');
+    check(/^rgba?\((22[0-9]|23[0-9]), (17[0-9]|18[0-9]|19[0-9]), (8[0-9]|9[0-9])/.test(dx.gold), 'blessings are gold (' + dx.gold + ')');
+    await ev(`document.querySelector('.mk-card.k-curse').click()`); await sleep(200); dx = await dk();
+    check(dx.menu && dx.top === 'INITIAL', 'clicking a curse offers Cycle / Inspect, with the initial card on top');
+    await ev(`document.querySelector('[data-mk-cycle]').click()`); await sleep(400); dx = await dk();
+    check(dx.top === 'STAGE 1' && /One/.test(dx.stage) && dx.panel === 'Test curse', 'Cycle brings stage 1 to the top and shows its text on the right page');
+    await ev(`document.querySelector('[data-mk-cycle]').click()`); await ev(`document.querySelector('[data-mk-cycle]').click()`); await sleep(300); dx = await dk();
+    check(dx.top === 'INITIAL', 'cycling past the last stage comes back to the initial card');
+    await ev(`document.querySelector('[data-mk-inspect]').click()`); await sleep(300); dx = await dk();
+    check(!dx.menu && dx.panel === 'Test curse' && !!(await ev(`!!document.querySelector('#bookPanel #mlMain [data-mlf=name]')`)), 'Inspect opens the editor on the right page');
+    await ev(`document.querySelector('.mk-card.k-binding').click()`); await sleep(300); dx = await dk();
+    check(dx.panel === 'Test binding' && !dx.menu, 'a binding (no stages) opens straight to the editor');
+    check(!(await st()).modal, 'the deck never opens the pop-up');
+    await ev(`document.getElementById('bkBack').click()`); await sleep(500);
+
     // the grimoire (opsp): pages in root-to-branch order, turning by button and by arrow key, the editor on the right page
     await ev(`EpitaphLibrary.update(l => { l.skillDrafts = []; [['Beta root', ''], ['Alpha root', ''], ['Beta child', 'Beta root']].forEach(([n, p]) => l.skillDrafts.push(EpitaphLibrary.normalizeSkillDraft({ name: n, parent: p, level: 2 }))); })`);
     await run('opsp');
