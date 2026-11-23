@@ -227,7 +227,8 @@
    *  A reader sees only places they've reached and beasts the gate lets through (held or hidden ones stay out); the author sees every
    *  place, with `hidden` marking the ones a reader wouldn't.
    *  -> [{ placeId, relation, hidden }] sorted by place id. */
-  function creaturePlaces(creature, list, author) {
+  function creaturePlaces(creature, list, author) { return bulk(() => creaturePlacesNow(creature, list, author)); }
+  function creaturePlacesNow(creature, list, author) {
     const id = String(creature || '').replace(/^creature:/, ''), recs = list || load(), asAuthor = author === undefined ? authoring() : !!author, out = [];
     if (!id) return out;
     const isIt = b => String(b.ref || '').replace(/^creature:/, '') === id;
@@ -383,9 +384,22 @@
 
   // ---- reading with the reader's chapter ----
   const TL = () => global.EpitaphTimeline || null;
+  // ---- bulk work (step 7.2): a view that asks the same questions for every place (the index, the web, the blocs) runs inside bulk(fn).
+  //      Within one bulk call nothing is edited, so an answer that depends only on (event, chapter), (place, chapter) or the record list is
+  //      worked out once instead of once per place; outside a bulk call everything is computed fresh, exactly as before.
+  let memo = null;
+  function bulk(fn) {
+    if (memo) return fn();
+    memo = { reached: new Map(), reveal: new Map(), at: new Map(), hidden: new Map(), ties: new WeakMap(), byId: new WeakMap(), events: null };
+    try { return fn(); } finally { memo = null; }
+  }
   /** Is an event id (or null = "since before the story") reached by a reader on `chapter`? */
   function reached(eventId, chapter) {
     if (eventId == null) return true;                 // "since before the story": shown as soon as the place itself is
+    if (memo) { const k = eventId + '|' + chapter; let v = memo.reached.get(k); if (v === undefined) { v = reachedNow(eventId, chapter); memo.reached.set(k, v); } return v; }
+    return reachedNow(eventId, chapter);
+  }
+  function reachedNow(eventId, chapter) {
     const t = TL(); if (!t) return true;
     const e = t.byId(eventId);
     return e ? t.isRevealed(e, chapter) : false;      // an id the timeline doesn't have reveals nothing (Checks flags it)
@@ -414,26 +428,41 @@
     if (!rec) return null;
     if (rec.open) return 0;
     if (rec.revealedIn !== undefined) return rec.revealedIn;   // a published snapshot already carries the answer
+    if (memo) { let v = memo.reveal.get(rec); if (v === undefined) { v = placeRevealNow(rec); memo.reveal.set(rec, v); } return v; }
+    return placeRevealNow(rec);
+  }
+  function placeRevealNow(rec) {
     const t = TL(); if (!t) return 0;
     const W = global.EpitaphWorld, p = W && W.place(rec.placeId), full = p ? p.name : rec.placeId;
     let best = t.firstChapter('world', [full, full.split(/\s+[—–-]\s+/).pop(), rec.placeId]);
-    t.load().forEach(e => {
+    (memo ? (memo.events || (memo.events = t.load())) : t.load()).forEach(e => {
       if (!(e.refs || []).includes('place:' + rec.placeId)) return;
       const rc = t.revealChapter(e);
       if (rc != null && (best == null || rc < best)) best = rc;
     });
     return best;
   }
+  /** The chapter a reader is on: `chapter`, else their saved one, else the latest. */
+  function atChapter(chapter) {
+    const get = () => { const t = TL(), r = chapter === undefined ? t.readerChapter() : chapter; return r == null ? t.latestChapter() : r; };
+    if (!memo) return get();
+    const k = String(chapter); if (!memo.at.has(k)) memo.at.set(k, get());
+    return memo.at.get(k);
+  }
   /** Has a reader on `chapter` read the chapter that reveals this place? */
   function placeReached(rec, chapter) {
     const rc = placeRevealChapter(rec);
     if (rc == null) return false;
     if (rc === 0) return true;
-    const t = TL(), r = chapter === undefined ? t.readerChapter() : chapter, at = r == null ? t.latestChapter() : r;
+    const at = atChapter(chapter);
     return at != null && at >= rc;
   }
   /** Names a reader on `chapter` mustn't see yet: every unreached entry's place name, and its short form ("The Hollow Reach"). */
   function hiddenNames(chapter, list) {
+    if (memo) { const k = String(chapter), c = memo.hidden.get(k); if (c && c.list === list) return c.names; const names = hiddenNamesNow(chapter, list); memo.hidden.set(k, { list, names, re: null }); return names; }
+    return hiddenNamesNow(chapter, list);
+  }
+  function hiddenNamesNow(chapter, list) {
     const W = global.EpitaphWorld, out = [];
     (list || load()).forEach(r => {
       if (placeReached(r, chapter)) return;
@@ -446,8 +475,12 @@
    *  In Author view, or with `author: true`, text is returned as written. */
   function clean(text, chapter, list, author) {
     if (author === undefined ? authoring() : author) return text;
-    const t = String(text == null ? '' : text).toLowerCase();
-    return hiddenNames(chapter, list).some(n => t.includes(n)) ? '' : text;
+    const t = String(text == null ? '' : text).toLowerCase(), names = hiddenNames(chapter, list);
+    if (memo && names.length > 8) {                    // one compiled pattern for the whole hidden list instead of a scan per text
+      const c = memo.hidden.get(String(chapter));
+      if (c && c.list === list) { if (!c.re) c.re = new RegExp(names.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')); return c.re.test(t) ? '' : text; }
+    }
+    return names.some(n => t.includes(n)) ? '' : text;
   }
   const authoring = () => { const t = TL(); return !!t && t.authorMode(); };
   /** Alliances a reader on `chapter` may see. A secret alliance stays hidden until its start event is revealed
@@ -459,9 +492,20 @@
     const atLatest = !t || t.isRevealed({ when: {}, secret: true }, chapter);
     const recs = list || load();
     // a tie to a place the reader hasn't reached stays hidden too, or it would give the place away (a place with no entry doesn't count)
-    const otherOk = a => { const r = recs.find(x => x.placeId === a.other); return !r || placeReached(r, chapter); };
+    let byId = null, mine;
+    if (memo) {
+      byId = memo.byId.get(recs); let idx = memo.ties.get(recs);
+      if (!byId) { byId = new Map(); recs.forEach(x => { if (!byId.has(x.placeId)) byId.set(x.placeId, x); }); memo.byId.set(recs, byId); }
+      if (!idx) {                                       // every place's ties in one pass (the same order alliancesOf gives)
+        idx = new Map(); const add = (id, o) => { if (!idx.has(id)) idx.set(id, []); idx.get(id).push(o); };
+        recs.forEach(r => ((r.foreign && r.foreign.ties) || []).forEach(a => { const w = String(a.with || '').replace(/^place:/, ''); add(r.placeId, Object.assign({ other: w, owner: r.placeId }, a)); if (w !== r.placeId) add(w, Object.assign({ other: r.placeId, owner: r.placeId }, a)); }));
+        memo.ties.set(recs, idx);
+      }
+      mine = idx.get(placeId) || [];
+    } else mine = alliancesOf(placeId, recs);
+    const otherOk = a => { const r = byId ? byId.get(a.other) : recs.find(x => x.placeId === a.other); return !r || placeReached(r, chapter); };
     const seen = a => otherOk(a) && (a.secret ? (a.from != null ? reached(a.from, chapter) : atLatest) : reached(a.from, chapter));
-    return alliancesOf(placeId, recs).filter(a => asAuthor || seen(a))
+    return mine.filter(a => asAuthor || seen(a))
       .map(a => Object.assign({}, a, { hidden: !seen(a), ended: a.to != null && reached(a.to, chapter), endHidden: a.to != null && !reached(a.to, chapter) }));
   }
   /** The relations web at a chapter (step 4.2): every place and every tie between places, through the reader gate.
@@ -470,7 +514,8 @@
    *  A reader sees only ties alliancesAt would show them, between places they have reached.
    *  -> { nodes: [{ id, hidden }], edges: [{ key, id, owner, a, b, kind, motive, secret, hidden, ended, endHidden, from, to, startCh, endCh }] }
    *  startCh / endCh: the chapter the start / end is revealed in (0 = before the story, null = not known to this viewer). */
-  function webAt(chapter, list, author) {
+  function webAt(chapter, list, author) { return bulk(() => webAtNow(chapter, list, author)); }
+  function webAtNow(chapter, list, author) {
     const t = TL(), recs = list || load(), asAuthor = author === undefined ? authoring() : !!author;
     const atLatest = !t || t.isRevealed({ when: {}, secret: true }, chapter);
     const recOf = id => recs.find(x => x.placeId === id);
@@ -500,12 +545,14 @@
    *  the chapter for what has *started*, with `hidden` marking what a reader would not see.
    *  -> [{ key, id, owner, name, charter, purpose, seat, rival, tension, hidden, size, members: [{ place, from, to, left, endHidden, hidden, startCh, endCh }] }]
    *  size = members present now (started, not left). A bloc with no visible member is left out for a reader. */
-  function blocsAt(chapter, list, author) {
+  function blocsAt(chapter, list, author) { return bulk(() => blocsAtNow(chapter, list, author)); }
+  function blocsAtNow(chapter, list, author) {
     const t = TL(), recs = list || load(), asAuthor = author === undefined ? authoring() : !!author;
     const revCh = id => { if (id == null || !t) return 0; const e = t.byId(id); return e ? t.revealChapter(e) : null; };
     const pid = m => String(m.place || '').replace(/^place:/, '');
     const out = [];
     recs.forEach(r => {
+      if (!((r.foreign && r.foreign.blocs) || []).length) return;          // most places have no blocs: don't build their reader copy
       const rv = asAuthor ? null : forReader(r, chapter, { recs }), seen = rv ? (rv.foreign.blocs || []) : null;
       ((asAuthor ? (r.foreign && r.foreign.blocs) : seen) || []).forEach(b => {
         const pub = asAuthor ? ((forReader(r, chapter, { recs }).foreign.blocs || []).find(x => x.id === b.id) || null) : b;   // what a reader would see of it
@@ -790,6 +837,6 @@
     KEY, VERSION, BACKUP_KEY, STATUS, SCALES, SCALE_SETS, FORMS, ALLIANCE_KINDS, BEAST_RELATIONS, RESOURCE_CATEGORIES, RESOURCE_ROLES, FOUNDING_STAGES,
     MOTIVES, FACTION_KINDS, TIE_ENDINGS, TEMPERAMENTS, SOCIAL_SHAPES, WARD_KINDS, RUMOUR_INTENTS, TRIGGER_GROUPS,
     TABS, TAB_LABEL, DATA_TABS, DEFAULTS,
-    alliancesAt, tieBars, webAt, blocsAt, ringSeats, WHATIF_STATUS, normWhatIf, foundingProblems, foundingLayers, entryFor, creaturePlaces, whatIfRef, whatIfList, whatIfPile, whatIfLinks, whatIfLoops, storyOf, forReader, secretHolders, couldFind, plantPayoff, SECRET_REF, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, draftUpdatesIn, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
+    bulk, alliancesAt, tieBars, webAt, blocsAt, ringSeats, WHATIF_STATUS, normWhatIf, foundingProblems, foundingLayers, entryFor, creaturePlaces, whatIfRef, whatIfList, whatIfPile, whatIfLinks, whatIfLoops, storyOf, forReader, secretHolders, couldFind, plantPayoff, SECRET_REF, placeReached, placeRevealChapter, hiddenNames, clean, authoring, load, get, save, reset, exportData, importData, newInData, draftUpdatesIn, mergeData, empty, normalise, upgradeRaw, uid, hasModel, reached, stateAt, alliancesOf, label, step
   };
 })(typeof window !== 'undefined' ? window : globalThis);

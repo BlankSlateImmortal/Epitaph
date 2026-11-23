@@ -25,7 +25,8 @@
   }
 
   /** One row of data per place, with only what a reader on `chapter` may see. */
-  function rows(chapter, author) {
+  function rows(chapter, author) { const S = Sites(); return S.bulk ? S.bulk(() => rowsNow(chapter, author)) : rowsNow(chapter, author); }
+  function rowsNow(chapter, author) {
     const S = Sites(), W = World();
     const recs = S.load(), byId = {};
     recs.forEach(r => { byId[r.placeId] = r; });

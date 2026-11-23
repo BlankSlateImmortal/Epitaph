@@ -2,6 +2,15 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## Performance of the encyclopedia views — step 7.2
+
+**Measured first** (with the real timeline module): the places index took 0.8 s in a reader's view at today's 44 places, 40 s at 300, and a reader's view at 2,000 places took over a minute; the author's view grew quadratically too. Each place asked the same questions of every other place again (is this event reached, is that place reached, which place names must be hidden from text, who are my ties), and each of those re-parsed the timeline.
+
+- **Fix:** `EpitaphSites.bulk(fn)`. Inside one bulk call nothing is edited, so answers that depend only on (event, chapter), (place, chapter), the hidden-name list (now one compiled pattern) or the record list (every place's ties in one pass) are worked out once. The index (`rows`), the relations web, the blocs and the creature lookup run in bulk. Outside a bulk call everything is computed fresh, exactly as before; **90 comparisons of the old and new code on random data (author and reader, five chapters) give identical results.**
+- **After:** the reader's index is 10 ms at 44 places, 34 ms at 300, 84 ms at 1,000 and about 150 ms at 2,000; the ring's web is 8 ms at 300 places and 40 ms at 1,000.
+- `blocsAt` no longer builds a reader copy of places that have no blocs.
+- **Not done on purpose:** lazy-loading the view scripts. They cost 3–5 ms of a 280–320 ms page load, so it would save almost nothing and risk load order. The views already build their pages only when opened, and the map's image data loads on first use.
+
 ## Phone layout and keyboard use for the encyclopedia views — step 7.1
 
 - **Phone (up to 760px wide):** while an entry, the relations ring or the what-if board is open, the book gives its left page 58% of the height, hides the terminal (no use on a phone there), and shrinks its own header to one line. Every view's header wraps so the title gets a full row (it was squeezed to "A…", "RELA…", "WHAT…"), and touch targets (back and view buttons, selects, chapter step buttons, kind chips, stage buttons, the what-if score dots) are 36–44px.
