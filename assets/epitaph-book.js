@@ -287,7 +287,7 @@
       const pic = itemPic(it, stId);
       return `<button type="button" class="bk-case ${markClass(kinds)}${it.id === selItem ? ' on' : ''}${hs.length ? '' : ' unheld'}" data-id="${attr(it.id)}" data-cx="${x + CASE_W / 2}" data-cy="${y + CASE_H / 2}" style="left:${x}px;top:${y}px;--d:${(i % 7) * -0.6}s" title="${attr(it.name)}">
         <span class="bk-case-glass"><span class="bk-case-light"></span>
-          <span class="bk-case-obj">${pic ? `<img src="${attr(pic)}" alt="" draggable="false">` : `<b>${itemInitial(it)}</b>`}</span>
+          <span class="bk-case-obj">${pic ? `<img loading="lazy" decoding="async" src="${attr(pic)}" alt="" draggable="false">` : `<b>${itemInitial(it)}</b>`}</span>
           <span class="bk-case-shadow"></span>
           ${kinds.length ? `<span class="bk-case-seals">${kinds.map(k => `<i class="${attr(k)}" title="${attr(k)}"></i>`).join('')}</span>` : ''}
         </span>
@@ -390,7 +390,7 @@
     L.hubs.forEach(h => {
       const s = h.snap, pic = [s.portrait, s.systemPortrait].find(isImg);
       const gone = s.presence && s.presence !== 'alive';
-      ensure('c:' + h.c.id, 'bk-hub' + (gone ? ' gone' : ''), `<span class="bk-hub-medal">${medalSvg(46)}<span class="bk-hub-face">${pic ? `<img src="${attr(pic)}" alt="" draggable="false">` : `<b>${esc(initial(h.c.name))}</b>`}</span></span>
+      ensure('c:' + h.c.id, 'bk-hub' + (gone ? ' gone' : ''), `<span class="bk-hub-medal">${medalSvg(46)}<span class="bk-hub-face">${pic ? `<img loading="lazy" decoding="async" src="${attr(pic)}" alt="" draggable="false">` : `<b>${esc(initial(h.c.name))}</b>`}</span></span>
         ${crestSvg()}<span class="bk-hub-name">${esc(h.c.name || 'Unnamed')}</span>
         <span class="bk-hub-sub">${gone ? (s.presence === 'dead' ? '† dead · ' : '? missing · ') : ''}${h.count} item${h.count === 1 ? '' : 's'}</span>`);
       targets.set('c:' + h.c.id, { x: h.x, y: h.y });
@@ -401,7 +401,7 @@
       const on = it.id === selItem, ch = changeOf(it.id, n, prevN);
       const el = ensure('i:' + it.id, `bk-wn bk-node${mc ? ' ' + mc : ''}${mc === 'curse' ? ' corrupt' : ''}${on ? ' on' : ''}${nd.loose ? ' loose' : ''}${ch ? ' changed' : ''}`,
         `${ch ? `<span class="bk-wn-tag ${ch}">${{ new: '+ NEW', moved: 'MOVED', state: 'STATE' }[ch]}</span>` : ''}
-        <span class="bk-wn-medal">${medalSvg(on ? 34 : 26, on ? `<circle class="bk-pulse" r="${34 + 16}"/>` : '')}<span class="bk-wn-face">${pic ? `<img src="${attr(pic)}" alt="" draggable="false">` : `<b>${itemInitial(it)}</b>`}</span></span>
+        <span class="bk-wn-medal">${medalSvg(on ? 34 : 26, on ? `<circle class="bk-pulse" r="${34 + 16}"/>` : '')}<span class="bk-wn-face">${pic ? `<img loading="lazy" decoding="async" src="${attr(pic)}" alt="" draggable="false">` : `<b>${itemInitial(it)}</b>`}</span></span>
         <span class="bk-wn-name">${esc(it.name || 'Untitled')}</span>${names ? `<span class="bk-wn-state">${esc(names)}</span>` : ''}${rk ? `<span class="bk-wn-rank">${esc(rk.text)}</span>` : ''}`);
       el.dataset.id = it.id; el.title = [it.name || '', names, rk ? rk.title : ''].filter(Boolean).join(' · ');
       if (!el._wired) { el._wired = true; el.addEventListener('click', () => selectItem(el.dataset.id)); }
@@ -646,7 +646,7 @@
           <div><small>LIBRARY ITEM · ${no || '—'} OF ${list.length}</small><h2>${esc(it.name || 'Untitled')}</h2>${Lib.placeIdOf(it) ? `<span class="from-tag">FROM ${esc(placeName(Lib.placeIdOf(it)).toUpperCase())}</span>` : ''}${EpitaphItemFields.badgesHtml(it)}</div>
         </div>
         <div class="bk-form bk-readonly">
-          ${isImg(it.icon) || isImg(it.image) ? `<div class="bk-pics">${isImg(it.icon) ? `<span class="bk-pic"><img src="${attr(it.icon)}" alt=""></span>` : ''}${isImg(it.image) ? `<span class="bk-pic large"><img src="${attr(it.image)}" alt=""></span>` : ''}</div>` : ''}
+          ${isImg(it.icon) || isImg(it.image) ? `<div class="bk-pics">${isImg(it.icon) ? `<span class="bk-pic"><img loading="lazy" decoding="async" src="${attr(it.icon)}" alt=""></span>` : ''}${isImg(it.image) ? `<span class="bk-pic large"><img loading="lazy" decoding="async" src="${attr(it.image)}" alt=""></span>` : ''}</div>` : ''}
           ${it.desc ? `<p class="bk-desc">${esc(it.desc)}</p>` : ''}
           ${(it.marks || []).length ? `<div class="bk-field"><span>Marks</span><ul class="bk-held">${it.marks.map(m => `<li><b>${esc(m.name)}</b> <small>${esc(m.kind || '')}</small></li>`).join('')}</ul></div>` : ''}
           ${(it.stateTracks || []).map(tr => `<div class="bk-field"><span>${esc(tr.name)}${tr.oneWay ? ' <em>— one-way</em>' : ''}</span><ul class="bk-held">${tr.states.map(st => `<li><b>${esc(st.name)}</b>${st.desc ? ` <small>${esc(st.desc)}</small>` : ''}</li>`).join('')}</ul></div>`).join('')}
@@ -661,8 +661,8 @@
       </div>
       <div class="bk-form">
         <div class="bk-pics">
-          <label class="bk-pic" title="Icon (small, used on tiles)">${draft.icon ? `<img src="${attr(draft.icon)}" alt="">` : '<span>+ ICON</span>'}<input type="file" accept="image/*" data-pic="icon"></label>
-          <label class="bk-pic large" title="Photo (larger)">${draft.image ? `<img src="${attr(draft.image)}" alt="">` : '<span>+ PHOTO</span>'}<input type="file" accept="image/*" data-pic="image"></label>
+          <label class="bk-pic" title="Icon (small, used on tiles)">${draft.icon ? `<img loading="lazy" decoding="async" src="${attr(draft.icon)}" alt="">` : '<span>+ ICON</span>'}<input type="file" accept="image/*" data-pic="icon"></label>
+          <label class="bk-pic large" title="Photo (larger)">${draft.image ? `<img loading="lazy" decoding="async" src="${attr(draft.image)}" alt="">` : '<span>+ PHOTO</span>'}<input type="file" accept="image/*" data-pic="image"></label>
           ${draft.icon || draft.image ? '<button type="button" class="bk-link" id="biClearPics">Remove pictures</button>' : ''}
         </div>
         <label class="bk-field"><span>Name</span><input type="text" id="biName" value="${attr(draft.name)}"></label>

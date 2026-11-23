@@ -14,6 +14,7 @@
 <meta name="theme-color" content="#080603">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Noto+Serif+JP:wght@500;900&family=Pirata+One&family=VT323&family=Space+Mono:wght@400;700&family=Unbounded:wght@600;700;800;900&family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..700&family=Syncopate:wght@400;700&family=Rozha+One&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -1215,18 +1216,18 @@
 <script src="assets/epitaph-creatures.js?v=3"></script>
 <link rel="stylesheet" href="assets/epitaph-creature-ui.css?v=11">
 <script src="assets/epitaph-creature-tree.js?v=5"></script>
-<script src="assets/epitaph-creature-page.js?v=2"></script>
+<script src="assets/epitaph-creature-page.js?v=3"></script>
 <script src="assets/epitaph-creature-web.js?v=1"></script>
 <script src="assets/epitaph-creature-world.js?v=2"></script>
 <script src="assets/epitaph-creature-chains.js?v=1"></script>
-<script src="assets/epitaph-creature-ui.js?v=11"></script>
+<script src="assets/epitaph-creature-ui.js?v=12"></script>
 <script src="assets/epitaph-publish.js?v=8"></script>
 <script src="assets/epitaph-library.js?v=20"></script>
-<script src="assets/epitaph-marks.js?v=8"></script>
-<script src="assets/epitaph-states.js?v=3"></script>
+<script src="assets/epitaph-marks.js?v=9"></script>
+<script src="assets/epitaph-states.js?v=4"></script>
 <script src="assets/epitaph-item-fields.js?v=5"></script>
 <script src="assets/epitaph-checks.js?v=18"></script>
-<script src="assets/epitaph-codex-views.js?v=2"></script>
+<script src="assets/epitaph-codex-views.js?v=3"></script>
 <script src="assets/epitaph-mode.js?v=5"></script>
 <script src="assets/epitaph-nav.js?v=1"></script>
 <script src="published/epitaph-data.js"></script>
@@ -2857,7 +2858,7 @@ function renderCharacterRecord(char, snap, portraitSrc, sPos, recordIndex, statu
         <span class="rec-vert" lang="ja">${escapeHtml(glyphFor(char))}</span>
       </div>
       <button type="button" class="rec-figure" id="recFigure" aria-expanded="${recOpen}" aria-controls="recMenu" aria-label="${recOpen ? 'Close' : 'Open'} the record of ${escapeAttr(char.name || 'this character')}">
-        <img src="${portraitSrc}" ${isGen ? `data-gen-char="${escapeAttr(char.id)}" data-gen-bg="off" class="gen"` : ''} alt="" style="object-position:${sPos.x}% ${sPos.y}%;">
+        <img loading="lazy" decoding="async" src="${portraitSrc}" ${isGen ? `data-gen-char="${escapeAttr(char.id)}" data-gen-bg="off" class="gen"` : ''} alt="" style="object-position:${sPos.x}% ${sPos.y}%;">
       </button>
       <svg class="rec-lines" id="recLines" aria-hidden="true"></svg>
       <nav class="rec-menu" id="recMenu" aria-label="Record commands">
@@ -3041,8 +3042,8 @@ function renderCodexPage(char, snap, animate){
     };
     const row = (target, name, rel, note, tag, arc) => {
       const img = target
-        ? (target.snapshots && getActiveSnapshot(target).portrait ? `<img src="${getActiveSnapshot(target).portrait}" alt="">` : `<img src="${SILHOUETTE_SVG}" data-gen-char="${escapeAttr(target.id)}" alt="">`)
-        : `<img src="${SILHOUETTE_SVG}" alt="" class="unknown">`;
+        ? (target.snapshots && getActiveSnapshot(target).portrait ? `<img loading="lazy" decoding="async" src="${getActiveSnapshot(target).portrait}" alt="">` : `<img loading="lazy" decoding="async" src="${SILHOUETTE_SVG}" data-gen-char="${escapeAttr(target.id)}" alt="">`)
+        : `<img loading="lazy" decoding="async" src="${SILHOUETTE_SVG}" alt="" class="unknown">`;
       return `<div class="tie">${img}<div><div class="tie-name">${target ? `<button type="button" class="rel-link" data-char-id="${escapeAttr(target.id)}">${escapeHtml(name)}</button>` : escapeHtml(name)}${tag === 'new' ? NEW_TAG : (tag ? `<span class="rel-inferred-mark">${tag}</span>` : '')}</div><div class="tie-rel">${escapeHtml(rel || '')}${note ? ' · ' + escapeHtml(note) : ''}</div>${arc || ''}</div></div>`;
     };
     html = codexLeft(n, 'Ties', 'Bonds', `${rels.length} recorded this chapter${inferred.length ? ` · ${inferred.length} inferred from other files` : ''}`, 'mwOpenRelationships', 'Edit ties', ch) +
@@ -3686,7 +3687,7 @@ function renderPoster(){
   const idx = state.characters.findIndex(c => c.id === char.id) + 1;
   const total = state.characters.length;
   const portraitHtml = snap.portrait
-    ? `<img src="${snap.portrait}" alt="${escapeHtml(char.name)}" style="object-position:${pPos.x}% ${pPos.y}%;">`
+    ? `<img loading="lazy" decoding="async" src="${snap.portrait}" alt="${escapeHtml(char.name)}" style="object-position:${pPos.x}% ${pPos.y}%;">`
     : heroArtOf(char, snap)
     ? heroArtHtml(char, snap, heroArtOf(char, snap))
     : `<img class="gen-portrait" src="${SILHOUETTE_SVG}" data-gen-char="${escapeAttr(char.id)}" data-gen-bg="off" alt="Generated portrait of ${escapeAttr(char.name || 'this character')}">`;
@@ -3836,7 +3837,7 @@ function renderSideGallery(side, char, list){
     const thumb = document.createElement('div');
     thumb.className = 'gallery-thumb' + (snap.id === char.activeSnapshotId ? ' active' : '');
     thumb.innerHTML = `
-      ${snap.portrait ? `<img src="${snap.portrait}" alt="">` : `<img src="${SILHOUETTE_SVG}" style="opacity:.35" alt="">`}
+      ${snap.portrait ? `<img loading="lazy" decoding="async" src="${snap.portrait}" alt="">` : `<img loading="lazy" decoding="async" src="${SILHOUETTE_SVG}" style="opacity:.35" alt="">`}
       ${snap.chapterRange ? `<div class="snap-label">${escapeHtml(snap.chapterRange)}</div>` : ''}
       ${char.snapshots.length > 1 ? `<div class="snap-delete" title="Remove this version">&times;</div>` : ''}
     `;
@@ -3876,8 +3877,8 @@ function renderRail(){
     thumb.setAttribute('role', 'button');
     thumb.setAttribute('aria-pressed', c.id === state.activeId);
     const img = (snap && snap.portrait)
-      ? `<img src="${snap.portrait}" alt="">`
-      : `<img src="${SILHOUETTE_SVG}" data-gen-char="${escapeAttr(c.id)}" data-gen-bg="off" alt="">`;
+      ? `<img loading="lazy" decoding="async" src="${snap.portrait}" alt="">`
+      : `<img loading="lazy" decoding="async" src="${SILHOUETTE_SVG}" data-gen-char="${escapeAttr(c.id)}" data-gen-bg="off" alt="">`;
     thumb.innerHTML = `<span class="thumb-fig">${img}</span><span class="thumb-name">${escapeHtml(c.name || 'Unnamed')}</span><span class="thumb-sub">${escapeHtml(archetypeLabel(getActiveSnapshot(c), c))}</span>`;
     thumb.addEventListener('keydown', (e) => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); switchActiveCharacter(c.id); } });
     thumb.addEventListener('click', () => switchActiveCharacter(c.id));
@@ -4885,7 +4886,7 @@ function itemMonitorHtml(char, snap, sel, idx){
           <g class="r-mid"><circle cx="200" cy="200" r="160" class="ring-thin"/><circle cx="200" cy="200" r="160" class="ring-arc"/><circle cx="200" cy="40" r="4" class="ring-dot"/></g>
           <g class="r-inner"><circle cx="200" cy="200" r="132" class="ring-comb"/></g>
         </svg>
-        <div class="item-fig">${pic ? `<span class="item-pic"><img src="${escapeAttr(pic)}" alt="${escapeAttr(v.name)}"></span>` : `<span class="item-pic empty"><b>${escapeHtml(((v.name || '?').trim().charAt(0) || '◈').toUpperCase())}</b></span>`}<span class="item-shadow"></span></div>
+        <div class="item-fig">${pic ? `<span class="item-pic"><img loading="lazy" decoding="async" src="${escapeAttr(pic)}" alt="${escapeAttr(v.name)}"></span>` : `<span class="item-pic empty"><b>${escapeHtml(((v.name || '?').trim().charAt(0) || '◈').toUpperCase())}</b></span>`}<span class="item-shadow"></span></div>
         ${call('tl', 'STATE', v.stateMissing ? 'removed' : v.state)}${call('tr', 'BOUND', sel.boundTo, 'g')}${call('bl', 'FROM', v.linked ? (v.origin || 'unknown') : '', '', v.originRef)}${call('br', 'MARKS', markSum)}
       </div>
       <div class="item-text">
@@ -4996,7 +4997,7 @@ function renderInventoryEditor(){
         const v = invView(item);
         const twice = pendingInventoryChar ? heldTwice(pendingInventoryChar.char, pendingInventoryChar.snap, item.itemId) : [];
         return `<div class="inv-edit-row linked" data-idx="${idx}">
-          <div class="inv-img-drop static">${v.icon ? `<img src="${v.icon}" alt="">` : (v.image ? `<img src="${v.image}" alt="">` : '<span>◈</span>')}</div>
+          <div class="inv-img-drop static">${v.icon ? `<img loading="lazy" decoding="async" src="${v.icon}" alt="">` : (v.image ? `<img loading="lazy" decoding="async" src="${v.image}" alt="">` : '<span>◈</span>')}</div>
           <div class="inv-edit-fields">
             <b class="inv-lib-name">${escapeHtml(v.name)}</b>
             <small class="inv-lib-meta">${v.missing ? '⚠ No longer in the Library' : 'Library item' + (v.origin ? ' · from ' + escapeHtml(v.origin) : '')}</small>
@@ -5010,7 +5011,7 @@ function renderInventoryEditor(){
       }
       return `<div class="inv-edit-row" data-idx="${idx}">
         <div class="inv-img-drop" onclick="triggerInvImageInput(${idx}, 'icon')" title="Icon image">
-          ${item.icon ? `<img src="${item.icon}">` : `<span>Icon</span>`}
+          ${item.icon ? `<img loading="lazy" decoding="async" src="${item.icon}">` : `<span>Icon</span>`}
         </div>
         <div class="inv-edit-fields">
           <input type="text" class="inv-name-input" placeholder="Item name" value="${escapeAttr(item.name)}">
@@ -5018,7 +5019,7 @@ function renderInventoryEditor(){
           ${Lib ? `<button type="button" class="btn ghost inv-to-lib" data-to-lib="${idx}">Add to Library</button>` : ''}
         </div>
         <div class="inv-img-drop large" onclick="triggerInvImageInput(${idx}, 'image')" title="Photo">
-          ${item.image ? `<img src="${item.image}">` : `<span>Photo</span>`}
+          ${item.image ? `<img loading="lazy" decoding="async" src="${item.image}">` : `<span>Photo</span>`}
         </div>
         <button type="button" class="inv-remove-btn" onclick="removeInventoryItem(${idx})" aria-label="Remove item">×</button>
         ${marksBlock(item, idx)}
@@ -6476,9 +6477,9 @@ function restoreLeftPage(){
 
 
 </script>
-<script src="assets/epitaph-book.js?v=15"></script>
+<script src="assets/epitaph-book.js?v=16"></script>
 
-<script src="assets/epitaph-editors.js?v=15"></script>
+<script src="assets/epitaph-editors.js?v=16"></script>
 <script src="assets/epitaph-book-tools.js?v=6"></script>
 <script src="assets/epitaph-prospects.js?v=3"></script>
 <script src="assets/epitaph-marklib.js?v=1"></script>

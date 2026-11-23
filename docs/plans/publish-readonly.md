@@ -117,7 +117,7 @@ Then make the site a complete public web page, and make publishing new chapters 
 - [x] **5.3 Mobile and keyboard pass** (also site-encyclopedia 7.1): phone widths, focus order, both themes.
 - [x] **5.4 Page basics.** Titles, descriptions, social preview image, favicon, `404.html`, `robots.txt`, `sitemap.xml`.
 - [ ] **5.5 Custom domain (optional).** The user buys it and sets DNS; add `CNAME`; turn on HTTPS in the repo settings.
-- [ ] **5.6 Speed.** Lazy-load the heavy views (the 3D map, the book); check the first load on a phone.
+- [x] **5.6 Speed.** Lazy-load the heavy views (the 3D map, the book); check the first load on a phone.
 
 ---
 
@@ -141,6 +141,8 @@ When the user says "get back to it" and this is the active plan:
 
 ## Tweak log
 Newest first.
+
+- 2026-11-23 — 5.6 done (Sonnet). Measured first load (`node tools/visitor-test/perf.js`: Slow 4G, 4× slower CPU, 390px, gzipped like GitHub Pages, empty snapshot): front door 137 KB / 1.6 s · Read 263 KB / 2.0 s · Powers 670 KB / 4.3 s · Dossier 801 KB / 4.4 s · Map 529 KB / 4.9 s (budget: 8 s). Changes: 37 `<img>` templates are now `loading="lazy" decoding="async"`, and every page preconnects to the font file host (Dossier 4.7→4.4 s, Map 5.1→4.9 s). **Decided against** splitting the book out of the Dossier (about 100 KB gzipped, a risky reorder of ~15 scripts and shared globals, for under a second on a slow phone), and the Map is already its own page, so its 3D library (203 KB) loads only there. **Re-measure once real chapters and portraits are published:** the numbers above have no characters in them, and a character's render (the hero video poster) is the heavy part. Fonts are the largest single cost on every page (Source Serif 4 about 170 KB on the Dossier); self-hosting a subset is the next step if it ever matters.
 
 - 2026-11-23 — 5.4 done (Sonnet). Every public page has a description, a favicon (`favicon.svg`, an amber E), a share preview (Open Graph + Twitter card with `social.png`, a 1200×630 brand card, deliberately not a screenshot so it never goes stale) and a theme colour; `muses.html` is `noindex`; new `404.html`, `robots.txt` (disallows Muses) and `sitemap.xml` (the five public pages). `tools/check-pages.py` checks all of it and `tools/publish.py` runs it before the visitor test. **Tied to the address:** `robots.txt`, `sitemap.xml`, the `og:image` URLs and `404.html` use `https://blankslateimmortal.github.io/Epitaph/`; if a custom domain is set up (5.5) they all need the new base. **Flag for the user:** the 3D site scenes (`sites/aurelia.html`, `sites/hollow-reach.html`) are not covered by the reader gate: opening one by its address shows that place whatever chapter the reader is on.
 

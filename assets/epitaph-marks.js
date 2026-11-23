@@ -135,7 +135,7 @@
   // the square picker shown at the start of a mark's top row
   function sigilPickerHtml(m, attrs) {
     return `<span class="mark-sigil-pick">
-      <label class="mark-sigil-btn${m.image ? ' has' : ''}" title="${m.image ? 'Change image' : 'Add image'}">${m.image ? `<img src="${m.image}" alt="">` : '<span>+ IMG</span>'}<input type="file" accept="image/*" class="visually-hidden-input" ${attrs}></label>
+      <label class="mark-sigil-btn${m.image ? ' has' : ''}" title="${m.image ? 'Change image' : 'Add image'}">${m.image ? `<img loading="lazy" decoding="async" src="${m.image}" alt="">` : '<span>+ IMG</span>'}<input type="file" accept="image/*" class="visually-hidden-input" ${attrs}></label>
       ${m.image ? `<button type="button" class="mark-sigil-clear" ${attrs} data-clear="1" aria-label="Remove image">×</button>` : ''}
     </span>`;
   }

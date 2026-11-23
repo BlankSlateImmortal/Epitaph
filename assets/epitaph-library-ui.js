@@ -427,8 +427,8 @@ function renderItemForm(v){
     <div class="lib-field">Details<div id="liDetails"></div></div>
     <div class="lib-field">Pictures
       <div class="lib-pics">
-        <label class="lib-pic">${d.icon ? `<img src="${d.icon}" alt="">` : '<span>Icon</span>'}<input type="file" accept="image/*" id="liIcon" class="visually-hidden"></label>
-        <label class="lib-pic large">${d.image ? `<img src="${d.image}" alt="">` : '<span>Photo</span>'}<input type="file" accept="image/*" id="liImage" class="visually-hidden"></label>
+        <label class="lib-pic">${d.icon ? `<img loading="lazy" decoding="async" src="${d.icon}" alt="">` : '<span>Icon</span>'}<input type="file" accept="image/*" id="liIcon" class="visually-hidden"></label>
+        <label class="lib-pic large">${d.image ? `<img loading="lazy" decoding="async" src="${d.image}" alt="">` : '<span>Photo</span>'}<input type="file" accept="image/*" id="liImage" class="visually-hidden"></label>
         ${d.icon || d.image ? '<button type="button" class="lib-btn" id="liClearPics">Remove pictures</button>' : ''}
       </div></div>
     <div class="lib-field">Marks (in every state; each character's copy can differ)<div id="liMarks"></div></div>
@@ -478,7 +478,7 @@ function renderItemDetail(v){
   const hist = itemHistory(it.id);
   libBody().innerHTML = `
     <button type="button" class="lib-back" id="libBack">← All items</button>
-    <div class="lib-item-head">${it.image ? `<img src="${it.image}" alt="">` : (it.icon ? `<img src="${it.icon}" alt="">` : '')}<div><h3>${escapeHud(it.name)}</h3>
+    <div class="lib-item-head">${it.image ? `<img loading="lazy" decoding="async" src="${it.image}" alt="">` : (it.icon ? `<img loading="lazy" decoding="async" src="${it.icon}" alt="">` : '')}<div><h3>${escapeHud(it.name)}</h3>
       <p class="lib-origin">${Lib.placeIdOf(it) ? `from <button type="button" class="lib-link" id="liGoOrigin">${escapeHud(placeName(Lib.placeIdOf(it)) || 'a missing place')}</button>` : escapeHud(EpitaphItemFields.originText(it, placeName))} ${EpitaphItemFields.badgesHtml(it)}</p></div></div>
     ${it.originCircumstance ? `<p class="lib-desc">${escapeHud(it.originCircumstance)}</p>` : ''}
     ${creatureSourcesHtml(it)}

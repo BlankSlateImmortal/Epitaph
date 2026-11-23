@@ -78,7 +78,7 @@
           </div>
           <small class="state-use">${n ? `${n} chapter${n === 1 ? '' : 's'}: ${esc(useText(usesOf(uses, s.id)))}` : 'Not reached — no chapter uses it yet'}</small>
           <div class="state-edit-body">
-            <label class="state-pic" title="Picture for this state (optional)">${s.image ? `<img src="${esc(s.image)}" alt="">` : '<span>+ PIC</span>'}<input type="file" accept="image/*" class="visually-hidden-input" data-spic="${i}"></label>
+            <label class="state-pic" title="Picture for this state (optional)">${s.image ? `<img loading="lazy" decoding="async" src="${esc(s.image)}" alt="">` : '<span>+ PIC</span>'}<input type="file" accept="image/*" class="visually-hidden-input" data-spic="${i}"></label>
             <textarea data-si="${i}" data-f="desc" placeholder="What changes in this state" aria-label="State description">${esc(s.desc)}</textarea>
           </div>
           ${s.image ? `<button type="button" class="btn ghost state-pic-clear" data-sclear="${i}">Remove picture</button>` : ''}
