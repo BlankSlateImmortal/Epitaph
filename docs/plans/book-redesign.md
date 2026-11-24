@@ -55,6 +55,8 @@ book up to the same standard, one at a time, with a mockup first each time (the 
 
 Newest first. One line each: date, what changed, and what it does to the plan.
 
+- 2026-11-23 — The skill plate tidied (the user: "the progression thing on the card is nice but it's a lot of clutter"): it keeps the sigil, the name and the level; the trail, branch links and holder chips are now one quiet line ("from Spark · held by Test Wren", the parent a link). The tree itself shows the rest.
+
 - 2026-11-23 — 0.1 and 1.1 done (Opus). New `assets/epitaph-ornaments.js` (`EpitaphOrn`: roman, corners, ring, pips, seals) with `.orn-*` styles; the deck and the grimoire keep their own copies for now. ops: a **skill plate** on the right page above the editor (turning sigil ring, blackletter name, level diamonds + LV, the trail from the centre and the branches as links that select, holders as chips that glow when learned; the centre gets its own plate with its roots); the tree page gets card corners, drifting embers, a turning rune ring round the centre, an orbit round the selected skill, and the bottom-left feed on a plaque. Layout, zoom, keyboard and editor unchanged. Readers see the plate too (read-only, nothing private in it).
 
 - 2026-11-23 — Plan written from the user's request: ops first (then a PR), the front door when references arrive, opse and opcl logged for later.

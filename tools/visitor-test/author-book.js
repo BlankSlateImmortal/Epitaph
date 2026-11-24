@@ -93,10 +93,13 @@ let fails = 0; const check = (ok, what) => { if (!ok) { fails++; console.log('FA
     const op = () => ev(`(() => { const pl = document.querySelector('#bookPanel .sk-plate'); return { plate: !!pl, name: pl && pl.querySelector('.sk-name').textContent, trail: pl ? [...pl.querySelectorAll('.sk-trail a')].map(a => a.textContent) : [], frame: !!document.querySelector('#bkSandbox .orn-frame'), runes: !!document.querySelector('.sk-runes'), editor: !!document.querySelector('#bookPanel #bsName') }; })()`);
     let ox = await op();
     check(ox.plate && ox.name === 'Epitaph' && ox.frame && ox.runes, 'ops: the centre has its plate; the tree page has its frame and the rune ring');
-    await ev(`(() => { const a = [...document.querySelectorAll('#bookPanel .sk-links a')].find(x => x.textContent === 'Root One'); a.click(); })()`); await sleep(300);
-    await ev(`(() => { const a = [...document.querySelectorAll('#bookPanel .sk-links a')].find(x => x.textContent === 'Child One'); a.click(); })()`); await sleep(300);
-    ox = await op();
-    check(ox.name === 'Child One' && ox.trail.join(' > ') === 'Epitaph > Root One' && ox.editor, 'ops: the plate\'s links select a skill; its trail runs from the centre; the editor stays below (' + ox.trail.join(' > ') + ')');
+    await ev(`selectSkill && 0`).catch(() => {});
+    await ev(`(() => { const g = [...document.querySelectorAll('.bk-node')].find(x => /grandchild/.test(x.dataset.key || '')); g.dispatchEvent(new MouseEvent('click', { bubbles: true })); })()`); await sleep(300);
+    const quiet = () => ev(`(() => { const q = document.querySelector('#bookPanel .sk-quiet'); return { text: q ? q.textContent : '', links: q ? q.querySelectorAll('a').length : 0, extra: document.querySelectorAll('#bookPanel .sk-trail, #bookPanel .sk-holders, #bookPanel .sk-links').length, name: (document.querySelector('#bookPanel .sk-name') || {}).textContent }; })()`);
+    let qx = await quiet();
+    check(qx.name === 'Grandchild' && qx.text === 'from Child One · held by Ops Tester' && qx.extra === 0, 'ops: the plate is tidy: name, level, one quiet line (' + qx.text + ')');
+    await ev(`document.querySelector('#bookPanel .sk-quiet a').click()`); await sleep(300); qx = await quiet();
+    check(qx.name === 'Child One' && !!(await ev(`!!document.querySelector('#bookPanel #bsName')`)), 'ops: the parent link selects it; the editor stays below');
     await ev(`document.getElementById('bkBack').click()`); await sleep(500);
 
     // switching by command leaves nothing behind

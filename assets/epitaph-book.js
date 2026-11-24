@@ -1155,22 +1155,19 @@
     if (!n.depth) {
       const learned = [...tree.nodes.values()].filter(x => x.depth && x.holders.some(y => +y.skill.level > 0)).length;
       return `<section class="sk-plate root">${O.corners()}<div class="sk-sig">${O.ring()}<span lang="ja">始</span></div>
-        <div class="sk-body"><b class="sk-name">Epitaph</b><div class="sk-meta">THE CENTRE · ${tree.nodes.size - 1} SKILLS · ${learned} LEARNED</div>
-        ${n.children.length ? `<div class="sk-links">ROOTS: ${n.children.map(c => `<a href="#" role="button" data-sk-go="${attr(c.key)}">${esc(c.name)}</a>`).join(' · ')}</div>` : ''}</div></section>`;
+        <div class="sk-body"><b class="sk-name">Epitaph</b><div class="sk-quiet">${tree.nodes.size - 1} skills · ${learned} learned · ${n.children.length} root${n.children.length === 1 ? '' : 's'}</div></div></section>`;
     }
+    // the user's note (2026-11-23): keep the name, sigil and level; everything else in one quiet line (the tree shows the rest)
     const sk = h.skill, lvl = Math.round(+sk.level || 0), corrupt = n.holders.some(x => x.skill.corrupted);
-    const trail = []; for (let k = n.parentKey; k != null && tree.nodes.has(k); k = tree.nodes.get(k).parentKey) { trail.unshift(tree.nodes.get(k)); if (!k) break; }
-    const kids = n.children.map(k => (typeof k === 'string' ? tree.nodes.get(k) : k)).filter(Boolean);
-    const go = x => `<a href="#" role="button" data-sk-go="${attr(x.key)}">${esc(x.depth ? x.name : 'Epitaph')}</a>`;
+    const parent = n.parentKey ? tree.nodes.get(n.parentKey) : null;
+    const quiet = [parent ? `from <a href="#" role="button" data-sk-go="${attr(parent.key)}">${esc(parent.name)}</a>` : 'a root skill',
+      'held by ' + n.holders.map(x => esc(x.name)).join(', ')].join(' · ');
     return `<section class="sk-plate${corrupt ? ' cor' : ''}">${O.corners()}
       <div class="sk-sig">${O.ring()}<span>${esc(String(sk.glyph || '').trim() || initial(n.name))}</span></div>
       <div class="sk-body">
-        <div class="sk-num">${O.roman(n.depth)} · ${n.depth === 1 ? 'ROOT' : 'BRANCH'}${corrupt ? ' · <b>CORRUPTED</b>' : ''}</div>
-        <b class="sk-name">${esc(n.name)}</b>
+        <b class="sk-name">${esc(n.name)}${corrupt ? ' <small class="sk-cor">corrupted</small>' : ''}</b>
         <div class="sk-lv">${O.pips(Math.ceil(lvl / 100 * 7))}<span>LV ${lvl}</span></div>
-        <div class="sk-trail">${trail.map(go).join(' <span>›</span> ')} <span>›</span> <b>${esc(n.name)}</b></div>
-        ${kids.length ? `<div class="sk-links">BRANCHES: ${kids.map(go).join(' · ')}</div>` : ''}
-        <div class="sk-holders">${n.holders.map(x => `<span class="${+x.skill.level > 0 ? 'on' : ''}${x.skill.corrupted ? ' cor' : ''}"><i></i>${esc(x.name)} <small>Lv ${Math.round(+x.skill.level || 0)}</small></span>`).join('')}</div>
+        <div class="sk-quiet">${quiet}</div>
       </div></section>`;
   }
   function wirePlate(panel) { panel.querySelectorAll('[data-sk-go]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); selectSkill(a.dataset.skGo); })); }
