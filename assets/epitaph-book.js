@@ -1015,6 +1015,8 @@
       if (best) selectSkill(best.key);
     });
     if (!tree.nodes.has(selSkill)) selSkill = '';
+    const sbx = $('#bkSandbox');
+    if (sbx && window.EpitaphOrn && !sbx.querySelector('.orn-frame')) sbx.insertAdjacentHTML('beforeend', `<div class="orn-frame" aria-hidden="true">${EpitaphOrn.corners()}</div><div class="sk-embers" aria-hidden="true"></div>`);
     drawSkills(true);
     renderSkillPanel();
     const chars = new Set(); tree.nodes.forEach(n => n.holders.forEach(h => chars.add(h.charId)));
@@ -1063,14 +1065,15 @@
         return `<g class="bk-node root${on ? ' on' : ''}" data-key="" tabindex="0" role="button" aria-label="Centre">
           ${on ? ring('bk-pulse', r + 16) : ''}${medal(r)}
           <text class="bk-root-t" y="2">${esc('始')}</text>
-          ${crest(-r - 40)}<text class="bk-n-label" y="${-r - 18}">Epitaph</text></g>`;
+          ${crest(-r - 40)}<text class="bk-n-label" y="${-r - 18}">Epitaph</text>
+          <g class="sk-runes" aria-hidden="true"><circle r="${r + 30}"/>${'ᚠᚱᛟᛉᚨᛞᛁᛊ'.split('').map((t, i) => { const a = i * Math.PI / 4; return `<text x="${(Math.cos(a) * (r + 30)).toFixed(1)}" y="${(Math.sin(a) * (r + 30) + 4).toFixed(1)}">${t}</text>`; }).join('')}</g></g>`;
       }
       const lvl = Math.round(n.holders.reduce((a, h) => a + (+h.skill.level || 0), 0) / Math.max(1, n.holders.length));
       const corrupt = n.holders.some(h => h.skill.corrupted);
       const r = on ? 40 : 24 + Math.min(6, n.children.length * 2);
       const lr = r + 12, circ = 2 * Math.PI * lr;
       return `<g class="bk-node${corrupt ? ' corrupt' : ''}${on ? ' on' : ''}${lvl ? '' : ' dim'}${n.holders.length > 1 ? ' shared' : ''}" data-key="${attr(n.key)}" transform="translate(${n.x} ${n.y})" tabindex="0" role="button" aria-label="${attr(n.name)}">
-        ${on ? ring('bk-pulse', r + 18) : ''}
+        ${on ? ring('bk-pulse', r + 18) + `<circle class="sk-orbit" r="${r + 30}"/>` : ''}
         <circle class="bk-lvl" r="${lr}" stroke-dasharray="${(circ * Math.min(100, lvl) / 100).toFixed(1)} ${circ.toFixed(1)}" transform="rotate(-90)"/>
         ${medal(r)}
         <text class="bk-n-icon" y="${(r * 0.36).toFixed(1)}" style="font-size:${Math.round(r * 1.15)}px">${esc(initial(n.name))}</text>
@@ -1145,6 +1148,33 @@
     renderSkillPanel();
   }
 
+  // ---- the skill plate (book-redesign 1.1): the selected skill drawn like a card from the deck, above the editor ----
+  const Orn = () => window.EpitaphOrn || null;
+  function skillPlate(n, h) {
+    const O = Orn(); if (!O) return '';
+    if (!n.depth) {
+      const learned = [...tree.nodes.values()].filter(x => x.depth && x.holders.some(y => +y.skill.level > 0)).length;
+      return `<section class="sk-plate root">${O.corners()}<div class="sk-sig">${O.ring()}<span lang="ja">始</span></div>
+        <div class="sk-body"><b class="sk-name">Epitaph</b><div class="sk-meta">THE CENTRE · ${tree.nodes.size - 1} SKILLS · ${learned} LEARNED</div>
+        ${n.children.length ? `<div class="sk-links">ROOTS: ${n.children.map(c => `<a href="#" role="button" data-sk-go="${attr(c.key)}">${esc(c.name)}</a>`).join(' · ')}</div>` : ''}</div></section>`;
+    }
+    const sk = h.skill, lvl = Math.round(+sk.level || 0), corrupt = n.holders.some(x => x.skill.corrupted);
+    const trail = []; for (let k = n.parentKey; k != null && tree.nodes.has(k); k = tree.nodes.get(k).parentKey) { trail.unshift(tree.nodes.get(k)); if (!k) break; }
+    const kids = n.children.map(k => (typeof k === 'string' ? tree.nodes.get(k) : k)).filter(Boolean);
+    const go = x => `<a href="#" role="button" data-sk-go="${attr(x.key)}">${esc(x.depth ? x.name : 'Epitaph')}</a>`;
+    return `<section class="sk-plate${corrupt ? ' cor' : ''}">${O.corners()}
+      <div class="sk-sig">${O.ring()}<span>${esc(String(sk.glyph || '').trim() || initial(n.name))}</span></div>
+      <div class="sk-body">
+        <div class="sk-num">${O.roman(n.depth)} · ${n.depth === 1 ? 'ROOT' : 'BRANCH'}${corrupt ? ' · <b>CORRUPTED</b>' : ''}</div>
+        <b class="sk-name">${esc(n.name)}</b>
+        <div class="sk-lv">${O.pips(Math.ceil(lvl / 100 * 7))}<span>LV ${lvl}</span></div>
+        <div class="sk-trail">${trail.map(go).join(' <span>›</span> ')} <span>›</span> <b>${esc(n.name)}</b></div>
+        ${kids.length ? `<div class="sk-links">BRANCHES: ${kids.map(go).join(' · ')}</div>` : ''}
+        <div class="sk-holders">${n.holders.map(x => `<span class="${+x.skill.level > 0 ? 'on' : ''}${x.skill.corrupted ? ' cor' : ''}"><i></i>${esc(x.name)} <small>Lv ${Math.round(+x.skill.level || 0)}</small></span>`).join('')}</div>
+      </div></section>`;
+  }
+  function wirePlate(panel) { panel.querySelectorAll('[data-sk-go]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); selectSkill(a.dataset.skGo); })); }
+
   function renderSkillPanel() {
     const panel = $('#bookPanel');
     const n = tree.nodes.get(selSkill) || tree.root;
@@ -1153,11 +1183,13 @@
       const top = n.children.length;
       panel.innerHTML = `
         <div class="bk-panel-head"><span class="bk-big">${pad2(tree.nodes.size - 1)}</span><div><small>SKILL TREE · CENTRE</small><h2>All skills</h2><span class="bk-dim">${top} root branch${top === 1 ? '' : 'es'} · each character at their current chapter</span></div></div>
+        ${skillPlate(n)}
         <div class="bk-form">
           <p class="bk-dim">Root skills branch from the centre. A skill whose <b>parent</b> is another of the same character’s skills grows from it. When characters share a skill name under the same parent, they share one node (the number inside it).</p>
           ${!canEdit() ? '' : chars.length ? `<div class="bk-field"><span>Add a root skill to</span><div class="bk-row"><select id="bsNewFor">${chars.map(c => `<option value="${attr(c.id)}"${isLocked(getActiveSnapshot(c)) ? ' disabled' : ''}>${esc(c.name || 'Unnamed')}${isLocked(getActiveSnapshot(c)) ? ' (locked)' : ''}</option>`).join('')}</select>
           <button type="button" class="slant-btn primary" id="bsNewRoot">+ Root skill</button></div></div>` : '<p class="bk-dim">No characters yet.</p>'}
         </div>`;
+      wirePlate(panel);
       const nb = $('#bsNewRoot'); if (!nb) return;
       if (nb) nb.addEventListener('click', () => {
         const c = state.characters.find(x => x.id === $('#bsNewFor').value); const s = c && getActiveSnapshot(c);
@@ -1182,6 +1214,7 @@
         <div><small>SKILL · DEPTH ${n.depth} · ${n.children.length} BRANCH${n.children.length === 1 ? '' : 'ES'}</small><h2>${esc(n.name)}</h2>${sk.corrupted ? '<span class="mark-tag curse">CORRUPTED</span>' : ''}</div>
       </div>
       ${n.holders.length > 1 ? `<div class="bk-holders" role="tablist">${n.holders.map((x, i) => `<button type="button" role="tab" class="${i === selHolder ? 'on' : ''}" data-h="${i}">${esc(x.name)}</button>`).join('')}</div>` : ''}
+      ${skillPlate(n, h)}
       <div class="bk-form">
         <div class="bk-whose">${esc(h.name)} · ${esc(h.chapter || 'current chapter')}${locked && !readOnly ? ' · <span class="bk-lock">CANON · LOCKED — reopen it in the Chapter Brief to edit</span>' : ''}</div>
         <label class="bk-field"><span>Name</span><input type="text" id="bsName" value="${attr(sk.name)}"${dis}></label>
@@ -1197,6 +1230,7 @@
         </div>
       </div>`;
     panel.querySelectorAll('.bk-holders button').forEach(b => b.addEventListener('click', () => { selHolder = +b.dataset.h; renderSkillPanel(); }));
+    wirePlate(panel);
     if (locked) return;
     $('#bsLevel').addEventListener('input', (e) => { $('#bsLvlOut').textContent = e.target.value; });
     $('#bsSave').addEventListener('click', () => {

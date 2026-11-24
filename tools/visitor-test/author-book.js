@@ -87,6 +87,18 @@ let fails = 0; const check = (ok, what) => { if (!ok) { fails++; console.log('FA
     check(!(await st()).modal, 'the grimoire never opens the pop-up');
     await ev(`document.getElementById('bkBack').click()`); await sleep(500);
 
+    // ops (book-redesign 1.1): the skill plate on the right page, links that select, the tree page's frame
+    await ev(`(async () => { const sk = (n, p, lv) => ({ name: n, parent: p, level: lv, desc: '' }); state.characters.push({ id: 'tv-ops', name: 'Ops Tester', race: 'person', snapshots: [{ id: 'tv-ops-1', startChapter: 1, skills: [sk('Root One', '', 40), sk('Child One', 'Root One', 60), sk('Grandchild', 'Child One', 20)] }], activeSnapshotId: 'tv-ops-1' }); if (typeof persistState === 'function') await persistState(); if (typeof renderAll === 'function') renderAll(); })()`);
+    await run('ops');
+    const op = () => ev(`(() => { const pl = document.querySelector('#bookPanel .sk-plate'); return { plate: !!pl, name: pl && pl.querySelector('.sk-name').textContent, trail: pl ? [...pl.querySelectorAll('.sk-trail a')].map(a => a.textContent) : [], frame: !!document.querySelector('#bkSandbox .orn-frame'), runes: !!document.querySelector('.sk-runes'), editor: !!document.querySelector('#bookPanel #bsName') }; })()`);
+    let ox = await op();
+    check(ox.plate && ox.name === 'Epitaph' && ox.frame && ox.runes, 'ops: the centre has its plate; the tree page has its frame and the rune ring');
+    await ev(`(() => { const a = [...document.querySelectorAll('#bookPanel .sk-links a')].find(x => x.textContent === 'Root One'); a.click(); })()`); await sleep(300);
+    await ev(`(() => { const a = [...document.querySelectorAll('#bookPanel .sk-links a')].find(x => x.textContent === 'Child One'); a.click(); })()`); await sleep(300);
+    ox = await op();
+    check(ox.name === 'Child One' && ox.trail.join(' > ') === 'Epitaph > Root One' && ox.editor, 'ops: the plate\'s links select a skill; its trail runs from the centre; the editor stays below (' + ox.trail.join(' > ') + ')');
+    await ev(`document.getElementById('bkBack').click()`); await sleep(500);
+
     // switching by command leaves nothing behind
     await run('opse'); await ev(`(() => { const S = EpitaphSites, r = S.load()[0]; const id = r ? r.placeId : EpitaphWorld.places().find(p => p.fictional).id; EpitaphSiteEntry.open(id, 'overview'); })()`); await sleep(1200);
     check((await st()).panel.includes('se-panel'), '(setup) an open encyclopedia entry marks the right panel');

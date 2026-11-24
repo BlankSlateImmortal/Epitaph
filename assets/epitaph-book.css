@@ -546,3 +546,60 @@
 .gr-leaf{ justify-content:center; }
 .gr-toc-list a.gr-cover .gr-seals i{ color:inherit; }
 .gr-toc-list a.gr-cover.cor .gr-seals i{ color:#e0907c; }
+
+/* ==== the ornament kit (assets/epitaph-ornaments.js; docs/plans/book-redesign.md Phase 0) ==== */
+.orn-c{ position:absolute; width:14px; height:14px; color:rgba(255,178,56,.5); pointer-events:none; z-index:2; }
+.orn-c svg{ width:100%; height:100%; display:block; }
+.orn-c.tl{ top:8px; left:8px; } .orn-c.tr{ top:8px; right:8px; transform:scaleX(-1); } .orn-c.bl{ bottom:8px; left:8px; transform:scaleY(-1); } .orn-c.br{ bottom:8px; right:8px; transform:scale(-1); }
+.orn-ring{ position:absolute; inset:0; width:100%; height:100%; animation:mkTurn 40s linear infinite; }
+.orn-pips{ display:inline-flex; gap:6px; vertical-align:middle; }
+.orn-pips i{ width:10px; height:10px; transform:rotate(45deg); border:1px solid currentColor; }
+.orn-pips i.on{ background:currentColor; box-shadow:0 0 7px currentColor; }
+.orn-seals{ display:inline-flex; gap:3px; }
+.orn-seals i{ width:7px; height:7px; border-radius:50%; background:currentColor; box-shadow:0 0 5px currentColor; }
+
+/* ==== ops polish (book-redesign 1.1): the skill plate on the right page, a frame, embers and a rune ring on the tree page ==== */
+.sk-plate{ position:relative; display:grid; grid-template-columns:auto 1fr; gap:16px; align-items:center; margin:12px 18px 4px; padding:14px 16px;
+  border:1px solid rgba(255,178,56,.4); border-radius:8px; color:var(--amber);
+  background:radial-gradient(ellipse at 20% 0%, rgba(255,190,90,.12), transparent 60%), linear-gradient(165deg, #241a0c, #0d0905 65%, #080503);
+  box-shadow:0 8px 16px rgba(0,0,0,.6), inset 0 0 0 4px #0b0704, inset 0 0 0 5px rgba(255,178,56,.2); }
+.sk-plate.cor{ color:#e0907c; border-color:rgba(217,120,100,.5); background:radial-gradient(ellipse at 20% 0%, rgba(230,110,90,.14), transparent 60%), linear-gradient(165deg, #2a0c12, #0d0406 65%, #070203); }
+.sk-plate.cor .orn-c{ color:rgba(217,120,100,.55); }
+.sk-sig{ position:relative; width:92px; height:92px; display:grid; place-items:center; }
+.sk-sig span{ position:relative; font:400 40px/1 'Pirata One', serif; color:currentColor; text-shadow:0 0 14px currentColor; }
+.sk-sig span:lang(ja){ font:900 38px/1 'Noto Serif JP', serif; }
+.sk-body{ display:grid; gap:4px; min-width:0; }
+.sk-num{ font:400 13px var(--f-crt); letter-spacing:.25em; color:currentColor; opacity:.8; }
+.sk-num b{ font-weight:400; color:#e0907c; }
+.book .sk-plate b.sk-name{ font:400 34px/1 'Pirata One', serif; color:var(--bone); text-transform:none; letter-spacing:.01em; overflow-wrap:anywhere; }
+.sk-lv{ display:flex; align-items:center; gap:10px; font:11px var(--f-mono); letter-spacing:.12em; color:currentColor; }
+.sk-trail, .sk-links{ font:11px var(--f-mono); letter-spacing:.05em; color:var(--dust); }
+.sk-trail a, .sk-links a{ color:var(--amber); text-decoration:none; border-bottom:1px dotted var(--amber-dim); }
+.sk-trail a:hover, .sk-links a:hover, .sk-trail a:focus-visible, .sk-links a:focus-visible{ color:var(--amber-hi); outline:none; }
+.sk-trail span{ color:var(--amber-dim); margin:0 3px; }
+.sk-trail b{ color:var(--bone); font-weight:400; }
+.sk-holders{ display:flex; flex-wrap:wrap; gap:6px; margin-top:2px; }
+.sk-holders span{ display:inline-flex; align-items:center; gap:6px; padding:3px 8px; border:1px solid rgba(255,178,56,.25); font:11px var(--f-mono); color:var(--dust); background:rgba(0,0,0,.25); }
+.sk-holders span i{ width:7px; height:7px; border-radius:50%; background:var(--amber-dim); }
+.sk-holders span.on{ color:var(--bone); } .sk-holders span.on i{ background:var(--amber); box-shadow:0 0 6px var(--amber); }
+.sk-holders span.cor i{ background:#e0907c; box-shadow:0 0 6px #e0907c; }
+.sk-holders small{ color:var(--amber-dim); }
+.sk-plate.root .sk-meta{ font:11px var(--f-mono); letter-spacing:.12em; color:var(--dust); }
+/* the tree page: a card frame, drifting embers, a turning rune ring round the centre, an orbit round the selected skill */
+.book[data-view=skills] .orn-frame{ position:absolute; inset:0; pointer-events:none; z-index:2; }
+.book[data-view=skills] .orn-frame .orn-c{ width:22px; height:22px; color:rgba(255,178,56,.45); }
+.sk-embers{ position:absolute; inset:0; pointer-events:none; z-index:1; opacity:.55;
+  background-image:radial-gradient(1.5px 1.5px at 12% 80%, rgba(255,190,90,.9), transparent), radial-gradient(1px 1px at 33% 60%, rgba(255,170,70,.8), transparent),
+    radial-gradient(1.5px 1.5px at 58% 90%, rgba(255,200,110,.9), transparent), radial-gradient(1px 1px at 76% 70%, rgba(255,160,60,.8), transparent),
+    radial-gradient(2px 2px at 90% 95%, rgba(255,190,90,.7), transparent), radial-gradient(1px 1px at 46% 85%, rgba(255,210,130,.8), transparent);
+  background-size:100% 100%; animation:skDrift 14s linear infinite; }
+@keyframes skDrift{ from{ transform:translateY(0); opacity:0; } 15%{ opacity:.55; } 85%{ opacity:.45; } to{ transform:translateY(-55%); opacity:0; } }
+.sk-runes{ animation:skSpin 60s linear infinite; transform-origin:0 0; }
+.sk-runes circle{ fill:none; stroke:rgba(255,178,56,.28); stroke-dasharray:2 6; }
+.sk-runes text{ fill:rgba(255,178,56,.55); font-size:11px; text-anchor:middle; }
+.sk-orbit{ fill:none; stroke:rgba(255,213,138,.55); stroke-width:1; stroke-dasharray:3 9; animation:skSpin 18s linear infinite; transform-origin:0 0; }
+@keyframes skSpin{ to{ transform:rotate(360deg); } }
+/* the bottom-left feed as a plaque */
+.book[data-view=skills] .bk-log{ padding:10px 14px 9px; border:1px solid rgba(255,178,56,.3); border-radius:6px; background:linear-gradient(165deg, rgba(36,26,12,.92), rgba(10,7,4,.92));
+  box-shadow:0 8px 16px rgba(0,0,0,.6), inset 0 0 0 3px rgba(11,7,4,.9), inset 0 0 0 4px rgba(255,178,56,.15); }
+@media (prefers-reduced-motion: reduce){ .orn-ring, .sk-embers, .sk-runes, .sk-orbit{ animation:none; } }
