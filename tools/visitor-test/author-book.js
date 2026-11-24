@@ -60,21 +60,30 @@ let fails = 0; const check = (ok, what) => { if (!ok) { fails++; console.log('FA
     check(!(await st()).modal, 'the deck never opens the pop-up');
     await ev(`document.getElementById('bkBack').click()`); await sleep(500);
 
-    // the grimoire (opsp): pages in root-to-branch order, turning by button and by arrow key, the editor on the right page
-    await ev(`EpitaphLibrary.update(l => { l.skillDrafts = []; [['Beta root', ''], ['Alpha root', ''], ['Beta child', 'Beta root']].forEach(([n, p]) => l.skillDrafts.push(EpitaphLibrary.normalizeSkillDraft({ name: n, parent: p, level: 2 }))); })`);
+    // the grimoire (opsp): every primary skill is a book; its derivatives are its pages (the user's idea, 2026-11-23)
+    await ev(`EpitaphLibrary.update(l => { l.skillDrafts = []; [['Beta root', ''], ['Alpha root', ''], ['Beta child', 'Beta root'], ['Beta grandchild', 'Beta child'], ['Beta second', 'Beta root']].forEach(([n, p]) => l.skillDrafts.push(EpitaphLibrary.normalizeSkillDraft({ name: n, parent: p, level: 2, desc: 'Text of ' + n }))); })`);
     await run('opsp');
-    const g = () => ev(`(() => ({ toc: [...document.querySelectorAll('#grToc [data-sp] b')].map(b => b.textContent), page: (document.querySelector('.gr-name') || {}).textContent, panel: (document.querySelector('#bookPanel .gr-panel-name') || {}).textContent, editor: !!document.querySelector('#bookPanel #spMain [data-spf=name]') }))()`);
+    const g = () => ev(`(() => { const a = document.querySelector('.gr-page'); return { shelf: [...document.querySelectorAll('#grToc .gr-cover b')].map(b => b.textContent), page: (document.querySelector('.gr-page .gr-name') || {}).textContent, panel: (document.querySelector('#bookPanel .gr-panel-name') || {}).textContent, editor: !!document.querySelector('#bookPanel #spMain [data-spf=name]'), front: a.classList.contains('gr-front'), cls: a.className, contents: [...document.querySelectorAll('.gr-contents b')].map(b => b.textContent) }; })()`);
+    const turnNext = async () => { await ev(`document.querySelector('[data-gr-turn="1"]').click()`); await sleep(250); return g(); };
     let gx = await g();
-    check(JSON.stringify(gx.toc) === JSON.stringify(['Alpha root', 'Beta root', 'Beta child']), 'grimoire contents run root to branch: ' + gx.toc.join(', '));
-    check(gx.page === 'Alpha root' && gx.panel === 'Alpha root' && gx.editor, 'the first page is open, with its editor on the right page');
-    await ev(`document.querySelector('[data-gr-turn="1"]').click()`); await sleep(300); gx = await g();
-    check(gx.page === 'Beta root', 'the turn button goes to the next page');
-    await ev(`(() => { const b = document.getElementById('bkBoard'); b.focus(); b.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })); })()`); await sleep(300); gx = await g();
-    check(gx.page === 'Beta child', 'the right arrow key turns the page');
-    await ev(`(() => { const n = document.querySelector('#spMain [data-spf=name]'); n.value = 'Beta child renamed'; n.dispatchEvent(new Event('input', { bubbles: true })); })()`);
-    gx = await g(); check(gx.page === 'Beta child renamed', 'the page name follows the name as you type it');
-    await ev(`document.querySelector('[data-gr-turn="-1"]').click()`); await sleep(300);
-    check((await ev(`EpitaphLibrary.get().skillDrafts.map(d => d.name).includes('Beta child renamed')`)), 'turning the page saves what you typed');
+    check(JSON.stringify(gx.shelf) === JSON.stringify(['Alpha root', 'Beta root']), 'the shelf has one book per primary skill: ' + gx.shelf.join(', '));
+    check(gx.page === 'Alpha root' && gx.front && gx.panel === 'Alpha root' && gx.editor, 'the first book opens on its front page, with its editor on the right page');
+    gx = await turnNext();
+    check(gx.page === 'Beta root' && gx.front && JSON.stringify(gx.contents) === JSON.stringify(['Beta child', 'Beta grandchild', 'Beta second']), 'past the last page comes the next book; its front page lists its derivatives');
+    const leaves = [];
+    for (let k = 0; k < 3; k++) { gx = await turnNext(); leaves.push(gx); }
+    check(leaves.map(x => x.page).join(',') === 'Beta child,Beta grandchild,Beta second', 'its derivatives are the next pages, root to branch');
+    const lay = leaves.map(x => (x.cls.match(/p-(folio|plate|codex)/) || [])[1]), tex = leaves.map(x => (x.cls.match(/tex-(\d)/) || [])[1]);
+    check(lay.join(',') === 'folio,plate,codex', 'the derivative pages take turns between three layouts: ' + lay.join(', '));
+    check(new Set(tex).size === 3, 'each turned page gets a different paper: ' + tex.join(', '));
+    await ev(`(() => { const b = document.getElementById('bkBoard'); b.focus(); b.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true })); })()`); await sleep(250); gx = await g();
+    check(gx.page === 'Beta grandchild', 'the left arrow key turns back a page');
+    await ev(`document.querySelector('.gr-contents a, .gr-trail a').click()`); await sleep(250); gx = await g();
+    check(gx.page === 'Beta root' || gx.page === 'Beta child', 'a link on the page jumps to that page (' + gx.page + ')');
+    await ev(`(() => { const n = document.querySelector('#spMain [data-spf=name]'); n.value = gx_name = 'Renamed page'; n.dispatchEvent(new Event('input', { bubbles: true })); })()`.replace('gx_name = ', ''));
+    gx = await g(); check(gx.page === 'Renamed page', 'the page name follows the name as you type it');
+    await ev(`document.querySelector('[data-gr-turn="1"]').click()`); await sleep(300);
+    check((await ev(`EpitaphLibrary.get().skillDrafts.map(d => d.name).includes('Renamed page')`)), 'turning the page saves what you typed');
     check(!(await st()).modal, 'the grimoire never opens the pop-up');
     await ev(`document.getElementById('bkBack').click()`); await sleep(500);
 

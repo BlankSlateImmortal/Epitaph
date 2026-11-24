@@ -458,3 +458,91 @@
 .mk-art{ width:68px; height:68px; }
 .mk-face{ width:50px; height:50px; }
 .mk-face span{ font-size:30px; }
+
+/* ---- the grimoire as a shelf of books (2026-11-23, the user's idea): every primary skill is a book; its derivatives are its pages.
+   Turning a page changes the paper (four textures) and the layout (folio, plate, codex); nothing moves. ---- */
+.gr{ grid-template-columns:minmax(150px,190px) 1fr; }
+.gr-toc h4{ text-align:center; }
+.gr-toc-list{ gap:10px; padding:4px 2px 8px; }
+.gr-c{ position:absolute; width:12px; height:12px; color:rgba(255,178,56,.5); pointer-events:none; }
+.gr-c svg{ width:100%; height:100%; display:block; }
+.gr-c.tl{ top:7px; left:7px; } .gr-c.tr{ top:7px; right:7px; transform:scaleX(-1); } .gr-c.bl{ bottom:7px; left:7px; transform:scaleY(-1); } .gr-c.br{ bottom:7px; right:7px; transform:scale(-1); }
+/* a book cover on the shelf: the deck's card details */
+.gr-cover{ position:relative; display:grid; justify-items:center; gap:3px; padding:12px 10px 9px; border-radius:8px; text-decoration:none; color:var(--amber);
+  background:linear-gradient(165deg, #2a1f0c, #100b05 60%, #080503); border:1px solid rgba(255,178,56,.45);
+  box-shadow:0 6px 12px rgba(0,0,0,.8), inset 0 0 0 3px #0b0704, inset 0 0 0 4px rgba(255,178,56,.22); transition:border-color .2s, box-shadow .2s, transform .2s; }
+.gr-cover::before{ content:''; position:absolute; left:0; top:8px; bottom:8px; width:5px; border-radius:0 2px 2px 0; background:linear-gradient(#8a5a14, #3a240a); }
+.gr-cover:hover, .gr-cover:focus-visible{ outline:none; border-color:var(--amber); transform:translateX(2px); }
+.gr-cover.on{ border-color:var(--amber-hi); box-shadow:0 0 16px rgba(255,213,138,.25), 0 8px 14px #000, inset 0 0 0 3px #0b0704, inset 0 0 0 4px rgba(255,213,138,.55); }
+.gr-cover.cor{ color:#e0907c; border-color:rgba(217,120,100,.5); background:linear-gradient(165deg, #2a0c12, #0d0406 60%, #070203); }
+.gr-cover.cor .gr-c{ color:rgba(217,120,100,.55); }
+.gr-cv-num{ font:400 12px var(--f-crt); letter-spacing:.25em; color:rgba(255,178,56,.75); }
+.gr-cv-sig{ position:relative; width:52px; height:52px; display:grid; place-items:center; }
+.gr-cv-sig svg{ position:absolute; inset:0; width:100%; height:100%; }
+.gr-cv-sig span{ font:900 22px/1 'Noto Serif JP', serif; color:inherit; text-shadow:0 0 10px currentColor; }
+.gr-cover b{ font:400 16px/1.05 'Pirata One', serif; color:var(--bone); text-align:center; overflow-wrap:anywhere; }
+.gr-cv-foot{ display:grid; justify-items:center; gap:2px; }
+.gr-cv-foot small{ font:9px var(--f-mono); letter-spacing:.08em; color:var(--dust); }
+.gr-seals{ display:flex; gap:3px; min-height:6px; }
+.gr-seals i{ width:6px; height:6px; border-radius:50%; background:currentColor; box-shadow:0 0 5px currentColor; }
+/* pages: the paper changes on every turn */
+.gr-page{ justify-content:flex-start; }
+.gr-page .gr-c{ color:rgba(255,178,56,.35); }
+.gr-page.tex-0{ background:radial-gradient(ellipse at 50% 20%, rgba(255,190,90,.09), transparent 60%), linear-gradient(160deg, rgba(255,178,56,.07), rgba(0,0,0,.25)); }
+.gr-page.tex-1{ background:repeating-linear-gradient(0deg, rgba(255,178,56,.035) 0 1px, transparent 1px 26px), radial-gradient(circle at 85% 90%, rgba(120,60,10,.22), transparent 40%), linear-gradient(170deg, #1c1409, #0d0905); }
+.gr-page.tex-2{ background:radial-gradient(rgba(255,178,56,.05) 1px, transparent 1.4px) 0 0 / 14px 14px, radial-gradient(circle at 12% 15%, rgba(140,70,15,.25), transparent 35%), linear-gradient(200deg, #1a1208, #0b0704); }
+.gr-page.tex-3{ background:linear-gradient(90deg, rgba(0,0,0,.35), transparent 12%, transparent 88%, rgba(0,0,0,.35)), repeating-linear-gradient(90deg, rgba(255,178,56,.025) 0 2px, transparent 2px 7px), linear-gradient(180deg, #20170b, #0c0805); }
+.gr-page.cor.tex-1, .gr-page.cor.tex-2, .gr-page.cor.tex-3{ box-shadow:inset 0 0 70px rgba(120,20,20,.35), inset 0 0 60px rgba(0,0,0,.7); }
+.gr-page.turned{ animation:grPaper .45s ease-out; }
+@keyframes grPaper{ from{ filter:brightness(1.6) sepia(.6); } to{ filter:none; } }
+.gr-wm{ position:absolute; right:6%; bottom:8%; font:900 190px/1 'Noto Serif JP', serif; color:rgba(255,178,56,.035); pointer-events:none; }
+.gr-sig.sm{ width:min(150px, 21vh); } .gr-sig.xs{ width:84px; }
+.gr-sig.sm span{ font-size:clamp(40px, 7vh, 62px); } .gr-sig.xs span{ font-size:38px; }
+/* the front page: the primary skill, then its contents */
+.gr-front .gr-desc{ max-width:52ch; font-style:normal; color:var(--bone); opacity:.85; }
+.gr-dim{ opacity:.55; }
+.gr-rule{ display:flex; align-items:center; gap:12px; width:70%; margin:8px 0 2px; color:var(--amber-dim); }
+.gr-rule::before, .gr-rule::after{ content:''; flex:1; height:1px; background:linear-gradient(90deg, transparent, rgba(255,178,56,.4), transparent); }
+.gr-contents{ width:min(100%, 440px); text-align:left; }
+.gr-contents h5{ margin:0 0 6px; font:400 14px var(--f-crt); letter-spacing:.35em; color:var(--amber); text-align:center; }
+.gr-contents ol{ list-style:none; margin:0; padding:0; display:grid; gap:2px; }
+.gr-contents li{ padding-left:calc(var(--depth, 0) * 16px); }
+.gr-contents a{ display:flex; align-items:center; gap:8px; padding:4px 6px; text-decoration:none; color:var(--bone); border-left:2px solid transparent; }
+.gr-contents a:hover, .gr-contents a:focus-visible{ background:var(--amber-ghost); border-left-color:var(--amber); outline:none; }
+.gr-contents .gr-pg{ font:11px var(--f-mono); color:var(--amber-dim); min-width:2.4em; }
+.gr-contents b{ font:400 17px/1.1 'Pirata One', serif; font-weight:400; }
+.gr-dots{ flex:1; border-bottom:1px dotted rgba(255,178,56,.3); transform:translateY(-3px); }
+.gr-contents .gr-lv{ gap:4px; margin:0; } .gr-contents .gr-lv i{ width:7px; height:7px; }
+.gr-x{ font-style:normal; color:#d98b7a; }
+.gr-trail{ font:11px var(--f-mono); letter-spacing:.06em; color:var(--dust); margin:4px 0; }
+.gr-trail a{ color:var(--amber); text-decoration:none; border-bottom:1px dotted var(--amber-dim); }
+.gr-trail span{ color:var(--amber-dim); margin:0 3px; }
+.gr-trail b{ color:var(--bone); font-weight:400; }
+/* preset 1 · FOLIO: sigil in the corner, a drop cap */
+.p-folio{ align-items:stretch; text-align:left; padding-left:40px; padding-right:40px; }
+.p-folio .gr-ord{ text-align:center; }
+.gr-folio{ display:flex; align-items:center; gap:18px; margin:6px 0 4px; }
+.p-folio .gr-name{ text-align:left; }
+.gr-cap .gr-desc{ max-width:none; font-style:normal; color:var(--bone); opacity:.88; font-size:15px; line-height:1.6; }
+.gr-cap .gr-desc::first-letter{ float:left; font:400 52px/0.85 'Pirata One', serif; color:var(--amber); margin:4px 8px 0 0; text-shadow:0 0 12px rgba(255,178,56,.4); }
+/* preset 2 · PLATE: a framed sigil plate, the name as its caption */
+.gr-plate{ padding:14px; border:1px solid rgba(255,178,56,.3); box-shadow:inset 0 0 0 5px rgba(0,0,0,.4), inset 0 0 0 6px rgba(255,178,56,.15); background:radial-gradient(circle, rgba(255,178,56,.08), transparent 70%); margin:4px 0 6px; }
+.gr-plate .gr-sig{ width:min(190px, 26vh); }
+.p-plate .gr-name{ font-size:clamp(30px, 5vh, 48px); }
+/* preset 3 · CODEX: a tall margin with the sigil and level, the text beside it */
+.p-codex{ align-items:stretch; text-align:left; }
+.p-codex .gr-ord{ text-align:center; }
+.gr-codex{ flex:1; display:grid; grid-template-columns:auto 1fr; gap:22px; margin-top:12px; min-height:0; }
+.gr-codex aside{ display:grid; justify-items:center; align-content:start; gap:8px; padding:6px 16px 6px 0; border-right:1px solid rgba(255,178,56,.25); }
+.gr-codex aside .gr-lv{ flex-direction:column; gap:7px; }
+.p-codex .gr-name{ text-align:left; margin-top:0; }
+.p-codex .gr-desc{ max-width:none; font-style:normal; color:var(--bone); opacity:.88; line-height:1.6; columns:2 220px; column-gap:22px; }
+@media (prefers-reduced-motion: reduce){ .gr-page.turned{ animation:none; } }
+.gr-toc-list a.gr-cover{ display:grid; justify-items:center; align-items:center; gap:3px; padding:12px 10px 9px 14px; border-left:1px solid rgba(255,178,56,.45); font:inherit; }
+.gr-toc-list a.gr-cover.on{ border-left-color:var(--amber-hi); background:linear-gradient(165deg, #2a1f0c, #100b05 60%, #080503); }
+.gr-toc-list a.gr-cover.cor{ border-left-color:rgba(217,120,100,.5); }
+.gr-toc-list a.gr-cover.cor.on{ background:linear-gradient(165deg, #2a0c12, #0d0406 60%, #070203); }
+.gr-toc-list a.gr-cover b{ font:400 17px/1.05 'Pirata One', serif; white-space:normal; overflow:visible; }
+.gr-leaf{ justify-content:center; }
+.gr-toc-list a.gr-cover .gr-seals i{ color:inherit; }
+.gr-toc-list a.gr-cover.cor .gr-seals i{ color:#e0907c; }

@@ -11,16 +11,17 @@ Type `opmk` in the Storybook terminal. Inside the book your library marks are a 
 - Click any card to edit it. The **right page** is the editor you had before, with every copy and *Update all copies*.
 
 Private like before. Test: `node tools/visitor-test/author-book.js`.
-## Skill prospects are a grimoire (opsp) — item-system 6.2, restyled
+## Skill prospects are a grimoire of books (opsp) — item-system 6.2, restyled
 
-Type `opsp` in the Storybook terminal. Inside the book the prospects are an open **grimoire**:
+Type `opsp` in the Storybook terminal. Inside the book the prospects are a **shelf of books**: every primary skill is its own book, and the skills that grow from it are its pages.
 
-- **Contents** on the left: every prospect as a page, in reading order (each one after the prospect it grows from), corrupted ones in red with ✕. A search box filters them; **+ New page** adds one.
-- **The spell page**: a sigil ring around the prospect's glyph (its first letter if it has none), the name in the skill tree's blackletter, seven level diamonds, what it grows from and its branches as links to their pages, and its text. Turn with the ◂ ▸ buttons or the arrow keys.
-- **The right page** is the editor you had before: Save, Duplicate, Delete, Assign to a character, and Who could take it. Turning a page saves what you typed.
+- **The shelf** (left): one cover per book, with the deck's card details: a numeral, the glyph in a sigil ring, the name, and a seal for each derivative. Corrupted books are red. A search box filters them; **+ New book** adds one.
+- **The front page** of a book: the primary skill's sigil, name, level and description, then its **Derivatives** as a contents list (indented by how deep they grow, with level diamonds). Click one to go to its page.
+- **The pages after it** are its derivatives, root to branch. Turning a page changes the paper (four textures) and the layout, which takes turns between **Folio** (sigil in the corner, a drop cap), **Plate** (a framed sigil plate with the name as its caption) and **Codex** (a margin with the sigil and level, the text beside it). Each page shows its lineage (Spark › Ember › …) and its branches as links.
+- Turn with ◂ ▸ or the arrow keys; past a book's last page comes the next book's front page.
+- **The right page** is the editor you had before: Save, Duplicate, Delete, Assign to a character, Who could take it. Turning a page saves what you typed.
 
-Private like before: readers never see it. Test: `node tools/visitor-test/author-book.js`.
-
+Private like before. Test: `node tools/visitor-test/author-book.js`.
 ## The Creature Log, at a glance — step 7.3
 
 *The entries below are step by step (plan: [creature-log.md](plans/creature-log.md)); this is the map.*
