@@ -2,6 +2,16 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## The skill tree, polished (ops) — book-redesign 1.1
+
+Type `ops`. The tree works exactly as before; it now matches the deck and the grimoire:
+
+- **A skill plate** on the right page, above the editor: the skill's glyph in a turning sigil ring, its name in blackletter, level diamonds and its level, the trail from the centre (Epitaph › Spark › Ember) and its branches as links that select them, and every holder as a chip that glows once they have learned it. The centre has its own plate, with its roots.
+- **The tree page**: card corners, faint drifting embers, a slowly turning rune ring round the centre, a dashed orbit round the selected skill, and the bottom-left feed set on a plaque.
+- New **ornament kit** (`assets/epitaph-ornaments.js`): the corners, numerals, sigil rings, diamonds and seals, ready for the next views.
+
+Motion stops when the system asks for reduced motion. Test: `node tools/visitor-test/author-book.js`.
+
 ## The mark library is a deck of cards (opmk) — item-system 6.5, restyled
 
 Type `opmk` in the Storybook terminal. Inside the book your library marks are a **deck on a card table**:
