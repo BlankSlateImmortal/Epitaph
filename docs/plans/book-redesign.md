@@ -35,7 +35,7 @@ book up to the same standard, one at a time, with a mockup first each time (the 
 
 ## Phase 2 — The front door (waits for the user's references)
 
-- [ ] **2.1** Mockups from the references; tighter spacing, a more professional layout.
+- [x] **2.1** Mockups from the references; tighter spacing, a more professional layout.
 
 ## Phase 3 — `opse` (later)
 
@@ -54,6 +54,8 @@ book up to the same standard, one at a time, with a mockup first each time (the 
 ## Tweak log
 
 Newest first. One line each: date, what changed, and what it does to the plan.
+
+- 2026-11-23 — 2.1 done (Opus). References: `~/Downloads/Epitaph/Site work/Webdesign/Homepage new1.jpg` (an editorial TRPG handout), `homepage new2.jpg` (a 1-bit retro desktop), `Homepage new3.jpg` (a chunky UI kit). Two mockups (editorial; desktop); the user picked the **desktop**. `index.html` is now a desktop in the amber palette: icons for the doors (読 Read, 録 Dossier, 図 Map, 書 Book, 力 Powers, 霊 Muses for the author), an EPITAPH.EXE window with the pitch and a "where to start" chooser (start at chapter 1 / continue where I stopped / the latest / look around the world first) with chunky GO and MAP buttons, a CHAPTERS window (the last five, the next unread one tagged), a dialog with the reader's status, and a status bar (chapter, count, lunar age, reading/author, the clock). Phones: the icons become a row, the windows stack. Same forwarding of old links, pitch slot and skip link as before.
 
 - 2026-11-23 — 0.1 and 1.1 done (Opus). New `assets/epitaph-ornaments.js` (`EpitaphOrn`: roman, corners, ring, pips, seals) with `.orn-*` styles; the deck and the grimoire keep their own copies for now. ops: a **skill plate** on the right page above the editor (turning sigil ring, blackletter name, level diamonds + LV, the trail from the centre and the branches as links that select, holders as chips that glow when learned; the centre gets its own plate with its roots); the tree page gets card corners, drifting embers, a turning rune ring round the centre, an orbit round the selected skill, and the bottom-left feed on a plaque. Layout, zoom, keyboard and editor unchanged. Readers see the plate too (read-only, nothing private in it).
 

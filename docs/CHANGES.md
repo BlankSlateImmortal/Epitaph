@@ -2,6 +2,16 @@
 
 Two redesigns: **Atlas tracker** (newest, first) and the **chapter-state redesign** below it.
 
+## The front door is a desktop (index.html) — book-redesign 2.1
+
+From your references (the retro desktop and the UI kit), in the site's amber:
+
+- **Icons** down the left are the doors: 読 Read, 録 Dossier, 図 Map, 書 Book, 力 Powers (and 霊 Muses, for you only).
+- **EPITAPH.EXE**: the title, your pitch (the `PITCH` line in `index.html`), and **where to start**: chapter 1, continue where you stopped, the latest chapter, or look around the world first. **GO** takes you there; **MAP** opens the map.
+- **CHAPTERS**: the last five published chapters, the next one you haven't read tagged NEXT, and a link to all of them.
+- A **dialog** with where you are (start here, welcome back, up to date, or the first page is blank), and a **status bar**: the chapter, how many are out, the lunar age, reading or author, and the clock.
+- On a phone the icons become a row and the windows stack.
+
 ## The skill tree, polished (ops) — book-redesign 1.1
 
 Type `ops`. The tree works exactly as before; it now matches the deck and the grimoire:
