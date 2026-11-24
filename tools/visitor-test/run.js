@@ -77,7 +77,7 @@ function inspect(WRITE_SEL, WRITE_WORD_SRC) {
     if (/search|filter|terminal|find|query|chapter|jump|ruler/i.test((el.id || '') + ' ' + (el.name || '') + ' ' + (el.placeholder || '') + ' ' + (el.getAttribute('aria-label') || ''))) return;
     writers.add(label(el));
   });
-  const navLinks = [...document.querySelectorAll('#siteNav a, [data-site-links] a, .fd-nav a, .back')].filter(vis).map(a => (a.textContent || '').trim().toLowerCase());
+  const navLinks = [...document.querySelectorAll('#siteNav a, [data-site-links] a, .fd-nav a, .back')].filter(vis).map(a => (a.textContent || '').toLowerCase().replace(/[^a-z← ]/g, '').trim());
   return { cls: document.documentElement.className, reader: !!window.EpitaphReaderData, through: window.EpitaphReaderData ? window.EpitaphReaderData.publishedThrough : 'none', writers: [...writers], navLinks, text: document.body ? document.body.innerText : '' };
 }
 
@@ -210,6 +210,6 @@ async function visit(c, port, page, scenario) {
       else console.log('    typed "author" switches author mode on and off');
       await c.send('Target.disposeBrowserContext', { browserContextId });
     }
-  } finally { c.close(); b.proc.kill(); server.close(); fs.rmSync(b.dir, { recursive: true, force: true }); }
+  } finally { c.close(); b.proc.kill(); server.close(); await sleep(500); try { fs.rmSync(b.dir, { recursive: true, force: true, maxRetries: 5 }); } catch (e) { /* temp folder only */ } }
   console.log(fails ? fails + ' failed' : 'all passed'); process.exitCode = fails ? 1 : 0;
 })().catch(e => { console.error(e); process.exit(2); });
